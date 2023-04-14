@@ -1,11 +1,14 @@
 org 0x7c00
 CYLS equ 10
+;;BIOS will load this 512 bytes and execute.
+;------------------------------------------------------------------------------- 
+;              BPB (BIOS parameter block) structure
 ;-------------------------------------------------------------------------------
 ; Jump insterction to boot code. This field has two allowed forms:
 ; 
-; jmpBoot[0] = 0xEB
-; jmpBoot[1] = 0x??
-; jmpBoot[2] = 0x90
+; jmpBoot[0] = 0xEB   ; jmp 
+; jmpBoot[1] = 0x??   ; "some label"
+; jmpBoot[2] = 0x90   ; nop
 ; 
 ; and 
 ; 
@@ -19,11 +22,14 @@ CYLS equ 10
 ; BPB and possibly other sectors. Either of these forms is acceptable.
 ; jmpBoot[0] = 0xEB is the more frequently used format.
 ;
-; e.g. jmp LABEL_START
-;      nop
+; e.g. jmp          0xeb
+;      LABEL_START  0x**
+;      nop          0x90
 ; `nop` is needed
 ;
-  BS_jmpBoot db  0xeb, 0x4e, 0x90
+  ; BS_jmpBoot db  0xeb, 0x4e, 0x90
+  jmp short entry
+  nop
 ;-------------------------------------------------------------------------------
 ;-------------------------------------------------------------------------------
 ; OEM name identifier. can be set by a FAT implementation to any desired value.|
@@ -188,8 +194,12 @@ CYLS equ 10
 ; NOTE: This string is informational only and does not determine the FAT type.
 ;
  BS_FilSysType db "FAT12   "
+
 ;-------------------------------------------------------------------------------
-resb 18
+; We dont need this when we know that the first
+; Jump insterction to boot code. This field has two allowed forms
+; resb 18
+;-------------------------------------------------------------------------------
 
 entry:
     mov ax,0
@@ -217,7 +227,7 @@ retry:
     jnc next
     add si,1
     cmp si,5
-    jae error
+    jae error   ; jump above
     mov ah,0x00
     mov dl,0x00
     int 0x13    ; reset dirver
@@ -227,8 +237,8 @@ next:
     add ax,0x0020 ; add 512 Byte size
     mov es,ax
     add cl,1
-    cmp cl,18
-    jbe start
+    cmp cl,18     ; 18 sectors
+    jbe start     ; jump below equal
 
     mov cl,1
     add dh,1
@@ -236,10 +246,10 @@ next:
     jb start
     mov dh,0
     add ch,1
-    cmp ch,CYLS
-    jb start
+    cmp ch,CYLS   ; 10 
+    jb start      ; jump below
 
-    jmp 0x8200 ;jump to os starter?
+    jmp 0x8200          ;jump to os starter?
 
 fin:
     hlt
@@ -264,4 +274,4 @@ msg:
 
 resb 0x1fe-($-$$)
 ; times 510-($-$$) db 0
-db 0x55, 0xaa
+Signature_word db 0x55, 0xaa
