@@ -2,15 +2,20 @@ AS := nasm
 OUTBIN := out.bin
 
 # all: build load hanbote.sys
-start: build load
+start: build install
 	bochs
 
 newimg:
 	cp ../a.img .
 #C:10 H:2 S:18
-mount: load
-	sudo mount -o loop a.img /mnt/floppy
+
+mount: install
+	sudo mount -o loop a.img /mnt/floppy 
 	sudo cp haribote.sys /mnt/floppy -v
+	# sudo cp name.txt /mnt/floppy -v
+	# sudo umount /mnt/floppy
+
+umount:
 	sudo umount /mnt/floppy
 
 install: build
@@ -27,3 +32,4 @@ haribote.sys: asmhead.s
 clean:
 	rm -rf *.bin
 	rm -rf *.sys
+	rm -rf bochsout.txt
