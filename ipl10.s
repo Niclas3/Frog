@@ -261,6 +261,8 @@ next:
     cmp ch,CYLS   ; 10 
     jb start      ; jump below
 
+    xor ax, ax
+    mov ax, testmsg
     jmp 0xc400          ;jump to os starter?
 
 fin:
@@ -281,6 +283,11 @@ putloop:
 msg:
     DB 0x0a, 0x0a
     DB "load error"
+    DB 0x0a
+    db 0
+testmsg:
+    DB 0x0a, 0x0a
+    DB "zmzmzmz"
     DB 0x0a
     db 0
 
