@@ -33,9 +33,10 @@ newimg:
 	cp ../a.img .
 #C:10 H:2 S:18
 
-mount: install umount
+mount: install 
 	sudo mount -o loop a.img /mnt/floppy 
-	sudo cp haribote.sys /mnt/floppy -v
+	sudo cp haribote.img /mnt/floppy -v
+	# sudo cp haribote.sys /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
 umount:
