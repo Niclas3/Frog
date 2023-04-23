@@ -47,23 +47,28 @@ mount: install haribote.img
 umount:
 	sudo umount /mnt/floppy
 
-core : bootpack.o naskfunc.o
-	ld $(LD_FLAG) -o out.img $^
+core: core.img
+	cp core.img haribote.img
+
+core.img : bootpack.o naskfunc.o
+	ld $(LD_FLAG) -o $@ $^
+
 haribote.img: naskfunc.s
 	$(AS) -p $(AS_INCLUDE) -o $@ $<
+
 bootpack.o: bootpack.c
 	$(CC) $(C_FLAG) -o $@ $<
 
 naskfunc.o: naskfunc.s
-	$(AS) $(A_FLAG) -o $@ $<
+	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
 
 install: build
 	dd if=$(OUTBIN) of=a.img bs=512 count=360 conv=notrunc
 
-build: $(OUTBIN) haribote.sys
+build: $(OUTBIN) #haribote.sys
 
 $(OUTBIN):ipl10.s
-	$(AS) $< -o $(OUTBIN)
+	$(AS) -p $(AS_INCLUDE) $< -o $(OUTBIN)
 
 haribote.sys: asmhead.s
 	$(AS) $< -o $@
