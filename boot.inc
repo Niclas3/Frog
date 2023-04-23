@@ -55,6 +55,17 @@ DESC_VIDEO_HIGH4   equ (0x00 << 24)+ DESC_G_4K + \
                                      DESC_S_DATA+ \
                                      DESC_TYPE_DATA + 0x0b
 
+;; 24-bits 3-byte
+DESC_VGC_HIGH4   equ (0x00 << 24)+ DESC_G_4K + \
+                                     DESC_D_32 + \
+                                     DESC_L + \
+                                     DESC_AVL + \
+                                     DESC_LIMIT_VIDEO2+ \
+                                     DESC_P + \
+                                     DESC_DPL_0 + \
+                                     DESC_S_DATA+ \
+                                     DESC_TYPE_DATA + 0x0a
+
 RPL0 equ 00b
 RPL1 equ 01b
 RPL2 equ 10b
