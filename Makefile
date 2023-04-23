@@ -10,6 +10,8 @@ C_FLAG := -c -m32
 # -f elf   outfile format is elf_i386
 A_FLAG := -f elf
 
+AS_INCLUDE := boot.inc
+
 # -s strip-all Omit all symbol information from the output file.
 # -m Emulate the mulation linker. You can list the available emulations
 #    with the --verbose or -V options.
@@ -29,11 +31,14 @@ LD_FLAG := -s -m elf_i386
 start: build install
 	bochs
 
+reset:  umount newimg mount
+	bochs
+
 newimg:
 	cp ../a.img .
-#C:10 H:2 S:18
 
-mount: install 
+#C:10 H:2 S:18
+mount: install haribote.img
 	sudo mount -o loop a.img /mnt/floppy 
 	sudo cp haribote.img /mnt/floppy -v
 	# sudo cp haribote.sys /mnt/floppy -v
@@ -44,7 +49,8 @@ umount:
 
 core : bootpack.o naskfunc.o
 	ld $(LD_FLAG) -o out.img $^
-
+haribote.img: naskfunc.s
+	$(AS) -p $(AS_INCLUDE) -o $@ $<
 bootpack.o: bootpack.c
 	$(CC) $(C_FLAG) -o $@ $<
 
