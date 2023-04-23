@@ -8,7 +8,7 @@ DESC_L    equ 0_000_0000_0000_0000_0000_00b
 
 DESC_AVL  equ 0_000_0000_0000_0000_0000_0b
 
-DESC_LIMIT_CODE2  equ 1111_0000000000000000b
+DESC_LIMIT_CODE2  equ 1111_0000_0000_0000_0000b
 DESC_LIMIT_DATA2  equ DESC_LIMIT_CODE2
 DESC_LIMIT_VIDEO2 equ 0000_0000_0000_0000_000b
 DESC_P            equ 1_000_0000_0000_0000b
@@ -44,6 +44,7 @@ DESC_DATA_HIGH4   equ (0x00 << 24) + DESC_G_4K + \
                                      DESC_S_DATA+ \
                                      DESC_TYPE_DATA + 0x00
 
+;; 24-bits 3-byte
 DESC_VIDEO_HIGH4   equ (0x00 << 24)+ DESC_G_4K + \
                                      DESC_D_32 + \
                                      DESC_L + \
@@ -52,7 +53,7 @@ DESC_VIDEO_HIGH4   equ (0x00 << 24)+ DESC_G_4K + \
                                      DESC_P + \
                                      DESC_DPL_0 + \
                                      DESC_S_DATA+ \
-                                     DESC_TYPE_DATA + 0x00
+                                     DESC_TYPE_DATA + 0x0b
 
 RPL0 equ 00b
 RPL1 equ 01b
