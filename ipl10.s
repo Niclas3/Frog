@@ -294,3 +294,7 @@ testmsg:
 resb 0x1fe-($-$$)
 ; times 510-($-$$) db 0
 Signature_word db 0x55, 0xaa
+; db 0x55 0xaa
+;    low  high
+; dw 0xaa55
+;      h->L
