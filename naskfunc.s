@@ -1,12 +1,3 @@
-; org 0xc400 ;; aka LOADER_BASE_ADDR
-; extern HariMain
-
-; global _io_hlt
-; global _print
-; global _start
-; naskfunc
-
-; BootMessage db "hello os" ;len 8
 %include "./boot.inc"
 section loader vstart=LOADER_BASE_ADDR
 
@@ -66,6 +57,8 @@ DATA_STACK_DESC  dd  0x0000FFFF
 ; VIDEO_DESC       dd  0xb8000007
 VIDEO_DESC       dd  0x80000007
                  dd  DESC_VIDEO_HIGH4
+VGC_DESC         dd  0x0000000F ; limit (0xaffff-0xa0000)/0x1000 = 0xF
+                 dd  DESC_VGC_HIGH4
 ;;END GDT
 ;;---------------------------------
 
@@ -82,6 +75,7 @@ times 60 dq 0
 SELECTOR_CODE  equ (0x0001<<3) + TI_GDT + RPL0
 SELECTOR_DATA  equ (0x0002<<3) + TI_GDT + RPL0
 SELECTOR_VIDEO equ (0x0003<<3) + TI_GDT + RPL0
+SELECTOR_VGC   equ (0x0004<<3) + TI_GDT + RPL0
 
 gdt_ptr dw GDT_LIMIT
         dd GDT_BASE
@@ -90,11 +84,10 @@ loadermsg db '2 loader in real.'
           db 0
 
 loader_start:
-; _start:
 ; ---------------------------reset black screen---------------------------
-; mov al,0x13
-; mov ah,0x00
-; int 0x10
+mov al,0x13
+mov ah,0x00
+int 0x10
 ; mov byte [0x0ff2],8
 ; mov word [0x0ff4],320
 ; mov word [0x0ff6],200
@@ -123,7 +116,8 @@ loader_start:
     ; mov dx, 0x1800
     ; int 0x10
 ;-----------------------------------------------------
-entry:
+; entry:
+
 in al, 0x92
 or al, 0000_0010b
 out 0x92, al
@@ -150,67 +144,5 @@ p_mode_start:
     mov gs, ax
 
     mov byte [gs:160], 'X'
-    ; mov byte [gs:280], 'P'
-    jmp $
-    ; push ebp ; to save old call frame
-    ; mov ebp, esp ; initialize new call frame
-    ; call HariMain
-    ; call _print
-;     mov si, ax
-; _begin:
-;     mov al,[si]
-;     add si,1
-;     cmp al,0
-;
-;     je fin
-;     mov ah, 0x0e
-;     mov bx, 15
-;     int 10h
-;     jmp _begin
-;;--------------------------------------
-; fin:
-;     hlt
-;     jmp fin
-;
-; _print:
-;     mov si, ax
-; _begin:
-;     mov al,[si]
-;     add si,1
-;     cmp al,0
-;     je fin
-;
-;     mov ah, 0x0e
-;     mov bx, 15
-;     int 10h
-;     jmp _begin
-;----------------------------------------
 
-    ; add esp, 0 ; remove call arguments from frame
-    ; pop ebp    ; restore old call frame
-
-    ; mov ebx,0
-    ; mov eax,1
-    ; int 0x80
-
-; void print
-
-;     mov si, ax
-;
-;     mov al,[si] 
-;     add si,1
-;     cmp al,0
-;
-;     je fin
-;     mov ah, 0x0e
-;     mov bx, 15
-;     int 10h
-;     ret
-
-; message :
-;      db "z"
-;      db 0
-
-; _io_hlt:    ; void io_hlt(void);
-;     hlt
-;     ret
+    jmp dword SELECTOR_CODE:0xd800
