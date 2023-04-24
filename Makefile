@@ -32,7 +32,7 @@ start: build install
 	bochs
 
 reset:  umount newimg mount 
-	# bochs
+	bochs
 
 newimg:
 	cp ../a.img .
@@ -86,6 +86,6 @@ clean:
 	rm -rf *.o
 	rm -rf a.out
 	rm -rf core
-	# rm -rf core.img
+	find . -type f -name "*.img" ! -name "a.img" -delete
 	rm -rf haribote.img
 	rm -rf bochsout.txt
