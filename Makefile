@@ -31,33 +31,40 @@ LD_FLAG := -s -m elf_i386
 start: build install
 	bochs
 
-reset:  umount newimg mount
-	bochs
+reset:  umount newimg mount 
+	# bochs
 
 newimg:
 	cp ../a.img .
 
 #C:10 H:2 S:18
-mount: install haribote.img
+mount: install haribote.img core
 	sudo mount -o loop a.img /mnt/floppy 
 	sudo cp haribote.img /mnt/floppy -v
-	# sudo cp haribote.sys /mnt/floppy -v
+	sudo cp core /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
 umount:
 	sudo umount /mnt/floppy
 
-core: core.img
-	cp core.img haribote.img
+load_core:
+	sudo cp core.img /mnt/floppy -v
+	ls /mnt/floppy
 
-core.img : bootpack.o naskfunc.o
+core: bootpack.o core.o
 	ld $(LD_FLAG) -o $@ $^
+
+bootpack.o: bootpack.c
+	$(CC) $(C_FLAG) -o $@ $<
+
+core.o: core.s
+	$(AS) $(A_FLAG) -o $@ $<
 
 haribote.img: naskfunc.s
 	$(AS) -p $(AS_INCLUDE) -o $@ $<
 
-bootpack.o: bootpack.c
-	$(CC) $(C_FLAG) -o $@ $<
+
+protect_mode: naskfunc.o
 
 naskfunc.o: naskfunc.s
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
@@ -78,4 +85,7 @@ clean:
 	rm -rf *.sys
 	rm -rf *.o
 	rm -rf a.out
+	rm -rf core
+	# rm -rf core.img
+	rm -rf haribote.img
 	rm -rf bochsout.txt

@@ -221,7 +221,7 @@ entry:
     mov es,ax
 
 ;read c0-h0-s2 sector
-mov ax,0x0820
+mov ax,0x0820 ;target address
 mov es,ax
 mov ch,0  ; cylinder
 mov dh,0  ; head
@@ -261,8 +261,6 @@ next:
     cmp ch,CYLS   ; 10 
     jb start      ; jump below
 
-    xor ax, ax
-    mov ax, testmsg
     jmp 0xc400          ;jump to os starter?
 
 fin:
