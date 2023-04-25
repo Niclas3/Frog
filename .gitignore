@@ -4,3 +4,4 @@ bochsout.txt
 .ccls-cache
 *.sys
 *.o
+core
