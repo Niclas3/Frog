@@ -37,26 +37,28 @@ void boxfill8(unsigned char *vram,
               int y1);
 void set_palette(int start, int end, unsigned char *rgb);
 void init_palette(void);
+
+void my_palette();
 //-------------------------------------
 
 // HariMain must at top of file
 void HariMain(void)
 {
-    /* init_palette(); */
+    unsigned char *vram;
+    int xsize, ysize;
 
+    vram = (unsigned char *) 0xa0000;
+    xsize = 320;
+    ysize = 200;
+
+    /* init_palette(); */
+    my_palette();
     // 0xa0000-0x0ffff
     /* for (int i = 0x00000; i <= 0x0ffff; i++) { */
-    /*     *(p + i) = i & 0x0f; */
+    /*     *(vram + i) = i & 0x0f; */
     /*     #<{(| _write_mem8(i, i & 0x0f); |)}># */
     /* } */
 
-    char *vram;
-    int xsize, ysize;
-
-    /* init_palette(); */
-    vram = (char *) 0xa0000;
-    xsize = 320;
-    ysize = 200;
 
     boxfill8(vram, xsize, COL8_008484,  0,         0,          xsize -  1, ysize - 29);
     boxfill8(vram, xsize, COL8_C6C6C6,  0,         ysize - 28, xsize -  1, ysize - 28);
@@ -81,6 +83,82 @@ void HariMain(void)
     }
 }
 
+void my_palette(){
+    /* set_palette(0, 0x0f, table_rgb); */
+
+    int start = 0;
+    int end   = 0x0f;
+    int i, eflags;
+    eflags = _io_load_eflags();
+    _io_cli();
+    _io_out8(0x03c8, start);
+
+/*         0x00, 0x00, 0x00,  // 00 black */
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+/*         0xff, 0x00, 0x00,  // 01 light red */
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+/*         0x00, 0xff, 0x00,  // 02 light green */
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+/*         0xff, 0xff, 0x00,  // 03 light yellow */
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+/*         0x00, 0x00, 0xff,  // 04 light blue */
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0xff / 4);
+//--------------------------------------------
+/*         0xff, 0x00, 0xff,  // 05 light purple */
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0xff / 4);
+/*         0x00, 0xff, 0xff,  // 06 light light blue */
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0xff / 4);
+/*         0xff, 0xff, 0xff,  // 07 write */
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0xff / 4);
+    _io_out8(0x03c9, 0xff / 4);
+/*         0xc6, 0xc6, 0xc6,  // 08 light gray */
+    _io_out8(0x03c9, 0xc6 / 4);
+    _io_out8(0x03c9, 0xc6 / 4);
+    _io_out8(0x03c9, 0xc6 / 4);
+/*         0x84, 0x00, 0x00,  // 09 dark red */
+    _io_out8(0x03c9, 0x84 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+/*         0x00, 0x84, 0x00,  // 10 dark green */
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x84 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+/*         0x84, 0x84, 0x00,  // 11 dark yellow */
+    _io_out8(0x03c9, 0x84 / 4);
+    _io_out8(0x03c9, 0x84 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+/*         0x00, 0x00, 0x84,  // 12 dark purple */
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x84 / 4);
+/*         0x00, 0x84, 0x84,  // 13 light dark blue */
+    _io_out8(0x03c9, 0x00 / 4);
+    _io_out8(0x03c9, 0x84 / 4);
+    _io_out8(0x03c9, 0x84 / 4);
+/*         0x84, 0x84, 0x84,  // 14 dark gray */
+    _io_out8(0x03c9, 0x84 / 4);
+    _io_out8(0x03c9, 0x84 / 4);
+    _io_out8(0x03c9, 0x84 / 4);
+
+    _io_store_eflags(eflags);
+    return;
+}
+
 void set_palette(int start, int end, unsigned char *rgb)
 {
     int i, eflags;
@@ -100,6 +178,7 @@ void set_palette(int start, int end, unsigned char *rgb)
 void init_palette(void)
 {
     static unsigned char table_rgb[16 * 3] = {
+    //  L              H
         0x00, 0x00, 0x00,  // 00 black
         0xff, 0x00, 0x00,  // 01 light red
         0x00, 0xff, 0x00,  // 02 light green
