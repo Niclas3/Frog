@@ -1,5 +1,5 @@
 %include "./boot.inc"
-section loader vstart=LOADER_BASE_ADDR
+section loader vstart=LOADER_BASE_ADDR ;0xc400
 
 LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
 jmp loader_start
@@ -84,37 +84,27 @@ loadermsg db '2 loader in real.'
           db 0
 
 loader_start:
-; ---------------------------reset black screen---------------------------
-mov al,0x13
-mov ah,0x00
-int 0x10
-; mov byte [0x0ff2],8
-; mov word [0x0ff4],320
-; mov word [0x0ff6],200
-; mov dword [0x0ff8],0x000a0000
-
 ;----------------------------print message -------------------------------
-;     mov ax, loadermsg
-;     mov si, ax
-; _begin:
-;     mov al,[si]
-;     add si,1
-;     cmp al,0
-;     je entry
-;
-;     mov ah, 0x0e
-;     mov bx, 15
-;     int 10h
-;     jmp _begin
-;---------------
+    mov ax, loadermsg
+    mov si, ax
+_print_begin:
+    mov al,[si]
+    add si,1
+    cmp al,0
+    je rst_b_scr
 
-    ; mov sp, LOADER_BASE_ADDR
-    ; mov bp, loadermsg
-    ; mov cx, 17
-    ; mov ax, 0x1301
-    ; mov bx, 0x001f
-    ; mov dx, 0x1800
-    ; int 0x10
+    mov ah, 0x0e
+    mov bx, 15
+    int 10h
+    jmp _print_begin
+;---------------
+;--reset black screen---------------------------
+rst_b_scr:
+    mov al,0x13
+    mov ah,0x00
+    int 0x10
+;----------------------------------------------------
+
 ;-----------------------------------------------------
 ; A20 open
 
