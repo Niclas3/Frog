@@ -1,6 +1,12 @@
 LOADER_BASE_ADDR equ 0xc400
 LOADER_START_SECTOR equ 0x2
-
+;;------------boot information-
+CYLS  equ  0x0ff0
+LEDS  equ  0x0ff1
+VMODE equ  0x0ff2
+SCRNX equ  0x0ff4
+SCRNY equ  0x0ff6
+VRAM  equ  0x0ff8
 ;----GDT
 DESC_G_4K equ 1_000_0000_0000_0000_0000_0000b
 DESC_D_32 equ 1_000_0000_0000_0000_0000_000b

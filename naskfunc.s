@@ -85,6 +85,11 @@ loadermsg db '2 loader in real.'
 
 loader_start:
 ;----------------------------print message -------------------------------
+mov byte [VMODE],8
+mov word [SCRNX],320
+mov word [SCRNY],200
+mov dword [VRAM],0x000a0000
+;----------------------------print message -------------------------------
     mov ax, loadermsg
     mov si, ax
 _print_begin:
