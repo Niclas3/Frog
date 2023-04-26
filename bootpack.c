@@ -40,7 +40,14 @@ void init_palette(void);
 
 void my_palette();
 //-------------------------------------
-
+typedef struct B_info{
+    char cyls;
+    char leds;
+    char vmode;
+    char reserve;
+    short scrnx, scrny;
+    char *vram;
+} BOOTINFO;
 // HariMain must at top of file
 void HariMain(void)
 {
@@ -51,13 +58,9 @@ void HariMain(void)
     xsize = 320;
     ysize = 200;
 
-    /* init_palette(); */
+    /* BOOTINFO *binfo = (BOOTINFO *)0x0ff0; */
+
     my_palette();
-    // 0xa0000-0x0ffff
-    /* for (int i = 0x00000; i <= 0x0ffff; i++) { */
-    /*     *(vram + i) = i & 0x0f; */
-    /*     #<{(| _write_mem8(i, i & 0x0f); |)}># */
-    /* } */
 
 
     boxfill8(vram, xsize, COL8_008484,  0,         0,          xsize -  1, ysize - 29);
@@ -157,6 +160,15 @@ void my_palette(){
 
     _io_store_eflags(eflags);
     return;
+}
+
+void strip(unsigned char* vram){
+
+    // 0xa0000-0x0ffff
+    for (int i = 0x00000; i <= 0x0ffff; i++) {
+        *(vram + i) = i & 0x0f;
+        /* _write_mem8(i, i & 0x0f); */
+    }
 }
 
 void set_palette(int start, int end, unsigned char *rgb)
