@@ -77,9 +77,6 @@ build: $(OUTBIN) #haribote.sys
 $(OUTBIN):ipl10.s
 	$(AS) -p $(AS_INCLUDE) $< -o $(OUTBIN)
 
-haribote.sys: asmhead.s
-	$(AS) $< -o $@
-
 clean:
 	rm -rf *.bin
 	rm -rf *.sys
