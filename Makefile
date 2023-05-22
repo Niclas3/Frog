@@ -27,8 +27,7 @@ AS_INCLUDE := boot.inc
 #              i386pe
 LD_FLAG := -s -m elf_i386
 
-# all: build load hanbote.sys
-start: build install
+start: newimg mount
 	bochs
 
 reset:  umount newimg mount 
@@ -51,23 +50,26 @@ load_core:
 	sudo cp core.img /mnt/floppy -v
 	ls /mnt/floppy
 
-core: bootpack.o core.o
+# Real OS code ###########################
+core: bootpack.o core.o                  #
 	ld $(LD_FLAG) -o $@ $^
-
-bootpack.o: bootpack.c
+                                         #
+bootpack.o: bootpack.c                   #
 	$(CC) $(C_FLAG) -o $@ $<
-
-core.o: core.s
+                                         #
+core.o: core.s                           #
 	$(AS) $(A_FLAG) -o $@ $<
+##########################################
 
-haribote.img: naskfunc.s
+# To protected mode ###############################
+haribote.img: naskfunc.s                          #
 	$(AS) -p $(AS_INCLUDE) -o $@ $<
-
-
-protect_mode: naskfunc.o
-
-naskfunc.o: naskfunc.s
+                                                  #
+protect_mode: naskfunc.o                          #
+                                                  #
+naskfunc.o: naskfunc.s                            #
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
+###################################################
 
 install: build
 	dd if=$(OUTBIN) of=a.img bs=512 count=360 conv=notrunc
