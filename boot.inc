@@ -1,7 +1,6 @@
 LOADER_BASE_ADDR equ 0xc400
 LOADER_START_SECTOR equ 0x2
 ;;------------boot information-
-CYLS  equ  0x0ff0
 LEDS  equ  0x0ff1
 VMODE equ  0x0ff2
 SCRNX equ  0x0ff4
