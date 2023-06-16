@@ -50,6 +50,7 @@ load_core:
 	sudo cp core.img /mnt/floppy -v
 	ls /mnt/floppy
 
+# use ELF format
 # Real OS code ###########################
 core: bootpack.o core.o                  #
 	ld $(LD_FLAG) -o $@ $^
@@ -64,9 +65,7 @@ core.o: core.s                           #
 # To protected mode ###############################
 haribote.img: naskfunc.s                          #
 	$(AS) -p $(AS_INCLUDE) -o $@ $<
-                                                  #
-protect_mode: naskfunc.o                          #
-                                                  #
+### For test  #####################################                                                  #
 naskfunc.o: naskfunc.s                            #
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
 ###################################################
@@ -85,6 +84,7 @@ clean:
 	rm -rf *.o
 	rm -rf a.out
 	rm -rf core
+	find . -type f -name "core.*" ! -name "core.s" -delete
 	find . -type f -name "*.img" ! -name "a.img" -delete
 	rm -rf haribote.img
 	rm -rf bochsout.txt
