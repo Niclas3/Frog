@@ -5,6 +5,7 @@ OUTBIN := out.bin
 
 # -c   do not link
 # -m32 outfile format is elf_i386
+# -lc  link with libc
 C_FLAG := -c -m32
 
 # -f elf   outfile format is elf_i386
@@ -25,6 +26,7 @@ AS_INCLUDE := boot.inc
 #              elf_k1om
 #              i386pep
 #              i386pe
+# -lc link libc
 LD_FLAG := -s -m elf_i386
 
 start: newimg mount
