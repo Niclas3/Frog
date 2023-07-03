@@ -1,4 +1,3 @@
-/* #include <stdio.h> */
 // define
 #define COL8_000000 0
 #define COL8_FF0000 1
@@ -36,7 +35,7 @@ void boxfill8(unsigned char *vram,
               int y0,
               int x1,
               int y1);
-void set_palette(int start, int end, unsigned char *rgb);
+void set_palette(int start, int end, char *rgb);
 void init_palette(void);
 
 void my_palette();
@@ -69,12 +68,14 @@ typedef struct Color {
     unsigned char color_id;
 } COLOR;
 // HariMain must at top of file
-static char font_A[16] = {0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
-                          0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00};
 
 void HariMain(void)
 {
+
+    char font_A[16] = {0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
+                       0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00};
     /* init_palette(); */
+    my_palette();
     unsigned char *vram;
     int xsize, ysize;
     vram = (unsigned char *) 0xa0000;
@@ -296,7 +297,7 @@ void my_palette()
 /*     } */
 /* } */
 
-void set_palette(int start, int end, unsigned char *rgb)
+void set_palette(int start, int end, char *rgb)
 {
     int i, eflags;
     eflags = _io_load_eflags();
@@ -314,7 +315,7 @@ void set_palette(int start, int end, unsigned char *rgb)
 
 void init_palette(void)
 {
-    static unsigned char table_rgb[16 * 3] = {
+    static char table_rgb[15 * 3] = {
         //  L              H
         0x00, 0x00, 0x00,  // 00 black
         0xff, 0x00, 0x00,  // 01 light red
