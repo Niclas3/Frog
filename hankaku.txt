@@ -1,4 +1,4 @@
-OSASKの半角フォントを流用
+OSASK_fonts
 
 char 0x00
 ........

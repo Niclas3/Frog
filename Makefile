@@ -72,6 +72,10 @@ naskfunc.o: naskfunc.s                            #
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
 ###################################################
 
+# build font library###############################
+hankaku.bin: create_fonts.c
+	$(CC) -g -o $@ $<
+###################################################
 install: build
 	dd if=$(OUTBIN) of=a.img bs=512 count=360 conv=notrunc
 
@@ -86,6 +90,7 @@ clean:
 	rm -rf *.o
 	rm -rf a.out
 	rm -rf core
+	rm -rf a.out
 	find . -type f -name "core.*" ! -name "core.s" -delete
 	find . -type f -name "*.img" ! -name "a.img" -delete
 	rm -rf haribote.img
