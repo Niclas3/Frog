@@ -42,16 +42,6 @@ void my_palette();
 
 void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font);
 
-
-void printfont8(int font_part,
-                int i,
-                unsigned char *vram,
-                int xsize,
-                int x,
-                int y,
-                char c);
-void my_putfont8(unsigned char *vram, int xsize, int x, int y, char c);
-
 void draw_backgrond(unsigned char *vram, int xsize, int ysize);
 
 //-------------------------------------
@@ -153,63 +143,6 @@ void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font)
     return;
 }
 
-void printfont8(int font_part,
-                int i,
-                unsigned char *vram,
-                int xsize,
-                int x,
-                int y,
-                char c)
-{
-    char d = font_part;
-    if ((d & 0x80) != 0) {
-        vram[(y + i) * xsize + x + 0] = c;
-    }
-    if ((d & 0x40) != 0) {
-        vram[(y + i) * xsize + x + 1] = c;
-    }
-    if ((d & 0x20) != 0) {
-        vram[(y + i) * xsize + x + 2] = c;
-    }
-    if ((d & 0x10) != 0) {
-        vram[(y + i) * xsize + x + 3] = c;
-    }
-    if ((d & 0x08) != 0) {
-        vram[(y + i) * xsize + x + 4] = c;
-    }
-    if ((d & 0x04) != 0) {
-        vram[(y + i) * xsize + x + 5] = c;
-    }
-    if ((d & 0x02) != 0) {
-        vram[(y + i) * xsize + x + 6] = c;
-    }
-    if ((d & 0x01) != 0) {
-        vram[(y + i) * xsize + x + 7] = c;
-    }
-}
-
-
-/* 0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24, */
-/* 0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00 */
-void my_putfont8(unsigned char *vram, int xsize, int x, int y, char c)
-{
-    printfont8(0x00, 0, vram, xsize, x, y, c);
-    printfont8(0x18, 1, vram, xsize, x, y, c);
-    printfont8(0x18, 2, vram, xsize, x, y, c);
-    printfont8(0x18, 3, vram, xsize, x, y, c);
-    printfont8(0x18, 4, vram, xsize, x, y, c);
-    printfont8(0x24, 5, vram, xsize, x, y, c);
-    printfont8(0x24, 6, vram, xsize, x, y, c);
-    printfont8(0x24, 7, vram, xsize, x, y, c);
-    printfont8(0x24, 8, vram, xsize, x, y, c);
-    printfont8(0x7e, 9, vram, xsize, x, y, c);
-    printfont8(0x42, 10, vram, xsize, x, y, c);
-    printfont8(0x42, 11, vram, xsize, x, y, c);
-    printfont8(0x42, 12, vram, xsize, x, y, c);
-    printfont8(0xe7, 13, vram, xsize, x, y, c);
-    printfont8(0x00, 14, vram, xsize, x, y, c);
-    printfont8(0x00, 15, vram, xsize, x, y, c);
-}
 
 void my_palette()
 {
