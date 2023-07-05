@@ -52,12 +52,12 @@ int graph_to_int(char *str)
     return sum;
 }
 
-void map_to_bin(int** map)
+void map_to_bin(char** map)
 {
     FILE *file;
-    file = fopen("./hankaku_font.bin", "w");
+    file = fopen("./hankaku_font.img", "w");
     if (file) {
-        fwrite(map, sizeof(int) * 16 * 256, 1, file);
+        fwrite(map, sizeof(char) * 16 * 256, 1, file);
         fclose(file);
     }
 }
@@ -77,7 +77,7 @@ int main()
     char id_buffer[5] = {0};
     char line_buffer[8] = {0};
 
-    int map[256][16] = {0};
+    char map[256][16] = {0};
     file = fopen("./hankaku.txt", "r");
     if (file) {
         while ((c = getc(file)) != EOF) {
