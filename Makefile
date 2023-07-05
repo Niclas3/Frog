@@ -72,11 +72,6 @@ naskfunc.o: naskfunc.s                            #
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
 ###################################################
 
-# build font library###############################
-# -lm library <math.h>
-hankaku.bin: create_fonts.c
-	$(CC) -g -o $@ $< -lm
-###################################################
 install: build
 	dd if=$(OUTBIN) of=a.img bs=512 count=360 conv=notrunc
 

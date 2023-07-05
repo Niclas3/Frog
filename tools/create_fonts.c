@@ -87,14 +87,18 @@ int main()
                 // 1. Check out string in line buffer
                 if (line_index > 0) {  // There is some thing in line buffer
                     int line_value = graph_to_int(line_buffer);
+#ifdef DEBUG_FONT
                     printf("%s %02x\n", line_buffer, line_value);
+#endif
                     map[map_group_id][map_line_id] = line_value;
                     map_line_id++;
                     // TODO: should reset line buffer
                 }
                 // 2. Check out string in id_buffer
                 if (id_index > 0) {
+#ifdef DEBUG_FONT
                     printf("\n");
+#endif
                     map_group_id++;
                     reset(&map_line_id);
                 }
