@@ -72,6 +72,10 @@ naskfunc.o: naskfunc.s                            #
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
 ###################################################
 
+# Generate font
+font :
+	cd ./tools/ && $(MAKE) font
+
 install: build
 	dd if=$(OUTBIN) of=a.img bs=512 count=360 conv=notrunc
 
