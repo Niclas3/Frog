@@ -44,6 +44,20 @@ void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font);
 
 void draw_backgrond(unsigned char *vram, int xsize, int ysize);
 
+/* char 'mouse' contains shapes of mouse
+ * char 'bc'  is abbs of background color of mouse
+ * */
+void draw_cursor8(char *mouse, char bc);
+
+void putblock8_8(char *vram,
+                 int vxsize,
+                 int pxsize,
+                 int pysize,
+                 int px0,
+                 int py0,
+                 char *buf,
+                 int bxsize);
+
 //-------------------------------------
 typedef struct B_info {
     char cyls;
@@ -61,10 +75,8 @@ typedef struct Color {
 
 void HariMain(void)
 {
-
     char font_A[16] = {0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
                        0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00};
-    /* init_palette(); */
     my_palette();
     unsigned char *vram;
     int xsize, ysize;
@@ -72,16 +84,164 @@ void HariMain(void)
     xsize = 320;
     ysize = 200;
 
+    char *mcursor;
+
     COLOR c = {.color_id = COL8_008484};
 
     draw_backgrond(vram, xsize, ysize);
 
-    /* my_putfont8(vram, xsize, 8, 8, COL8_848484); */
+    /* draw_cursor8(mcursor, COL8_848484); */
+    /* int mx = 70; */
+    /* int my = 50; */
+    /* putblock8_8((char *)vram, xsize, 16, 16, mx, my, mcursor, 16); */
+
+    char *mouse;
+    int pysize = 16;
+    int pxsize = 16;
+    int bxsize = 16;
+    int vxsize = xsize;
+    int py0 = 50;
+    int px0 = 50;
+
+    char cursor[16][16] = {
+        "**************..",
+        "*OOOOOOOOOOO*...",
+        "*OOOOOOOOOO*....",
+        "*OOOOOOOOO*.....",
+        "*OOOOOOOO*......",
+        "*OOOOOOO*.......",
+        "*OOOOOOO*.......",
+        "*OOOOOOOO*......",
+        "*OOOO**OOO*.....",
+        "*OOO*..*OOO*....",
+        "*OO*....*OOO*...",
+        "*O*......*OOO*..",
+        "**........*OOO*.",
+        "*..........*OOO*",
+        "............*OO*",
+        ".............***"
+    };
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            if (cursor[i][j] == '*') {
+                mouse[i * 16 + j] = COL8_000000;
+            } else if (cursor[i][j] == 'O') {
+                mouse[i * 16 + j] = COL8_FFFFFF;
+            } else if (cursor[i][j] == '.') {
+                mouse[i * 16 + j] = COL8_008484;
+            }
+        }
+    }
+
+    for (int y = 0; y < pysize; y++) {
+        for (int x = 0; x < pxsize; x++) {
+            vram[(py0 + y) * vxsize + (px0 + x)] = mouse[y * bxsize + x];
+        }
+    }
     putfont8(vram, xsize, 8, 8, COL8_00FF00, font_A);
+
     for (;;) {
         _io_hlt();  // execute _io_hlt in naskfunc.s
     }
 }
+
+void draw_cursor8(char *mouse, char bc)
+{
+    static char cursor[16][16] = {
+        "****************", 
+        "****************", 
+        "****************",
+        "****************", 
+        "****************", 
+        "****************",
+        "****************", 
+        "****************", 
+        "****************",
+        "****************", 
+        "****************", 
+        "****************",
+        "****************", 
+        "****************", 
+        "****************",
+        "****************"
+        /* "**************..",  */
+        /* "*OOOOOOOOOOO*...",  */
+        /* "*OOOOOOOOOO*....", */
+        /* "*OOOOOOOOO*.....",  */
+        /* "*OOOOOOOO*......",  */
+        /* "*OOOOOOO*.......", */
+        /* "*OOOOOOO*.......",  */
+        /* "*OOOOOOOO*......",  */
+        /* "*OOOO**OOO*.....", */
+        /* "*OOO*..*OOO*....",  */
+        /* "*OO*....*OOO*...",  */
+        /* "*O*......*OOO*..", */
+        /* "**........*OOO*.",  */
+        /* "*..........*OOO*",  */
+        /* "............*OO*", */
+        /* ".............***" */
+    };
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            if (cursor[i][j] == '*') {
+                mouse[i * 16 + j] = COL8_000000;
+            } else if (cursor[i][j] == 'O') {
+                mouse[i * 16 + j] = COL8_FFFFFF;
+            } else if (cursor[i][j] == '.') {
+                mouse[i * 16 + j] = bc;
+            }
+        }
+    }
+    return;
+}
+
+void putblock8_8(char *vram,
+                 int vxsize,
+                 int pxsize,
+                 int pysize,
+                 int px0,
+                 int py0,
+                 char *buf,
+                 int bxsize)
+{
+    char *mouse;
+    static char cursor[16][16] = {
+        "**************..",
+        "*OOOOOOOOOOO*...",
+        "*OOOOOOOOOO*....",
+        "*OOOOOOOOO*.....",
+        "*OOOOOOOO*......",
+        "*OOOOOOO*.......",
+        "*OOOOOOO*.......",
+        "*OOOOOOOO*......",
+        "*OOOO**OOO*.....",
+        "*OOO*..*OOO*....",
+        "*OO*....*OOO*...",
+        "*O*......*OOO*..",
+        "**........*OOO*.",
+        "*..........*OOO*",
+        "............*OO*",
+        ".............***"
+    };
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            if (cursor[i][j] == '*') {
+                mouse[i * 16 + j] = COL8_000000;
+            } else if (cursor[i][j] == 'O') {
+                mouse[i * 16 + j] = COL8_FFFFFF;
+            } else if (cursor[i][j] == '.') {
+                mouse[i * 16 + j] = COL8_848484;
+            }
+        }
+    }
+
+    for (int y = 0; y < pysize; y++) {
+        for (int x = 0; x < pxsize; x++) {
+            vram[(py0 + y) * vxsize + (px0 + x)] = mouse[y * bxsize + x];
+        }
+    }
+}
+
 
 
 void draw_backgrond(unsigned char *vram, int xsize, int ysize)
