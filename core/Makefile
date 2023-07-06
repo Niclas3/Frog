@@ -30,21 +30,21 @@ AS_INCLUDE := ../header/boot.inc
 LD_FLAG := -s -m elf_i386
 
 BUILD := ..
-GUI_INCLUDE := ./gui
+INCLUDE := ./include
 
 
  # use ELF format
  # Real OS code ###########################
-core: bootpack.o core.o graphic.o                 # 
+core: core.o graphic.o bootpack.o
 	ld $(LD_FLAG) -o $(BUILD)/$@.bin $^
-                                         #
-graphic.o: 
-	$(CC) -o $@ $(C_FLAG) $(shell find gui -type f -name "*.c")
 
-bootpack.o: bootpack.c                   # 
-	$(CC) $(C_FLAG) -I $(GUI_INCLUDE) -o $@ $<
-                                         #
-core.o: core.s                           #
+graphic.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "*.c")
+
+bootpack.o: bootpack.c
+	$(CC) $(C_FLAG) -I $(INCLUDE) -o $@ $<
+
+core.o: core.s
 	$(AS) $(A_FLAG) -o $@ $<
 
 clean:
