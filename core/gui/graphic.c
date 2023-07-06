@@ -3,39 +3,23 @@
 
 void draw_cursor8(char *mouse, char bc)
 {
-    static char cursor[16][16] = {
-        "****************", 
-        "****************", 
-        "-***************",
-        "****************", 
-        "****************", 
-        "****************",
-        "****************", 
-        "****************", 
-        "****************",
-        "****************", 
-        "****************", 
-        "****************",
-        "****************", 
-        "****************", 
-        "****************",
-        "****************"
-        /* "**************..",  */
-        /* "*OOOOOOOOOOO*...",  */
-        /* "*OOOOOOOOOO*....", */
-        /* "*OOOOOOOOO*.....",  */
-        /* "*OOOOOOOO*......",  */
-        /* "*OOOOOOO*.......", */
-        /* "*OOOOOOO*.......",  */
-        /* "*OOOOOOOO*......",  */
-        /* "*OOOO**OOO*.....", */
-        /* "*OOO*..*OOO*....",  */
-        /* "*OO*....*OOO*...",  */
-        /* "*O*......*OOO*..", */
-        /* "**........*OOO*.",  */
-        /* "*..........*OOO*",  */
-        /* "............*OO*", */
-        /* ".............***" */
+    char cursor[16][16] = {
+        "**************..", 
+        "*OOOOOOOOOOO*...", 
+        "*OOOOOOOOOO*....",
+        "*OOOOOOOOO*.....", 
+        "*OOOOOOOO*......", 
+        "*OOOOOOO*.......",
+        "*OOOOOOO*.......", 
+        "*OOOOOOOO*......", 
+        "*OOOO**OOO*.....",
+        "*OOO*..*OOO*....", 
+        "*OO*....*OOO*...", 
+        "*O*......*OOO*..",
+        "**........*OOO*.", 
+        "*..........*OOO*", 
+        "............*OO*",
+        ".............***"
     };
     for (int i = 0; i < 16; i++) {
         for (int j = 0; j < 16; j++) {
@@ -60,40 +44,9 @@ void putblock8_8(char *vram,
                  char *buf,
                  int bxsize)
 {
-    char *mouse;
-    static char cursor[16][16] = {
-        "**************..",
-        "*OOOOOOOOOOO*...",
-        "*OOOOOOOOOO*....",
-        "*OOOOOOOOO*.....",
-        "*OOOOOOOO*......",
-        "*OOOOOOO*.......",
-        "*OOOOOOO*.......",
-        "*OOOOOOOO*......",
-        "*OOOO**OOO*.....",
-        "*OOO*..*OOO*....",
-        "*OO*....*OOO*...",
-        "*O*......*OOO*..",
-        "**........*OOO*.",
-        "*..........*OOO*",
-        "............*OO*",
-        ".............***"
-    };
-    for (int i = 0; i < 16; i++) {
-        for (int j = 0; j < 16; j++) {
-            if (cursor[i][j] == '*') {
-                mouse[i * 16 + j] = COL8_000000;
-            } else if (cursor[i][j] == 'O') {
-                mouse[i * 16 + j] = COL8_FFFFFF;
-            } else if (cursor[i][j] == '.') {
-                mouse[i * 16 + j] = COL8_848484;
-            }
-        }
-    }
-
     for (int y = 0; y < pysize; y++) {
         for (int x = 0; x < pxsize; x++) {
-            vram[(py0 + y) * vxsize + (px0 + x)] = mouse[y * bxsize + x];
+            vram[(py0 + y) * vxsize + (px0 + x)] = buf[y * bxsize + x];
         }
     }
 }
@@ -264,7 +217,7 @@ void set_palette(int start, int end, char *rgb)
 
 void init_palette(void)
 {
-    static char table_rgb[15 * 3] = {
+    char table_rgb[15 * 3] = {
         //  L              H
         0x00, 0x00, 0x00,  // 00 black
         0xff, 0x00, 0x00,  // 01 light red
