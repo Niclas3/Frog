@@ -37,9 +37,9 @@ newimg:
 	cp ../a.img .
 
 #C:10 H:2 S:18
-mount: bootloader haribote.img core.o
+mount: bootloader pmloader.img core.o
 	sudo mount -o loop a.img /mnt/floppy 
-	sudo cp haribote.img /mnt/floppy -v
+	sudo cp pmloader.img /mnt/floppy -v
 	sudo cp core.o /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
@@ -58,7 +58,7 @@ core.o:
 
 
 # To protected mode ###############################
-haribote.img:                           #
+pmloader.img:                           #
 	cd ./booter && $(MAKE) $@
 ###################################################
 

@@ -30,7 +30,7 @@ LD_FLAG := -s -m elf_i386
 BUILD := ..
 
 # To protected mode ###############################
-haribote.img: naskfunc.s                          #
+pmloader.img: naskfunc.s                          #
 	$(AS) -p $(AS_INCLUDE) -o $(BUILD)/$@ $<
 ### For test  #####################################                                                  
 naskfunc.o: naskfunc.s                            #
