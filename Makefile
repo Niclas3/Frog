@@ -37,22 +37,22 @@ newimg:
 	cp ../a.img .
 
 #C:10 H:2 S:18
-mount: bootloader pmloader.img core.o
+mount: bootloader pmloader.img core.bin
 	sudo mount -o loop a.img /mnt/floppy 
 	sudo cp pmloader.img /mnt/floppy -v
-	sudo cp core.o /mnt/floppy -v
+	sudo cp core.bin /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
 umount:
 	sudo umount /mnt/floppy
 
-load_core:
-	sudo cp core.img /mnt/floppy -v
+load_core: core.bin
+	sudo cp core.bin /mnt/floppy -v
 	ls /mnt/floppy
 
 # Use ELF format
 # Real OS code ###########################
-core.o:
+core.bin:
 	cd ./core && $(MAKE) core
 ##########################################
 
@@ -72,16 +72,18 @@ ipl10.bin:
 
 # Tools ###################################################### 
 # Generate font
+.PHONY:font
 font :
 	cd ./tools/ && $(MAKE) font
 ############################################################## 
 
+.PHONY:clean
 clean:
 	rm -rf *.bin
-	rm -rf *.sys
 	rm -rf *.o
-	rm -rf a.out
 	find . -type f -name "core.*" ! -name "core.s" -delete
 	find . -type f -name "*.img" ! -name "a.img" -delete
-	rm -rf haribote.img
 	rm -rf bochsout.txt
+	cd ./booter && $(MAKE) clean
+	cd ./core   && $(MAKE) clean
+	cd ./tools  && $(MAKE) clean
