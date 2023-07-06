@@ -50,12 +50,14 @@ load_core: core.bin
 	sudo cp core.bin /mnt/floppy -v
 	ls /mnt/floppy
 
+bootloader: ipl10.bin
+	dd if=$< of=a.img bs=512 count=360 conv=notrunc
+
 # Use ELF format
 # Real OS code ###########################
 core.bin:
 	cd ./core && $(MAKE) core
 ##########################################
-
 
 # To protected mode ###############################
 pmloader.img:                           #
@@ -63,9 +65,6 @@ pmloader.img:                           #
 ###################################################
 
 # Build bootloader ###########################################
-bootloader: ipl10.bin
-	dd if=$< of=a.img bs=512 count=360 conv=notrunc
-
 ipl10.bin:
 	cd ./booter && $(MAKE) $@
 ##############################################################
