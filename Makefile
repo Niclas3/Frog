@@ -1,8 +1,6 @@
 AS := nasm
 CC := gcc
 
-OUTBIN := out.bin
-
 # -c   do not link
 # -m32 outfile format is elf_i386
 # -lc  link with libc
@@ -39,10 +37,10 @@ newimg:
 	cp ../a.img .
 
 #C:10 H:2 S:18
-mount: install haribote.img core
+mount: bootloader haribote.img core.o
 	sudo mount -o loop a.img /mnt/floppy 
 	sudo cp haribote.img /mnt/floppy -v
-	sudo cp core /mnt/floppy -v
+	sudo cp core.o /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
 umount:
@@ -52,44 +50,36 @@ load_core:
 	sudo cp core.img /mnt/floppy -v
 	ls /mnt/floppy
 
-# use ELF format
+# Use ELF format
 # Real OS code ###########################
-core: bootpack.o core.o                  #
-	ld $(LD_FLAG) -o $@ $^
-                                         #
-bootpack.o: bootpack.c                   #
-	$(CC) $(C_FLAG) -o $@ $<
-                                         #
-core.o: core.s                           #
-	$(AS) $(A_FLAG) -o $@ $<
+core.o:
+	cd ./core && $(MAKE) core
 ##########################################
 
+
 # To protected mode ###############################
-haribote.img: naskfunc.s                          #
-	$(AS) -p $(AS_INCLUDE) -o $@ $<
-### For test  #####################################                                                  #
-naskfunc.o: naskfunc.s                            #
-	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
+haribote.img:                           #
+	cd ./booter && $(MAKE) $@
 ###################################################
 
+# Build bootloader ###########################################
+bootloader: ipl10.bin
+	dd if=$< of=a.img bs=512 count=360 conv=notrunc
+
+ipl10.bin:
+	cd ./booter && $(MAKE) $@
+##############################################################
+
+# Tools ###################################################### 
 # Generate font
 font :
 	cd ./tools/ && $(MAKE) font
-
-install: build
-	dd if=$(OUTBIN) of=a.img bs=512 count=360 conv=notrunc
-
-build: $(OUTBIN) #haribote.sys
-
-$(OUTBIN):ipl10.s
-	$(AS) -p $(AS_INCLUDE) $< -o $(OUTBIN)
+############################################################## 
 
 clean:
 	rm -rf *.bin
 	rm -rf *.sys
 	rm -rf *.o
-	rm -rf a.out
-	rm -rf core
 	rm -rf a.out
 	find . -type f -name "core.*" ! -name "core.s" -delete
 	find . -type f -name "*.img" ! -name "a.img" -delete

@@ -1,4 +1,4 @@
-%include "./boot.inc"
+%include "../header/boot.inc"
 section loader vstart=LOADER_BASE_ADDR ;0xc400
 
 LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
