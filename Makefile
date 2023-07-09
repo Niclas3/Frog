@@ -55,7 +55,6 @@ clean:
 	rm -rf *.o
 	find . -type f -name "core.*" ! -name "core.s" -delete
 	find . -type f -name "*.img" ! -name "a.img" -delete
-	rm -rf bochsout.txt
 	cd ./booter && $(MAKE) clean
 	cd ./core   && $(MAKE) clean
 	cd ./tools  && $(MAKE) clean
