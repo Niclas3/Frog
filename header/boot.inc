@@ -30,6 +30,29 @@ DESC_S_SYS        equ 0_000_0000_0000_0b
 DESC_TYPE_CODE    equ 1000_0000_0000b
 DESC_TYPE_DATA    equ 0010_0000_0000b
 
+;; INTER
+;; 0000 0000 0000 0000 1000 0000 0000 0000  INTR_P
+;; 0000 0000 0000 0000 0000 0000 0000 0000  INTR_DPL_0
+;; 0000 0000 0000 0000 0010 0000 0000 0000  INTR_DPL_1
+;; 0000 0000 0000 0000 0100 0000 0000 0000  INTR_DPL_2
+;; 0000 0000 0000 0000 0110 0000 0000 0000  INTR_DPL_3
+;; 0000 0000 0000 0000 0000 1000 0000 0000  INTR_D_32
+;; 0000 0000 0000 0000 0000 0000 0000 0000  INTR_D_16
+;; 0000 0000 0000 0000 0000 0110 0000 0000  INTR_TYPE_INTR_GATE
+;; 0000 0000 0000 0000 0000 0111 0000 0000  INTR_TYPE_TRAP_GATE
+;; 0000 0000 0000 0000 0000 0101 0000 0000  INTR_TYPE_TASK_GATE
+
+INTR_P              equ 1000_0000_0000_0000b
+INTR_DPL_0          equ 0000_0000_0000_0000b 
+INTR_DPL_1          equ 0010_0000_0000_0000b 
+INTR_DPL_2          equ 0100_0000_0000_0000b 
+INTR_DPL_3          equ 0110_0000_0000_0000b 
+INTR_D_32           equ 1000_0000_0000b 
+INTR_D_16           equ 0000_0000_0000b 
+INTR_TYPE_INTR_GATE equ 0110_0000_0000b 
+INTR_TYPE_TRAP_GATE equ 0111_0000_0000b 
+INTR_TYPE_TASK_GATE equ 0101_0000_0000b 
+
 DESC_CODE_HIGH4   equ (0x00 << 24) + DESC_G_4K + \
                                      DESC_D_32 + \
                                      DESC_P + \
@@ -71,6 +94,36 @@ DESC_VGC_HIGH4   equ (0x00 << 24)+ DESC_G_4K + \
                                      DESC_S_DATA+ \
                                      DESC_TYPE_DATA + 0x0a
 
+;; Interrupt Gate
+;; high 32-bits           type
+;;-------------------------------------------------------
+;;|31 - 16 | 15 | 14 13 | 12  -   8 | 7  -  5 | 4  -  0 |
+;;|offset  | P  |  DPL  | 0 D 1 1 0 | 0  0  0 | Reserve |
+;; low 32-bits
+;;|seg sel |              offset 15..0                  |
+;;-------------------------------------------------------
+;; D size of gate 1=32bits; 0=16bits
+;; P segment present flag
+;; DPL descriptor privilege level
+
+;;
+;; 0000 0000 0000 0000 0000 0000 0000 0000
+;; 0000 0000 0000 0000 1000 0000 0000 0000  INTR_P
+;; 0000 0000 0000 0000 0000 0000 0000 0000  INTR_DPL_0
+;; 0000 0000 0000 0000 0010 0000 0000 0000  INTR_DPL_1
+;; 0000 0000 0000 0000 0100 0000 0000 0000  INTR_DPL_2
+;; 0000 0000 0000 0000 0110 0000 0000 0000  INTR_DPL_3
+;; 0000 0000 0000 0000 0000 1000 0000 0000  INTR_D_32
+;; 0000 0000 0000 0000 0000 0000 0000 0000  INTR_D_16
+;; 0000 0000 0000 0000 0000 0110 0000 0000  INTR_TYPE_INTR_GATE
+;; 0000 0000 0000 0000 0000 0111 0000 0000  INTR_TYPE_TRAP_GATE
+;; 0000 0000 0000 0000 0000 0101 0000 0000  INTR_TYPE_TASK_GATE
+
+INTR_GATE_HIGH2  equ (0x00 << 16)+ INTR_P + \
+                                   INTR_DPL_0 + \
+                                   INTR_D_32 + \
+                                   INTR_TYPE_INTR_GATE
+
 RPL0 equ 00b
 RPL1 equ 01b
 RPL2 equ 10b
@@ -80,6 +133,17 @@ TI_GDT  equ  000b
 TI_LDT  equ  100b
 
 
+; usage: Gate Selector, Offset, DCount, Attr
+;        Selector:  dw
+;        Offset:    dd
+;        DCount:    db
+;        Attr:      db
+%macro Gate 4
+	dw	(%2 & 0FFFFh)				; 偏移 1				(2 字节)
+	dw	%1					; 选择子				(2 字节)
+	dw	(%3 & 1Fh) | ((%4 << 8) & 0FF00h)	; 属性					(2 字节)
+	dw	((%2 >> 16) & 0FFFFh)			; 偏移 2				(2 字节)
+%endmacro
 
 
 
