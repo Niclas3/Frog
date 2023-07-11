@@ -145,7 +145,3 @@ TI_LDT  equ  100b
 	dw	((%2 >> 16) & 0FFFFh)			; 偏移 2				(2 字节)
 %endmacro
 
-
-
-
-

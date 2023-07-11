@@ -1,5 +1,5 @@
 %include "../header/boot.inc"
-; section loader vstart=LOADER_BASE_ADDR ;0xc400
+section loader vstart=LOADER_BASE_ADDR ;0xc400
 
 LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
 org 0xc400
@@ -129,10 +129,9 @@ _print_begin:
 
 ;--reset black screen---------------------------
 rst_b_scr:
-      nop
-;     mov al,0x13
-;     mov ah,0x00
-;     int 0x10
+    mov al,0x13
+    mov ah,0x00
+    int 0x10
 ;----------------------------------------------------
 
 ; Init 32 bits code description
@@ -182,15 +181,17 @@ LABEL_SEG_CODE32:
     mov byte [gs:160], 'Z'
     ; call Init8259A
     int 80h
-    jmp dword SELECTOR_CODE:0xd800
+    ;; Jump to core.s this is real os code
+;; 0xe000 = 0x6000                        - 0x200               + 0x8200
+;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
+    jmp dword SELECTOR_CODE:(0xe000-$$)
 
 _Putchar:
 Putchar equ _Putchar - $$
     mov ah, 0ch
     mov al, `!`
-    ; mov byte [gs:160], ax
     mov word [gs:160], ax
-    jmp $
+    ; jmp $
     iretd
 
 Init8259A:
