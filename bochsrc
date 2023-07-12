@@ -3,7 +3,7 @@
 ##
 
 # how much memory the emulated machine will have
-# 32Mb of RAM
+# 32Mb of RAM `megs: 32`
 megs: 32
 
 # filename of ROM images

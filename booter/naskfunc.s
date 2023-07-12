@@ -12,7 +12,7 @@ jmp loader_start
 ;; db 1 bytes
 ;; dw 2 bytes
 ;; dd 4 bytes
-; [section .gdt]
+section .gdt
 GDT_BASE   dd  0x00000000  ; low
            dd  0x00000000  ; high
 
