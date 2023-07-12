@@ -139,11 +139,18 @@ rst_b_scr:
     xor eax, eax
     mov ax, cs
     shl eax, 4
-    add eax, LABEL_SEG_CODE32
+    ; add eax, LABEL_SEG_CODE32  ;; start of code segments
+    add eax, 0x0                 ;; start of code segments base address
     mov word [CODE_DESC+ 2], ax
     shr eax, 16
     mov byte [CODE_DESC+ 4], al
     mov byte [CODE_DESC+ 7], ah
+; Init IDT at 0x00
+    xor eax, eax
+    mov eax, _Putchar  ; offset
+    mov word [IDT_BASE], ax
+    shr eax, 16
+    mov word [IDT_BASE+6], ax
 ; A20 open
 
 in al, 0x92
@@ -164,8 +171,10 @@ cli
 lidt [idt_ptr]
 
 ;-----------------------------------------------------
-; jmp dword SELECTOR_CODE: LABEL_SEG_CODE32; reflash code-flow?
-jmp dword SELECTOR_CODE: 0; reflash code-flow?
+jmp dword SELECTOR_CODE: LABEL_SEG_CODE32; reflash code-flow?
+
+;;TODO how to set specific section 
+; jmp dword SELECTOR_CODE: 0; reflash code-flow? 
 
 section .s32
 bits 32
@@ -181,11 +190,12 @@ LABEL_SEG_CODE32:
 
     mov byte [gs:160], 'Z'
     ; call Init8259A
-    int 80h
+    int 00h
 ;;;;;; Jump to core.s this is real os code
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
 ;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
-    jmp dword SELECTOR_CODE:(0xe000-$$)
+    ; jmp dword SELECTOR_CODE:(0xe000-$$)
+    jmp dword SELECTOR_CODE: 0xe000
 
 _Putchar:
 Putchar equ _Putchar - $$
