@@ -83,7 +83,7 @@ gdt_ptr dw GDT_LIMIT
         dd GDT_BASE
 
 ;; IDT
-; [section .idt]
+section .idt
 ; [bits 32]
 IDT_BASE:
 %rep 255
@@ -129,6 +129,7 @@ _print_begin:
 
 ;--reset black screen---------------------------
 rst_b_scr:
+    ; nop
     mov al,0x13
     mov ah,0x00
     int 0x10
@@ -181,8 +182,8 @@ LABEL_SEG_CODE32:
     mov byte [gs:160], 'Z'
     ; call Init8259A
     int 80h
-    ;; Jump to core.s this is real os code
-;; 0xe000 = 0x6000                        - 0x200               + 0x8200
+;;;;;; Jump to core.s this is real os code
+;  0xe000 = 0x6000                        - 0x200               + 0x8200
 ;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
     jmp dword SELECTOR_CODE:(0xe000-$$)
 
