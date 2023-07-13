@@ -1,10 +1,11 @@
 include ./os_rules
+BOCHS := bochs -q
 
 start: newimg mount
-	bochs
+	$(BOCHS)
 
-reset:  umount newimg mount 
-	bochs
+reset:  clean umount newimg mount
+	$(BOCHS)
 
 newimg:
 	cp ../a.img .
