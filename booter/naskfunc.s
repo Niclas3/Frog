@@ -129,10 +129,10 @@ _print_begin:
 
 ;--reset black screen---------------------------
 rst_b_scr:
-    ; nop
-    mov al,0x13
-    mov ah,0x00
-    int 0x10
+    nop
+    ; mov al,0x13
+    ; mov ah,0x00
+    ; int 0x10
 ;----------------------------------------------------
 
 ; Init 32 bits code description
@@ -160,12 +160,19 @@ rst_b_scr:
     shr eax, 16
     mov word [IDT_BASE+6+8], ax
 
-; Init IDT at 0x20  time interrupt
+; Init IDT at 0x20  time interrupt IRQ0
     xor eax, eax
     mov eax, _ClockHandler; offset
     mov word [IDT_BASE+(8*32)], ax
     shr eax, 16
     mov word [IDT_BASE+6+(8*32)], ax
+
+; Init IDT at 0x21  keyboard interrupt IRQ1
+    xor eax, eax
+    mov eax, _KeyboardHandler; offset
+    mov word [IDT_BASE+(8*0x21)], ax
+    shr eax, 16
+    mov word [IDT_BASE+6+(8*0x21)], ax
 
 ; A20 open
 in al, 0x92
@@ -207,7 +214,7 @@ LABEL_SEG_CODE32:
 
     mov byte [gs:160], 'Z'
     call Init8259A
-    int 00h
+    ; int 00h
     ; int 01h
     sti
     jmp $
@@ -229,15 +236,43 @@ _ClockHandler:
 ClockHandler equ _ClockHandler - $$
     ; mov byte [eax+edx*320+0], 8
     ; there is no end!!
-    cmp edx, 168
-    jnle _clock_test_end
-    mov eax, [VRAM]
-    imul ecx, edx, 320
-    add ecx, edx
-    add eax, ecx
-    mov byte [eax], 8
-    inc edx
-    _clock_test_end:
+    ; cmp edx, 168
+    ; jnle _clock_test_end
+    ; mov eax, [VRAM]
+    ; imul ecx, edx, 320
+    ; add ecx, edx
+    ; add eax, ecx
+    ; mov byte [eax], 8
+    ; inc edx
+    ; _clock_test_end:
+    ; mov al,20h
+    ; out 20h, al
+    inc word [gs:160]
+    mov al,20h
+    out 20h, al
+    iretd
+
+_KeyboardHandler:
+KeyboardHandler equ _KeyboardHandler- $$
+    ; mov eax, [VRAM]
+    ; imul ecx, edx, 400
+    ; add ecx, edx
+    ; add eax, ecx
+    ; mov byte [eax], 10
+    ; inc edx
+    inc word [gs:260]
+
+    cli            ; Disable interrupts
+empty_buffer:
+    in al, 0x64    ; Read keyboard status register into AL
+    test al, 0x01  ; Check bit 0 of AL (keyboard status)
+    jz buffer_empty ; If zero, jump to buffer_empty (buffer is empty)
+    
+    in al, 0x60    ; Read keyboard data register into AL
+    jmp empty_buffer ; Repeat until buffer is empty
+
+buffer_empty:
+    sti            ; Enable interrupts
     mov al,20h
     out 20h, al
     iretd
@@ -273,7 +308,7 @@ Init8259A:
     out 0A1h, al
     call io_delay
 
-    mov al, 1111_1110b
+    mov al, 1111_1101b
     out 021h, al
     call io_delay
 
