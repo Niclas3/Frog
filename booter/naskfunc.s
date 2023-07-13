@@ -145,27 +145,44 @@ rst_b_scr:
     shr eax, 16
     mov byte [CODE_DESC+ 4], al
     mov byte [CODE_DESC+ 7], ah
+
 ; Init IDT at 0x00
     xor eax, eax
     mov eax, _Putchar  ; offset
     mov word [IDT_BASE], ax
     shr eax, 16
     mov word [IDT_BASE+6], ax
-; A20 open
 
+; Init IDT at 0x01
+    xor eax, eax
+    mov eax, _ClockHandler; offset
+    mov word [IDT_BASE+8], ax
+    shr eax, 16
+    mov word [IDT_BASE+6+8], ax
+
+; Init IDT at 0x20  time interrupt
+    xor eax, eax
+    mov eax, _ClockHandler; offset
+    mov word [IDT_BASE+(8*32)], ax
+    shr eax, 16
+    mov word [IDT_BASE+6+(8*32)], ax
+
+; A20 open
 in al, 0x92
 or al, 0000_0010b
 out 0x92, al
 
 ;------------------load gdt to gdtr-------------------
+
 lgdt [gdt_ptr]
 
 ;------------------cr0 set PE ------------------------
+
 mov eax, cr0
 or  eax, 0x00000001
 mov cr0, eax
 
-;--------------- init idt ----------------------
+;------------------init idt---------------------------
 init_idt:
 cli
 lidt [idt_ptr]
@@ -189,8 +206,11 @@ LABEL_SEG_CODE32:
     mov gs, ax
 
     mov byte [gs:160], 'Z'
-    ; call Init8259A
+    call Init8259A
     int 00h
+    ; int 01h
+    sti
+    jmp $
 ;;;;;; Jump to core.s this is real os code
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
 ;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
@@ -203,6 +223,23 @@ Putchar equ _Putchar - $$
     mov al, `!`
     mov word [gs:160], ax
     ; jmp $
+    iretd
+
+_ClockHandler:
+ClockHandler equ _ClockHandler - $$
+    ; mov byte [eax+edx*320+0], 8
+    ; there is no end!!
+    cmp edx, 168
+    jnle _clock_test_end
+    mov eax, [VRAM]
+    imul ecx, edx, 320
+    add ecx, edx
+    add eax, ecx
+    mov byte [eax], 8
+    inc edx
+    _clock_test_end:
+    mov al,20h
+    out 20h, al
     iretd
 
 Init8259A:
@@ -236,12 +273,11 @@ Init8259A:
     out 0A1h, al
     call io_delay
 
-    mov al, 11111110b
+    mov al, 1111_1110b
     out 021h, al
     call io_delay
 
-
-    mov al, 11111111b
+    mov al, 1111_1111b
     out 0A1h, al
     call io_delay
     ret
