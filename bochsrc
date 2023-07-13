@@ -24,7 +24,7 @@ log: bochsout.txt
 mouse: enabled=0
 
 # enable key mapping, using US layout as defalut
-# keyboard: type=mf, serial_delay=200, paste_delay=100000, kbd_buffer=32
+keyboard: type=mf, serial_delay=200, paste_delay=100000
 keyboard: keymap=/usr/local/share/bochs/keymaps/x11-pc-us.map
 
 
