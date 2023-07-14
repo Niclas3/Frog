@@ -1,8 +1,8 @@
 %include "../header/boot.inc"
-section loader vstart=LOADER_BASE_ADDR ;0xc400
-
-LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
+; section loader vstart=LOADER_BASE_ADDR ;0xc400
 org 0xc400
+LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
+
 jmp loader_start
 
 ;; memory descriptor
@@ -19,7 +19,6 @@ GDT_BASE   dd  0x00000000  ; low
 ;; No.1 
 CODE_DESC  dd  0x0000FFFF
            dd  DESC_CODE_HIGH4
-
 
 ; 24 bits high
 ;        |
@@ -59,8 +58,15 @@ DATA_STACK_DESC  dd  0x0000FFFF
 ; VIDEO_DESC       dd  0xb8000007
 VIDEO_DESC       dd  0x80000007
                  dd  DESC_VIDEO_HIGH4
+;; No.4
 VGC_DESC         dd  0x0000000F ; limit (0xaffff-0xa0000)/0x1000 = 0xF
                  dd  DESC_VGC_HIGH4
+
+;; No.5
+CALL_GATE_DESC dw  (CALL_GATE_TEST & 0xFFFF)
+               dw  SELECTOR_CODE 
+               dw  CALL_GATE_HIGH2
+               dw  ((CALL_GATE_TEST>> 16) & 0xFFFF)
 ;;END GDT
 ;;---------------------------------
 
@@ -74,10 +80,11 @@ times 60 dq 0
 ;;; TI == 0 in GDT
 ;;; TI == 1 in LDT
 
-SELECTOR_CODE  equ (0x0001<<3) + TI_GDT + RPL0
-SELECTOR_DATA  equ (0x0002<<3) + TI_GDT + RPL0
-SELECTOR_VIDEO equ (0x0003<<3) + TI_GDT + RPL0
-SELECTOR_VGC   equ (0x0004<<3) + TI_GDT + RPL0
+SELECTOR_CODE      equ (0x0001<<3) + TI_GDT + RPL0
+SELECTOR_DATA      equ (0x0002<<3) + TI_GDT + RPL0
+SELECTOR_VIDEO     equ (0x0003<<3) + TI_GDT + RPL0
+SELECTOR_VGC       equ (0x0004<<3) + TI_GDT + RPL0
+SELECTOR_CALL_GATE equ (0x0005<<3) + TI_GDT + RPL0
 
 gdt_ptr dw GDT_LIMIT
         dd GDT_BASE
@@ -135,7 +142,7 @@ rst_b_scr:
     ; int 0x10
 ;----------------------------------------------------
 
-; Init 32 bits code description
+; Init 32 bits code description 0x01
     xor eax, eax
     mov ax, cs
     shl eax, 4
@@ -145,6 +152,13 @@ rst_b_scr:
     shr eax, 16
     mov byte [CODE_DESC+ 4], al
     mov byte [CODE_DESC+ 7], ah
+
+; Init 32 bits call gate code description 0x05
+    xor eax, eax
+    mov eax, _CALL_GATE_TEST; offset
+    mov word [CALL_GATE_DESC], ax
+    shr eax, 16
+    mov word [CALL_GATE_DESC+6], ax
 
 ; Init IDT at 0x00
     xor eax, eax
@@ -217,6 +231,7 @@ LABEL_SEG_CODE32:
     ; int 00h
     ; int 01h
     sti
+    call SELECTOR_CALL_GATE:0xe000
     jmp $
 ;;;;;; Jump to core.s this is real os code
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
@@ -276,6 +291,14 @@ buffer_empty:
     mov al,20h
     out 20h, al
     iretd
+
+
+_CALL_GATE_TEST:
+CALL_GATE_TEST equ _CALL_GATE_TEST- $$
+    mov ah, 0ch
+    mov al, `C`
+    mov word [gs:300], ax
+    ret
 
 Init8259A:
     mov al, 011h
