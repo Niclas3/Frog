@@ -102,6 +102,14 @@ DESC_CODE_HIGH4   equ (0x00 << 24) + DESC_G_4K + \
                                      DESC_DPL_0 + \
                                      DESC_S_CODE + \
                                      DESC_TYPE_CODE+ 0x00
+DESC_C_CODE_HIGH4   equ (0x00 << 24) + DESC_G_4K + \
+                                     DESC_D_32 + \
+                                     DESC_P + \
+                                     DESC_AVL + \
+                                     DESC_LIMIT_CODE2 + \
+                                     DESC_DPL_0 + \
+                                     DESC_S_CODE + \
+                                     DESC_TYPE_C_CODE+ 0x00
 
 DESC_DATA_HIGH4   equ (0x00 << 24) + DESC_G_4K + \
                                      DESC_D_32 + \

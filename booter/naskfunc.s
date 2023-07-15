@@ -76,7 +76,7 @@ VGC_DESC         dd  0x0000000F ; limit (0xaffff-0xa0000)/0x1000 = 0xF
 
 ;; No.5
 CALL_GATE_DESC dw  (CALL_GATE_TEST & 0xFFFF)
-               dw  SELECTOR_CODE 
+               dw  SELECTOR_RING0_C_C0DE
                dw  CALL_GATE_HIGH2
                dw  ((CALL_GATE_TEST>> 16) & 0xFFFF)
 
@@ -88,6 +88,10 @@ STACK_DESC_RING3     Descriptor 0    , RING3_STACK_TOP, 0x93+0x4000+0x60
 
 ;; No.8
 TSS_DESC           Descriptor 0    , TSS_Len-1, 0x89
+
+;; No.9
+C_RING0_CODE_DESC  dd  0x0000FFFF
+                   dd  DESC_C_CODE_HIGH4
 
 
 ;;END GDT
@@ -111,6 +115,7 @@ SELECTOR_CALL_GATE   equ (0x0005<<3) + TI_GDT + RPL0
 SELECTOR_CODE_RING3  equ (0x0006<<3) + TI_GDT + RPL3
 SELECTOR_STACK_RING3 equ (0x0007<<3) + TI_GDT + RPL3
 SELECTOR_TSS         equ (0x0008<<3) + TI_GDT + RPL0
+SELECTOR_RING0_C_C0DE equ (0x0009<<3) + TI_GDT + RPL0
 
 gdt_ptr dw GDT_LIMIT
         dd GDT_BASE
@@ -251,6 +256,7 @@ rst_b_scr:
     shr eax, 16
     mov byte [STACK_DESC_RING3+ 4], al
     mov byte [STACK_DESC_RING3+ 7], ah
+
 ; Init 32 bits stack description 0x08
     xor eax, eax
     mov ax, cs
@@ -260,7 +266,6 @@ rst_b_scr:
     shr eax, 16
     mov byte [TSS_DESC + 4], al
     mov byte [TSS_DESC + 7], ah
-
 
 ; Init IDT at 0x00
     xor eax, eax
@@ -415,7 +420,8 @@ _code_in_ring3:
     mov ah, 0ch
     mov al, `3`
     mov word [gs:310], ax
-    call SELECTOR_CALL_GATE:0xe000
+    jmp SELECTOR_CALL_GATE:0xe000
+    ; call SELECTOR_CALL_GATE:0xe000
 
     jmp $
 code_in_ring3_len equ $-_code_in_ring3
