@@ -1,9 +1,21 @@
 %include "../header/boot.inc"
-; section loader vstart=LOADER_BASE_ADDR ;0xc400
+section loader vstart=LOADER_BASE_ADDR ;0xc400
 org 0xc400
-LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
+; LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
 
 jmp loader_start
+
+section .gstack
+align 32
+GLOBAL_STACK: 
+    times 512 db 0
+LOADER_STACK_TOP equ $ - GLOBAL_STACK -1
+
+section .r3stack
+align 32
+RING3_STACK: 
+    times 512 db 0
+RING3_STACK_TOP equ $ - RING3_STACK-1
 
 ;; memory descriptor
 ;; GDT 8 bytes
@@ -58,7 +70,7 @@ DATA_STACK_DESC  dd  0x0000FFFF
 ; VIDEO_DESC       dd  0xb8000007
 VIDEO_DESC       dd  0x80000007
                  dd  DESC_VIDEO_HIGH4
-;; No.4
+;; No.4            dd  0xa000000F
 VGC_DESC         dd  0x0000000F ; limit (0xaffff-0xa0000)/0x1000 = 0xF
                  dd  DESC_VGC_HIGH4
 
@@ -67,6 +79,17 @@ CALL_GATE_DESC dw  (CALL_GATE_TEST & 0xFFFF)
                dw  SELECTOR_CODE 
                dw  CALL_GATE_HIGH2
                dw  ((CALL_GATE_TEST>> 16) & 0xFFFF)
+
+;; No.6 
+;;                         base , limit, attr
+CODE_DESC_RING3 Descriptor 0    , code_in_ring3_len -1   , 0x4000+0x98+60h
+;; No.7 
+STACK_DESC_RING3     Descriptor 0    , RING3_STACK_TOP, 0x93+0x4000+0x60
+
+;; No.8
+TSS_DESC           Descriptor 0    , TSS_Len-1, 0x89
+
+
 ;;END GDT
 ;;---------------------------------
 
@@ -80,14 +103,53 @@ times 60 dq 0
 ;;; TI == 0 in GDT
 ;;; TI == 1 in LDT
 
-SELECTOR_CODE      equ (0x0001<<3) + TI_GDT + RPL0
-SELECTOR_DATA      equ (0x0002<<3) + TI_GDT + RPL0
-SELECTOR_VIDEO     equ (0x0003<<3) + TI_GDT + RPL0
-SELECTOR_VGC       equ (0x0004<<3) + TI_GDT + RPL0
-SELECTOR_CALL_GATE equ (0x0005<<3) + TI_GDT + RPL0
+SELECTOR_CODE        equ (0x0001<<3) + TI_GDT + RPL0
+SELECTOR_DATA        equ (0x0002<<3) + TI_GDT + RPL0
+SELECTOR_VIDEO       equ (0x0003<<3) + TI_GDT + RPL0
+SELECTOR_VGC         equ (0x0004<<3) + TI_GDT + RPL0
+SELECTOR_CALL_GATE   equ (0x0005<<3) + TI_GDT + RPL0
+SELECTOR_CODE_RING3  equ (0x0006<<3) + TI_GDT + RPL3
+SELECTOR_STACK_RING3 equ (0x0007<<3) + TI_GDT + RPL3
+SELECTOR_TSS         equ (0x0008<<3) + TI_GDT + RPL0
 
 gdt_ptr dw GDT_LIMIT
         dd GDT_BASE
+
+;;TSS
+section .tss
+LABEL_TSS:
+         dd 0                   ;; Previous Task link
+         dd LOADER_STACK_TOP    ;; ESP0
+         dd SELECTOR_DATA       ;; SS0
+         dd 0                   ;; ESP1
+         dd 0                   ;; SS1
+         dd 0                   ;; ESP2
+         dd 0                   ;; SS2
+         dd 0                   ;; CR3(PDBR)
+         dd 0                   ;; EIP
+         dd 0                   ;; EFLAGS
+         dd 0                   ;; EAX
+         dd 0                   ;; ECX 
+         dd 0                   ;; EDX
+         dd 0                   ;; EBX 
+         dd 0                   ;; ESP
+         dd 0                   ;; EBP
+         dd 0                   ;; ESI
+         dd 0                   ;; EDI
+         dd 0                   ;; ES
+         dd 0                   ;; CS
+         dd 0                   ;; SS
+         dd 0                   ;; DS
+         dd 0                   ;; FS
+         dd 0                   ;; GS
+         dd 0                   ;; LDT Segment Selector
+         dw 0                   ;; T
+         dw $-LABEL_TSS +2      ;; I/O map base address 
+         db 0ffh
+         ; dd 0                   ;; SSP
+TSS_Len equ $-LABEL_TSS
+
+;;END TSS
 
 ;; IDT
 section .idt
@@ -153,12 +215,52 @@ rst_b_scr:
     mov byte [CODE_DESC+ 4], al
     mov byte [CODE_DESC+ 7], ah
 
+; Init 32 bits stack description 0x02
+    xor eax, eax
+    mov ax, cs
+    shl eax, 4
+    add eax, GLOBAL_STACK                 ;; start of code segments base address
+    mov word [DATA_STACK_DESC+ 2], ax
+    shr eax, 16
+    mov byte [DATA_STACK_DESC+ 4], al
+    mov byte [DATA_STACK_DESC+ 7], ah
+
 ; Init 32 bits call gate code description 0x05
     xor eax, eax
     mov eax, _CALL_GATE_TEST; offset
     mov word [CALL_GATE_DESC], ax
     shr eax, 16
     mov word [CALL_GATE_DESC+6], ax
+
+; Init 32 bits ring3 code description 0x06
+    xor eax, eax
+    mov ax, cs
+    shl eax, 4
+    add eax, _code_in_ring3     ;; start of code segments base address
+    mov word [CODE_DESC_RING3 + 2], ax
+    shr eax, 16
+    mov byte [CODE_DESC_RING3 + 4], al
+    mov byte [CODE_DESC_RING3 + 7], ah
+
+; Init 32 bits stack description 0x07
+    xor eax, eax
+    mov ax, cs
+    shl eax, 4
+    add eax, RING3_STACK; start of code segments base address
+    mov word [STACK_DESC_RING3+ 2], ax
+    shr eax, 16
+    mov byte [STACK_DESC_RING3+ 4], al
+    mov byte [STACK_DESC_RING3+ 7], ah
+; Init 32 bits stack description 0x08
+    xor eax, eax
+    mov ax, cs
+    shl eax, 4
+    add eax, LABEL_TSS ;; start of code segments base address
+    mov word [TSS_DESC + 2], ax
+    shr eax, 16
+    mov byte [TSS_DESC + 4], al
+    mov byte [TSS_DESC + 7], ah
+
 
 ; Init IDT at 0x00
     xor eax, eax
@@ -231,7 +333,15 @@ LABEL_SEG_CODE32:
     ; int 00h
     ; int 01h
     sti
-    call SELECTOR_CALL_GATE:0xe000
+    mov ax, SELECTOR_TSS
+    ltr ax
+
+    push SELECTOR_STACK_RING3
+    push RING3_STACK_TOP
+    push SELECTOR_CODE_RING3
+    push 0
+    retf
+    ; call SELECTOR_CALL_GATE:0xe000
     jmp $
 ;;;;;; Jump to core.s this is real os code
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
@@ -282,7 +392,7 @@ empty_buffer:
     in al, 0x64    ; Read keyboard status register into AL
     test al, 0x01  ; Check bit 0 of AL (keyboard status)
     jz buffer_empty ; If zero, jump to buffer_empty (buffer is empty)
-    
+
     in al, 0x60    ; Read keyboard data register into AL
     jmp empty_buffer ; Repeat until buffer is empty
 
@@ -298,7 +408,17 @@ CALL_GATE_TEST equ _CALL_GATE_TEST- $$
     mov ah, 0ch
     mov al, `C`
     mov word [gs:300], ax
-    ret
+    jmp $
+    retf
+
+_code_in_ring3:
+    mov ah, 0ch
+    mov al, `3`
+    mov word [gs:310], ax
+    call SELECTOR_CALL_GATE:0xe000
+
+    jmp $
+code_in_ring3_len equ $-_code_in_ring3
 
 Init8259A:
     mov al, 011h

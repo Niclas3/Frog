@@ -67,6 +67,7 @@ DESC_S_DATA       equ DESC_S_CODE
 DESC_S_SYS        equ 0_000_0000_0000_0b
 
 DESC_TYPE_CODE    equ 1000_0000_0000b
+DESC_TYPE_C_CODE    equ 1100_0000_0000b
 DESC_TYPE_DATA    equ 0010_0000_0000b
 
 ;; INTER
@@ -119,7 +120,7 @@ DESC_VIDEO_HIGH4   equ (0x00 << 24)+ DESC_G_4K + \
                                      DESC_AVL + \
                                      DESC_LIMIT_VIDEO2+ \
                                      DESC_P + \
-                                     DESC_DPL_0 + \
+                                     DESC_DPL_3 + \
                                      DESC_S_DATA+ \
                                      DESC_TYPE_DATA + 0x0b
 
@@ -133,6 +134,15 @@ DESC_VGC_HIGH4   equ (0x00 << 24)+ DESC_G_4K + \
                                      DESC_DPL_0 + \
                                      DESC_S_DATA+ \
                                      DESC_TYPE_DATA + 0x0a
+
+DESC_RING3CODE_HIGH4   equ (0x00 << 24) + DESC_G_4K + \
+                                     DESC_D_32 + \
+                                     DESC_P + \
+                                     DESC_AVL + \
+                                     DESC_LIMIT_CODE2 + \
+                                     DESC_DPL_3 + \
+                                     DESC_S_CODE + \
+                                     DESC_TYPE_CODE+ 0x00
 
 ;; Interrupt Gate
 ;; high 32-bits           type
@@ -166,7 +176,7 @@ INTR_GATE_HIGH2  equ (0x00 << 16)+ GATE_P + \
                                    GATE_TYPE_INTR_GATE
 
 CALL_GATE_HIGH2  equ (0x00 << 16)+ GATE_P + \
-                                   GATE_DPL_0 + \
+                                   GATE_DPL_3 + \
                                    GATE_D_32 + \
                                    GATE_TYPE_CALL_GATE
 
@@ -191,3 +201,14 @@ TI_LDT  equ  100b
 	dw	((%2 >> 16) & 0FFFFh)			; 偏移 2				(2 字节)
 %endmacro
 
+; usage: Descriptor addressbase, limit, attr
+;        Addressbase: dd
+;        limit      : dd
+;        attr       : dw
+%macro Descriptor 3
+        dw %2 & 0xFFFF
+        dw %1 & 0xFFFF
+        db (%1 >> 16) & 0xFF
+        dw ((%2 >> 8) & 0xF00) | (%3 & 0xF0FF)
+        db (%1 >> 24) & 0xFF
+%endmacro
