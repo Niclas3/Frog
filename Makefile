@@ -1,4 +1,4 @@
-include ./os_rules
+include ./Makefile.os_rules
 BOCHS := bochs -q
 
 start: newimg mount

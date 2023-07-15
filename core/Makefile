@@ -1,6 +1,6 @@
  # use ELF format
  # Real OS code ###########################
-include ../os_rules
+include ../Makefile.os_rules
 core: core.o graphic.o bootpack.o
 	ld $(LD_FLAG) -o $(BUILD)/$@.bin $^
 

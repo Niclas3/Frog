@@ -1,4 +1,4 @@
-include ../os_rules
+include ../Makefile.os_rules
 
 # To protected mode ###############################
 pmloader.img: naskfunc.s                          #
