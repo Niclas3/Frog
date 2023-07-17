@@ -1,15 +1,15 @@
 %include "../header/boot.inc"
 section loader vstart=LOADER_BASE_ADDR ;0xc400
 org 0xc400
-; LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
+LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
 
 jmp loader_start
 
-section .gstack
-align 32
-GLOBAL_STACK: 
-    times 512 db 0
-LOADER_STACK_TOP equ $ - GLOBAL_STACK -1
+; section .gstack
+; align 32
+; GLOBAL_STACK:
+;     times 512 db 0
+; LOADER_STACK_TOP equ $ - GLOBAL_STACK -1
 
 section .r3stack
 align 32
@@ -84,7 +84,7 @@ CALL_GATE_DESC dw  (CALL_GATE_TEST & 0xFFFF)
 ;;                         base , limit, attr
 CODE_DESC_RING3 Descriptor 0    , code_in_ring3_len -1   , 0x4000+0x98+60h
 ;; No.7 
-STACK_DESC_RING3     Descriptor 0    , RING3_STACK_TOP, 0x93+0x4000+0x60
+STACK_DESC_RING3   Descriptor 0    , RING3_STACK_TOP, 0x93+0x4000+0x60
 
 ;; No.8
 TSS_DESC           Descriptor 0    , TSS_Len-1, 0x89
@@ -93,6 +93,9 @@ TSS_DESC           Descriptor 0    , TSS_Len-1, 0x89
 C_RING0_CODE_DESC  dd  0x0000FFFF
                    dd  DESC_C_CODE_HIGH4
 
+;; No.10
+STACK_DESC_GLOBLE  dd  0x0000FFFF
+                   dd  DESC_DATA_HIGH4
 
 ;;END GDT
 ;;---------------------------------
@@ -116,6 +119,7 @@ SELECTOR_CODE_RING3  equ (0x0006<<3) + TI_GDT + RPL3
 SELECTOR_STACK_RING3 equ (0x0007<<3) + TI_GDT + RPL3
 SELECTOR_TSS         equ (0x0008<<3) + TI_GDT + RPL0
 SELECTOR_RING0_C_C0DE equ (0x0009<<3) + TI_GDT + RPL0
+SELECTOR_STACK       equ (0x000a<<3) + TI_GDT + RPL0
 
 gdt_ptr dw GDT_LIMIT
         dd GDT_BASE
@@ -203,10 +207,10 @@ _print_begin:
 
 ;--reset black screen---------------------------
 rst_b_scr:
-    nop
-    ; mov al,0x13
-    ; mov ah,0x00
-    ; int 0x10
+    ; nop
+    mov al,0x13
+    mov ah,0x00
+    int 0x10
 ;----------------------------------------------------
 
 ; Init 32 bits code description 0x01
@@ -220,11 +224,9 @@ rst_b_scr:
     mov byte [CODE_DESC+ 4], al
     mov byte [CODE_DESC+ 7], ah
 
-; Init 32 bits stack description 0x02
+; Init 32 bits data description 0x02
     xor eax, eax
-    mov ax, cs
-    shl eax, 4
-    add eax, GLOBAL_STACK                 ;; start of code segments base address
+    mov eax, 0x0           ;base address
     mov word [DATA_STACK_DESC+ 2], ax
     shr eax, 16
     mov byte [DATA_STACK_DESC+ 4], al
@@ -266,6 +268,15 @@ rst_b_scr:
     shr eax, 16
     mov byte [TSS_DESC + 4], al
     mov byte [TSS_DESC + 7], ah
+
+; Init 32 bits stack description 0x09
+    ; xor eax, eax
+    ; mov eax, GLOBAL_STACK                 ;; start of code segments base address
+    ; mov word [STACK_DESC_GLOBLE + 2], ax
+    ; shr eax, 16
+    ; mov byte [STACK_DESC_GLOBLE+ 4], al
+    ; mov byte [STACK_DESC_GLOBLE+ 7], ah
+
 
 ; Init IDT at 0x00
     xor eax, eax
@@ -324,10 +335,13 @@ jmp dword SELECTOR_CODE: LABEL_SEG_CODE32; reflash code-flow?
 section .s32
 bits 32
 LABEL_SEG_CODE32:
+    mov ax, SELECTOR_STACK
+    mov ss, ax
+
+    xor ax, ax
     mov ax, SELECTOR_DATA
     mov ds, ax
     mov es, ax
-    mov ss, ax
 
     mov esp, LOADER_STACK_TOP
     mov ax, SELECTOR_VIDEO
@@ -341,18 +355,18 @@ LABEL_SEG_CODE32:
     mov ax, SELECTOR_TSS
     ltr ax
 
-    push SELECTOR_STACK_RING3
-    push RING3_STACK_TOP
-    push SELECTOR_CODE_RING3
-    push 0
-    retf
+    ; push SELECTOR_STACK_RING3
+    ; push RING3_STACK_TOP
+    ; push SELECTOR_CODE_RING3
+    ; push 0
+    ; retf
     ; call SELECTOR_CALL_GATE:0xe000
-    jmp $
+    ; jmp $
 ;;;;;; Jump to core.s this is real os code
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
 ;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
     ; jmp dword SELECTOR_CODE:(0xe000-$$)
-    jmp dword SELECTOR_CODE: 0xe000
+    jmp dword SELECTOR_CODE: 0xe400
 
 _Putchar:
 Putchar equ _Putchar - $$
