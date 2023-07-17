@@ -56,6 +56,7 @@ clean:
 	rm -rf *.o
 	find . -type f -name "core.*" ! -name "core.s" -delete
 	find . -type f -name "*.img" ! -name "a.img" -delete
+clean-all: clean
 	cd ./booter && $(MAKE) clean
 	cd ./core   && $(MAKE) clean
 	cd ./tools  && $(MAKE) clean
