@@ -2,20 +2,21 @@
 section loader vstart=LOADER_BASE_ADDR ;0xc400
 org 0xc400
 LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
-
 jmp loader_start
 
-; section .gstack
-; align 32
-; GLOBAL_STACK:
-;     times 512 db 0
-; LOADER_STACK_TOP equ $ - GLOBAL_STACK -1
+section .gstack
+align 32
+GLOBAL_STACK:
+    times 512 db 0
+GLOBAL_STACK_TOP equ $ - GLOBAL_STACK -1
 
 section .r3stack
 align 32
-RING3_STACK: 
+RING3_STACK:
     times 512 db 0
 RING3_STACK_TOP equ $ - RING3_STACK-1
+
+
 
 ;; memory descriptor
 ;; GDT 8 bytes
@@ -355,6 +356,31 @@ LABEL_SEG_CODE32:
     mov ax, SELECTOR_TSS
     ltr ax
 
+; Paging
+    call setup_page
+    sgdt [gdt_ptr]
+
+    ; set video descriptor new base
+    mov ebx, [gdt_ptr+2]
+    or dword [ebx+0x18+4], 0xc000_0000
+    ; set VGA descriptor new base
+    or dword [ebx+0x20+4], 0xc000_0000
+
+    add esp, 0xc000_0000
+    
+
+    mov eax, PAGE_DIR_START
+    mov cr3, eax
+
+    ;open cr0 pg bit
+    mov eax, cr0
+    or eax, 0x8000_0000
+    mov cr0, eax
+
+    ; reload gdt_ptr
+    lgdt [gdt_ptr]
+    mov byte [gs:160], 'V'
+
     ; push SELECTOR_STACK_RING3
     ; push RING3_STACK_TOP
     ; push SELECTOR_CODE_RING3
@@ -366,7 +392,62 @@ LABEL_SEG_CODE32:
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
 ;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
     ; jmp dword SELECTOR_CODE:(0xe000-$$)
-    jmp dword SELECTOR_CODE: 0xe400
+    jmp dword SELECTOR_CODE: 0xe600
+
+;;paging
+section .page
+setup_page:
+    ; size   counts
+    ;   4 x  1024 = 4096d aka 0x1000
+    ; It is size of all entries.
+    mov ecx, 4096
+    mov esi, 0
+.clear_page_dir:
+    mov byte [PAGE_DIR_START+esi],0
+    inc esi
+    loop .clear_page_dir
+
+;;Create PDE (page directory entry) size 4 bytes
+    mov eax, PAGE_DIR_START 
+    add eax, 0x1000 ; 
+    mov ebx, eax
+;; First entry of page dir
+;; 0010 1000
+    or eax, PG_US_U | PG_RW_W | PG_P
+    mov [PAGE_DIR_START+0x0],eax
+;; Set 0xc00 entry of page dir 
+;; no.768 dir entry of table
+;; 0xc00 upper for kernal as
+;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernal
+;;       0x0000_0000 ~ 0xbfff_ffff all 3G size for user
+    mov [PAGE_DIR_START+0xc00],eax
+;; the last entry point to it self
+    sub eax, 0x1000
+    mov [PAGE_DIR_START+4092], eax
+
+;; Page table entry
+    mov ecx, 256
+    mov esi, 0
+    mov edx, PG_US_U | PG_RW_W | PG_P
+.create_pte:
+    mov [ebx+esi*4], edx
+    add edx, 4096
+    inc esi
+    loop .create_pte
+
+; Other PDE
+    mov eax, PAGE_DIR_START
+    add eax, 0x2000
+    or  eax, PG_US_U | PG_RW_W | PG_P
+    mov ebx, PAGE_DIR_START
+    mov ecx, 254
+    mov esi, 769
+.create_kernal_pde:
+    mov [ebx+esi*4], eax
+    inc esi
+    add eax, 0x1000
+    loop .create_kernal_pde
+    ret
 
 _Putchar:
 Putchar equ _Putchar - $$
