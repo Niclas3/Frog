@@ -214,80 +214,86 @@ CYLS equ 10
 ;-------------------------------------------------------------------------------
 
 entry:
-    mov ax,0
-    mov ss,ax
-    mov sp,0x7c00
-    mov ds,ax
-    mov es,ax
+    mov ax, 0
+    mov ss, ax       ; Set the stack segment to 0
+    mov sp, 0x7c00   ; Set the stack pointer to 0x7c00
+    mov ds, ax       ; Set the data segment to 0
+    mov es, ax       ; Set the extra segment to 0
 
-;read c0-h0-s2 sector
-mov ax,0x0820 ;target address
-mov es,ax
-mov ch,0  ; cylinder
-mov dh,0  ; head
-mov cl,2  ; sector
+; Read c0-h0-s2 sector
+mov ax, 0x0820      ; Set base address for loading data from disk to memory
+mov es, ax          ; Set es to the base address
+mov ch, 0           ; Set cylinder to 0
+mov dh, 0           ; Set head to 0
+mov cl, 2           ; Set sector to 2
 
 start:
-    mov si,0  ;retry counter
+    mov si, 0        ; Retry counter
 
 retry:
-    mov ah,0x02 ; read sector
-    mov al,1    ; read 1 sector
-    mov bx,0    ; director memory address
-    mov dl,0x00 ; select the first dirver
-    int 0x13
-    jnc next
-    add si,1
-    cmp si,5
-    jae error   ; jump above
-    mov ah,0x00
-    mov dl,0x00
-    int 0x13    ; reset dirver
+    mov ah, 0x02     ; Read sector
+    mov al, 1        ; Read 1 sector
+    mov bx, 0        ; Destination memory address
+    mov dl, 0x00     ; Select the first driver
+    int 0x13         ; BIOS interrupt for disk operations
+    jnc next         ; Jump if no carry (successful read)
+    add si, 1        ; Increment retry counter
+    cmp si, 5
+    jae error        ; Jump if retry counter exceeds 5
+    mov ah, 0x00     ; Reset disk driver
+    mov dl, 0x00     ; Select the first driver
+    int 0x13         ; BIOS interrupt for disk operations
     jmp retry
+
 next:
-    mov ax,es
-    add ax,0x0020 ; add 512 Byte size
-    mov es,ax
-    add cl,1
-    cmp cl,18     ; 18 sectors
-    jbe start     ; jump below equal
+    mov ax, es
+    add ax, 0x0020   ; Increment es by 512 bytes (size of sector)
+    mov es, ax
+    add cl, 1        ; Increment sector
+    cmp cl, 18       ; Check if sector is less than or equal to 18
+    jbe start        ; Jump if below or equal
 
-    mov cl,1
-    add dh,1
-    cmp dh,2
-    jb start
-    mov dh,0
-    add ch,1
-    cmp ch,CYLS   ; 10 
-    jb start      ; jump below
+    mov cl, 1
+    add dh, 1        ; Increment head
+    cmp dh, 2        ; Check if head is less than 2
+    jb start         ; Jump if below
 
-    jmp 0xc400          ;jump to os starter?
+    mov dh, 0
+    add ch, 1        ; Increment cylinder
+    cmp ch, CYLS     ; Check if cylinder is less than CYLS (10)
+    jb start         ; Jump if below
+
+    jmp 0xc400       ; Jump to OS starter?
 
 fin:
-    hlt
-    jmp fin
+    hlt              ; Halt the CPU
+    jmp fin          ; Jump to fin (infinite loop)
 
 error:
-    mov si,msg
+    mov si, msg      ; Load error message address into si
+
 putloop:
-    mov al,[si]
-    add si,1
-    cmp al,0
-    je fin
-    mov ah,0x0e
-    mov bx,0
-    int 0x10
-    jmp putloop
+    mov al, [si]     ; Load character from message
+    add si, 1        ; Increment si
+    cmp al, 0        ; Check if end of message (null terminator)
+    je fin           ; Jump to fin if end of message
+    mov ah, 0x0e     ; Display character in teletype mode
+    mov bx, 0        ; Display page number (0)
+    int 0x10         ; BIOS interrupt for video services
+    jmp putloop      ; Jump to putloop for next character
+
 msg:
-    DB 0x0a, 0x0a
-    DB "load error"
-    DB 0x0a
-    db 0
+    DB 0x0a, 0x0a    ; Two line breaks
+    DB "load error"  ; Error message
+    DB 0x0a         ; Line break
+    db 0             ; Null terminator
+
 testmsg:
-    DB 0x0a, 0x0a
-    DB "zmzmzmz"
-    DB 0x0a
-    db 0
+    DB 0x0a, 0x0a    ; Two line breaks
+    DB "zmzmzmz"     ; Test message
+    DB 0x0a         ; Line break
+    db 0             ; Null terminator
+
 
 resb 0x1fe-($-$$)
 ; times 510-($-$$) db 0
