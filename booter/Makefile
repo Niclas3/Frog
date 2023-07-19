@@ -1,10 +1,10 @@
 include ../Makefile.os_rules
 
 # To protected mode ###############################
-pmloader.img: naskfunc.s                          #
+pmloader.img: loader.s                          #
 	$(AS) -p $(AS_INCLUDE) -o $(BUILD)/$@ $<
 ### For test  #####################################                                                  
-naskfunc.o: naskfunc.s                            #
+naskfunc.o: loader.s                            #
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -o $@ $<
 ###################################################
 
