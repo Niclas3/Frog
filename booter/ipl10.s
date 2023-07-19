@@ -197,14 +197,14 @@ CYLS equ 10
 ; NOTE: FAT file system drivers must ensure that they update this field when the
 ; volume label file in the root directory has its name changed or created. The
 ; setting for this field when there is no volume label is the string 
-; "NO NAME    ".
+; "NO NAME    " string must be 11 bytes
  BS_VolLab DB		"TOY-OS     "
 ;-------------------------------------------------------------------------------
 ;-------------------------------------------------------------------------------
 ; One of the strings "FAT12   ","FAT16   ",or "FAT     ".
 ; 
 ; NOTE: This string is informational only and does not determine the FAT type.
-;
+; length must be 8 bytes
  BS_FilSysType db "FAT12   "
 
 ;-------------------------------------------------------------------------------
