@@ -1,5 +1,6 @@
 include ./Makefile.os_rules
 BOCHS := bochs -q
+FLOPPY = b.img
 
 start: newimg mount
 	$(BOCHS)
@@ -8,14 +9,14 @@ reset:  clean umount newimg mount
 	$(BOCHS)
 
 newimg:
-	cp ../a.img .
+	cp ../a.img ./$(FLOPPY)
 
 #C:10 H:2 S:18
-mount: bootloader pmloader.img core.bin
-	sudo mount -o loop a.img /mnt/floppy 
-	sudo cp pmloader.img /mnt/floppy -v
-	sudo cp core.bin /mnt/floppy -v
-	# sudo cp name.txt /mnt/floppy -v
+mount: bootloader loader.img core.bin
+	sudo mount -o loop $(FLOPPY) /mnt/floppy 
+	# sudo cp loader.img /mnt/floppy -v
+	# sudo cp core.bin /mnt/floppy -v
+	sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
 umount:
 	sudo umount /mnt/floppy
@@ -25,7 +26,7 @@ load_core: core.bin
 	ls /mnt/floppy
 
 bootloader: ipl10.bin
-	dd if=$< of=a.img bs=512 count=360 conv=notrunc
+	dd if=$< of=$(FLOPPY) bs=512 count=360 conv=notrunc
 
 # Use ELF format
 # Real OS code ###########################
@@ -34,7 +35,7 @@ core.bin:
 ##########################################
 
 # To protected mode ###############################
-pmloader.img:                           #
+loader.img:                           #
 	cd ./booter && $(MAKE) $@
 ###################################################
 
