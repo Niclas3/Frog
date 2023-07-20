@@ -89,6 +89,7 @@ CYLS equ 10
 ; For maximum compatibility, FAT16 volumes should use the value 512.
 ;
   BPB_RootEntCnt dw 224
+  ; BPB_RootEntCnt dw 10
 ;-------------------------------------------------------------------------------
 ;-------------------------------------------------------------------------------
 ; This field is the old 16-bit total count of sectors on the volume. This count
@@ -212,7 +213,7 @@ CYLS equ 10
 ; Jump insterction to boot code. This field has two allowed forms
 ; resb 18
 ;-------------------------------------------------------------------------------
-
+BaseOfLoaderAddress equ 0x0820
 entry:
     mov ax, 0
     mov ss, ax       ; Set the stack segment to 0
@@ -221,18 +222,18 @@ entry:
     mov es, ax       ; Set the extra segment to 0
 
 ; Read c0-h0-s2 sector
-mov ax, 0x0820      ; Set base address for loading data from disk to memory
+mov ax, BaseOfLoaderAddress; Set base address for loading data from disk to memory
 mov es, ax          ; Set es to the base address
 mov ch, 0           ; Set cylinder to 0
 mov dh, 0           ; Set head to 0
-mov cl, 2           ; Set sector to 2
+mov cl, 2           ; Set sector to 2 the first is 1 not 0
 
 start:
     mov si, 0        ; Retry counter
 
 retry:
-    mov ah, 0x02     ; Read sector
-    mov al, 1        ; Read 1 sector
+    mov ah, 0x02     ; 
+    mov al, 1        ; Read 1 sector sector count (0 is illegal)
     mov bx, 0        ; Destination memory address
     mov dl, 0x00     ; Select the first driver
     int 0x13         ; BIOS interrupt for disk operations
@@ -252,7 +253,7 @@ next:
     add cl, 1        ; Increment sector
     cmp cl, 18       ; Check if sector is less than or equal to 18
     jbe start        ; Jump if below or equal
-
+    ;; let's remove head
     mov cl, 1
     add dh, 1        ; Increment head
     cmp dh, 2        ; Check if head is less than 2
@@ -263,7 +264,61 @@ next:
     cmp ch, CYLS     ; Check if cylinder is less than CYLS (10)
     jb start         ; Jump if below
 
-    jmp 0xc400       ; Jump to OS starter?
+; Load directory find loader
+; FirstRootDirSecNum = BPB_RsvSecCnt + (BPB_NumFATs * BPB_FATSz16)
+;                      1 + (2 x 9)
+
+; 文件的开始Sector号 = DirEntry中的开始Sector号 + 根目录占用Sector数目 + DeltaSectorNo
+   ; mov bx, [BPB_NumFATs]
+   ; mov word cx, [BPB_FATSz16]
+   ; movzx ax, bl
+   ; imul cx
+   ; mov word dx, [BPB_RsvSecCnt]
+   ; add dx, ax
+
+ FirstRootDirSecNum equ 19
+    mov dx, 19
+;; RootDirSectors' = (BPB_RootEntCnt * 32) + (BPB_BytsPerSec-1) / BPB_BytsPerSec
+;; mod == 0  RootDirSectors = RootDirSectors'
+;; mod != 0  RootDirSectors = RootDirSectors' + 1
+ RootDirSectors equ 15
+;; RootDataSector = RootDirSectors + FirstRootDirSecNum = 34
+ RootDataSector equ RootDirSectors + FirstRootDirSecNum
+
+;;Head pointer of root directory 
+; FirstRootDirSecNum * BPB_BytsPerSec + ((BaseOfLoaderAddress-20)<<4)
+   mov word ax, [BPB_BytsPerSec]
+   imul dx
+   mov dx, BaseOfLoaderAddress
+   sub dx, 0x20
+   shl dx, 4
+   add dx, ax
+
+;                offset  size
+; DIR_FstClusHI  20      2
+; DIR_FstClusLO  26      2
+; DIR_FileSize   28      2
+   xor ax,ax
+   mov ds,ax
+   mov bx,dx
+   add bx,64
+
+   add bx, 20
+   mov ax, [bx];;DIR_FstClusHI
+   push ax
+
+   add bx, 6
+   mov ax, [bx];;DIR_FstClusLO
+   push ax
+
+   add bx, 2
+   mov ax, [bx];;DIR_FileSize
+   push ax
+
+   ; jmp dx
+
+
+   jmp 0xc400       ; Jump to OS starter?
 
 fin:
     hlt              ; Halt the CPU
