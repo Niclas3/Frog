@@ -1,6 +1,8 @@
 include ./Makefile.os_rules
 BOCHS := bochs -q
-FLOPPY = b.img
+DISK = hd.img
+BOOTER = MBR.bin
+LOADER = loader.img
 
 start: newimg mount
 	$(BOCHS)
@@ -9,12 +11,13 @@ reset:  clean umount newimg mount
 	$(BOCHS)
 
 newimg:
-	cp ../a.img ./$(FLOPPY)
+	cp ../hd.img ./$(DISK)
 
 #C:10 H:2 S:18
 mount: bootloader loader.img core.bin
-	sudo mount -o loop $(FLOPPY) /mnt/floppy 
-	sudo cp loader.img /mnt/floppy -v
+	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc
+	# sudo mount -o loop $(DISK) /mnt/floppy 
+	# sudo cp loader.img /mnt/floppy -v
 	# sudo cp core.bin /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
@@ -25,8 +28,8 @@ load_core: core.bin
 	sudo cp core.bin /mnt/floppy -v
 	ls /mnt/floppy
 
-bootloader: ipl10.bin
-	dd if=$< of=$(FLOPPY) bs=512 count=360 conv=notrunc
+bootloader: $(BOOTER)
+	dd if=$< of=$(DISK) bs=512 count=360 conv=notrunc
 
 # Use ELF format
 # Real OS code ###########################
@@ -39,8 +42,12 @@ loader.img:                           #
 	cd ./booter && $(MAKE) $@
 ###################################################
 
-# Build bootloader ###########################################
+# Build bootloader from floppy ###########################################
 ipl10.bin:
+	cd ./booter && $(MAKE) $@
+##############################################################
+# Build bootloader from hard disk ###########################################
+MBR.bin:
 	cd ./booter && $(MAKE) $@
 ##############################################################
 
