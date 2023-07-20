@@ -14,9 +14,9 @@ newimg:
 #C:10 H:2 S:18
 mount: bootloader loader.img core.bin
 	sudo mount -o loop $(FLOPPY) /mnt/floppy 
-	# sudo cp loader.img /mnt/floppy -v
+	sudo cp loader.img /mnt/floppy -v
 	# sudo cp core.bin /mnt/floppy -v
-	sudo cp name.txt /mnt/floppy -v
+	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
 umount:
 	sudo umount /mnt/floppy
