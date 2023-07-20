@@ -5,3 +5,4 @@ bochsout.txt
 *.sys
 *.o
 *.bmp
+*.lock
