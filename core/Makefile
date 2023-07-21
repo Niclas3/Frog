@@ -2,7 +2,7 @@
  # Real OS code ###########################
 include ../Makefile.os_rules
 core: core.o graphic.o bootpack.o
-	ld $(LD_FLAG) -o $(BUILD)/$@.bin $^
+	ld $(LD_FLAG) -o $(BUILD)/$@.img $^
 
 graphic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "*.c")

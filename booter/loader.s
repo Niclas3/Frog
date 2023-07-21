@@ -129,7 +129,7 @@ gdt_ptr dw GDT_LIMIT
 section .tss
 LABEL_TSS:
          dd 0                   ;; Previous Task link
-         dd LOADER_STACK_TOP    ;; ESP0
+         dd GLOBAL_STACK_TOP    ;; ESP0
          dd SELECTOR_DATA       ;; SS0
          dd 0                   ;; ESP1
          dd 0                   ;; SS1
@@ -182,7 +182,7 @@ idt_ptr  dw IDT_LIMIT
 
 ; [section .s16]
 ; [bits 16]
-loadermsg db '2 loader in real.'
+loadermsg db 'loader in real.'
           db 0
 
 loader_start:
@@ -344,7 +344,7 @@ LABEL_SEG_CODE32:
     mov ds, ax
     mov es, ax
 
-    mov esp, LOADER_STACK_TOP
+    mov esp, GLOBAL_STACK_TOP
     mov ax, SELECTOR_VIDEO
     mov gs, ax
 
@@ -355,6 +355,174 @@ LABEL_SEG_CODE32:
     sti
     mov ax, SELECTOR_TSS
     ltr ax
+
+    ;;load kernel to 0x90000
+
+    KERNELBIN_START equ 0x90000
+    KERNEL_START    equ 0x80000
+    
+;; eax = LBA sector number
+;; ebx  = base address 
+;; ecx  = read-in sector number
+    mov eax, 13
+    mov ebx, KERNELBIN_START
+    mov ecx, 30
+    call SELECTOR_CODE:read_hard_disk_32
+    ;; Break down kernel from 0x90000 ~ ? to 0x80000
+    ;;1. Read ELF header, find .text segment
+    ; #define EI_NIDENT 16                      offset     ,length
+    ; typedef struct {                      0x7f,elf, 1 byte  , 1 byte , 2 bytes    8bytes
+    ;     unsigned char e_ident[EI_NIDENT];// EI_MAG, EI_CLASS, EI_DATA, EI_VERSION
+                                          ;//   8  bytes    ,8 bytes zero
+    ;     uint16_t      e_type;            //   16 bytes    ,2 bytes
+    ;     uint16_t      e_machine;         //   18 bytes    ,2 bytes 
+    ;     uint32_t      e_version;         //   20 bytes    ,4 bytes 
+    ;     ElfN_Addr     e_entry;           //   24 bytes    ,4 bytes
+    ;   * ElfN_Off      e_phoff;           //   28 bytes    ,4 bytes
+    ;   * ElfN_Off      e_shoff;           //   32 bytes    ,4 bytes
+    ;     uint32_t      e_flags;           //   36 bytes    ,4 bytes
+    ;     uint16_t      e_ehsize;          //   40 bytes    ,2 bytes
+    ;   * uint16_t      e_phentsize;       //   42 bytes    ,2 bytes
+    ;   * uint16_t      e_phnum;           //   44 bytes    ,2 bytes
+    ;   * uint16_t      e_shentsize;       //   46 bytes    ,2 bytes
+    ;   * uint16_t      e_shnum;           //   48 bytes    ,2 bytes
+    ;     uint16_t      e_shstrndx;        //   50 bytes    ,2 bytes
+    ; } ElfN_Ehdr;
+
+    HEADER_NAME_TEXT equ 0x0000000b
+    ELF_BASE equ 0x90000
+    ; Section header  base of section 
+    ; typedef struct {
+    ;   * uint32_t      sh_name;           //   0  byte     ,4 bytes
+    ;     uint32_t      sh_type;           //   4  bytes    ,4 bytes
+    ;     uint32_t      sh_flags;          //   8  bytes    ,4 bytes
+    ;     Elf32_Addr    sh_addr;           //   12 bytes    ,4 bytes
+    ;   * Elf32_Off     sh_offset;         //   16 bytes    ,4 bytes
+    ;   * uint32_t      sh_size;           //   20 bytes    ,4 bytes
+    ;     uint32_t      sh_link;           //   24 bytes    ,4 bytes
+    ;     uint32_t      sh_info;           //   28 bytes    ,4 bytes
+    ;     uint32_t      sh_addralign;      //   32 bytes    ,4 bytes
+    ;     uint32_t      sh_entsize;        //   36 bytes    ,4 bytes
+    ; } Elf32_Shdr;
+    ; BASE_OF_SECTION = KERNELBIN_START + eax
+    ; int HEADER_NAME_TEXT = 0x0000000b
+    ; void copymem(int baseaddress, int size, int desaddress);
+    ; char *elf_base = 0x90000;
+    ; char *section_offset[4] = elf_base[32];
+    ; for(int i=0;i < section_count;i++){
+    ;     char *name[4]      = section_offset[i*section_size]
+    ;     char *sh_offset[2] = section_offset[i*section_size+16]
+    ;     char *sh_size[4]   = section_offset[i*section_size+20]
+    ;     if(name == HEADER_NAME_TEXT){
+    ;         copymem(elf_base+sh_offset,size, 0x80000 )
+    ;     }
+    ; }
+    mov dword eax, [KERNELBIN_START+32]   ; section offset
+    mov word bx,   [KERNELBIN_START+46]   ; section entry size
+    mov word cx,   [KERNELBIN_START+48]   ; section entry count
+    and ecx, 0x0000ffff
+    and ebx, 0x0000ffff
+;Load .text section of elf
+; eax -> section_offset
+; ecx -> section_count
+; ebx -> section_size
+    push eax
+    push ecx
+    push ebx
+    call Load_text_sections
+    jmp KERNEL_START
+
+
+    ;; ebp+4 ---> size   0x0028          ebx 3
+    ;; ebp+8 ---> count  0x0007          ecx 2
+    ;; ebp+12---> section_offset 0x3070  eax 1
+Load_text_sections:
+    mov ebp, esp
+    ; Getting the values of section_offset array
+    mov eax, ELF_BASE
+    add eax, [ebp+12]
+    mov ebx, eax        ;Start of section
+
+; Initializing loop counter
+    mov esi, 0
+section_loop:
+    mov edx, [ebp+4]    ; Size of section entry
+    imul edx, esi ; (size * i)
+    add  edx, ebx
+    mov eax, [edx]; name start pointer 
+    push eax            ;name string pointer [ebp-4]
+    ;-------------------------------------------
+    xor eax, eax
+    mov eax, [edx +16]   ; offset 2 byte
+    push eax                   ; [ebp-8]
+    ;--------------------------------------------
+    xor eax, eax
+    mov eax, [edx +20]   ; section size 4 byte
+    push eax                   ; [ebp-12]
+    ;-------------------------------------------
+    ;     if(name == HEADER_NAME_TEXT){
+    ;         copymem(elf_base+sh_offset,size, 0x80000 )
+    ;     }
+    ; Compare the name with HEADER_NAME_TEXT (0x0000000b)
+    cmp dword [ebp-4], HEADER_NAME_TEXT
+    jne skip_copymem
+    mov eax, [ebp-8]
+    add eax, ELF_BASE  ;eax -> source address
+
+    push eax
+    push 0x2000        ; all size of code
+    push KERNEL_START  ;0x80000 -> target address
+
+    ; Call copymem(elf_base + sh_offset, size, 0x80000)
+    call copyMem
+    add esp, 12   ; Clean up the stack after the function call
+    add esp, 12   ; Clean all local var stack up
+    ret
+
+skip_copymem:
+    ;-------------------------------
+    mov eax, esp  ;pop 3 useless data
+    add eax, 12
+    mov esp, eax
+    ;-------------------------------
+    mov eax, esi
+    inc eax
+    mov esi, eax
+    mov ecx, [ebp+8]
+    cmp esi, ecx
+    jl section_loop
+    ret
+
+
+    ;; ebp+4 ---> destination 0x0028          ebx 3
+    ;; ebp+8 ---> size                        ecx 2
+    ;; ebp+12---> elf_base                      1
+; Call copymem(elf_base, size, 0x80000)
+copyMem:
+    ; Implement the copymem function here
+    ; This function should copy 'size' bytes from 'baseaddress' to 'desaddress'
+    ; You can use the 'movsb' instruction for byte-by-byte copying
+    mov ebp, esp
+    mov esi, [ebp+12]
+    mov edi, [ebp+4]
+    mov ecx, [ebp+8]
+    cld
+    rep movsb
+    ret
+
+    ; Program header
+    ; typedef struct {
+    ;     uint32_t      p_type;            //   0  byte     ,4 bytes
+    ;     Elf32_Off     p_offset;          //   4  bytes    ,4 bytes
+    ;     Elf32_Addr    p_vaddr;           //   8  bytes    ,4 bytes
+    ;     Elf32_Addr    p_paddr;           //   12 bytes    ,4 bytes
+    ;     uint32_t      p_filesz;          //   16 bytes    ,4 bytes
+    ;     uint32_t      p_memsz;           //   20 bytes    ,4 bytes
+    ;     uint32_t      p_flags;           //   24 bytes    ,4 bytes
+    ;     uint32_t      p_align;           //   28 bytes    ,4 bytes
+    ; } Elf32_Phdr;
+
+
 
 ; Paging
     call setup_page
@@ -367,7 +535,6 @@ LABEL_SEG_CODE32:
     or dword [ebx+0x20+4], 0xc000_0000
 
     add esp, 0xc000_0000
-    
 
     mov eax, PAGE_DIR_START
     mov cr3, eax
@@ -386,12 +553,10 @@ LABEL_SEG_CODE32:
     ; push SELECTOR_CODE_RING3
     ; push 0
     ; retf
-    ; call SELECTOR_CALL_GATE:0xe000
-    ; jmp $
-;;;;;; Jump to core.s this is real os code
+;;;;;; Jump to core.s this is real os code for floppy
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
 ;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
-    ; jmp dword SELECTOR_CODE:(0xe000-$$)
+
     jmp dword SELECTOR_CODE: 0xe600
 
 ;;paging
@@ -568,3 +733,67 @@ io_delay:
     nop
     ret
 
+;------------------------------------------------------------
+; Read n sector from hard disk 
+read_hard_disk_32:
+;------------------------------------------------------------
+;; eax = LBA sector number
+;; ebx  = base address 
+;; ecx  = read-in sector number
+    mov esi, eax
+    mov di, cx
+;;Read disk
+;;No1: Set sector count for reading
+    mov dx, 0x1f2
+    mov al, cl
+    out dx, al
+
+    mov eax, esi
+
+;;No2: Load LBA address
+;   LBA 7~0 to 0x1f3
+    mov dx, 0x1f3
+    out dx, al
+
+;LBA 15~8 to 0x1f4
+    mov cl, 8
+    shr eax, cl
+    mov dx, 0x1f4
+    out dx, al
+
+;LBA 23~16 to 0x1f5
+    shr eax, cl
+    mov dx, 0x1f5
+    out dx, al
+
+    shr eax, cl
+    and al, 0x0f
+    or  al, 0xe0
+    mov dx, 0x1f6
+    out dx, al
+
+;;No3 read 
+    mov dx, 0x1f7
+    mov al, 0x20
+    out dx, al
+
+;;No4 test disk status
+.not_ready:
+    nop
+    in al, dx
+    and al, 0x88
+    cmp al, 0x08
+    jnz .not_ready
+
+;;No5: read data from 0x1f0
+    mov ax, di
+    mov dx, 256
+    mul dx
+    mov cx, ax
+    mov dx, 0x1f0
+.go_on_read:
+    in ax, dx
+    mov [ebx], ax
+    add ebx, 2
+    loop .go_on_read
+    ret

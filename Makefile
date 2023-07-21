@@ -3,8 +3,9 @@ BOCHS := bochs -q
 DISK = hd.img
 BOOTER = MBR.bin
 LOADER = loader.img
+CORE   = core.img
 
-start: newimg mount
+start: newimg  clean-all mount
 	$(BOCHS)
 
 reset:  clean umount newimg mount
@@ -15,7 +16,8 @@ newimg:
 
 #C:10 H:2 S:18
 mount: bootloader loader.img core.bin
-	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc
+	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
+	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core
 	# sudo mount -o loop $(DISK) /mnt/floppy 
 	# sudo cp loader.img /mnt/floppy -v
 	# sudo cp core.bin /mnt/floppy -v
@@ -62,6 +64,7 @@ font :
 clean:
 	rm -rf *.bin
 	rm -rf *.o
+	rm -rf *.lock
 	find . -type f -name "core.*" ! -name "core.s" -delete
 	find . -type f -name "*.img" ! -name "a.img" -delete
 clean-all: clean
