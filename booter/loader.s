@@ -388,7 +388,17 @@ LABEL_SEG_CODE32:
     ;   * uint16_t      e_shnum;           //   48 bytes    ,2 bytes
     ;     uint16_t      e_shstrndx;        //   50 bytes    ,2 bytes
     ; } ElfN_Ehdr;
-
+    ; Program header
+    ; typedef struct {
+    ;     uint32_t      p_type;            //   0  byte     ,4 bytes
+    ;     Elf32_Off     p_offset;          //   4  bytes    ,4 bytes
+    ;     Elf32_Addr    p_vaddr;           //   8  bytes    ,4 bytes
+    ;     Elf32_Addr    p_paddr;           //   12 bytes    ,4 bytes
+    ;     uint32_t      p_filesz;          //   16 bytes    ,4 bytes
+    ;     uint32_t      p_memsz;           //   20 bytes    ,4 bytes
+    ;     uint32_t      p_flags;           //   24 bytes    ,4 bytes
+    ;     uint32_t      p_align;           //   28 bytes    ,4 bytes
+    ; } Elf32_Phdr;
     HEADER_NAME_TEXT equ 0x0000000b
     ELF_BASE equ 0x90000
     ; Section header  base of section 
@@ -430,99 +440,8 @@ LABEL_SEG_CODE32:
     push ecx
     push ebx
     call Load_text_sections
-    jmp KERNEL_START
-
-
-    ;; ebp+4 ---> size   0x0028          ebx 3
-    ;; ebp+8 ---> count  0x0007          ecx 2
-    ;; ebp+12---> section_offset 0x3070  eax 1
-Load_text_sections:
-    mov ebp, esp
-    ; Getting the values of section_offset array
-    mov eax, ELF_BASE
-    add eax, [ebp+12]
-    mov ebx, eax        ;Start of section
-
-; Initializing loop counter
-    mov esi, 0
-section_loop:
-    mov edx, [ebp+4]    ; Size of section entry
-    imul edx, esi ; (size * i)
-    add  edx, ebx
-    mov eax, [edx]; name start pointer 
-    push eax            ;name string pointer [ebp-4]
-    ;-------------------------------------------
-    xor eax, eax
-    mov eax, [edx +16]   ; offset 2 byte
-    push eax                   ; [ebp-8]
-    ;--------------------------------------------
-    xor eax, eax
-    mov eax, [edx +20]   ; section size 4 byte
-    push eax                   ; [ebp-12]
-    ;-------------------------------------------
-    ;     if(name == HEADER_NAME_TEXT){
-    ;         copymem(elf_base+sh_offset,size, 0x80000 )
-    ;     }
-    ; Compare the name with HEADER_NAME_TEXT (0x0000000b)
-    cmp dword [ebp-4], HEADER_NAME_TEXT
-    jne skip_copymem
-    mov eax, [ebp-8]
-    add eax, ELF_BASE  ;eax -> source address
-
-    push eax
-    push 0x2000        ; all size of code
-    push KERNEL_START  ;0x80000 -> target address
-
-    ; Call copymem(elf_base + sh_offset, size, 0x80000)
-    call copyMem
-    add esp, 12   ; Clean up the stack after the function call
-    add esp, 12   ; Clean all local var stack up
-    ret
-
-skip_copymem:
-    ;-------------------------------
-    mov eax, esp  ;pop 3 useless data
-    add eax, 12
-    mov esp, eax
-    ;-------------------------------
-    mov eax, esi
-    inc eax
-    mov esi, eax
-    mov ecx, [ebp+8]
-    cmp esi, ecx
-    jl section_loop
-    ret
-
-
-    ;; ebp+4 ---> destination 0x0028          ebx 3
-    ;; ebp+8 ---> size                        ecx 2
-    ;; ebp+12---> elf_base                      1
-; Call copymem(elf_base, size, 0x80000)
-copyMem:
-    ; Implement the copymem function here
-    ; This function should copy 'size' bytes from 'baseaddress' to 'desaddress'
-    ; You can use the 'movsb' instruction for byte-by-byte copying
-    mov ebp, esp
-    mov esi, [ebp+12]
-    mov edi, [ebp+4]
-    mov ecx, [ebp+8]
-    cld
-    rep movsb
-    ret
-
-    ; Program header
-    ; typedef struct {
-    ;     uint32_t      p_type;            //   0  byte     ,4 bytes
-    ;     Elf32_Off     p_offset;          //   4  bytes    ,4 bytes
-    ;     Elf32_Addr    p_vaddr;           //   8  bytes    ,4 bytes
-    ;     Elf32_Addr    p_paddr;           //   12 bytes    ,4 bytes
-    ;     uint32_t      p_filesz;          //   16 bytes    ,4 bytes
-    ;     uint32_t      p_memsz;           //   20 bytes    ,4 bytes
-    ;     uint32_t      p_flags;           //   24 bytes    ,4 bytes
-    ;     uint32_t      p_align;           //   28 bytes    ,4 bytes
-    ; } Elf32_Phdr;
-
-
+    ; jmp KERNEL_START
+    ; jmp dword SELECTOR_CODE: KERNEL_START
 
 ; Paging
     call setup_page
@@ -557,7 +476,9 @@ copyMem:
 ;  0xe000 = 0x6000                        - 0x200               + 0x8200
 ;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
 
-    jmp dword SELECTOR_CODE: 0xe600
+    ; jmp dword SELECTOR_CODE: 0xe600
+
+    jmp dword SELECTOR_CODE: KERNEL_START
 
 ;;paging
 section .page
@@ -796,4 +717,81 @@ read_hard_disk_32:
     mov [ebx], ax
     add ebx, 2
     loop .go_on_read
+    ret
+
+    ;; ebp+4 ---> size   0x0028          ebx 3
+    ;; ebp+8 ---> count  0x0007          ecx 2
+    ;; ebp+12---> section_offset 0x3070  eax 1
+Load_text_sections:
+    mov ebp, esp
+    ; Getting the values of section_offset array
+    mov eax, ELF_BASE
+    add eax, [ebp+12]
+    mov ebx, eax        ;Start of section
+
+; Initializing loop counter
+    mov esi, 0
+section_loop:
+    mov edx, [ebp+4]    ; Size of section entry
+    imul edx, esi ; (size * i)
+    add  edx, ebx
+    mov eax, [edx]; name start pointer 
+    push eax            ;name string pointer [ebp-4]
+    ;-------------------------------------------
+    xor eax, eax
+    mov eax, [edx +16]   ; offset 2 byte
+    push eax                   ; [ebp-8]
+    ;--------------------------------------------
+    xor eax, eax
+    mov eax, [edx +20]   ; section size 4 byte
+    push eax                   ; [ebp-12]
+    ;-------------------------------------------
+    ;     if(name == HEADER_NAME_TEXT){
+    ;         copymem(elf_base+sh_offset,size, 0x80000 )
+    ;     }
+    ; Compare the name with HEADER_NAME_TEXT (0x0000000b)
+    cmp dword [ebp-4], HEADER_NAME_TEXT
+    jne skip_copymem
+    mov eax, [ebp-8]
+    add eax, ELF_BASE  ;eax -> source address
+
+    push eax
+    push 0x206E        ; all size of code
+    push KERNEL_START  ;0x80000 -> target address
+
+    ; Call copymem(elf_base + sh_offset, size, 0x80000)
+    call copyMem
+    add esp, 12   ; Clean up the stack after the function call
+    add esp, 12   ; Clean all local var stack up
+    ret
+
+skip_copymem:
+    ;-------------------------------
+    mov eax, esp  ;pop 3 useless data
+    add eax, 12
+    mov esp, eax
+    ;-------------------------------
+    mov eax, esi
+    inc eax
+    mov esi, eax
+    mov ecx, [ebp+8]
+    cmp esi, ecx
+    jl section_loop
+    ret
+
+
+    ;; ebp+4 ---> destination 0x0028          ebx 3
+    ;; ebp+8 ---> size                        ecx 2
+    ;; ebp+12---> elf_base                      1
+; Call copymem(elf_base, size, 0x80000)
+copyMem:
+    ; Implement the copymem function here
+    ; This function should copy 'size' bytes from 'baseaddress' to 'desaddress'
+    ; You can use the 'movsb' instruction for byte-by-byte copying
+    mov ebp, esp
+    mov esi, [ebp+12]
+    mov edi, [ebp+4]
+    mov ecx, [ebp+8]
+    cld
+    rep movsb
     ret
