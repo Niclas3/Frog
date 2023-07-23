@@ -5,6 +5,7 @@
 #include <string.h>
 
 #define FONT_WIDTH 8
+/* #define DEBUG_FONT */
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -52,29 +53,32 @@ int graph_to_int(char *str)
     return sum;
 }
 
-void map_to_bin(char** map)
+void map_to_bin(char **map)
 {
     FILE *file;
     file = fopen("./hankaku_font.img", "w");
     if (file) {
-        fwrite(map, sizeof(char) * 16 * 256, 1, file);
+        fwrite(map, sizeof(char) * 16, 256, file);
         fclose(file);
+    } else {
+        perror("Error opening file");
+        return;
     }
 }
 
 int main()
 {
     int c;
-    int font_index = 0;
+    int font_index = 0; // font_index is pointer to char
     int id_index = 0;
     int line_index = 0;
     int is_pass_head = 1;
-    int map_group_id = 0;
+    int map_group_id = -1;// for fix some bug
     int map_line_id = 0;  // Index for loading value to map
 
     FILE *file;
     char word[4] = {0};  // Catch "char"
-    char id_buffer[5] = {0};
+    char id_buffer[5] = {0}; //like "0x41 "there are 5 chars
     char line_buffer[8] = {0};
 
     char map[256][16] = {0};
@@ -120,8 +124,8 @@ int main()
                 if (is_pass_head) {
                     if (font_index == 4) {
                         if (strncmp(word, "char", 4) == 0) {
-                            if (id_index <
-                                5) {  // Get bits postion of special font
+                            // Get bits postion of special font
+                            if (id_index < 5) {
                                 id_buffer[id_index] = c;
                                 id_index++;
                             } else {
