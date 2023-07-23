@@ -27,13 +27,12 @@ void HariMain(void)
     xsize = 320;
     ysize = 200;
 
-    char *mcursor;
-    char *mcursor1;
+    char *mcursor = 0x0; 
+    char *mcursor1 = 0x0;
 
     COLOR c = {.color_id = COL8_008484};
 
     draw_backgrond(vram, xsize, ysize);
-
 
     int pysize = 16;
     int pxsize = 16;
@@ -42,11 +41,11 @@ void HariMain(void)
     int py0 = 50;
     int px0 = 50;
 
-    draw_cursor8(mcursor, COL8_848484);
+    /* draw_cursor8(mcursor, COL8_848484); */
     draw_cursor8(mcursor1, COL8_008484);
     int mx = 70;
     int my = 50;
-    putblock8_8((char *)vram, xsize, 16, 16, mx, my, mcursor, 16);
+    /* putblock8_8((char *)vram, xsize, 16, 16, mx, my, mcursor, 16); */
     putblock8_8((char *)vram, xsize, 16, 16, mx+40, my+20, mcursor1, 16);
 
     putfont8(vram, xsize, 8, 8, COL8_00FF00, font_A);

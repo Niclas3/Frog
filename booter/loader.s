@@ -440,18 +440,25 @@ LABEL_SEG_CODE32:
     push ecx
     push ebx
     call Load_text_sections
-    ; jmp KERNEL_START
-    ; jmp dword SELECTOR_CODE: KERNEL_START
 
 ; Paging
     call setup_page
     sgdt [gdt_ptr]
 
+    ;TODO: should I change to new base address
     ; set video descriptor new base
     mov ebx, [gdt_ptr+2]
-    or dword [ebx+0x18+4], 0xc000_0000
+    ;             No.x * 8
+    ; or dword [ebx+0x18+4], 0xc000_0000
+
     ; set VGA descriptor new base
-    or dword [ebx+0x20+4], 0xc000_0000
+    ; or dword [ebx+0x20+4], 0xc000_0000
+
+    ; set Data descriptor new base 
+    ; or dword [ebx+0x10+4], 0xc000_0000
+
+    ; set code descriptor new base 
+    ; or dword [ebx+0x8+4], 0xc000_0000
 
     add esp, 0xc000_0000
 
@@ -484,8 +491,9 @@ LABEL_SEG_CODE32:
 section .page
 setup_page:
     ; size   counts
-    ;   4 x  1024 = 4096d aka 0x1000
+    ;   4b x  1024 = 4096d aka 0x1000
     ; It is size of all entries.
+    ; To clear 4096 byte memory from PAGE_DIR_START.
     mov ecx, 4096
     mov esi, 0
 .clear_page_dir:
@@ -494,15 +502,15 @@ setup_page:
     loop .clear_page_dir
 
 ;;Create PDE (page directory entry) size 4 bytes
-    mov eax, PAGE_DIR_START 
-    add eax, 0x1000 ; 
-    mov ebx, eax
+    mov eax, PAGE_DIR_START
+    add eax, 0x1000; First page address, because of page directory size is 1000h
+    mov ebx, eax   ; Base address of first page to ebx
 ;; First entry of page dir
 ;; 0010 1000
-    or eax, PG_US_U | PG_RW_W | PG_P
-    mov [PAGE_DIR_START+0x0],eax
+    or eax, PG_US_U | PG_RW_W | PG_P ; eax contains page address + attributes
+    mov [PAGE_DIR_START+0x0], eax ; Set first pde about 4M physical memory
 ;; Set 0xc00 entry of page dir 
-;; no.768 dir entry of table
+;; No.768 dir entry of table
 ;; 0xc00 upper for kernal as
 ;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernal
 ;;       0x0000_0000 ~ 0xbfff_ffff all 3G size for user
@@ -511,8 +519,17 @@ setup_page:
     sub eax, 0x1000
     mov [PAGE_DIR_START+4092], eax
 
-;; Page table entry
-    mov ecx, 256
+; Page table entry
+; 1M is what I want to used.
+; 4K is one page size represents memory size,
+; so as one page table entry represents memory size
+; 1M / 4K = 256
+; ----------------------------------------------
+; 2M / 4K = 512
+; 3M / 4K = 768
+; 4M / 4K = 1024  This max
+    ; mov ecx, 256
+    mov ecx, 1024
     mov esi, 0
     mov edx, PG_US_U | PG_RW_W | PG_P
 .create_pte:
@@ -523,16 +540,16 @@ setup_page:
 
 ; Other PDE
     mov eax, PAGE_DIR_START
-    add eax, 0x2000
+    add eax, 0x2000           ; 2nd page directory entry
     or  eax, PG_US_U | PG_RW_W | PG_P
     mov ebx, PAGE_DIR_START
     mov ecx, 254
     mov esi, 769
-.create_kernal_pde:
+.create_kernel_pde:
     mov [ebx+esi*4], eax
     inc esi
     add eax, 0x1000
-    loop .create_kernal_pde
+    loop .create_kernel_pde
     ret
 
 _Putchar:
