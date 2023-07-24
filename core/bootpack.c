@@ -20,6 +20,8 @@ void HariMain(void)
 {
     char font_A[16] = {0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
                        0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00};
+
+    char *hankaku = (char *) 0x90000; // size 4096
     init_palette();
     unsigned char *vram;
     int xsize, ysize;
@@ -27,8 +29,8 @@ void HariMain(void)
     xsize = 320;
     ysize = 200;
 
-    char *mcursor = 0x0; 
-    char *mcursor1 = 0x0;
+    char *mcursor =(char*) 0x7c00; 
+    char *mcursor1 =(char*) 0x7c01;
 
     COLOR c = {.color_id = COL8_008484};
 
@@ -41,14 +43,17 @@ void HariMain(void)
     int py0 = 50;
     int px0 = 50;
 
-    /* draw_cursor8(mcursor, COL8_848484); */
+    draw_cursor8(mcursor, COL8_848484);
     draw_cursor8(mcursor1, COL8_008484);
     int mx = 70;
     int my = 50;
-    /* putblock8_8((char *)vram, xsize, 16, 16, mx, my, mcursor, 16); */
+    putblock8_8((char *)vram, xsize, 16, 16, mx, my, mcursor, 16);
     putblock8_8((char *)vram, xsize, 16, 16, mx+40, my+20, mcursor1, 16);
 
     putfont8(vram, xsize, 8, 8, COL8_00FF00, font_A);
+    putfont8(vram, xsize, 8-4, 8-4, COL8_00FF00, hankaku + 'A' * 16);
+    putfont8(vram, xsize, 16, 8, COL8_00FF00, hankaku + 'B' * 16);
+    putfont8(vram, xsize, 24, 8, COL8_00FF00, hankaku + '1' * 16);
 
     for (;;) {
         _io_hlt();  // execute _io_hlt in naskfunc.s
