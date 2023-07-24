@@ -366,7 +366,8 @@ LABEL_SEG_CODE32:
 ;; ecx  = read-in sector number
     mov eax, 13
     mov ebx, KERNELBIN_START
-    mov ecx, 30
+    ; mov ecx, 30 ; for 15kb
+    mov ecx, 40 ; for 20kb
     call SELECTOR_CODE:read_hard_disk_32
     ;; Break down kernel from 0x90000 ~ ? to 0x80000
     ;;1. Read ELF header, find .text segment
@@ -452,7 +453,7 @@ LABEL_SEG_CODE32:
     ; or dword [ebx+0x18+4], 0xc000_0000
 
     ; set VGA descriptor new base
-    ; or dword [ebx+0x20+4], 0xc000_0000
+    or dword [ebx+0x20+4], 0xc000_0000
 
     ; set Data descriptor new base 
     ; or dword [ebx+0x10+4], 0xc000_0000
@@ -479,11 +480,16 @@ LABEL_SEG_CODE32:
     ; push SELECTOR_CODE_RING3
     ; push 0
     ; retf
-;;;;;; Jump to core.s this is real os code for floppy
-;  0xe000 = 0x6000                        - 0x200               + 0x8200
-;          (address in a.img of elf .text)  (the top 512 is IPL)  (load code to this )
-
-    ; jmp dword SELECTOR_CODE: 0xe600
+    ;Load font.img
+    ; load font start at FONT_START
+    FONT_START equ 0x90000
+;; eax = LBA sector number
+;; ebx  = base address 
+;; ecx  = read-in sector number
+    mov eax, 55           ; according to makefile `mount`
+    mov ebx, FONT_START
+    mov ecx, 8            ; all size = 4K  = 8 * 512
+    call SELECTOR_CODE:read_hard_disk_32
 
     jmp dword SELECTOR_CODE: KERNEL_START
 

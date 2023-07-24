@@ -4,6 +4,7 @@ DISK = hd.img
 BOOTER = MBR.bin
 LOADER = loader.img
 CORE   = core.img
+FONT   = hankaku_font.img
 
 start: newimg  clean-all mount
 	$(BOCHS)
@@ -15,9 +16,10 @@ newimg:
 	cp ../hd.img ./$(DISK)
 
 #C:10 H:2 S:18
-mount: bootloader loader.img core.bin
+mount: bootloader loader.img core.bin font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
-	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core
+	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core 26 block
+	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=55 conv=notrunc #font.img for now size 4k
 	# sudo mount -o loop $(DISK) /mnt/floppy 
 	# sudo cp loader.img /mnt/floppy -v
 	# sudo cp core.bin /mnt/floppy -v
@@ -70,4 +72,4 @@ clean:
 clean-all: clean
 	cd ./booter && $(MAKE) clean
 	cd ./core   && $(MAKE) clean
-	cd ./tools  && $(MAKE) clean
+	# cd ./tools  && $(MAKE) clean
