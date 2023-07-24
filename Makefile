@@ -6,7 +6,7 @@ LOADER = loader.img
 CORE   = core.img
 FONT   = hankaku_font.img
 
-start: newimg  clean-all mount
+start: clean-all newimg mount
 	$(BOCHS)
 
 reset:  clean umount newimg mount
