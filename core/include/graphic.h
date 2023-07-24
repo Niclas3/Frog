@@ -18,6 +18,10 @@
 #define COL8_008484 14
 #define COL8_848484 15
 
+
+// Start address of font hankaku, load at loader.s, size 4kb
+#define FONT_HANKAKU 0x90000  
+
 void boxfill8(unsigned char *vram,
               int xsize,
               unsigned char c,
@@ -31,6 +35,8 @@ void init_palette(void);
 void my_palette();
 
 void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font);
+
+void putfonts8_asc(char *vram, int xsize, int x, int y, char color,unsigned char *s);
 
 void draw_backgrond(unsigned char *vram, int xsize, int ysize);
 

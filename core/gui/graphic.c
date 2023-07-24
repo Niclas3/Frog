@@ -79,6 +79,8 @@ void draw_backgrond(unsigned char *vram, int xsize, int ysize)
              ysize - 3);
 }
 
+
+// char c : color
 void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font)
 {
     char d;
@@ -110,6 +112,14 @@ void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font)
         }
     }
     return;
+}
+
+void putfonts8_asc(char *vram, int xsize, int x, int y, char color,unsigned char *s){
+    char *hankaku = (char*)FONT_HANKAKU;
+    for(;*s != 0x00 ;s++){
+        putfont8((unsigned char *)vram, xsize, x, y, color,hankaku + *s *16);
+        x+=8;
+    }
 }
 
 
