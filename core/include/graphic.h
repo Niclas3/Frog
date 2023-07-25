@@ -1,5 +1,6 @@
 #ifndef GRAPHIC
 #define GRAPHIC
+#include "ostype.h"
 
 #define COL8_000000 0
 #define COL8_FF0000 1

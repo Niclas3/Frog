@@ -1,5 +1,6 @@
 #ifndef BOOTPACK
 #define BOOTPACK
+#include "ostype.h"
 // Function from core.s
 void _io_hlt(void);
 /* void _print(char* msg, int len); */
