@@ -323,8 +323,8 @@ or  eax, 0x00000001
 mov cr0, eax
 
 ;------------------init idt---------------------------
-; cli
-; lidt [idt_ptr]
+cli
+lidt [idt_ptr]
 
 ;-----------------------------------------------------
 jmp dword SELECTOR_CODE: LABEL_SEG_CODE32; reflash code-flow?

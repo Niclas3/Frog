@@ -27,6 +27,7 @@ void HariMain(void)
                                            
     /* Gate_Descriptor *test_gate_desc = 0x7c00; */
     Segment_Descriptor *code_descriptor = 0x7c00;
+    Gate_Descriptor *idt = 0x8c00;
     create_descriptor(code_descriptor,
                       0x0,
                       0xffffffff,
@@ -35,13 +36,13 @@ void HariMain(void)
                       DESC_G_4K|DESC_D_32|
                       DESC_L_32bit|DESC_AVL);
 
-    /* Selector selector_1 = create_selector(1,0,0); */
+    Selector selector_1 = create_selector(1,TI_GDT,RPL0);
 
-    /* create_gate(test_gate_desc, */
-    /*             selector_1, */
-    /*             test_function, */
-    /*             0, */
-    /*             0); */
+    create_gate(idt,
+                selector_1,
+                test_function,
+                DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR,
+                0);
 
     init_palette();
     half_byte d;
