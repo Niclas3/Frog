@@ -3,29 +3,17 @@
 void create_gate(Gate_Descriptor *gd,
                  Selector selector,
                  int_32 offset,
-                 int attribute,
+                 int_8 attribute,
                  int_8 dcount)
 {
     gd->offset_15_0 = offset & 0xffff;
     gd->selector = selector;
     gd->dw_count = dcount;
-    gd->access_right = (attribute << 8) & 0xff00;
+    /* gd->access_right = (attribute << 8) & 0xff00; */
+    gd->access_right = attribute ;
     gd->offset_32_16 = (offset >> 16) & 0xffff;
     return;
 }
-
-/* ; usage: Descriptor addressbase, limit, attr */
-/* ;        Addressbase: dd */
-/* ;        limit      : dd */
-/* ;        attr       : dw */
-/* %macro Descriptor 3 */
-/*         dw %2 & 0xFFFF */
-/*         dw %1 & 0xFFFF */
-/*         db (%1 >> 16) & 0xFF */
-/*         dw ((%2 >> 8) & 0xF00) | (%3 & 0xF0FF) */
-/*         db (%1 >> 24) & 0xFF */
-/* %endmacro */
-
 
 /* Params:
  * int_32 limit;          20 bits=16+4 bits 

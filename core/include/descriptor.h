@@ -148,13 +148,20 @@ typedef struct _GATE {
 //       1 -> LDT
 // Requested Privilege Level(RPL)
 // 2 bytes
+//
+#define TI_GDT 0x0
+#define TI_LDT 0x4
+#define RPL0 0x0
+#define RPL1 0x1
+#define RPL2 0x2
+#define RPL3 0x3
 typedef short Selector;
 //==============================================================================
 
 void create_gate(Gate_Descriptor *gd,
                  Selector selector,
-                 int_32 offset,
-                 int attribute,
+                 int_32 offset, // funtion
+                 int_8 attribute,
                  int_8 dcount);
 
 void create_descriptor(Segment_Descriptor *sd,
