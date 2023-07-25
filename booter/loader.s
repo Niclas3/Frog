@@ -323,9 +323,8 @@ or  eax, 0x00000001
 mov cr0, eax
 
 ;------------------init idt---------------------------
-init_idt:
-cli
-lidt [idt_ptr]
+; cli
+; lidt [idt_ptr]
 
 ;-----------------------------------------------------
 jmp dword SELECTOR_CODE: LABEL_SEG_CODE32; reflash code-flow?
@@ -349,10 +348,10 @@ LABEL_SEG_CODE32:
     mov gs, ax
 
     mov byte [gs:160], 'Z'
-    call Init8259A
+    ; call Init8259A
     ; int 00h
     ; int 01h
-    sti
+    ; sti
     mov ax, SELECTOR_TSS
     ltr ax
 
@@ -630,52 +629,6 @@ _code_in_ring3:
     jmp $
 code_in_ring3_len equ $-_code_in_ring3
 
-Init8259A:
-    mov al, 011h
-    out 020h, al
-    call io_delay
-
-    out 0A0h, al
-    call io_delay
-
-    mov al, 020h
-    out 021h, al
-    call io_delay
-
-    mov al, 028h
-    out 0A1h, al
-    call io_delay
-
-    mov al, 004h
-    out 021h, al
-    call io_delay
-
-    mov al, 002h
-    out 0A1h, al
-    call io_delay
-
-    mov al, 001h
-    out 021h, al
-    call io_delay
-
-    out 0A1h, al
-    call io_delay
-
-    mov al, 1111_1101b
-    out 021h, al
-    call io_delay
-
-    mov al, 1111_1111b
-    out 0A1h, al
-    call io_delay
-    ret
-
-io_delay:
-    nop
-    nop
-    nop
-    nop
-    ret
 
 ;------------------------------------------------------------
 ; Read n sector from hard disk 
@@ -801,7 +754,6 @@ skip_copymem:
     cmp esi, ecx
     jl section_loop
     ret
-
 
     ;; ebp+4 ---> destination 0x0028          ebx 3
     ;; ebp+8 ---> size                        ecx 2

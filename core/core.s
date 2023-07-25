@@ -9,6 +9,7 @@ global _io_cli,   _io_sti,  _io_stihlt
 global _io_in8,  _io_in16,  _io_in32
 global _io_out8, _io_out16, _io_out32
 global _io_load_eflags, _io_store_eflags
+global Init8259A, _load_idtr
 
 SELECTOR_VGC   equ (0x0004<<3) + TI_GDT + RPL0
 _start:
@@ -86,4 +87,58 @@ _io_store_eflags: ; void io_store_eflags(int eflags)
     mov eax, [esp+4]
     push eax
     popfd      ; pop flags double-word
+    ret
+
+Init8259A:
+    mov al, 011h
+    out 020h, al
+    call io_delay
+
+    out 0A0h, al
+    call io_delay
+
+    mov al, 020h
+    out 021h, al
+    call io_delay
+
+    mov al, 028h
+    out 0A1h, al
+    call io_delay
+
+    mov al, 004h
+    out 021h, al
+    call io_delay
+
+    mov al, 002h
+    out 0A1h, al
+    call io_delay
+
+    mov al, 001h
+    out 021h, al
+    call io_delay
+
+    out 0A1h, al
+    call io_delay
+
+    mov al, 1111_1101b
+    out 021h, al
+    call io_delay
+
+    mov al, 1111_1111b
+    out 0A1h, al
+    call io_delay
+    ret
+
+io_delay:
+    nop
+    nop
+    nop
+    nop
+    ret
+
+_load_idtr:  ;void load_gdtr(int limit, int addr);
+    mov ax, [esp+4] ; limit
+    mov [esp+6],ax
+    cli
+    lidt [esp+6]
     ret
