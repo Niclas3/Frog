@@ -74,8 +74,8 @@
 // 1 for yes
 // 0 for no
 // 00*0 0000 0000 0000 0000 0000
-#define DESC_L_32bit 0x0
-#define DESC_L_64bit 0x2
+#define DESC_L_32BITS 0x0
+#define DESC_L_64BITS 0x2
 
 // Bit 22
 // D/B
