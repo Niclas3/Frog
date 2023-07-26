@@ -124,9 +124,11 @@ typedef struct _Descriptor_register_layout{
 
 // Get gdtr or idtr data 
 void save_gdtr(Descriptor_REG *data);
-void save_idtr(Descriptor_REG *data);
-// Set gdtr or idtr data
 void load_gdtr(Descriptor_REG *data);
+
+// Set gdtr or idtr data
+void save_idtr(Descriptor_REG *data);
+void load_idtr(Descriptor_REG *data);
 
 //==============================================================================
 // Gate Attributes (gate is a system descriptor)

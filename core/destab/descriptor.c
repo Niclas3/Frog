@@ -42,8 +42,22 @@ void save_gdtr(Descriptor_REG *data){
     __get_from_descriptor_table_register(data, GDT);
 }
 
+void load_gdtr(Descriptor_REG *data){
+    int_16 limit = data->limit;
+    int_32 addr  = data->address;
+    _load_gdtr(limit, addr);
+    return;
+}
+
 void save_idtr(Descriptor_REG *data){
     __get_from_descriptor_table_register(data, IDT);
+}
+
+void load_idtr(Descriptor_REG *data){
+    int_16 limit = data->limit;
+    int_32 addr  = data->address;
+    _load_idtr(limit, addr);
+    return;
 }
 
 void create_gate(Gate_Descriptor *gd,

@@ -34,11 +34,14 @@ void HariMain(void)
         .limit = 0x0099,
     };
     save_idtr(&idt_pointer);
-
     save_gdtr(&gdt_pointer);
-    int_32 address = gdt_pointer.address;
-    int_16 limit = gdt_pointer.limit;
-    /* _load_gdtr() */
+    gdt_pointer.address = 0x0000c900;
+    gdt_pointer.limit = 0xffff;
+    load_gdtr(&gdt_pointer);
+    idt_pointer.limit = 0xabcd;
+    idt_pointer.address = 0x12345679;
+    load_idtr(&idt_pointer);
+
     Segment_Descriptor *gdt= (Segment_Descriptor *)0x7c00;
     Gate_Descriptor *idt = (Gate_Descriptor *)0x8c00;
     create_descriptor(gdt,

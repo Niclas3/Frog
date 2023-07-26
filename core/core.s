@@ -152,7 +152,7 @@ _save_gdtr:  ;void save_gdtr(int_32* address);
 _load_idtr:  ;void load_idtr(int limit, int addr);
     mov ax, [esp+4] ; limit
     mov [esp+6],ax
-    cli
+    cli             ; it should be clear interrupter
     lidt [esp+6]
     ret
 
