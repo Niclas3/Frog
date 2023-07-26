@@ -15,7 +15,6 @@ typedef struct B_info {
 typedef struct Color {
     unsigned char color_id;
 } COLOR;
-
 void test_function();
 // HariMain must at top of file
 void HariMain(void)
@@ -23,12 +22,26 @@ void HariMain(void)
     char font_A[16] = {0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
                        0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00};
 
-    char *hankaku = (char *) FONT_HANKAKU; // size 4096
-                                           
-    /* Gate_Descriptor *test_gate_desc = 0x7c00; */
-    Segment_Descriptor *code_descriptor = 0x7c00;
-    Gate_Descriptor *idt = 0x8c00;
-    create_descriptor(code_descriptor,
+    char *hankaku = (char *) FONT_HANKAKU; // size 4096 address 0x90000
+                                           //
+                                         
+    Descriptor_REG gdt_pointer={
+        .address  = 0x0000c820,
+        .limit = 0x0057,
+    };
+    Descriptor_REG idt_pointer={
+        .address  = 0x0000cff0,
+        .limit = 0x0099,
+    };
+    save_idtr(&idt_pointer);
+
+    save_gdtr(&gdt_pointer);
+    int_32 address = gdt_pointer.address;
+    int_16 limit = gdt_pointer.limit;
+    /* _load_gdtr() */
+    Segment_Descriptor *gdt= (Segment_Descriptor *)0x7c00;
+    Gate_Descriptor *idt = (Gate_Descriptor *)0x8c00;
+    create_descriptor(gdt,
                       0x0,
                       0xffffffff,
                       DESC_P_1|DESC_DPL_0|

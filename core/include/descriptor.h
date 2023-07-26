@@ -109,6 +109,25 @@ typedef struct _Descriptor {
     int_8 base_address_24_31;
 } Segment_Descriptor;
 
+// GDTR layout
+//
+// 47                                 15              0
+// ┌─────────────────────────────────┬────────────────┐
+// │                                 │                │
+// │        GDT base address         │    GDT Limit   │
+// │                                 │                │
+// └─────────────────────────────────┴────────────────┘
+typedef struct _Descriptor_register_layout{
+    int_16 limit;
+    int_32 address;
+} Descriptor_REG;
+
+// Get gdtr or idtr data 
+void save_gdtr(Descriptor_REG *data);
+void save_idtr(Descriptor_REG *data);
+// Set gdtr or idtr data
+void load_gdtr(Descriptor_REG *data);
+
 //==============================================================================
 // Gate Attributes (gate is a system descriptor)
 
@@ -171,10 +190,5 @@ void create_descriptor(Segment_Descriptor *sd,
                        int_8 attribute); //   4 bits; G,B/D,L,AVL
 
 Selector create_selector(int_16 index, char ti, char rpl);
-
-void create_interrupt_gate();
-void create_trap_gate();
-void create_task_gate();
-
 
 #endif

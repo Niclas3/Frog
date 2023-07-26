@@ -1,5 +1,51 @@
 #include "../include/descriptor.h"
 
+extern void _save_gdtr(int_32 *data);
+extern void _load_gdtr(int_16 limit, int_32 addr);
+
+extern void _save_idtr(int_32 *data);
+extern void _load_idtr(int_16 limit, int_32 addr);
+typedef enum DescriptorTable_Type{
+    GDT=0,
+    IDT,
+    LDT
+} DT_type;
+
+void __get_from_descriptor_table_register(Descriptor_REG *data, DT_type type){
+    //e.g.
+    //0xc820 0057 low  data[0]
+    //0x0000 abcd high data[1]
+    
+    //0xabcd c820 address
+    //0x0057      limit
+    int_32 reg_data[2] = {0};
+    // Use this get 64 bits data in gdtr.
+    if(type == GDT){
+        _save_gdtr(reg_data); 
+    }else if(type == IDT){
+        _save_idtr(reg_data); 
+    }else if(type == LDT){
+    }else{
+        return;
+    }
+    // The lower 16 bits represents limits. It's about 16bits
+    int_16 limit = reg_data[0] & 0x0000ffff; 
+    // Higher 16 bits plus next 32 bits' lower 16bits equal address. it's about
+    // 32 bits
+    int_32 addr  = (reg_data[0] >> 16) | (reg_data[1] << 16);
+    data->address = addr;
+    data->limit   = limit;
+    return;
+}
+
+void save_gdtr(Descriptor_REG *data){
+    __get_from_descriptor_table_register(data, GDT);
+}
+
+void save_idtr(Descriptor_REG *data){
+    __get_from_descriptor_table_register(data, IDT);
+}
+
 void create_gate(Gate_Descriptor *gd,
                  Selector selector,
                  int_32 offset,
@@ -52,6 +98,3 @@ Selector create_selector(int_16 index, char ti, char rpl)
     return (index << 3) + ti + rpl;
 }
 
-void create_interrupt_gate() {}
-void create_trap_gate() {}
-void create_task_gate() {}

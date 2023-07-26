@@ -9,7 +9,9 @@ global _io_cli,   _io_sti,  _io_stihlt
 global _io_in8,  _io_in16,  _io_in32
 global _io_out8, _io_out16, _io_out32
 global _io_load_eflags, _io_store_eflags
-global Init8259A, _load_idtr
+
+global Init8259A, _load_idtr, _save_idtr
+global _load_gdtr, _save_gdtr
 
 SELECTOR_VGC   equ (0x0004<<3) + TI_GDT + RPL0
 _start:
@@ -136,9 +138,25 @@ io_delay:
     nop
     ret
 
-_load_idtr:  ;void load_gdtr(int limit, int addr);
+_load_gdtr:  ;void load_gdtr(int_16 limit, int addr);
+    mov ax, [esp+4] ; limit
+    mov [esp+6],ax
+    lgdt [esp+6]
+    ret
+
+_save_gdtr:  ;void save_gdtr(int_32* address);
+    mov eax, [esp+4]
+    sgdt [eax] ; address
+    ret
+
+_load_idtr:  ;void load_idtr(int limit, int addr);
     mov ax, [esp+4] ; limit
     mov [esp+6],ax
     cli
     lidt [esp+6]
+    ret
+
+_save_idtr:  ;void save_idtr(int_32* address);
+    mov eax, [esp+4]
+    sidt [eax] ; address
     ret
