@@ -36,11 +36,11 @@
 //
 // * Value calculate on D=1
 // Task Gate  
-                            // 0  1  2  3   bits
-#define DESC_TYPE_TASK 0x5  // 0  1  0  1  (Task Gate)
-#define DESC_TYPE_INTR 0x6  // D  1  1  0  (Interrupt Gate) D=1 for 386cpu else for 286
-#define DESC_TYPE_TRAP 0x7  // D  1  1  1  (Trap Gate) D=1 for 386cpu else for 286
-#define DESC_TYPE_CALL 0xC  // 1  1  0  0  (Call Gate)
+                            // 0   1  2  3   bits
+#define DESC_TYPE_TASK 0x5  // 0   1  0  1  (Task Gate)
+#define DESC_TYPE_INTR 0xE  // D=1 1  1  0  (Interrupt Gate) D=1 for 386cpu else for 286
+#define DESC_TYPE_TRAP 0xF  // D=1 1  1  1  (Trap Gate) D=1 for 386cpu else for 286
+#define DESC_TYPE_CALL 0xC  // 1   1  0  0  (Call Gate)
 
 // Bit 12
 // S: if or not if system segment
