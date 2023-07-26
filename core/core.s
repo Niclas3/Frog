@@ -1,5 +1,6 @@
 %include "../header/boot.inc"
 extern HariMain
+extern inthandler21
 
 global _start
 
@@ -12,6 +13,8 @@ global _io_load_eflags, _io_store_eflags
 
 global Init8259A, _load_idtr, _save_idtr
 global _load_gdtr, _save_gdtr
+
+global _asm_inthandler21
 
 SELECTOR_VGC   equ (0x0004<<3) + TI_GDT + RPL0
 _start:
@@ -137,6 +140,24 @@ io_delay:
     nop
     nop
     ret
+
+_asm_inthandler21:
+    ; PUSH	ES
+    ; PUSH	DS
+    ; PUSHAD
+    ; MOV		EAX,ESP
+    ; PUSH	EAX
+    ; MOV		AX,SS
+    ; MOV		DS,AX
+    ; MOV		ES,AX
+    CALL	inthandler21
+    ; POP		EAX
+    ; POPAD
+    ; POP		DS
+    ; POP		ES
+    mov al,20h
+    out 20h, al
+    IRETD
 
 _load_gdtr:  ;void load_gdtr(int_16 limit, int addr);
     mov ax, [esp+4] ; limit
