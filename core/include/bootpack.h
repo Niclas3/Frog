@@ -14,7 +14,9 @@ void _io_out8(int port, int data);
 int _io_load_eflags(void);
 void _io_store_eflags(int eflags);
 
-void _asm_inthandler21(void);
+void _asm_inthandler20(void); //Clock int
+void _asm_inthandler21(void); //Keyboard int
+void _asm_inthandler2C(void); //PS/2 mouse int
 void Init8259A();
 
 #endif

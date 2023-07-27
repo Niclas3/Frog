@@ -43,6 +43,12 @@ void HariMain(void)
                 _asm_inthandler21,
                 DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR,
                 0);
+
+    /* create_gate(idt_start+0x2C, */
+    /*             selector_code, */
+    /*             _asm_inthandler2C, */
+    /*             DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR, */
+    /*             0); */
     Init8259A();
     _io_sti();
 
@@ -87,5 +93,4 @@ void HariMain(void)
         _io_hlt();  // execute _io_hlt in naskfunc.s
     }
 }
-
 

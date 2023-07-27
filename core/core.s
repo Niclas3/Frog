@@ -1,6 +1,18 @@
 %include "../header/boot.inc"
 extern HariMain
-extern inthandler21
+
+;---------------------------------------------------------------
+; Export Interrupt C code handler
+;---------------------------------------------------------------
+;      Keyboard     ;      Clock  ;      PS/2 Mouse     
+extern inthandler21, inthandler20, inthandler2C
+;---------------------------------------------------------------
+;---------------------------------------------------------------
+; Globale Interrupt real handler 
+;---------------------------------------------------------------
+;      Keyboard         ;      Clock        ;      PS/2 Mouse    
+global _asm_inthandler21, _asm_inthandler20, _asm_inthandler2C
+;---------------------------------------------------------------
 
 global _start
 
@@ -14,7 +26,6 @@ global _io_load_eflags, _io_store_eflags
 global Init8259A, _load_idtr, _save_idtr
 global _load_gdtr, _save_gdtr
 
-global _asm_inthandler21
 
 SELECTOR_VGC   equ (0x0004<<3) + TI_GDT + RPL0
 _start:
@@ -140,8 +151,29 @@ io_delay:
     nop
     nop
     ret
-
+;;------------------------------------------------------------------------------
+;;
+;;                             Interrupt handler
+;;
+;;------------------------------------------------------------------------------
+;;------------------------------------------------------------------------------
+;;; 0x21 keyboard interrupt handler
 _asm_inthandler21:
+    cli            ; Disable interrupts
+empty_buffer:
+    in al, 0x64    ; Read keyboard status register into AL
+    test al, 0x01  ; Check bit 0 of AL (keyboard status)
+    jz buffer_empty ; If zero, jump to buffer_empty (buffer is empty)
+    in al, 0x60    ; Read keyboard data register into AL
+    jmp empty_buffer ; Repeat until buffer is empty
+buffer_empty:
+    sti            ; Enable interrupts
+    call inthandler21
+    mov al,20h
+    out 20h, al
+    IRETD
+;;; 0x20 Clock interrupt handler
+_asm_inthandler20:
     ; PUSH	ES
     ; PUSH	DS
     ; PUSHAD
@@ -150,7 +182,7 @@ _asm_inthandler21:
     ; MOV		AX,SS
     ; MOV		DS,AX
     ; MOV		ES,AX
-    CALL	inthandler21
+    CALL	inthandler20
     ; POP		EAX
     ; POPAD
     ; POP		DS
@@ -158,6 +190,26 @@ _asm_inthandler21:
     mov al,20h
     out 20h, al
     IRETD
+
+;;; 0x2C PS/2 Mouse handler
+_asm_inthandler2C:
+    ; PUSH	ES
+    ; PUSH	DS
+    ; PUSHAD
+    ; MOV		EAX,ESP
+    ; PUSH	EAX
+    ; MOV		AX,SS
+    ; MOV		DS,AX
+    ; MOV		ES,AX
+; CALL	inthandler2C
+    ; POP		EAX
+    ; POPAD
+    ; POP		DS
+    ; POP		ES
+    mov al,20h
+    out 20h, al
+    IRETD
+;;------------------------------------------------------------------------------
 
 _load_gdtr:  ;void load_gdtr(int_16 limit, int addr);
     mov ax, [esp+4] ; limit
