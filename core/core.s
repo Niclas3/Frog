@@ -58,24 +58,31 @@ _io_stihlt: ; void io_stihlt(void)
     sti
     hlt
     ret
-
+;;------------------------------------------------------------------------------
+;;I/O operator IN 
+;;------------------------------------------------------------------------------
 _io_in8:    ; void io_in8(int port)
     mov edx,[esp+4]   ;port
-    mov eax,0
+    mov eax,0   ;data
     in  al,dx
     ret
 
 _io_in16:    ; void io_in16(int port)
     mov edx,[esp+4]   ;port
-    mov eax,0
+    mov eax,0         ;data
     in  al,dx
     ret
 
 _io_in32:    ; void io_in32(int port)
     mov edx,[esp+4]   ;port
+    mov edx,0        ;data
     in eax,dx
     ret
+;;------------------------------------------------------------------------------
 
+;;------------------------------------------------------------------------------
+;;I/O operator  OUT
+;;------------------------------------------------------------------------------
 _io_out8:    ; void io_out8(int port, int data)
     mov edx,[esp+4]  ; port
     mov al,[esp+8]   ; data
@@ -93,6 +100,7 @@ _io_out32:    ; void io_out32(int port, int data)
     mov eax,[esp+8]   ; data
     out dx, eax
     ret
+;-------------------------------------------------------------------------------
 
 _io_load_eflags: ; int io_load_eflags(void)
     pushfd       ; push flags double-word
@@ -104,7 +112,10 @@ _io_store_eflags: ; void io_store_eflags(int eflags)
     push eax
     popfd      ; pop flags double-word
     ret
-
+;;------------------------------------------------------------------------------
+;;                             PIC Configration
+;;                             Chip 8259A
+;;------------------------------------------------------------------------------
 Init8259A:
     mov al, 011h
     out 020h, al
@@ -151,6 +162,8 @@ io_delay:
     nop
     nop
     ret
+;;------------------------------------------------------------------------------
+
 ;;------------------------------------------------------------------------------
 ;;
 ;;                             Interrupt handler
@@ -211,6 +224,9 @@ _asm_inthandler2C:
     IRETD
 ;;------------------------------------------------------------------------------
 
+;;Function for GDT and IDT
+;;load data to register
+;;save data from register
 _load_gdtr:  ;void load_gdtr(int_16 limit, int addr);
     mov ax, [esp+4] ; limit
     mov [esp+6],ax

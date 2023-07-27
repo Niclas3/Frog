@@ -1,5 +1,6 @@
 #include "../include/int.h"
 #include "../include/graphic.h"
+#include "../include/bootpack.h"
 
 /*     Interrupt handler function Usage
  * !Check Init8259A setting interrupt is opened or not!
@@ -31,8 +32,9 @@
  * Interrupt handler for Keyboard
  **/
 void inthandler21(){
-    char *str = "Niclas 123";
-    putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, str);
+    int_8 scan_code = _io_in8(0x60); // get scan_code
+    putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code);
+    /* putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, str); */
 }
 
 /* int 0x20;
