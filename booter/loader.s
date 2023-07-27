@@ -329,7 +329,6 @@ lidt [idt_ptr]
 ;-----------------------------------------------------
 jmp dword SELECTOR_CODE: LABEL_SEG_CODE32; reflash code-flow?
 
-;;TODO how to set specific section 
 ; jmp dword SELECTOR_CODE: 0; reflash code-flow? 
 
 section .s32
@@ -359,7 +358,7 @@ LABEL_SEG_CODE32:
 
     KERNELBIN_START equ 0x90000
     KERNEL_START    equ 0x80000
-    
+
 ;; eax = LBA sector number
 ;; ebx  = base address 
 ;; ecx  = read-in sector number
@@ -439,7 +438,7 @@ LABEL_SEG_CODE32:
     push eax
     push ecx
     push ebx
-    call Load_text_sections
+    call load_text_sections
 
 ; Paging
     call setup_page
@@ -492,8 +491,13 @@ LABEL_SEG_CODE32:
 
     jmp dword SELECTOR_CODE: KERNEL_START
 
+;-------------------------------------------------------------------------------
+
 ;;paging
 section .page
+;===============================================================================
+; void setup_page()
+;===============================================================================
 setup_page:
     ; size   counts
     ;   4b x  1024 = 4096d aka 0x1000
@@ -516,8 +520,8 @@ setup_page:
     mov [PAGE_DIR_START+0x0], eax ; Set first pde about 4M physical memory
 ;; Set 0xc00 entry of page dir 
 ;; No.768 dir entry of table
-;; 0xc00 upper for kernal as
-;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernal
+;; 0xc00 upper for kernel as
+;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernel
 ;;       0x0000_0000 ~ 0xbfff_ffff all 3G size for user
     mov [PAGE_DIR_START+0xc00],eax
 ;; the last entry point to it self
@@ -556,6 +560,7 @@ setup_page:
     add eax, 0x1000
     loop .create_kernel_pde
     ret
+;===============================================================================
 
 _Putchar:
 Putchar equ _Putchar - $$
@@ -632,6 +637,7 @@ code_in_ring3_len equ $-_code_in_ring3
 
 ;------------------------------------------------------------
 ; Read n sector from hard disk 
+; void read_hard_disk_32(sector_number, base_address,count_of_read-in_sector)
 read_hard_disk_32:
 ;------------------------------------------------------------
 ;; eax = LBA sector number
@@ -694,11 +700,12 @@ read_hard_disk_32:
     add ebx, 2
     loop .go_on_read
     ret
-
+;===============================================================================
+;load_text_sections(section_offset, count, size)
     ;; ebp+4 ---> size   0x0028          ebx 3
     ;; ebp+8 ---> count  0x0007          ecx 2
     ;; ebp+12---> section_offset 0x3070  eax 1
-Load_text_sections:
+load_text_sections:
     mov ebp, esp
     ; Getting the values of section_offset array
     mov eax, ELF_BASE
@@ -732,7 +739,7 @@ section_loop:
     add eax, ELF_BASE  ;eax -> source address
 
     push eax
-    push 0x206E        ; all size of code
+    push 0x4000        ; The size of code you want to load
     push KERNEL_START  ;0x80000 -> target address
 
     ; Call copymem(elf_base + sh_offset, size, 0x80000)
@@ -755,6 +762,7 @@ skip_copymem:
     jl section_loop
     ret
 
+;===============================================================================
     ;; ebp+4 ---> destination 0x0028          ebx 3
     ;; ebp+8 ---> size                        ecx 2
     ;; ebp+12---> elf_base                      1
