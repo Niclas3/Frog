@@ -1,9 +1,8 @@
  # use ELF format
  # Real OS code ###########################
 include ../Makefile.os_rules
-core: core.o graphic.o bootpack.o destab.o int.o
-	ld $(LD_FLAG) -o $(BUILD)/$@.img $^
-
+pic.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
 int.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find interrupt -type f -name "*.c")
 
@@ -19,5 +18,7 @@ bootpack.o: bootpack.c
 core.o: core.s
 	$(AS) $(A_FLAG) -o $@ $<
 
+core: core.o graphic.o bootpack.o destab.o int.o pic.o
+	ld $(LD_FLAG) -o $(BUILD)/$@.img $^
 clean:
 	rm -rf *.o

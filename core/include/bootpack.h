@@ -4,6 +4,7 @@
 #include "descriptor.h"
 // Function from core.s
 void _io_hlt(void);
+void _io_delay();
 /* void _print(char* msg, int len); */
 /* void _print(void); */
 void _write_mem8(int addr, int data);
@@ -23,6 +24,5 @@ void _io_store_eflags(int eflags);
 void _asm_inthandler20(void); //Clock int
 void _asm_inthandler21(void); //Keyboard int
 void _asm_inthandler2C(void); //PS/2 mouse int
-void Init8259A();
 
 #endif
