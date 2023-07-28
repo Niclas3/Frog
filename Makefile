@@ -16,20 +16,20 @@ newimg:
 	cp ../hd.img ./$(DISK)
 
 #C:10 H:2 S:18
-mount: bootloader loader.img core.bin font
+mount: bootloader loader.img core.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
 	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core 26 block
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=55 conv=notrunc #font.img for now size 4k
 	# sudo mount -o loop $(DISK) /mnt/floppy 
 	# sudo cp loader.img /mnt/floppy -v
-	# sudo cp core.bin /mnt/floppy -v
+	# sudo cp core.img /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
 umount:
 	sudo umount /mnt/floppy
 
-load_core: core.bin
-	sudo cp core.bin /mnt/floppy -v
+load_core: core.img
+	sudo cp core.img /mnt/floppy -v
 	ls /mnt/floppy
 
 bootloader: $(BOOTER)
@@ -37,7 +37,7 @@ bootloader: $(BOOTER)
 
 # Use ELF format
 # Real OS code ###########################
-core.bin:
+core.img:
 	cd ./core && $(MAKE) core
 ##########################################
 

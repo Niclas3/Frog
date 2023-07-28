@@ -1,5 +1,6 @@
 AS := nasm
 CC := gcc
+LD := ld
 
 OUTBIN := out.bin
 
