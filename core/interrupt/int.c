@@ -1,6 +1,10 @@
 #include "../include/int.h"
 #include "../include/graphic.h"
 #include "../include/bootpack.h"
+#include "../include/pic.h"
+
+#include "../include/keyboard.h"
+#include "../include/ps2mouse.h"
 
 /*     Interrupt handler function Usage
  * !Check Init8259A setting interrupt is opened or not!
@@ -32,9 +36,10 @@
  * Interrupt handler for Keyboard
  **/
 void inthandler21(){
-    int_8 scan_code = _io_in8(0x60); // get scan_code
+    int_8 scan_code = _io_in8(PORT_KEYDATE); // get scan_code
     putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code);
     /* putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, str); */
+    return;
 }
 
 /* int 0x20;
@@ -42,11 +47,16 @@ void inthandler21(){
  **/
 void inthandler20(){
     putfonts8_asc((char *)0xa0000, 320, 32, 32, COL8_FF00FF, "Clock");
+    return;
 }
 
 /* int 0x2C;
  * Interrupt handler for PS/2 mouse
  **/
-/* void inthandler2C(){ */
-/*     putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse"); */
-/* } */
+void inthandler2C(){
+    _io_out8(OCW2_S,0x64); // tell slave  IRQ12 is finish
+    _io_out8(OCW2_M,0x62); // tell master IRQ12 is finish
+    char data = _io_in8(PORT_KEYDATE) ;
+    putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse");
+    return;
+}

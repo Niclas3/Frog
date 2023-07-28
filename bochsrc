@@ -27,7 +27,7 @@ boot: disk
 log: bochsout.txt
 
 # disable mouse
-mouse: enabled=0
+mouse: type=ps2, enabled=1, toggle=ctrl+f10
 
 # enable key mapping, using US layout as defalut
 keyboard: type=mf, serial_delay=200, paste_delay=100000

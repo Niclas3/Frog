@@ -1,6 +1,9 @@
  # use ELF format
  # Real OS code ###########################
 include ../Makefile.os_rules
+hid.o:
+	cd ./hid && $(MAKE) hid.o
+
 pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
 int.o:
@@ -18,7 +21,9 @@ bootpack.o: bootpack.c
 core.o: core.s
 	$(AS) $(A_FLAG) -o $@ $<
 
-core: core.o graphic.o bootpack.o destab.o int.o pic.o
+core: core.o graphic.o bootpack.o destab.o int.o pic.o hid.o
 	ld $(LD_FLAG) -o $(BUILD)/$@.img $^
 clean:
 	rm -rf *.o
+	cd ./hid && $(MAKE) clean
+

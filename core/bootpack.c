@@ -2,6 +2,9 @@
 #include "include/bootpack.h"
 #include "include/descriptor.h"
 #include "include/int.h"
+#include "include/pic.h"
+#include "include/ps2mouse.h"
+#include "include/keyboard.h"
 
 //-------------------------------------
 typedef struct B_info {
@@ -44,13 +47,16 @@ void HariMain(void)
                 DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR,
                 0);
 
-    /* create_gate(idt_start+0x2C, */
-    /*             selector_code, */
-    /*             _asm_inthandler2C, */
-    /*             DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR, */
-    /*             0); */
-    Init8259A();
+    create_gate(idt_start+0x2C,
+                selector_code,
+                _asm_inthandler2C,
+                DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR,
+                0);
+    init_8259A();
     _io_sti();
+
+    init_keyboard();
+    enable_mouse();
 
     init_palette();
 

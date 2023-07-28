@@ -15,5 +15,5 @@ void inthandler21();
 /* int 0x2C;
  * Interrupt handler for PS/2 mouse
  **/
-// void inthandler2C();
+void inthandler2C();
 #endif
