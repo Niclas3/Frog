@@ -185,6 +185,10 @@
 #define PIC_OPEN_IRQ2  0xFB  // 1111 1011  links slave
 #define PIC_OPEN_IRQ4  0xEF  // 1110 1111  serial port1
 #define PIC_OPEN_IRQ12 0xEF  // 1110 1111  PS/2 mouse if slave
+                            
+// -----------------------------------------------------------------
+#define PIC_EOI 0x20 // Only set EOI bit
+// -----------------------------------------------------------------
 // To init 8258A 
 void init_8259A();
 

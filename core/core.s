@@ -128,21 +128,7 @@ _io_delay:
 ;;
 ;;------------------------------------------------------------------------------
 ;;------------------------------------------------------------------------------
-;;; 0x21 keyboard interrupt handler
-_asm_inthandler21:
-    cli            ; Disable interrupts
-empty_buffer:
-    in al, 0x64    ; Read keyboard status register into AL
-    test al, 0x01  ; Check bit 0 of AL (keyboard status)
-    jz buffer_empty ; If zero, jump to buffer_empty (buffer is empty)
-    in al, 0x60    ; Read keyboard data register into AL
-    jmp empty_buffer ; Repeat until buffer is empty
-buffer_empty:
-    sti            ; Enable interrupts
-    call inthandler21
-    mov al,20h
-    out 20h, al
-    IRETD
+
 ;;; 0x20 Clock interrupt handler
 _asm_inthandler20:
     ; PUSH	ES
@@ -160,6 +146,11 @@ _asm_inthandler20:
     ; POP		ES
     mov al,20h
     out 20h, al
+    IRETD
+
+;;; 0x21 keyboard interrupt handler
+_asm_inthandler21:
+    call inthandler21
     IRETD
 
 ;;; 0x2C PS/2 Mouse handler

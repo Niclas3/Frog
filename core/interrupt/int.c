@@ -36,9 +36,19 @@
  * Interrupt handler for Keyboard
  **/
 void inthandler21(){
-    int_8 scan_code = _io_in8(PORT_KEYDATE); // get scan_code
-    putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code);
-    /* putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, str); */
+    int_8 scan_code =0x32;
+    _io_cli();
+    while (1){
+        if(_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
+            scan_code = _io_in8(PORT_KEYDATE); // get scan_code
+//TODO: buffer for keyboard
+            putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code);
+        }else{
+            break;
+        }
+    }
+    _io_sti();
+    _io_out8(PIC0_OCW2, PIC_EOI);
     return;
 }
 
@@ -54,9 +64,10 @@ void inthandler20(){
  * Interrupt handler for PS/2 mouse
  **/
 void inthandler2C(){
-    _io_out8(PIC1_OCW2,0x64); // tell slave  IRQ12 is finish
-    _io_out8(PIC0_OCW2,0x62); // tell master IRQ12 is finish
     char data = _io_in8(PORT_KEYDATE) ;
     putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse");
+
+    _io_out8(PIC1_OCW2,0x64); // tell slave  IRQ12 is finish
+    _io_out8(PIC0_OCW2,0x62); // tell master IRQ12 is finish
     return;
 }
