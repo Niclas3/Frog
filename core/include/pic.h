@@ -158,25 +158,25 @@
 //----------------------------------------------------------------------------
 // Initialzation Command Word ports
 //----------------------------------------------------------------------------
-#define ICW1_M 0x20
-#define ICW1_S 0xA0
+#define PIC0_ICW1 0x20
+#define PIC1_ICW1 0xA0
 
-#define ICW2_M 0x21
-#define ICW2_S 0xA1
+#define PIC0_ICW2 0x21
+#define PIC1_ICW2 0xA1
 
-#define ICW3_M 0x21
-#define ICW3_S 0xA1
+#define PIC0_ICW3 0x21
+#define PIC1_ICW3 0xA1
 
-#define ICW4_M 0x21
-#define ICW4_S 0xA1
+#define PIC0_ICW4 0x21
+#define PIC1_ICW4 0xA1
 //----------------------------------------------------------------------------
 // Operation Control Word ports
 //----------------------------------------------------------------------------
-#define OCW1_M 0x21
-#define OCW1_S 0xA1
+#define PIC0_OCW1 0x21
+#define PIC1_OCW1 0xA1
 
-#define OCW2_M 0x20
-#define OCW2_S 0xA0
+#define PIC0_OCW2 0x20
+#define PIC1_OCW2 0xA0
 //----------------------------------------------------------------------------
 #define PIC_MASK_ALL   0xFF  // 1111 1111
 #define PIC_OPEN_ALL   0x00  // 0000 0000
