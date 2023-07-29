@@ -136,24 +136,29 @@
  */
 
 /* ┌─────┐ 
- * │  7  │  R
- * ├─────┤ 
- * │  6  │  SL
- * ├─────┤
- * │  5  │  EOI <--- 1=EOI
- * ├─────┤ 
- * │  4  │  0
- * ├─────┤
- * │  3  │  0
- * ├─────┤
- * │  2  │  L2
- * ├─────┤
+ * │  7  │  R                || |R   SL  EOI  MEANS
+ * ├─────┤                   ||A|0   0    1   non-special End-of-Int(full rec)
+ * │  6  │  SL               ||A|0   1    1   *special End-of-Int (non-full rec)
+ * ├─────┤                   ||B|1   0    1   non-special End-of-Int loop
+ * │  5  │  EOI <--- 1=EOI   ||B|1   0    0   auto-end-of-int (seting)   
+ * ├─────┤                   ||B|0   0    0   auto-end-of-int (clear)
+ * │  4  │  0                ||C|1   1    1   *special end of int loop
+ * ├─────┤                   ||C|1   1    0   *set priority command
+ * │  3  │  0                || |0   1    0   non-option
+ * ├─────┤                   A: end interrupt
+ * │  2  │  L2               B: priority auto interrupt
+ * ├─────┤                   C: special loop
  * │  1  │  L1
  * ├─────┤
  * │  0  │  L0
  * └─────┘
  *  OCW2    M    S
  * (ports 0x20,0xA0)
+ *
+ * L0~L2: For priority of IRQ0~IRQ7 (or IRQ8~IRQ15)
+ * EOI  : non-auto end of interrupt
+ * SL   : priority setting sign
+ * R    : priority looping state
  */
 //----------------------------------------------------------------------------
 // Initialzation Command Word ports
@@ -187,7 +192,14 @@
 #define PIC_OPEN_IRQ12 0xEF  // 1110 1111  PS/2 mouse if slave
                             
 // -----------------------------------------------------------------
-#define PIC_EOI 0x20 // Only set EOI bit
+#define PIC_EOI_IRQ1  0x61    // set EOI bit IRQ1 or IRQ8
+#define PIC_EOI_IRQ9  0x61    // set EOI bit IRQ1 or IRQ8
+
+#define PIC_EOI_IRQ2   0x62    // set EOI bit IRQ2 or IRQ9
+#define PIC_EOI_IRQ10  0x62    // set EOI bit IRQ2 or IRQ9
+
+#define PIC_EOI_IRQ4  0x64    // set EOI bit IRQ4 or IRQ12
+#define PIC_EOI_IRQ12 0x64    // set EOI bit IRQ4 or IRQ12
 // -----------------------------------------------------------------
 // To init 8258A 
 void init_8259A();
