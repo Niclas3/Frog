@@ -353,9 +353,9 @@ LABEL_SEG_CODE32:
     ; sti
     mov ax, SELECTOR_TSS
     ltr ax
-
-    ;;load kernel to 0x90000
-
+;;==============================================================================
+;; load kernel to 0x90000
+;;==============================================================================
     KERNELBIN_START equ 0x90000
     KERNEL_START    equ 0x80000
 
@@ -439,6 +439,7 @@ LABEL_SEG_CODE32:
     push ecx
     push ebx
     call load_text_sections
+;;==============================================================================
 
 ; Paging
     call setup_page
@@ -491,77 +492,9 @@ LABEL_SEG_CODE32:
 
     jmp dword SELECTOR_CODE: KERNEL_START
 
-;-------------------------------------------------------------------------------
-
-;;paging
-section .page
 ;===============================================================================
-; void setup_page()
+; Call back code ( Provisional )
 ;===============================================================================
-setup_page:
-    ; size   counts
-    ;   4b x  1024 = 4096d aka 0x1000
-    ; It is size of all entries.
-    ; To clear 4096 byte memory from PAGE_DIR_START.
-    mov ecx, 4096
-    mov esi, 0
-.clear_page_dir:
-    mov byte [PAGE_DIR_START+esi],0
-    inc esi
-    loop .clear_page_dir
-
-;;Create PDE (page directory entry) size 4 bytes
-    mov eax, PAGE_DIR_START
-    add eax, 0x1000; First page address, because of page directory size is 1000h
-    mov ebx, eax   ; Base address of first page to ebx
-;; First entry of page dir
-;; 0010 1000
-    or eax, PG_US_U | PG_RW_W | PG_P ; eax contains page address + attributes
-    mov [PAGE_DIR_START+0x0], eax ; Set first pde about 4M physical memory
-;; Set 0xc00 entry of page dir 
-;; No.768 dir entry of table
-;; 0xc00 upper for kernel as
-;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernel
-;;       0x0000_0000 ~ 0xbfff_ffff all 3G size for user
-    mov [PAGE_DIR_START+0xc00],eax
-;; the last entry point to it self
-    sub eax, 0x1000
-    mov [PAGE_DIR_START+4092], eax
-
-; Page table entry
-; 1M is what I want to used.
-; 4K is one page size represents memory size,
-; so as one page table entry represents memory size
-; 1M / 4K = 256
-; ----------------------------------------------
-; 2M / 4K = 512
-; 3M / 4K = 768
-; 4M / 4K = 1024  This max
-    ; mov ecx, 256
-    mov ecx, 1024
-    mov esi, 0
-    mov edx, PG_US_U | PG_RW_W | PG_P
-.create_pte:
-    mov [ebx+esi*4], edx
-    add edx, 4096
-    inc esi
-    loop .create_pte
-
-; Other PDE
-    mov eax, PAGE_DIR_START
-    add eax, 0x2000           ; 2nd page directory entry
-    or  eax, PG_US_U | PG_RW_W | PG_P
-    mov ebx, PAGE_DIR_START
-    mov ecx, 254
-    mov esi, 769
-.create_kernel_pde:
-    mov [ebx+esi*4], eax
-    inc esi
-    add eax, 0x1000
-    loop .create_kernel_pde
-    ret
-;===============================================================================
-
 _Putchar:
 Putchar equ _Putchar - $$
     mov ah, 0ch
@@ -630,14 +563,78 @@ _code_in_ring3:
     mov word [gs:310], ax
     jmp SELECTOR_CALL_GATE:0xe000
     ; call SELECTOR_CALL_GATE:0xe000
-
     jmp $
 code_in_ring3_len equ $-_code_in_ring3
+;===============================================================================
 
+;;paging
+;===============================================================================
+; void setup_page()
+setup_page:
+    ; size   counts
+    ;   4b x  1024 = 4096d aka 0x1000
+    ; It is size of all entries.
+    ; To clear 4096 byte memory from PAGE_DIR_START.
+    mov ecx, 4096
+    mov esi, 0
+.clear_page_dir:
+    mov byte [PAGE_DIR_START+esi],0
+    inc esi
+    loop .clear_page_dir
 
-;------------------------------------------------------------
-; Read n sector from hard disk 
+;;Create PDE (page directory entry) size 4 bytes
+    mov eax, PAGE_DIR_START
+    add eax, 0x1000; First page address, because of page directory size is 1000h
+    mov ebx, eax   ; Base address of first page to ebx
+;; First entry of page dir
+;; 0010 1000
+    or eax, PG_US_U | PG_RW_W | PG_P ; eax contains page address + attributes
+    mov [PAGE_DIR_START+0x0], eax ; Set first pde about 4M physical memory
+;; Set 0xc00 entry of page dir 
+;; No.768 dir entry of table
+;; 0xc00 upper for kernel as
+;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernel
+;;       0x0000_0000 ~ 0xbfff_ffff all 3G size for user
+    mov [PAGE_DIR_START+0xc00],eax
+;; the last entry point to it self
+    sub eax, 0x1000
+    mov [PAGE_DIR_START+4092], eax
+
+; Page table entry
+; 1M is what I want to used.
+; 4K is one page size represents memory size,
+; so as one page table entry represents memory size
+; 1M / 4K = 256
+; ----------------------------------------------
+; 2M / 4K = 512
+; 3M / 4K = 768
+; 4M / 4K = 1024  This max
+    ; mov ecx, 256
+    mov ecx, 1024
+    mov esi, 0
+    mov edx, PG_US_U | PG_RW_W | PG_P
+.create_pte:
+    mov [ebx+esi*4], edx
+    add edx, 4096
+    inc esi
+    loop .create_pte
+
+; Other PDE
+    mov eax, PAGE_DIR_START
+    add eax, 0x2000           ; 2nd page directory entry
+    or  eax, PG_US_U | PG_RW_W | PG_P
+    mov ebx, PAGE_DIR_START
+    mov ecx, 254
+    mov esi, 769
+.create_kernel_pde:
+    mov [ebx+esi*4], eax
+    inc esi
+    add eax, 0x1000
+    loop .create_kernel_pde
+    ret
+;===============================================================================
 ; void read_hard_disk_32(sector_number, base_address,count_of_read-in_sector)
+; Read n sector from hard disk 
 read_hard_disk_32:
 ;------------------------------------------------------------
 ;; eax = LBA sector number
@@ -700,8 +697,9 @@ read_hard_disk_32:
     add ebx, 2
     loop .go_on_read
     ret
+
 ;===============================================================================
-;load_text_sections(section_offset, count, size)
+;void load_text_sections(section_offset, count, size)
     ;; ebp+4 ---> size   0x0028          ebx 3
     ;; ebp+8 ---> count  0x0007          ecx 2
     ;; ebp+12---> section_offset 0x3070  eax 1
@@ -764,10 +762,10 @@ skip_copymem:
     ret
 
 ;===============================================================================
+; void copymem(elf_base, size, 0x80000)
     ;; ebp+4 ---> destination 0x0028          ebx 3
     ;; ebp+8 ---> size                        ecx 2
     ;; ebp+12---> elf_base                      1
-; Call copymem(elf_base, size, 0x80000)
 copyMem:
     ; Implement the copymem function here
     ; This function should copy 'size' bytes from 'baseaddress' to 'desaddress'
