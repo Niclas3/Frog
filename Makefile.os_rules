@@ -28,7 +28,7 @@ AS_INCLUDE := ../header/boot.inc
 #              elf_k1om
 #              i386pep
 #              i386pe
-# -lc link libc
+# -lc link libc use dynamic linking
 LD_FLAG := -s -m elf_i386 -Ttext 0xc0080000
 
 BUILD := ..

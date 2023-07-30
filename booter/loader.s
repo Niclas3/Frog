@@ -365,7 +365,8 @@ LABEL_SEG_CODE32:
     mov eax, 13
     mov ebx, KERNELBIN_START
     ; mov ecx, 30 ; for 15kb
-    mov ecx, 40 ; for 20kb
+    ; mov ecx, 40 ; for 20kb
+    mov ecx, 128 ; for 64kb
     call SELECTOR_CODE:read_hard_disk_32
     ;; Break down kernel from 0x90000 ~ ? to 0x80000
     ;;1. Read ELF header, find .text segment
@@ -485,7 +486,7 @@ LABEL_SEG_CODE32:
 ;; eax = LBA sector number
 ;; ebx  = base address 
 ;; ecx  = read-in sector number
-    mov eax, 55           ; according to makefile `mount`
+    mov eax, 150           ; according to makefile `mount` seek option
     mov ebx, FONT_START
     mov ecx, 8            ; all size = 4K  = 8 * 512
     call SELECTOR_CODE:read_hard_disk_32
@@ -738,7 +739,8 @@ section_loop:
 
     push eax
     ; push 0x4000        ; The size of code you want to load
-    push 0x5000        ; The size of code you want to load
+    ; push 0x5000        ; The size of code you want to load
+    push 0x6000        ; The size of code you want to load
     push KERNEL_START  ;0x80000 -> target address
 
     ; Call copymem(elf_base + sh_offset, size, 0x80000)
