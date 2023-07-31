@@ -1,5 +1,4 @@
-%include "../header/boot.inc"
-extern HariMain
+extern UkiMain         ;start symbol of C file
 
 ;---------------------------------------------------------------
 ; Export Interrupt C code handler
@@ -14,6 +13,8 @@ extern inthandler21, inthandler20, inthandler2C
 global _asm_inthandler21, _asm_inthandler20, _asm_inthandler2C
 ;---------------------------------------------------------------
 
+extern exception_handler
+
 global _start
 
 global _write_mem8      ;_void _write_mem8(int addr, int data);
@@ -26,22 +27,32 @@ global _io_delay
 
 global _load_idtr, _save_idtr
 global _load_gdtr, _save_gdtr
+;;----------------------------------------------------------------------------
+;; Interrupt handler by Intel init
+global  _divide_error
+global  _single_step_exception
+global  _nmi
+global  _breakpoint_exception
+global  _overflow
+global  _bounds_check
+global  _inval_opcode
+global  _copr_not_available
+global  _double_fault
+global  _copr_seg_overrun
+global  _inval_tss
+global  _segment_not_present
+global  _stack_exception
+global  _general_protection
+global  _page_fault
+global  _copr_error
+;-----------------------------------------------------------------------------
 
 
-SELECTOR_VGC   equ (0x0004<<3) + TI_GDT + RPL0
 _start:
-    call HariMain
+    call UkiMain
     jmp $
 
 ;-----------------functions-----------------------
-_write_mem8:
-    mov ecx,[esp+4]
-    mov al,[esp+8]
-    mov dx, SELECTOR_VGC
-    mov edi,ecx
-    mov gs, dx
-    mov byte [gs:ecx], al
-    ret
 
 _io_hlt:    ; void io_hlt(void);
     hlt
@@ -198,3 +209,68 @@ _save_idtr:  ;void save_idtr(int_32* address);
     mov eax, [esp+4]
     sidt [eax] ; address
     ret
+;-------------------------------------------------------------------------------
+;Interrupt handler from orange'os
+_divide_error:
+	push	0xFFFFFFFF	; no err code
+	push	0		; vector_no	= 0
+	jmp	_exception
+_single_step_exception:
+	push	0xFFFFFFFF	; no err code
+	push	1		; vector_no	= 1
+	jmp	_exception
+_nmi:
+	push	0xFFFFFFFF	; no err code
+	push	2		; vector_no	= 2
+	jmp	_exception
+_breakpoint_exception:
+	push	0xFFFFFFFF	; no err code
+	push	3		; vector_no	= 3
+	jmp	_exception
+_overflow:
+	push	0xFFFFFFFF	; no err code
+	push	4		; vector_no	= 4
+	jmp	_exception
+_bounds_check:
+	push	0xFFFFFFFF	; no err code
+	push	5		; vector_no	= 5
+	jmp	_exception
+_inval_opcode:
+	push	0xFFFFFFFF	; no err code
+	push	6		; vector_no	= 6
+	jmp	_exception
+_copr_not_available:
+	push	0xFFFFFFFF	; no err code
+	push	7		; vector_no	= 7
+	jmp	_exception
+_double_fault:
+	push	8		; vector_no	= 8
+	jmp	_exception
+_copr_seg_overrun:
+	push	0xFFFFFFFF	; no err code
+	push	9		; vector_no	= 9
+	jmp	_exception
+_inval_tss:
+	push	10		; vector_no	= A
+	jmp	_exception
+_segment_not_present:
+	push	11		; vector_no	= B
+	jmp	_exception
+_stack_exception:
+	push	12		; vector_no	= C
+	jmp	_exception
+_general_protection:
+	push	13		; vector_no	= D
+	jmp	_exception
+_page_fault:
+	push	14		; vector_no	= E
+	jmp	_exception
+_copr_error:
+	push	0xFFFFFFFF	; no err code
+	push	16		; vector_no	= 10h
+	jmp	_exception
+
+_exception:
+	call	exception_handler
+	add	esp, 4*2
+	hlt

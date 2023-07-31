@@ -44,6 +44,7 @@ void inthandler21(){
             scan_code = _io_in8(PORT_KEYDATE); // get scan_code
 //TODO: buffer for keyboard
             putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code);
+
         }else{
             break;
         }
@@ -70,4 +71,32 @@ void inthandler2C(){
     putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse");
 
     return;
+}
+
+void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags)
+{
+	char * err_msg[] = {"#DE Divide Error",
+			    "#DB RESERVED",
+			    "--  NMI Interrupt",
+			    "#BP Breakpoint",
+			    "#OF Overflow",
+			    "#BR BOUND Range Exceeded",
+			    "#UD Invalid Opcode (Undefined Opcode)",
+			    "#NM Device Not Available (No Math Coprocessor)",
+			    "#DF Double Fault",
+			    "    Coprocessor Segment Overrun (reserved)",
+			    "#TS Invalid TSS",
+			    "#NP Segment Not Present",
+			    "#SS Stack-Segment Fault",
+			    "#GP General Protection",
+			    "#PF Page Fault",
+			    "--  (Intel reserved. Do not use.)",
+			    "#MF x87 FPU Floating-Point Error (Math Fault)",
+			    "#AC Alignment Check",
+			    "#MC Machine Check",
+			    "#XF SIMD Floating-Point Exception"
+	};
+
+    putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_FF0000, (unsigned char*)err_msg[vec_no]);
+
 }

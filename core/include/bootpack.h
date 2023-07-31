@@ -25,4 +25,23 @@ void _asm_inthandler20(void); //Clock int
 void _asm_inthandler21(void); //Keyboard int
 void _asm_inthandler2C(void); //PS/2 mouse int
 
+
+// Intel CPU Interrupt 0x0 ~ 0xF
+void _divide_error();
+void _single_step_exception();
+void _nmi();
+void _breakpoint_exception();
+void _overflow();
+void _bounds_check();
+void _inval_opcode();
+void _copr_not_available();
+void _double_fault();
+void _copr_seg_overrun();
+void _inval_tss();
+void _segment_not_present();
+void _stack_exception();
+void _general_protection();
+void _page_fault();
+void _copr_error();
+
 #endif

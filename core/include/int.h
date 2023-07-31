@@ -16,4 +16,7 @@ void inthandler21();
  * Interrupt handler for PS/2 mouse
  **/
 void inthandler2C();
+
+//
+void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags);
 #endif
