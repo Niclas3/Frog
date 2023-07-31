@@ -3,5 +3,6 @@
 
 void init_idt();
 
+void init_gdt();
 
 #endif

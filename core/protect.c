@@ -16,6 +16,24 @@ void init_ring0_INT(int_32 int_vector_code, int_32 handler_address)
     return;
 }
 
+void init_ring0_Descriptor(int_32 desc_index, int des_type)
+{
+    Descriptor_REG gdtr_data = {0};
+    save_gdtr(&gdtr_data);
+
+    Segment_Descriptor *gdt_start = (Segment_Descriptor *) gdtr_data.address;
+    create_descriptor(gdt_start + desc_index, 0x0, 0xffffffff,
+                      DESC_P_1 | DESC_DPL_0 | DESC_S_DATA | des_type,
+                      DESC_G_4K | DESC_D_32 | DESC_L_32BITS | DESC_AVL);
+}
+
+void init_gdt()
+{
+    int desc_index = 0x1;
+    Selector selector_code = create_selector(desc_index, TI_GDT, RPL0);
+    init_ring0_Descriptor(desc_index, DESC_TYPE_CODEX);
+}
+
 void init_idt()
 {
     init_ring0_INT(INT_VECTOR_DIVIDE, _divide_error);
