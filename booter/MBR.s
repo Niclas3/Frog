@@ -1,5 +1,5 @@
 org 0x7c00
-%include "../header/boot.inc"
+%include "boot.inc"
 mov eax, 2  ;; LOADER_START_SECTOR
 mov bx, LOADER_BASE_ADDR
 mov cx, 10

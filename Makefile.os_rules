@@ -13,7 +13,7 @@ C_FLAG := -c -m32 -fno-stack-protector
 # -f elf   outfile format is elf_i386
 A_FLAG := -f elf
 
-AS_INCLUDE := ../header/boot.inc
+AS_INCLUDE := boot.inc
 
 # -s strip-all Omit all symbol information from the output file.
 # -m Emulate the mulation linker. You can list the available emulations
