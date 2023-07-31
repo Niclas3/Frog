@@ -60,18 +60,19 @@ void load_idtr(Descriptor_REG *data){
     return;
 }
 
+
 void create_gate(Gate_Descriptor *gd,
                  Selector selector,
-                 int_32 offset,
+                 Inthandle_t offset,
                  int_8 attribute,
                  int_8 dcount)
 {
-    gd->offset_15_0 = offset & 0xffff;
+    gd->offset_15_0 = (int_32)offset & 0xffff;
     gd->selector = selector;
     gd->dw_count = dcount;
     /* gd->access_right = (attribute << 8) & 0xff00; */
     gd->access_right = attribute ;
-    gd->offset_32_16 = (offset >> 16) & 0xffff;
+    gd->offset_32_16 = ((int_32)offset >> 16) & 0xffff;
     return;
 }
 

@@ -178,10 +178,11 @@ typedef struct _GATE {
 #define RPL3 0x3
 typedef short Selector;
 //==============================================================================
+typedef void(Inthandle_t)();
 
 void create_gate(Gate_Descriptor *gd,
                  Selector selector,
-                 int_32 offset, // funtion
+                 Inthandle_t offset, // funtion
                  int_8 attribute,
                  int_8 dcount);
 

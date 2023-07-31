@@ -4,7 +4,7 @@
 #include "include/int.h"
 
 
-void init_ring0_INT(int_32 int_vector_code, int_32 handler_address)
+void init_ring0_INT(int_32 int_vector_code,Inthandle_t handler_address)
 {
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
