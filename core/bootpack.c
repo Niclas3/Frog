@@ -8,10 +8,6 @@
 
 #include "include/protect.h"
 
-/* #include <stdio.h> */
-#include <stdarg.h>
-#include <string.h>
-
 //-------------------------------------
 typedef struct B_info {
     char cyls;
@@ -30,7 +26,7 @@ typedef struct Color {
 void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU; // size 4096 address 0x90000
-                                           //
+                                           
     Descriptor_REG gdtr_data={0};
     save_gdtr(&gdtr_data);
 
@@ -42,15 +38,14 @@ void UkiMain(void)
                       DESC_G_4K|DESC_D_32| DESC_L_32BITS|DESC_AVL);
     Selector selector_code = create_selector(1,TI_GDT,RPL0);
 
+    /* init_gdt(); */
     init_idt();
-
 
     init_8259A();
     _io_sti();
 
     init_keyboard();
     enable_mouse();
-
 
     init_palette();
     unsigned char *vram;
