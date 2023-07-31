@@ -6,6 +6,12 @@
 #include "include/ps2mouse.h"
 #include "include/keyboard.h"
 
+#include "include/protect.h"
+
+/* #include <stdio.h> */
+#include <stdarg.h>
+#include <string.h>
+
 //-------------------------------------
 typedef struct B_info {
     char cyls;
@@ -20,46 +26,33 @@ typedef struct Color {
     unsigned char color_id;
 } COLOR;
 
-// HariMain must at top of file
-void HariMain(void)
+// UkiMain must at top of file
+void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU; // size 4096 address 0x90000
-                                         
-                                         
+                                           //
     Descriptor_REG gdtr_data={0};
-    Descriptor_REG idtr_data={0};
     save_gdtr(&gdtr_data);
-    save_idtr(&idtr_data);
 
     Segment_Descriptor *gdt_start= (Segment_Descriptor *)gdtr_data.address;
-    Gate_Descriptor *idt_start = (Gate_Descriptor *)idtr_data.address;
     create_descriptor(gdt_start,
                       0x0,
                       0xffffffff,
                       DESC_P_1|DESC_DPL_0| DESC_S_DATA|DESC_TYPE_CODEX,
                       DESC_G_4K|DESC_D_32| DESC_L_32BITS|DESC_AVL);
-
     Selector selector_code = create_selector(1,TI_GDT,RPL0);
 
-    create_gate(idt_start+0x21,
-                selector_code,
-                _asm_inthandler21,
-                DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR,
-                0);
+    init_idt();
 
-    create_gate(idt_start+0x2C,
-                selector_code,
-                _asm_inthandler2C,
-                DESC_P_1|DESC_DPL_0|DESC_TYPE_INTR,
-                0);
+
     init_8259A();
     _io_sti();
 
     init_keyboard();
     enable_mouse();
 
-    init_palette();
 
+    init_palette();
     unsigned char *vram;
     int xsize, ysize;
     vram = (unsigned char *) 0xa0000;
