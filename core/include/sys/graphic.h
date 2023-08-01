@@ -33,8 +33,6 @@ void boxfill8(unsigned char *vram,
 void set_palette(int start, int end, char *rgb);
 void init_palette(void);
 
-void my_palette();
-
 void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font);
 
 void putfonts8_asc(char *vram, int xsize, int x, int y, char color,unsigned char *s);
