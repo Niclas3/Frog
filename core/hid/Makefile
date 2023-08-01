@@ -1,6 +1,7 @@
  # use ELF format
  # Real OS code ###########################
 include ../../Makefile.os_rules
+INCLUDE = ../include
 
 keyboard.o: keyboard.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<

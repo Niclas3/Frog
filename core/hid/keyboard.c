@@ -1,5 +1,5 @@
-#include "../include/keyboard.h"
-#include "../include/keymap.h"
+#include <hid/keyboard.h>
+#include <hid/keymap.h>
 /* #include "../include/bootpack.h" */
 
 void wait_KBC_sendready(){

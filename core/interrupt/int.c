@@ -1,10 +1,10 @@
-#include "../include/int.h"
-#include "../include/graphic.h"
-#include "../include/bootpack.h"
-#include "../include/pic.h"
+#include <sys/int.h>
+#include <sys/graphic.h>
+#include <asm/bootpack.h>
+#include <sys/pic.h>
 
-#include "../include/keyboard.h"
-#include "../include/ps2mouse.h"
+#include <hid/keyboard.h>
+#include <hid/ps2mouse.h>
 
 /*     Interrupt handler function Usage
  * !Check Init8259A setting interrupt is opened or not!
@@ -31,6 +31,8 @@
  **/
 
 
+struct KEYBUF keybuf;
+
 /*
  * int 0x21; 
  * Interrupt handler for Keyboard
@@ -42,8 +44,12 @@ void inthandler21(){
     while (1){
         if(_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
             scan_code = _io_in8(PORT_KEYDATE); // get scan_code
+            if(keybuf.flag == 0){
+                keybuf.data = scan_code;
+                keybuf.flag = 1;
+            }
 //TODO: buffer for keyboard
-            putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code);
+            /* putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code); */
 
         }else{
             break;
@@ -98,5 +104,4 @@ void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags)
 	};
 
     putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_FF0000, (unsigned char*)err_msg[vec_no]);
-
 }

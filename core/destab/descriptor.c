@@ -1,4 +1,4 @@
-#include "../include/descriptor.h"
+#include <sys/descriptor.h>
 
 extern void _save_gdtr(int_32 *data);
 extern void _load_gdtr(int_16 limit, int_32 addr);

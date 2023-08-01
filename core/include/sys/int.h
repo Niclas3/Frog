@@ -49,6 +49,12 @@
 #define INT_VECTOR_KEYBOARD     0x21
 #define INT_VECTOR_PS2_MOUSE    0x2C
 #define INT_VECTOR_INNER_CLOCK  0x20
+
+///Keyboard buffer
+struct KEYBUF{
+    unsigned char data, flag;
+};
+
 //-----------------------------------------------------------------------------
 //                     Interrupt Callback function 
 //-----------------------------------------------------------------------------

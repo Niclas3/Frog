@@ -1,6 +1,6 @@
-#include "../include/ps2mouse.h"
-#include "../include/keyboard.h"
-#include "../include/bootpack.h"
+#include <hid/ps2mouse.h>
+#include <asm/bootpack.h>
+#include <hid/keyboard.h>
 
 
 void enable_mouse(){

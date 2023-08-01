@@ -1,6 +1,5 @@
-#include "../include/pic.h"
-
-#include "../include/bootpack.h"
+#include <asm/bootpack.h>
+#include <sys/pic.h>
 
 void init_8259A(){
     //Set ICW1

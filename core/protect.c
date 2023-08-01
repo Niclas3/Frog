@@ -1,8 +1,7 @@
-#include "include/protect.h"
-#include "include/bootpack.h"
-#include "include/descriptor.h"
-#include "include/int.h"
-
+#include <asm/bootpack.h>
+#include <sys/descriptor.h>
+#include <sys/int.h>
+#include <protect.h>
 
 void init_ring0_INT(int_32 int_vector_code,Inthandle_t handler_address)
 {

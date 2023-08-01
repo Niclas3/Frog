@@ -1,5 +1,5 @@
-#include "../include/bootpack.h"
-#include "../include/graphic.h"
+#include <asm/bootpack.h>
+#include <sys/graphic.h>
 
 void draw_cursor8(char *mouse, char bc)
 {

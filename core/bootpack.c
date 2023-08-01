@@ -1,12 +1,13 @@
-#include "include/graphic.h"
-#include "include/bootpack.h"
-#include "include/descriptor.h"
-#include "include/int.h"
-#include "include/pic.h"
-#include "include/ps2mouse.h"
-#include "include/keyboard.h"
+#include <sys/graphic.h>
+#include <asm/bootpack.h>
 
-#include "include/protect.h"
+#include <sys/descriptor.h>
+#include <sys/int.h>
+#include <sys/pic.h>
+#include <hid/ps2mouse.h>
+#include <hid/keyboard.h>
+
+#include <protect.h>
 
 //-------------------------------------
 typedef struct B_info {
@@ -21,6 +22,8 @@ typedef struct B_info {
 typedef struct Color {
     unsigned char color_id;
 } COLOR;
+
+extern struct KEYBUF keybuf;
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -84,7 +87,15 @@ void UkiMain(void)
 
 
     for (;;) {
-        _io_hlt();  // execute _io_hlt in naskfunc.s
+        _io_cli();
+        if(keybuf.flag == 0){
+            _io_stihlt();
+        } else {
+            keybuf.flag = 0;
+            _io_sti();
+            int i = keybuf.data;
+            putfonts8_asc(vram, xsize, 0, 16, COL8_FFFFFF, i);
+        }
     }
 }
 
