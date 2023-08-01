@@ -26,7 +26,6 @@ void _asm_inthandler20(void); //Clock int
 void _asm_inthandler21(void); //Keyboard int
 void _asm_inthandler2C(void); //PS/2 mouse int
 
-
 // Intel CPU Interrupt 0x0 ~ 0xF
 void _divide_error();
 void _single_step_exception();
@@ -45,4 +44,17 @@ void _general_protection();
 void _page_fault();
 void _copr_error();
 
+// Define
+typedef struct B_info {
+    char cyls;
+    char leds;
+    char vmode;
+    char reserve;
+    short scrnx, scrny;
+    unsigned char *vram;
+} BOOTINFO;
+
+typedef struct Color {
+    unsigned char color_id;
+} COLOR;
 #endif

@@ -1,27 +1,14 @@
-#include <sys/graphic.h>
 #include <asm/bootpack.h>
 
-#include <sys/descriptor.h>
 #include <sys/int.h>
 #include <sys/pic.h>
+#include <sys/graphic.h>
+#include <sys/descriptor.h>
+
 #include <hid/ps2mouse.h>
 #include <hid/keyboard.h>
 
 #include <protect.h>
-
-//-------------------------------------
-typedef struct B_info {
-    char cyls;
-    char leds;
-    char vmode;
-    char reserve;
-    short scrnx, scrny;
-    char *vram;
-} BOOTINFO;
-
-typedef struct Color {
-    unsigned char color_id;
-} COLOR;
 
 extern struct KEYBUF keybuf;
 
@@ -29,17 +16,6 @@ extern struct KEYBUF keybuf;
 void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU; // size 4096 address 0x90000
-                                           
-    Descriptor_REG gdtr_data={0};
-    save_gdtr(&gdtr_data);
-
-    Segment_Descriptor *gdt_start= (Segment_Descriptor *)gdtr_data.address;
-    create_descriptor(gdt_start,
-                      0x0,
-                      0xffffffff,
-                      DESC_P_1|DESC_DPL_0| DESC_S_DATA|DESC_TYPE_CODEX,
-                      DESC_G_4K|DESC_D_32| DESC_L_32BITS|DESC_AVL);
-    Selector selector_code = create_selector(1,TI_GDT,RPL0);
 
     /* init_gdt(); */
     init_idt();
@@ -51,40 +27,28 @@ void UkiMain(void)
     enable_mouse();
 
     init_palette();
-    unsigned char *vram;
-    int xsize, ysize;
-    vram = (unsigned char *) 0xa0000;
-    xsize = 320;
-    ysize = 200;
+    BOOTINFO info = {
+        .vram = (unsigned char *) 0xa0000,
+        .scrnx = 320, .scrny = 200,
+        .cyls  = 0, .leds  = 0, .vmode = 0, .reserve = 0
+    };
 
-    /* char *mcursor =(char*) 0x7c00;  */
-    /* char *mcursor1 =(char*) 0x7c01; */
+    int pysize = 16;
+    int pxsize = 16;
+    int bxsize = 16;
+    int vxsize = info.scrnx;
+    int py0 = 50;
+    int px0 = 50;
+    int mx = 70;
+    int my = 50;
 
-    draw_backgrond(vram, xsize, ysize);
+    draw_backgrond(info.vram,info.scrnx, info.scrny);
 
-    /* int pysize = 16; */
-    /* int pxsize = 16; */
-    /* int bxsize = 16; */
-    /* int vxsize = xsize; */
-    /* int py0 = 50; */
-    /* int px0 = 50; */
+    char *mcursor =(char*) 0x7c00;
+    draw_cursor8(mcursor, COL8_848484);
+    putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
 
-    /* draw_cursor8(mcursor, COL8_848484); */
-    /* draw_cursor8(mcursor1, COL8_008484); */
-    /* int mx = 70; */
-    /* int my = 50; */
-    /* putblock8_8((char *)vram, xsize, 16, 16, mx, my, mcursor, 16); */
-    /* putblock8_8((char *)vram, xsize, 16, 16, mx+40, my+20, mcursor1, 16); */
-
-
-    /* char s[16] = {0}; */
-    /* sprintf(s, "A"); */
-
-    /* putfont8(vram, xsize, 8-4, 8-4, COL8_00FF00, hankaku + 'A' * 16); */
-    /* putfont8(vram, xsize, 16, 8, COL8_00FF00, hankaku + 'B' * 16); */
-    /* putfont8(vram, xsize, 24, 8, COL8_00FF00, hankaku + '1' * 16); */
-    /* putfonts8_asc(vram, xsize, 8, 8, COL8_0000FF, "Niclas 123"); */
-
+    putfonts8_asc(info.vram, info.scrnx, 8, 8, COL8_0000FF, "Niclas 123");
 
     for (;;) {
         _io_cli();
@@ -94,7 +58,7 @@ void UkiMain(void)
             keybuf.flag = 0;
             _io_sti();
             int i = keybuf.data;
-            putfonts8_asc(vram, xsize, 0, 16, COL8_FFFFFF, i);
+            putfonts8_asc(info.vram, info.scrnx, 0, 16, COL8_FFFFFF, i);
         }
     }
 }
