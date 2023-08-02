@@ -37,6 +37,8 @@ void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font);
 
 void putfonts8_asc(char *vram, int xsize, int x, int y, char color,unsigned char *s);
 
+void putfonts8_asc_error(unsigned char *s, int x, int y);
+
 void draw_backgrond(unsigned char *vram, int xsize, int ysize);
 
 /* char 'mouse' contains shapes of mouse

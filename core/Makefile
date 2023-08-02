@@ -1,7 +1,10 @@
  # use ELF format
  # Real OS code ###########################
 include ../Makefile.os_rules
+C_FLAG += -g
 
+debug.o: lib/debug.c
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 oslib.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "oslib.c")
 
@@ -26,8 +29,12 @@ bootpack.o: bootpack.c
 core.o: core.s
 	$(AS) $(A_FLAG) -o $@ $<
 
-core: core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o oslib.o
+core: core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o oslib.o debug.o
 	ld $(LD_FLAG) -o $(BUILD)/$@.img $^
+
+core_symbol:core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o oslib.o debug.o
+	ld $(LD_DEBUG_FLAG) -o $@.img $^
+
 clean:
 	rm -rf *.o
 	cd ./hid && $(MAKE) clean
