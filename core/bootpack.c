@@ -11,6 +11,9 @@
 #include <protect.h>
 #include <oslib.h>
 #include <global.h> // global variable like keybuf
+#include <debug.h>
+
+BOOTINFO info;
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -27,6 +30,7 @@ void UkiMain(void)
     enable_mouse();
 
     /* init_palette(); */
+
     BOOTINFO info = {
         .vram = (unsigned char *) 0xa0000,
         .scrnx = 320, .scrny = 200,
@@ -48,8 +52,8 @@ void UkiMain(void)
     draw_cursor8(mcursor, COL8_848484);
     putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
 
-    /* putfonts8_asc(info.vram, info.scrnx, 8, 8, COL8_0000FF, "Niclas 123"); */
 
+    /* putfonts8_asc(info.vram, info.scrnx, 8, 8, COL8_0000FF, "Niclas 123"); */
     for (;;) {
         _io_cli();
         if(keybuf.flag == 0){
@@ -57,6 +61,7 @@ void UkiMain(void)
         } else {
             keybuf.flag = 0;
             _io_sti();
+    ASSERT(1==2);
 
             char scan_code[15]; // be careful with the length of the buffer
             int n = keybuf.data;
