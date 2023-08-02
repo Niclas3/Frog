@@ -44,17 +44,4 @@ void _general_protection();
 void _page_fault();
 void _copr_error();
 
-// Define
-typedef struct B_info {
-    char cyls;
-    char leds;
-    char vmode;
-    char reserve;
-    short scrnx, scrny;
-    unsigned char *vram;
-} BOOTINFO;
-
-typedef struct Color {
-    unsigned char color_id;
-} COLOR;
 #endif
