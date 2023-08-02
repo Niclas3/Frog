@@ -9,8 +9,8 @@
 #include <hid/keyboard.h>
 
 #include <protect.h>
-
-extern struct KEYBUF keybuf;
+#include <oslib.h>
+#include <global.h> // global variable like keybuf
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -26,7 +26,7 @@ void UkiMain(void)
     init_keyboard();
     enable_mouse();
 
-    init_palette();
+    /* init_palette(); */
     BOOTINFO info = {
         .vram = (unsigned char *) 0xa0000,
         .scrnx = 320, .scrny = 200,
@@ -48,7 +48,7 @@ void UkiMain(void)
     draw_cursor8(mcursor, COL8_848484);
     putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
 
-    putfonts8_asc(info.vram, info.scrnx, 8, 8, COL8_0000FF, "Niclas 123");
+    /* putfonts8_asc(info.vram, info.scrnx, 8, 8, COL8_0000FF, "Niclas 123"); */
 
     for (;;) {
         _io_cli();
@@ -57,9 +57,14 @@ void UkiMain(void)
         } else {
             keybuf.flag = 0;
             _io_sti();
-            int i = keybuf.data;
-            putfonts8_asc(info.vram, info.scrnx, 0, 16, COL8_FFFFFF, i);
+
+            char scan_code[15]; // be careful with the length of the buffer
+            int n = keybuf.data;
+            int len = itoa(n,scan_code,16);
+            boxfill8(info.vram, info.scrnx, COL8_008484, 0, 0, 25, 50);
+            putfonts8_asc(info.vram, info.scrnx, 0, 0, COL8_FFFFFF, scan_code);
         }
     }
 }
+
 

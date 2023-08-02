@@ -3,6 +3,8 @@
 #include <asm/bootpack.h>
 #include <sys/pic.h>
 
+#include <global.h>
+
 #include <hid/keyboard.h>
 #include <hid/ps2mouse.h>
 
@@ -30,7 +32,6 @@
  *   Finally, you finish the interrupt setting. 
  **/
 
-
 struct KEYBUF keybuf;
 
 /*
@@ -48,9 +49,6 @@ void inthandler21(){
                 keybuf.data = scan_code;
                 keybuf.flag = 1;
             }
-//TODO: buffer for keyboard
-            /* putfonts8_asc((char *)0xa0000, 320, 8, 8, COL8_0000FF, scan_code); */
-
         }else{
             break;
         }
