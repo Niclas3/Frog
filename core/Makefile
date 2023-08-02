@@ -2,9 +2,11 @@
  # Real OS code ###########################
 include ../Makefile.os_rules
 
+oslib.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "oslib.c")
+
 protect.o: protect.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
-
 hid.o:
 	cd ./hid && $(MAKE) hid.o
 pic.o:
@@ -24,7 +26,7 @@ bootpack.o: bootpack.c
 core.o: core.s
 	$(AS) $(A_FLAG) -o $@ $<
 
-core: core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o
+core: core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o oslib.o
 	ld $(LD_FLAG) -o $(BUILD)/$@.img $^
 clean:
 	rm -rf *.o
