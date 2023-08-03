@@ -6,6 +6,28 @@ LOADER = loader.img
 CORE   = core.img
 FONT   = hankaku_font.img
 
+# Use ELF format
+# Real OS code ###########################
+core.img:
+	cd ./core && $(MAKE) all
+##########################################
+
+# To protected mode ###############################
+loader.img:                           #
+	cd ./booter && $(MAKE) $@
+###################################################
+
+# Build bootloader from floppy ###########################################
+ipl10.bin:
+	cd ./booter && $(MAKE) $@
+##############################################################
+# Build bootloader from hard disk ###########################################
+MBR.bin:
+	cd ./booter && $(MAKE) $@
+##############################################################
+
+.PHONY:clean clean-all font start reset newimg mount umount load_core bootloader
+
 start: clean-all newimg mount
 	$(BOCHS)
 
@@ -35,34 +57,12 @@ load_core: core.img
 bootloader: $(BOOTER)
 	dd if=$< of=$(DISK) bs=512 count=360 conv=notrunc
 
-# Use ELF format
-# Real OS code ###########################
-core.img:
-	cd ./core && $(MAKE) core
-##########################################
-
-# To protected mode ###############################
-loader.img:                           #
-	cd ./booter && $(MAKE) $@
-###################################################
-
-# Build bootloader from floppy ###########################################
-ipl10.bin:
-	cd ./booter && $(MAKE) $@
-##############################################################
-# Build bootloader from hard disk ###########################################
-MBR.bin:
-	cd ./booter && $(MAKE) $@
-##############################################################
-
 # Tools ###################################################### 
 # Generate font
-.PHONY:font
 font :
 	cd ./tools/ && $(MAKE) font
 ############################################################## 
 
-.PHONY:clean
 clean:
 	rm -rf *.bin
 	rm -rf *.o

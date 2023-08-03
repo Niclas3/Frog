@@ -33,4 +33,5 @@ LD_FLAG := -s -m elf_i386 -Ttext 0xc0080000
 LD_DEBUG_FLAG := -m elf_i386 -Ttext 0xc0080000
 
 BUILD := ..
+BUILD_DIR = ./build
 INCLUDE := ./include

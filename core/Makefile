@@ -2,40 +2,51 @@
  # Real OS code ###########################
 include ../Makefile.os_rules
 C_FLAG += -g
+BUILD_DIR = ./build
 
-debug.o: lib/debug.c
+C_OBJS = $(BUILD_DIR)/core.o $(BUILD_DIR)/graphic.o $(BUILD_DIR)/bootpack.o\
+	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
+	 $(BUILD_DIR)/hid.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/oslib.o \
+	 $(BUILD_DIR)/debug.o
+
+$(BUILD_DIR)/debug.o: lib/debug.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
-oslib.o:
+$(BUILD_DIR)/oslib.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "oslib.c")
 
-protect.o: protect.c
+$(BUILD_DIR)/protect.o: protect.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
-hid.o:
+$(BUILD_DIR)/hid.o:
 	cd ./hid && $(MAKE) hid.o
-pic.o:
+$(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
-int.o:
+$(BUILD_DIR)/int.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find interrupt -type f -name "*.c")
-
-destab.o:
+$(BUILD_DIR)/destab.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find destab -type f -name "*.c")
-
-graphic.o:
+$(BUILD_DIR)/graphic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "*.c")
-
-bootpack.o: bootpack.c
+$(BUILD_DIR)/bootpack.o: bootpack.c
 	$(CC) $(C_FLAG) -I $(INCLUDE) -o $@ $<
-
-core.o: core.s
+$(BUILD_DIR)/core.o: core.s
 	$(AS) $(A_FLAG) -o $@ $<
-
-core: core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o oslib.o debug.o
-	ld $(LD_FLAG) -o $(BUILD)/$@.img $^
-
-core_symbol:core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o oslib.o debug.o
+$(BUILD_DIR)/core: $(C_OBJS)
+	ld $(LD_FLAG) -o $@.img $^
+$(BUILD_DIR)/core_symbol:core.o graphic.o bootpack.o destab.o int.o pic.o hid.o protect.o oslib.o debug.o
 	ld $(LD_DEBUG_FLAG) -o $@.img $^
 
+.PHONY : clean mk_dir move
+mk_dir:
+	@mkdir -p $(BUILD_DIR)
+
+build: $(BUILD_DIR)/core
+
+move:
+	cp $(BUILD_DIR)/core.img ../
+
+all: mk_dir build move
 clean:
 	rm -rf *.o
+	rm -rf ./build
 	cd ./hid && $(MAKE) clean
 

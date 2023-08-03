@@ -61,7 +61,7 @@ void UkiMain(void)
         } else {
             keybuf.flag = 0;
             _io_sti();
-    ASSERT(1==2);
+    /* ASSERT(1==2); */
 
             char scan_code[15]; // be careful with the length of the buffer
             int n = keybuf.data;
