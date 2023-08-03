@@ -576,6 +576,7 @@ setup_page:
     ;   4b x  1024 = 4096d aka 0x1000
     ; It is size of all entries.
     ; To clear 4096 byte memory from PAGE_DIR_START.
+    ; This is for page directory !
     mov ecx, 4096
     mov esi, 0
 .clear_page_dir:
@@ -586,7 +587,7 @@ setup_page:
 ;;Create PDE (page directory entry) size 4 bytes
     mov eax, PAGE_DIR_START
     add eax, 0x1000; First page address, because of page directory size is 1000h
-    mov ebx, eax   ; Base address of first page to ebx
+    mov ebx, eax   ; Base address of first page table to ebx
 ;; First entry of page dir
 ;; 0010 1000
     or eax, PG_US_U | PG_RW_W | PG_P ; eax contains page address + attributes
@@ -615,22 +616,23 @@ setup_page:
     mov esi, 0
     mov edx, PG_US_U | PG_RW_W | PG_P
 .create_pte:
-    mov [ebx+esi*4], edx
-    add edx, 4096
+    mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry
+    add edx, 4096 ; 4096b=0x1000=4b*1024 size of one page
     inc esi
     loop .create_pte
 
 ; Other PDE
     mov eax, PAGE_DIR_START
-    add eax, 0x2000           ; 2nd page directory entry
+    add eax, 0x2000           ; 2nd page table address
     or  eax, PG_US_U | PG_RW_W | PG_P
+
     mov ebx, PAGE_DIR_START
     mov ecx, 254
     mov esi, 769
 .create_kernel_pde:
-    mov [ebx+esi*4], eax
+    mov [ebx+esi*4], eax ; no.769 ~ no.1023 pde -> 2nd page address
     inc esi
-    add eax, 0x1000
+    add eax, 0x1000 ;4096 = size page table
     loop .create_kernel_pde
     ret
 ;===============================================================================
