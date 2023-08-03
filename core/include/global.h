@@ -5,6 +5,9 @@
 struct KEYBUF{
     unsigned char data,flag;
 };
+struct MOUBUF{
+    unsigned char data,flag;
+};
 
 typedef struct B_info {
     char cyls;
@@ -20,6 +23,7 @@ typedef struct Color {
 } COLOR;
 
 extern struct KEYBUF keybuf;
+extern struct MOUBUF mousebuf;
 extern BOOTINFO info;
 
 #endif

@@ -127,6 +127,10 @@ void putfonts8_asc_error(unsigned char *s, int x, int y){
     putfonts8_asc((char *)0xa0000, 320, x, y, COL8_FFFFFF, s);
 }
 
+void draw_info(char* vram, int scrnx, char color, int px, int py, char* str){
+    boxfill8(vram, scrnx, COL8_008484, px, py, 16, 16);
+    putfonts8_asc(vram, scrnx, px, py, color, str);
+}
 
 /* void strip(unsigned char* vram){ */
 /*  */

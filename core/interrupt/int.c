@@ -33,6 +33,7 @@
  **/
 
 struct KEYBUF keybuf;
+struct MOUBUF mousebuf;
 
 /*
  * int 0x21; 

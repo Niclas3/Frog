@@ -52,7 +52,6 @@ void UkiMain(void)
     draw_cursor8(mcursor, COL8_848484);
     putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
 
-
     /* putfonts8_asc(info.vram, info.scrnx, 8, 8, COL8_0000FF, "Niclas 123"); */
     for (;;) {
         _io_cli();
@@ -61,13 +60,10 @@ void UkiMain(void)
         } else {
             keybuf.flag = 0;
             _io_sti();
-    /* ASSERT(1==2); */
-
             char scan_code[15]; // be careful with the length of the buffer
             int n = keybuf.data;
             int len = itoa(n,scan_code,16);
-            boxfill8(info.vram, info.scrnx, COL8_008484, 0, 0, 25, 50);
-            putfonts8_asc(info.vram, info.scrnx, 0, 0, COL8_FFFFFF, scan_code);
+            draw_info(info.vram, info.scrnx, COL8_FFFFFF, 0, 0, scan_code);
         }
     }
 }
