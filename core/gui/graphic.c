@@ -1,6 +1,8 @@
 #include <asm/bootpack.h>
 #include <sys/graphic.h>
 
+#include <oslib.h>
+
 void draw_cursor8(char *mouse, char bc)
 {
     char cursor[16][16] = {
@@ -126,6 +128,13 @@ void putfonts8_asc_error(unsigned char *s, int x, int y){
     /* boxfill8(info.vram, info.scrnx, COL8_FF00FF, 0, 0, info.scrnx- 1, info.scrny- 29); */
     putfonts8_asc((char *)0xa0000, 320, x, y, COL8_FFFFFF, s);
 }
+
+void draw_hex(char* vram, int scrnx, char color, int px, int py, int num){
+    char str[]="        ";
+    itoa(num, str,16);
+    draw_info(vram, scrnx, color, px, py, str);
+}
+
 
 void draw_info(char* vram, int scrnx, char color, int px, int py, char* str){
     boxfill8(vram, scrnx, COL8_008484, px, py, 16, 16);
