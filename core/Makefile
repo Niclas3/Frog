@@ -39,7 +39,7 @@ $(BUILD_DIR)/core.o: core.s
 $(BUILD_DIR)/core: $(C_OBJS)
 	ld $(LD_FLAG) -o $@.img $^
 $(BUILD_DIR)/core_symbol: $(C_OBJS)
-	ld $(LD_DEBUG_FLAG) -o $@.img $^
+	ld $(LD_DEBUG_FLAG) -M -o $@.img $^
 
 .PHONY : clean mk_dir move
 mk_dir:
