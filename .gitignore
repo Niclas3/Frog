@@ -7,3 +7,4 @@ build/
 *.o
 *.bmp
 *.lock
+compile_commands.json
