@@ -101,12 +101,12 @@
 #define DESC_G_1B 0x0
 
 typedef struct _Descriptor {
-    int_16 limit_15_00;
-    int_16 base_address_15_00;
-    int_8 base_address_16_23;
-    int_8 access_right;              //P, DPL ,S and type.
-    int_8 attribute_and_limit_16_19; //G, B/D, L, AVL, and limit16-19
-    int_8 base_address_24_31;
+    uint_16 limit_15_00;
+    uint_16 base_address_15_00;
+    uint_8 base_address_16_23;
+    uint_8 access_right;              //P, DPL ,S and type.
+    uint_8 attribute_and_limit_16_19; //G, B/D, L, AVL, and limit16-19
+    uint_8 base_address_24_31;
 } Segment_Descriptor;
 
 // GDTR layout
@@ -118,8 +118,8 @@ typedef struct _Descriptor {
 // │                                 │                │
 // └─────────────────────────────────┴────────────────┘
 typedef struct _Descriptor_register_layout{
-    int_16 limit;
-    int_32 address;
+    uint_16 limit;
+    uint_32 address;
 } Descriptor_REG;
 
 // Get gdtr or idtr data 
@@ -148,11 +148,11 @@ void load_idtr(Descriptor_REG *data);
 // DPL descriptor privilege level
 // low to high up to down
 typedef struct _GATE {
-    int_16 offset_15_0;  // 2 bytes
-    int_16 selector;     // function address called
-    int_8 dw_count;      // param.count 1 byte, 8 bits, at call-gate
-    int_8 access_right;  // P + DPL + type  (101110)
-    int_16 offset_32_16;
+    uint_16 offset_15_0;  // 2 bytes
+    uint_16 selector;     // function address called
+    uint_8 dw_count;      // param.count 1 byte, 8 bits, at call-gate
+    uint_8 access_right;  // P + DPL + type  (101110)
+    uint_16 offset_32_16;
 } Gate_Descriptor;
 //==============================================================================
 
@@ -183,15 +183,15 @@ typedef void(Inthandle_t)();
 void create_gate(Gate_Descriptor *gd,
                  Selector selector,
                  Inthandle_t offset, // funtion
-                 int_8 attribute,
-                 int_8 dcount);
+                 uint_8 attribute,
+                 uint_8 dcount);
 
 void create_descriptor(Segment_Descriptor *sd,
-                       int_32 base_address,
-                       int_32 limit,  //   20 bits=16+4 bits
-                       int_8 access_right,//8 bits; P,DPL,S,TYPE
-                       int_8 attribute); //   4 bits; G,B/D,L,AVL
+                       uint_32 base_address,
+                       uint_32 limit,  //   20 bits=16+4 bits
+                       uint_8 access_right,//8 bits; P,DPL,S,TYPE
+                       uint_8 attribute); //   4 bits; G,B/D,L,AVL
 
-Selector create_selector(int_16 index, char ti, char rpl);
+Selector create_selector(uint_16 index, char ti, char rpl);
 
 #endif

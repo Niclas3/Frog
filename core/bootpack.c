@@ -52,13 +52,13 @@ void UkiMain(void)
 
 
     draw_backgrond(info.vram, info.scrnx, info.scrny);
-    int_8 bitmap[20] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    uint_8 bitmap[20] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                         0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     struct bitmap bmap = {.bits = bitmap, .map_bytes_length = 20};
     init_bitmap(&bmap);
     set_value_bitmap(&bmap, 0, 1);  // 50 bit set to 1
-    int_8 a = set_block_value_bitmap(&bmap, 20, 1);
+    uint_8 a = set_block_value_bitmap(&bmap, 20, 1);
     draw_hex((char *) info.vram, info.scrnx, COL8_840000, 0, 0, a);
     /* for (int i = 0; i < (bmap.map_bytes_length) * 8; i++) { */
     /*     set_value_bitmap(&bmap, i, 1);  // 50 bit set to 1 */

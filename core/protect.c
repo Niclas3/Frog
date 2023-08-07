@@ -3,7 +3,7 @@
 #include <sys/int.h>
 #include <protect.h>
 
-void init_ring0_INT(int_32 int_vector_code,Inthandle_t handler_address)
+void init_ring0_INT(uint_32 int_vector_code,Inthandle_t handler_address)
 {
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
@@ -15,7 +15,7 @@ void init_ring0_INT(int_32 int_vector_code,Inthandle_t handler_address)
     return;
 }
 
-void init_ring0_Descriptor(int_32 desc_index, int des_type)
+void init_ring0_Descriptor(uint_32 desc_index, int des_type)
 {
     Descriptor_REG gdtr_data = {0};
     save_gdtr(&gdtr_data);

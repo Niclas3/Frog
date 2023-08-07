@@ -41,7 +41,7 @@ struct MOUBUF mousebuf;
  **/
 void inthandler21(){
     _io_out8(PIC0_OCW2, PIC_EOI_IRQ1);
-    int_8 scan_code =0x32;
+    uint_8 scan_code =0x32;
     _io_cli();
     while (1){
         if(_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
