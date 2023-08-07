@@ -343,7 +343,7 @@ LABEL_SEG_CODE32:
     mov es, ax
 
     mov esp, GLOBAL_STACK_TOP
-    mov ax, SELECTOR_VIDEO
+    mov ax, SELECTOR_VGC
     mov gs, ax
 
     mov byte [gs:160], 'Z'
