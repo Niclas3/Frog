@@ -40,7 +40,6 @@ void UkiMain(void)
 
     /* init_palette(); */
 
-
     /* int pysize = 16; */
     /* int pxsize = 16; */
     /* int bxsize = 16; */

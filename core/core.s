@@ -150,14 +150,12 @@ _asm_inthandler20:
     ; MOV		AX,SS
     ; MOV		DS,AX
     ; MOV		ES,AX
-    CALL	inthandler20
+    call	inthandler20
     ; POP		EAX
     ; POPAD
     ; POP		DS
     ; POP		ES
-    mov al,20h
-    out 20h, al
-    IRETD
+    iretd
 
 ;;; 0x21 keyboard interrupt handler
 _asm_inthandler21:

@@ -62,7 +62,28 @@ void inthandler21(){
  * Interrupt handler for inner Clock
  **/
 void inthandler20(){
-    putfonts8_asc((char *)0xa0000, 320, 32, 32, COL8_FF00FF, "Clock");
+    _io_out8(PIC0_OCW2, PIC_EOI_IRQ0);
+    _io_cli();
+    static uint_8 switch_point = 0;
+    if(switch_point == 0){
+        putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "Clock");
+        switch_point = 1;
+        _io_delay();
+        _io_delay();
+        _io_delay();
+        _io_delay();
+        _io_delay();
+        _io_sti();
+    } else {
+        putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_FFFFFF, "Clock");
+        switch_point = 0;
+        _io_delay();
+        _io_delay();
+        _io_delay();
+        _io_delay();
+        _io_delay();
+        _io_sti();
+    }
     return;
 }
 

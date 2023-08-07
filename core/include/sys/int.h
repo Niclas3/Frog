@@ -1,5 +1,5 @@
-#ifndef INT_H
-#define INT_H
+#ifndef __SYS_INT_H
+#define __SYS_INT_H
 
 // Interrupt 0 -- Divide Error Exception (#DE) (fault)
 #define INT_VECTOR_DIVIDE 0x0
