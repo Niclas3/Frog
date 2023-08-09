@@ -15,7 +15,7 @@ section .r3stack
 align 32
 RING3_STACK:
     times 512 db 0
-RING3_STACK_TOP equ $ - 1
+RING3_STACK_LIMIT equ $ - RING3_STACK - 1
 
 
 
@@ -84,9 +84,9 @@ CALL_GATE_DESC dw  (CALL_GATE_TEST & 0xFFFF)
 
 ;; No.6 
 ;;                         base , limit, attr
-CODE_DESC_RING3 Descriptor 0    , code_in_ring3_len -1   , 0x4000+0x98+60h
+CODE_DESC_RING3    Descriptor 0    , code_in_ring3_len -1   , 0x4000+0x98+60h
 ;; No.7 
-STACK_DESC_RING3   Descriptor 0    , RING3_STACK_TOP, 0x93+0x4000+0x60
+STACK_DESC_RING3   Descriptor 0    , RING3_STACK_LIMIT , 0x93+0x4000+0x60
 
 ;; No.8
 TSS_DESC           Descriptor 0    , TSS_Len-1, 0x89
