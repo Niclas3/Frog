@@ -8,13 +8,14 @@ section .gstack
 align 32
 GLOBAL_STACK:
     times 512 db 0
-GLOBAL_STACK_TOP equ $ - GLOBAL_STACK -1
+; GLOBAL_STACK_TOP equ $ - GLOBAL_STACK -1
+GLOBAL_STACK_TOP equ $ - 1
 
 section .r3stack
 align 32
 RING3_STACK:
     times 512 db 0
-RING3_STACK_TOP equ $ - RING3_STACK-1
+RING3_STACK_TOP equ $ - 1
 
 
 
