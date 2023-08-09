@@ -9,7 +9,7 @@ align 32
 GLOBAL_STACK:
     times 512 db 0
 ; GLOBAL_STACK_TOP equ $ - GLOBAL_STACK -1
-GLOBAL_STACK_TOP equ $ - 1
+GLOBAL_STACK_TOP equ $
 
 section .r3stack
 align 32
@@ -444,6 +444,8 @@ LABEL_SEG_CODE32:
 ;;==============================================================================
 
 ; Paging
+
+
     call setup_page
     sgdt [gdt_ptr]
 
@@ -578,12 +580,21 @@ setup_page:
     ; It is size of all entries.
     ; To clear 4096 byte memory from PAGE_DIR_START.
     ; This is for page directory !
-    mov ecx, 4096
-    mov esi, 0
-.clear_page_dir:
-    mov byte [PAGE_DIR_START+esi],0
-    inc esi
-    loop .clear_page_dir
+;  ebp+4 ---> size in byte
+;  ebp+8 ---> start_addr
+;; clear up 5 * 4KB size memory for 1 PDT and 4 PT like linux
+
+;     mov ecx, 4096
+;     mov esi, 0
+; .clear_page_dir:
+;     mov byte [PAGE_DIR_START+esi],0
+;     inc esi
+;     loop .clear_page_dir
+
+    push PAGE_DIR_START
+    push 4096 * 3        ;;size of 1 page dir table + 2 page tables
+    call clearmem
+    add esp, 8
 
 ;;Create PDE (page directory entry) size 4 bytes
     mov eax, PAGE_DIR_START
@@ -612,13 +623,14 @@ setup_page:
 ; 2M / 4K = 512
 ; 3M / 4K = 768
 ; 4M / 4K = 1024  This max
-    ; mov ecx, 256
+
+;First page  .pg0
     mov ecx, 1024
     mov esi, 0
     mov edx, PG_US_U | PG_RW_W | PG_P
 .create_pte:
     mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry
-    add edx, 4096 ; 4096b=0x1000=4b*1024 size of one page
+    add edx, 4096        ; 4096b=0x1000=4b*1024 size of one page
     inc esi
     loop .create_pte
 
@@ -636,6 +648,23 @@ setup_page:
     add eax, 0x1000 ;4096 = size page table
     loop .create_kernel_pde
     ret
+;===============================================================================
+;setpage(start_addr, count)
+; ebp+4 --> count    e.g 1024
+; ebp+8 --> start_addr e.g ebx
+
+setpage:
+    mov ecx, [ebp+4]
+    mov esi, 0
+    mov edx, PG_US_U | PG_RW_W | PG_P
+.c_pte:
+    mov ebx, [ebp+8]
+    mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry
+    add edx, 4096 ; 4096b=0x1000=4b*1024 size of one page
+    inc esi
+    loop .c_pte
+    ret
+
 ;===============================================================================
 ; void read_hard_disk_32(sector_number, base_address,count_of_read-in_sector)
 ; Read n sector from hard disk 
@@ -782,3 +811,19 @@ copyMem:
     cld
     rep movsb
     ret
+
+;===============================================================================
+; void clearmem(start_addr, size)
+;     ebp+4 ---> size in byte
+;     ebp+8 ---> start_addr
+clearmem:
+    mov ebp, esp
+    mov ecx, [ebp+4]
+    mov esi, 0
+.clear_mem:
+    mov eax, [ebp+8]
+    mov byte [eax + esi],0
+    inc esi
+    loop .clear_mem
+    ret
+
