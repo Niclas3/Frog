@@ -272,66 +272,66 @@ __asm__("cld\n\t"
 return __res;
 }
 
-extern char * ___strtok;
-
-extern inline char * strtok(char * s,const char * ct)
-{
-register char * __res __asm__("si");
-__asm__("testl %1,%1\n\t"
-	"jne 1f\n\t"
-	"testl %0,%0\n\t"
-	"je 8f\n\t"
-	"movl %0,%1\n"
-	"1:\txorl %0,%0\n\t"
-	"movl $-1,%%ecx\n\t"
-	"xorl %%eax,%%eax\n\t"
-	"cld\n\t"
-	"movl %4,%%edi\n\t"
-	"repne\n\t"
-	"scasb\n\t"
-	"notl %%ecx\n\t"
-	"decl %%ecx\n\t"
-	"je 7f\n\t"			/* empty delimeter-string */
-	"movl %%ecx,%%edx\n"
-	"2:\tlodsb\n\t"
-	"testb %%al,%%al\n\t"
-	"je 7f\n\t"
-	"movl %4,%%edi\n\t"
-	"movl %%edx,%%ecx\n\t"
-	"repne\n\t"
-	"scasb\n\t"
-	"je 2b\n\t"
-	"decl %1\n\t"
-	"cmpb $0,(%1)\n\t"
-	"je 7f\n\t"
-	"movl %1,%0\n"
-	"3:\tlodsb\n\t"
-	"testb %%al,%%al\n\t"
-	"je 5f\n\t"
-	"movl %4,%%edi\n\t"
-	"movl %%edx,%%ecx\n\t"
-	"repne\n\t"
-	"scasb\n\t"
-	"jne 3b\n\t"
-	"decl %1\n\t"
-	"cmpb $0,(%1)\n\t"
-	"je 5f\n\t"
-	"movb $0,(%1)\n\t"
-	"incl %1\n\t"
-	"jmp 6f\n"
-	"5:\txorl %1,%1\n"
-	"6:\tcmpb $0,(%0)\n\t"
-	"jne 7f\n\t"
-	"xorl %0,%0\n"
-	"7:\ttestl %0,%0\n\t"
-	"jne 8f\n\t"
-	"movl %0,%1\n"
-	"8:"
-	:"=b" (__res),"=S" (___strtok)
-	:"0" (___strtok),"1" (s),"g" (ct)
-	:"ax","cx","dx","di");
-return __res;
-}
+// extern char * ___strtok;
+//
+// extern inline char * strtok(char * s,const char * ct)
+// {
+// register char * __res __asm__("si");
+// __asm__("testl %1,%1\n\t"
+// 	"jne 1f\n\t"
+// 	"testl %0,%0\n\t"
+// 	"je 8f\n\t"
+// 	"movl %0,%1\n"
+// 	"1:\txorl %0,%0\n\t"
+// 	"movl $-1,%%ecx\n\t"
+// 	"xorl %%eax,%%eax\n\t"
+// 	"cld\n\t"
+// 	"movl %4,%%edi\n\t"
+// 	"repne\n\t"
+// 	"scasb\n\t"
+// 	"notl %%ecx\n\t"
+// 	"decl %%ecx\n\t"
+// 	"je 7f\n\t"			/* empty delimeter-string */
+// 	"movl %%ecx,%%edx\n"
+// 	"2:\tlodsb\n\t"
+// 	"testb %%al,%%al\n\t"
+// 	"je 7f\n\t"
+// 	"movl %4,%%edi\n\t"
+// 	"movl %%edx,%%ecx\n\t"
+// 	"repne\n\t"
+// 	"scasb\n\t"
+// 	"je 2b\n\t"
+// 	"decl %1\n\t"
+// 	"cmpb $0,(%1)\n\t"
+// 	"je 7f\n\t"
+// 	"movl %1,%0\n"
+// 	"3:\tlodsb\n\t"
+// 	"testb %%al,%%al\n\t"
+// 	"je 5f\n\t"
+// 	"movl %4,%%edi\n\t"
+// 	"movl %%edx,%%ecx\n\t"
+// 	"repne\n\t"
+// 	"scasb\n\t"
+// 	"jne 3b\n\t"
+// 	"decl %1\n\t"
+// 	"cmpb $0,(%1)\n\t"
+// 	"je 5f\n\t"
+// 	"movb $0,(%1)\n\t"
+// 	"incl %1\n\t"
+// 	"jmp 6f\n"
+// 	"5:\txorl %1,%1\n"
+// 	"6:\tcmpb $0,(%0)\n\t"
+// 	"jne 7f\n\t"
+// 	"xorl %0,%0\n"
+// 	"7:\ttestl %0,%0\n\t"
+// 	"jne 8f\n\t"
+// 	"movl %0,%1\n"
+// 	"8:"
+// 	:"=b" (__res),"=S" (___strtok)
+// 	:"0" (___strtok),"1" (s),"g" (ct)
+// 	:"ax","cx","dx","di");
+// return __res;
+// }
 
 extern inline void * memcpy(void * dest,const void * src, int n)
 {
