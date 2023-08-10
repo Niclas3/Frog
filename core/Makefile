@@ -7,10 +7,12 @@ BUILD_DIR = ./build
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/hid.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
-	 $(BUILD_DIR)/memory.o \
+	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/panic.o\
 	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/debug.o \
 	 $(BUILD_DIR)/string.o $(BUILD_DIR)/core.o
 
+$(BUILD_DIR)/panic.o: panic.c
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 $(BUILD_DIR)/memory.o: mm/memory.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 
