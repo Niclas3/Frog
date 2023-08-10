@@ -31,7 +31,7 @@ void set_value_bitmap(struct bitmap *bmap, uint_32 bit_pos, uint_8 value)
 }
 
 // count as a bit
-uint_32 set_block_value_bitmap(struct bitmap *bmap, uint_32 cnt, uint_8 value)
+uint_32 find_block_bitmap(struct bitmap *bmap, uint_32 cnt)
 {
     if(cnt == 0){ return -1; }
     // 1.If cnt bigger than 8 aka 1 byte, then to find continued a byte.

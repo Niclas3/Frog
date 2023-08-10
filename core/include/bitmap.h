@@ -10,7 +10,7 @@ struct bitmap{
 
 void init_bitmap(struct bitmap *bmap);
 void set_value_bitmap(struct bitmap *bmap, uint_32 bit_pos, uint_8 value);
-uint_32 set_block_value_bitmap(struct bitmap *bmap, uint_32 cnt, uint_8 value);
+uint_32 find_block_bitmap(struct bitmap *bmap, uint_32 cnt);
 uint_32 get_value_bitmap( struct bitmap *bmap,  uint_32 bit_pos);
 
 #endif
