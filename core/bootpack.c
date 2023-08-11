@@ -13,8 +13,7 @@
 #include <oslib.h>
 #include <protect.h>
 
-#include <bitmap.h>
-
+#include <sys/memory.h>
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -49,36 +48,17 @@ void UkiMain(void)
     /* int mx = 70; */
     /* int my = 50; */
 
-
     draw_backgrond(info.vram, info.scrnx, info.scrny);
-    uint_8 bitmap[20] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                        0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-    struct bitmap bmap = {.bits = bitmap, .map_bytes_length = 20};
-    init_bitmap(&bmap);
-    set_value_bitmap(&bmap, 0, 1);  // 50 bit set to 1
-    uint_8 a = set_block_value_bitmap(&bmap, 20, 1);
-    draw_hex((char *) info.vram, info.scrnx, COL8_840000, 0, 0, a);
-    /* for (int i = 0; i < (bmap.map_bytes_length) * 8; i++) { */
-    /*     set_value_bitmap(&bmap, i, 1);  // 50 bit set to 1 */
-    /* } */
-
-    for (int i = 0; i < (bmap.map_bytes_length) * 8-8; i++) {
-        set_value_bitmap(&bmap, i, 1);  // 50 bit set to 1
-    }
-    a = set_block_value_bitmap(&bmap, 3, 1);
-    draw_hex((char *) info.vram, info.scrnx, COL8_840084, 0, 16, a);
-    a = set_block_value_bitmap(&bmap, 5, 1);
-    draw_hex((char *) info.vram, info.scrnx, COL8_840084, 0, 16+16, a);
-    a = set_block_value_bitmap(&bmap, 8, 1);
-    draw_hex((char *) info.vram, info.scrnx, COL8_840084, 0, 16+16+16, a);
-    a = set_block_value_bitmap(&bmap, 0, 1);
-    draw_hex((char *) info.vram, info.scrnx, COL8_840084, 0, 16+16+16+16, a);
 
     /* char *mcursor =(char*) 0x7c00; */
     /* draw_cursor8(mcursor, COL8_848484); */
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
      */
+
+    mem_init();
+    /* uint_32 vaddress = (uint_32) get_kernel_page(2); */
+
+    /* draw_hex(info.vram, info.scrnx, COL8_848484, 0, 0,vaddress); */
 
     for (;;) {
         _io_cli();
