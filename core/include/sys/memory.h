@@ -12,7 +12,7 @@ struct virtual_addr {
 typedef enum mem_pool_type{
     MP_KERNEL = 1,
     MP_USER
-}pool_type;
+} pool_type;
 
 /* P bit shows if or not this entry in memory 
  * R/W W bit shows read / execute
@@ -35,7 +35,7 @@ struct pool {
 void mem_init(void);
 
 //Picking a pool return a free v_address
-static void* get_free_vaddress(enum mem_pool_type poolt, uint_32 pg_cnt);
+static void* get_free_vaddress(pool_type poolt, uint_32 pg_cnt);
 
 // get or free 4k phy memory aka 1 page -> pte
 void* get_free_page(struct pool *mpool);
@@ -50,7 +50,7 @@ void free_page(struct pool *mpool, uint_32 phy_addr_page);
 // combine v address -> phy address
 // v_addr from `get_free_vaddress`
 // phy_addr from `get_free_page()`
-void put_page(uint_32 v_addr, uint_32  phy_addr);
+void put_page(void *v_addr, void* phy_addr);
 
 // Get kernel page from memory
 void* get_kernel_page(uint_32 pg_cnt);
