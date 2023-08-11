@@ -634,19 +634,43 @@ setup_page:
     inc esi
     loop .create_pte
 
-; Other PDE
+; Other 7 PDEs
+; 2nd page table address
+; int_32 pt_address = 0x2000;
+; int_32 pde = pt_address | PG_US_U | PG_RW_W | PG_P;
     mov eax, PAGE_DIR_START
-    add eax, 0x2000           ; 2nd page table address
+    add eax, 0x2000
     or  eax, PG_US_U | PG_RW_W | PG_P
 
     mov ebx, PAGE_DIR_START
-    mov ecx, 254
-    mov esi, 769
-.create_kernel_pde:
-    mov [ebx+esi*4], eax ; no.769 ~ no.1023 pde -> 2nd page address
+    mov ecx, 7 ; 7 page tables represent for 7 * 4M
+    mov esi, 1 ; the first page tables has already set
+.create_pde:
+    mov [ebx+esi*4], eax
     inc esi
-    add eax, 0x1000 ;4096 = size page table
-    loop .create_kernel_pde
+    add eax, 0x1000
+    loop .create_pde
+
+;First page  .pg1
+    mov ebx, PAGE_DIR_START
+    add ebx, 0x2000
+    mov ecx, 1024
+    mov esi, 0
+    mov edx, PG_US_U | PG_RW_W | PG_P
+.create_pg1_pte:
+    mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry
+    add edx, 4096        ; 4096b=0x1000=4b*1024 size of one page
+    inc esi
+    loop .create_pg1_pte
+
+;     mov ebx, PAGE_DIR_START
+;     mov ecx, 254
+;     mov esi, 769
+; .create_kernel_pde:
+;     mov [ebx+esi*4], eax ; no.769 ~ no.1023 pde -> 2nd page address
+;     inc esi
+;     add eax, 0x1000 ;4096 = size page table
+;     loop .create_kernel_pde
     ret
 ;===============================================================================
 ;setpage(start_addr, count)
