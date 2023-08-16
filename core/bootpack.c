@@ -28,7 +28,7 @@ void UkiMain(void)
                      .vmode = 0,
                      .reserve = 0};
 
-    /* init_gdt(); */
+    init_gdt();
     init_idt();
 
     init_8259A();
@@ -56,9 +56,16 @@ void UkiMain(void)
      */
 
     mem_init();
-    /* uint_32 vaddress = (uint_32) get_kernel_page(2); */
+    /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
+    /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
+    /* draw_hex(info.vram, info.scrnx, COL8_848400, 16 * (5 + 2), 0, vaddress2); */
+    /* uint_32 vaddress1 = (uint_32) get_kernel_page(10); */
+    /*  */
+    /* uint_32 vaddress3 = (uint_32) get_kernel_page(2); */
+    /* draw_hex(info.vram, info.scrnx, COL8_848400, 16 * (5 + 10), 0, vaddress3); */
 
-    /* draw_hex(info.vram, info.scrnx, COL8_848484, 0, 0,vaddress); */
+    /* uint_32 vaddress4 = (uint_32) get_kernel_page(0); */
+    /* draw_hex(info.vram, info.scrnx, COL8_848484, 60, 0,vaddress4); */
 
     for (;;) {
         _io_cli();
