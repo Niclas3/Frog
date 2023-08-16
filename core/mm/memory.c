@@ -6,7 +6,15 @@
 
 #include <sys/graphic.h>
 
-#define K_HEAP_START 0xc0100000
+//Assume that core.o is 70kb aka 0x11800
+//and start at 0x80000
+//so the end is 0x80000 + 0x11800 = 0x91800
+#define K_HEAP_START 0x00092000
+// to                      0xa0000
+// 14 pages aka 14 * 4kb = 0xe000
+// 1 page dir table and 8 page table
+#define PDT_COUNT 1
+#define PGT_COUNT 8
 
 struct pool kernel_pool;
 struct pool user_pool;
@@ -20,29 +28,45 @@ struct virtual_addr kernel_viraddr;
 static void mem_pool_init(uint_32 all_mem)
 {
     // 1 page dir table and 8 page table
-    uint_32 page_table_size = PG_SIZE * 256;
-    uint_32 used_mem = page_table_size + 0x100000;
+    uint_32 page_table_size = PG_SIZE * (PDT_COUNT + PGT_COUNT);
+    /*
+     *  page table start at 0x100000 (aka 1MB)
+     *  used_mem = page_table_size + 1MB
+     *  1MB includes 0xa000 and 0xb800
+     **/
+    /* uint_32 used_mem = page_table_size + 0x100000;  
+     * I put page table at 0x0
+     * */
+    uint_32 used_mem = 0x100000;
+    /*
+     *  all_mem for now is 32MB
+     *  It must be calculate by loader.s before entering protected mode
+     * */
     uint_32 free_mem = all_mem - used_mem;
     uint_16 all_free_pages = free_mem / PG_SIZE;
 
-    draw_hex(0xa0000, 320, COL8_00FFFF, 0, 0, page_table_size);
-    draw_hex(0xa0000, 320, COL8_00FFFF, 0, 16, used_mem);
-    draw_hex(0xa0000, 320, COL8_00FFFF, 0, 32, all_mem);
-    draw_hex(0xa0000, 320, COL8_00FFFF, 0, 32+16, free_mem);
-    draw_hex(0xa0000, 320, COL8_00FFFF, 0, 32+16+16, all_free_pages);
-
+    /* kernel used memory vs user used memory
+     * */
     uint_16 kernel_free_page = all_free_pages / 2;
     uint_16 user_free_page = all_free_pages - kernel_free_page;
 
     // Kernel bitmap length
+    // In bitmap 1 bit represents a free page.
+    // div 8 for how many one byte
     uint_32 kbm_length = kernel_free_page / 8;
+
     // user space bitmap length
     uint_32 ubm_length = user_free_page / 8;
 
     // Kernel pool start
+    // First address of free memory
+    // kp_start = 0x0100000;  //1M
     uint_32 kp_start = used_mem;
     // User pool start
+    // up_start  = 0x1080000;  // 15.5Mb kernel physical memory
+    // free_page = 0xf80; // 3968
     uint_32 up_start = kp_start + kernel_free_page * PG_SIZE;
+
 
     kernel_pool.phy_addr_start = kp_start;
     user_pool.phy_addr_start = up_start;
@@ -53,8 +77,10 @@ static void mem_pool_init(uint_32 all_mem)
     kernel_pool.pool_bitmap.map_bytes_length = kbm_length;
     user_pool.pool_bitmap.map_bytes_length = ubm_length;
 
+    /* draw_hex(0xa0000, 320, COL8_848400, 16 * (5 + 10), 0, kbm_length); */
+    /* draw_hex(0xa0000, 320, COL8_848400, 16 * (5 + 2), 0, ubm_length); */
 
-    // kernel pool bit map fix at MEM_BITMAP_BASE
+    // kernel pool bit map fix at MEM_BITMAP_BASE 0x9a00
     kernel_pool.pool_bitmap.bits = (void *) MEM_BITMAP_BASE;
     user_pool.pool_bitmap.bits = (void *) (MEM_BITMAP_BASE + kbm_length);
 
@@ -177,6 +203,7 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 {
     ASSERT(pg_cnt > 0 && pg_cnt < 3840);
     void *vaddr_start = get_free_vaddress(poolt, pg_cnt);
+    draw_hex(0xa0000, 320, COL8_840000, 16 * (5 + 2), 70, vaddr_start);
     if (vaddr_start == NULL) {
         return NULL;
     }
@@ -187,6 +214,7 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 
     while (cnt--) {
         void *phyaddrs = get_free_page(mem_pool);
+    draw_hex(0xa0000, 320, COL8_848400, 16 * (5 + 2), 0, phyaddrs);
         if (phyaddrs == NULL) {
             return NULL;
         }
