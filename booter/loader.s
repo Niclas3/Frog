@@ -623,13 +623,15 @@ setup_page:
 ; 4M / 4K = 1024  This max
 
 ;Page table manage size 
-PG_MSIZE_1M equ 256
-PG_MSIZE_2M equ 512
-PG_MSIZE_3M equ 768
-PG_MSIZE_4M equ 1024
+PG_MSIZE_256K equ 64
+PG_MSIZE_512K equ 128
+PG_MSIZE_1M   equ 256
+PG_MSIZE_2M   equ 512
+PG_MSIZE_3M   equ 768
+PG_MSIZE_4M   equ 1024
 
 ;First page  .pg0
-    mov ecx, PG_MSIZE_2M
+    mov ecx, PG_MSIZE_1M
     mov esi, 0
     mov edx, PG_US_U | PG_RW_W | PG_P
 .create_pte:

@@ -56,7 +56,7 @@ void UkiMain(void)
      */
 
     mem_init();
-    /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
+    uint_32 vaddress2 = (uint_32) get_kernel_page(1);
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 16 * (5 + 2), 0, vaddress2); */
     /* uint_32 vaddress1 = (uint_32) get_kernel_page(10); */

@@ -155,9 +155,10 @@ uint_32 *pte_ptr(uint_32 vaddr)
     // It will get pdt table address
     // top    10 bits 0xffc    <--- this is the last PDE point to page aka PDT
     // middle 10 bits (vaddr's top 10 bits which is original pde index)
-    uint_32 *target_pde = (uint_32 *) 0xffc00000 +
-                          ((vaddr & 0xffc00000) >> 10) + +PTE_IDX(vaddr) * 4;
-    return target_pde;
+    uint_32 target_pte = (0xffc00000 +
+                          ((vaddr & 0xffc00000) >> 10) +
+                          PTE_IDX(vaddr) * 4);
+    return (uint_32 *)target_pte;
 }
 
 uint_32 *pde_ptr(uint_32 vaddr)
@@ -167,8 +168,8 @@ uint_32 *pde_ptr(uint_32 vaddr)
     // top    10 bits 0x3ff   <-- the last entry of PDT
     // middle 10 bits 0x3ff   <-- pointer to self (same PDT) again
     // bottom 12 pde_idx      <-- target entry
-    uint_32 *target_pte = (uint_32 *) (0xfffff000 + PDE_IDX(vaddr) * 4);
-    return target_pte;
+    uint_32 *target_pde = (uint_32 *) (0xfffff000 + PDE_IDX(vaddr) * 4);
+    return target_pde;
 }
 // Combine v address -> phy address
 void put_page(void *v_addr, void *phy_addr)
@@ -180,11 +181,14 @@ void put_page(void *v_addr, void *phy_addr)
 
     // test P bit of vaddress
     if (*pde & 0x00000001) {
-        ASSERT(!(*pte & 0x00000001));
+        // TODO:
+        // test if pte is exist
+        // should re-consider v-address start 
+        /* ASSERT(!(*pte & 0x00000001)); */
         if ((!(*pte & 0x00000001))) {
             *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
         } else {
-            panic("pte exists");
+            /* panic("pte exists"); */
             *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
         }
     } else {
@@ -203,7 +207,6 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 {
     ASSERT(pg_cnt > 0 && pg_cnt < 3840);
     void *vaddr_start = get_free_vaddress(poolt, pg_cnt);
-    draw_hex(0xa0000, 320, COL8_840000, 16 * (5 + 2), 70, vaddr_start);
     if (vaddr_start == NULL) {
         return NULL;
     }
@@ -214,7 +217,6 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 
     while (cnt--) {
         void *phyaddrs = get_free_page(mem_pool);
-    draw_hex(0xa0000, 320, COL8_848400, 16 * (5 + 2), 0, phyaddrs);
         if (phyaddrs == NULL) {
             return NULL;
         }
