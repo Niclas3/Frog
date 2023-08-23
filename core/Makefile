@@ -7,10 +7,14 @@ BUILD_DIR = ./build
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/hid.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
-	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/panic.o\
+	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/threads.o \
+         $(BUILD_DIR)/panic.o  $(BUILD_DIR)/string.o \
 	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/debug.o \
 	 $(BUILD_DIR)/core.o
-# $(BUILD_DIR)/string.o 
+ 
+
+$(BUILD_DIR)/threads.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "threads.c")
 
 $(BUILD_DIR)/panic.o: panic.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
@@ -20,8 +24,8 @@ $(BUILD_DIR)/memory.o: mm/memory.c
 $(BUILD_DIR)/bitmap.o: lib/bitmap.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 
-# $(BUILD_DIR)/string.o: lib/string.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -fno-builtin $^
+$(BUILD_DIR)/string.o: lib/string.c
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -fno-builtin $^
 
 $(BUILD_DIR)/debug.o: lib/debug.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
