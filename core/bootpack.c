@@ -13,7 +13,10 @@
 #include <oslib.h>
 #include <protect.h>
 
+#include <sys/threads.h>
 #include <sys/memory.h>
+
+void func(int a);
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -56,8 +59,10 @@ void UkiMain(void)
      */
 
     mem_init();
-    uint_32 vaddress2 = (uint_32) get_kernel_page(1);
-    draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2);
+    TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 1);
+
+    /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
+    /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 16 * (5 + 2), 0, vaddress2); */
     /* uint_32 vaddress1 = (uint_32) get_kernel_page(10); */
     /*  */
@@ -80,4 +85,16 @@ void UkiMain(void)
             draw_info(info.vram, info.scrnx, COL8_FFFFFF, 0, 0, scan_code);
         }
     }
+}
+
+void func(int a){
+    int colors[6] = {
+        COL8_848400,
+        COL8_FFFFFF,
+        COL8_000084,
+        COL8_008484,
+        COL8_C6C6C6,
+        COL8_FF00FF
+    };
+    draw_info(0xa0000, 320, colors[a], 0, 0,"test");
 }

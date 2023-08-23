@@ -11,6 +11,7 @@ static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
 /* Init TCB 
  */
 void init_thread(TCB_t* thread, char* name, uint_8 priority){
+    //set all 0 for thread memory
     memset(thread, 0, sizeof(*thread));
     strcpy(thread->name, name);
     thread->status = SYS_THREAD_TASK_RUNNING;
@@ -28,13 +29,13 @@ void create_thread(TCB_t *thread, __routine_t func, void* arg){
 
     thread->self_kstack -= sizeof(struct thread_stack);
     struct thread_stack* kthread_stack = (struct thread_stack*)thread->self_kstack;
-    kthread_stack->eip = kernel_thread ;
-    kthread_stack->function = func;
-    kthread_stack->func_arg = arg;
     kthread_stack->ebp = 0;
     kthread_stack->ebx = 0;
     kthread_stack->esi = 0;
     kthread_stack->edi = 0;
+    kthread_stack->eip = kernel_thread ;
+    kthread_stack->function = func;
+    kthread_stack->func_arg = arg;
 }
 
 TCB_t* thread_start(char* name,
@@ -43,8 +44,13 @@ TCB_t* thread_start(char* name,
                    void* arg){
     TCB_t *thread = get_kernel_page(1) ;
     init_thread(thread, name, priority);
-    create_thread(thread, name, priority);
+    create_thread(thread, func, arg);
 
+    //I set ebp, ebx, edi, and esi at kthread_stack which is thread->self_kstack
+    //so set esp to thread->self_kstack then pop all registers, and use `ret`
+    //jump to right function,
+    //which address at kthread_stack->function
+    //      arg     at kthread_stack->func_arg
     __asm__ volatile ("movl %0, %%esp;\
                        pop %%ebp;\
                        pop %%ebx;\

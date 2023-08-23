@@ -63,10 +63,12 @@ struct thread_stack {
 typedef struct thread_control_block {
     uint_32 *self_kstack;
     task_status_t status;
-    uint_8 priority;
+    uint_32       priority;
     char name[16];
     uint_32 stack_magic; // mark the board of stack
 } TCB_t;
 
+
+TCB_t* thread_start(char* name, int priority, __routine_t func, void* arg);
 
 #endif
