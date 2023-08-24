@@ -6,13 +6,14 @@ BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/hid.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
-	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
+	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o $(BUILD_DIR)/list.o \
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/threads.o \
          $(BUILD_DIR)/panic.o  $(BUILD_DIR)/string.o \
 	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/debug.o \
 	 $(BUILD_DIR)/core.o
  
-
+$(BUILD_DIR)/list.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "list.c")
 $(BUILD_DIR)/threads.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "threads.c")
 
@@ -35,6 +36,7 @@ $(BUILD_DIR)/protect.o: protect.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 $(BUILD_DIR)/hid.o:
 	cd ./hid && $(MAKE) hid.o
+
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
 $(BUILD_DIR)/int.o:
