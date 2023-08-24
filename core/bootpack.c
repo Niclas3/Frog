@@ -13,8 +13,11 @@
 #include <oslib.h>
 #include <protect.h>
 
+// test
 #include <sys/threads.h>
 #include <sys/memory.h>
+#include <list.h>
+
 
 void func(int a);
 
@@ -40,6 +43,8 @@ void UkiMain(void)
     init_keyboard();
     enable_mouse();
 
+    mem_init();
+
     /* init_palette(); */
 
     /* int pysize = 16; */
@@ -53,15 +58,14 @@ void UkiMain(void)
 
     draw_backgrond(info.vram, info.scrnx, info.scrny);
 
-    /* char *mcursor =(char*) 0x7c00; */
+    /* char *mcursor = get_kernel_page(1); */
     /* draw_cursor8(mcursor, COL8_848484); */
-    /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
-     */
+    /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
 
-    mem_init();
-    TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 1);
+    /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4); */
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
+    /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 16 * (5 + 2), 0, vaddress2); */
     /* uint_32 vaddress1 = (uint_32) get_kernel_page(10); */
