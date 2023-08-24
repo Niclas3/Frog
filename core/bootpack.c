@@ -56,7 +56,9 @@ void UkiMain(void)
     /* int mx = 70; */
     /* int my = 50; */
 
+    _io_cli();
     draw_backgrond(info.vram, info.scrnx, info.scrny);
+    _io_sti();
 
     /* char *mcursor = get_kernel_page(1); */
     /* draw_cursor8(mcursor, COL8_848484); */

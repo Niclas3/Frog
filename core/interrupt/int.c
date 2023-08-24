@@ -63,13 +63,16 @@ void inthandler21(){
  **/
 void inthandler20(){
     _io_out8(PIC0_OCW2, PIC_EOI_IRQ0);
+    _io_cli();
     static uint_8 switch_point = 0;
     if(switch_point == 0){
         putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "Clock");
         switch_point = 1;
+        _io_sti();
     } else {
         putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_FFFFFF, "Clock");
         switch_point = 0;
+        _io_sti();
     }
     return;
 }
@@ -110,5 +113,8 @@ void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags)
 			    "#XF SIMD Floating-Point Exception"
 	};
 
-    putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_FF0000, (unsigned char*)err_msg[vec_no]);
+        draw_hex(0xa0000,320,COL8_FF0000,0,0, vec_no);
+        return;
+    /* draw_info(0xa0000,320,COL8_FF0000,0,0, err_msg[vec_no]); */
+    /* putfonts8_asc((char *)0xa0000, 320, 0, 0, COL8_FF0000, (unsigned char*)err_msg[vec_no]); */
 }

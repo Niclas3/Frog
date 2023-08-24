@@ -31,8 +31,8 @@ void init_8259A(){
     //               IRQ2 is link point 
     //               IRQ1 is keyboard interrupt
     
-    _io_out8(PIC0_OCW1, PIC_OPEN_IRQ2 & PIC_OPEN_IRQ1);
-    /* _io_out8(PIC0_OCW1, PIC_OPEN_IRQ0 & PIC_OPEN_IRQ2 & PIC_OPEN_IRQ1); */
+    /* _io_out8(PIC0_OCW1, PIC_OPEN_IRQ2 & PIC_OPEN_IRQ1); */
+    _io_out8(PIC0_OCW1, PIC_OPEN_IRQ0 & PIC_OPEN_IRQ2 & PIC_OPEN_IRQ1);
     /* _io_out8(OCW1_M, PIC_OPEN_IRQ1); */
     _io_delay();
     //               IRQ12 is PS/2 mouse
