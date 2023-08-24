@@ -802,7 +802,8 @@ section_loop:
     push eax
     ; push 0x4000        ; The size of code you want to load
     ; push 0x5000        ; The size of code you want to load
-    push 0x6000        ; The size of code you want to load
+    ; push 0x6000        ; The size of code you want to load
+    push 0x8000        ; The size of code you want to load
     push KERNEL_START  ;0x80000 -> target address
 
     ; Call copymem(elf_base + sh_offset, size, 0x80000)
