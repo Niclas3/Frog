@@ -33,6 +33,17 @@ mouse: type=ps2, enabled=1, toggle=ctrl+f10
 keyboard: type=mf, serial_delay=200, paste_delay=100000
 keyboard: keymap=/usr/local/share/bochs/keymaps/x11-pc-us.map
 
+# Magic break
+# https://wiki.osdev.org/Bochs#Magic_Breakpoint
+# When you're using Bochs with the internal debugger, you can 
+# trigger the debugger via a facility called magic breakpoints. 
+# To trigger a breakpoint, you can insert `xchg bx, bx` 
+# (in GAS syntax, xchgw %bx, %bx) anywhere in the code and 
+# Bochs will trap into the debugger as soon as it executes it. 
+# On real hardware this has no effect as it merely 
+# replaces the BX register with itself.
+# You should put the following line in your Bochs configuration file to have it listen to magic breakpoints
+magic_break: enabled=1
 # debug with gdb 
 # gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
 

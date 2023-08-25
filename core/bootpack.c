@@ -67,7 +67,7 @@ void UkiMain(void)
     /* draw_cursor8(mcursor, COL8_848484); */
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
 
-    /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4); */
+    TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4);
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
@@ -99,5 +99,17 @@ void func(int a){
     for(int i = 0; i < 6; i++){
         boxfill8(0xa0000,320,colors[i], 20,20, 25, 25);
     }
-    while(1);
+    while(1){
+        _io_cli();
+        if (keybuf.flag == 0) {
+            _io_stihlt();
+        } else {
+            keybuf.flag = 0;
+            _io_sti();
+            char scan_code[15];  // be careful with the length of the buffer
+            int n = keybuf.data;
+            int len = itoa(n, scan_code, 16);
+            draw_info(0xa0000, 320, COL8_FFFFFF, 0, 0, scan_code);
+        }
+    };
 }

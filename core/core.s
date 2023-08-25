@@ -142,9 +142,9 @@ _io_delay:
 
 ;;; 0x20 Clock interrupt handler
 _asm_inthandler20:
-    ; PUSH	ES
-    ; PUSH	DS
-    ; PUSHAD
+    ; push es
+    ; push ds
+    ; pushad
     ; MOV		EAX,ESP
     ; PUSH	EAX
     ; MOV		AX,SS
@@ -159,6 +159,7 @@ _asm_inthandler20:
 
 ;;; 0x21 keyboard interrupt handler
 _asm_inthandler21:
+    ; xchg bx, bx
     call inthandler21
     IRETD
 
