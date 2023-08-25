@@ -31,7 +31,6 @@
  *   Finally, you finish the interrupt setting. 
  **/
 
-struct MOUBUF mousebuf;
 
 /* int 0x20;
  * Interrupt handler for inner Clock
@@ -50,19 +49,6 @@ void inthandler20(){
     /*     switch_point = 0; */
     _io_sti();
     /* } */
-    return;
-}
-
-/* int 0x2C;
- * Interrupt handler for PS/2 mouse
- **/
-void inthandler2C(){
-    _io_out8(PIC1_OCW2, PIC_EOI_IRQ12); // tell slave  IRQ12 is finish
-    _io_out8(PIC0_OCW2, PIC_EOI_IRQ2); // tell master IRQ2 is finish
-    char data = _io_in8(0x0060) ;
-    /* draw_hex(0xa0000,320,COL8_0000FF,16,15,data); */
-    /* putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse"); */
-
     return;
 }
 
