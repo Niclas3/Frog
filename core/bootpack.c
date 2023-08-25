@@ -67,7 +67,7 @@ void UkiMain(void)
     /* draw_cursor8(mcursor, COL8_848484); */
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
 
-    TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4);
+    /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4); */
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */

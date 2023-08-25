@@ -59,11 +59,6 @@
  **/
 void inthandler20();
 // void niclas_clock_handler();
-/*
- * int 0x21; 
- * Interrupt handler for Keyboard
- **/
-void inthandler21();
 
 /* int 0x2C;
  * Interrupt handler for PS/2 mouse

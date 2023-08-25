@@ -32,8 +32,14 @@
 #define KEYSTA_OUTPUT_BUFFER_FULL 0x01
 #define KEYSTA_SEND_NOTREADY      0x02
 
-void wait_KBC_sendready();
+void wait_KBC_sendready(void);
 
-void init_keyboard();
+void init_keyboard(void);
+
+/*
+ * int 0x21; 
+ * Interrupt handler for Keyboard
+ **/
+void inthandler21(void);
 
 #endif

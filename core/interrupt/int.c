@@ -5,7 +5,6 @@
 
 #include <global.h>
 
-#include <hid/keyboard.h>
 #include <hid/ps2mouse.h>
 
 /*     Interrupt handler function Usage
@@ -32,31 +31,7 @@
  *   Finally, you finish the interrupt setting. 
  **/
 
-struct KEYBUF keybuf;
 struct MOUBUF mousebuf;
-
-/*
- * int 0x21; 
- * Interrupt handler for Keyboard
- **/
-void inthandler21(){
-    _io_out8(PIC0_OCW2, PIC_EOI_IRQ1);
-    uint_8 scan_code =0x32;
-    _io_cli();
-    while (1){
-        if(_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
-            scan_code = _io_in8(PORT_KEYDATE); // get scan_code
-            if(keybuf.flag == 0){
-                keybuf.data = scan_code;
-                keybuf.flag = 1;
-            }
-        }else{
-            break;
-        }
-    }
-    _io_sti();
-    return;
-}
 
 /* int 0x20;
  * Interrupt handler for inner Clock
@@ -84,8 +59,8 @@ void inthandler20(){
 void inthandler2C(){
     _io_out8(PIC1_OCW2, PIC_EOI_IRQ12); // tell slave  IRQ12 is finish
     _io_out8(PIC0_OCW2, PIC_EOI_IRQ2); // tell master IRQ2 is finish
-    char data = _io_in8(PORT_KEYDATE) ;
-    draw_hex(0xa0000,320,COL8_0000FF,16,15,data);
+    char data = _io_in8(0x0060) ;
+    /* draw_hex(0xa0000,320,COL8_0000FF,16,15,data); */
     /* putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse"); */
 
     return;
