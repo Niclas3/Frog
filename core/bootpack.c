@@ -37,6 +37,8 @@ void UkiMain(void)
     init_gdt();
     init_idt();
 
+
+    // Set 8295A and set IF=1
     init_8259A();
     _io_sti();
 
@@ -44,6 +46,11 @@ void UkiMain(void)
     enable_mouse();
 
     mem_init();
+
+    _io_cli();
+    draw_backgrond(info.vram, info.scrnx, info.scrny);
+    _io_sti();
+
 
     /* init_palette(); */
 
@@ -56,27 +63,14 @@ void UkiMain(void)
     /* int mx = 70; */
     /* int my = 50; */
 
-    _io_cli();
-    draw_backgrond(info.vram, info.scrnx, info.scrny);
-    _io_sti();
-
     /* char *mcursor = get_kernel_page(1); */
     /* draw_cursor8(mcursor, COL8_848484); */
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
 
-    /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4); */
+    TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4);
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
-    /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
-    /* draw_hex(info.vram, info.scrnx, COL8_848400, 16 * (5 + 2), 0, vaddress2); */
-    /* uint_32 vaddress1 = (uint_32) get_kernel_page(10); */
-    /*  */
-    /* uint_32 vaddress3 = (uint_32) get_kernel_page(2); */
-    /* draw_hex(info.vram, info.scrnx, COL8_848400, 16 * (5 + 10), 0, vaddress3); */
-
-    /* uint_32 vaddress4 = (uint_32) get_kernel_page(0); */
-    /* draw_hex(info.vram, info.scrnx, COL8_848484, 60, 0,vaddress4); */
 
     for (;;) {
         _io_cli();
@@ -102,5 +96,8 @@ void func(int a){
         COL8_C6C6C6,
         COL8_FF00FF
     };
-    draw_info(0xa0000, 320, colors[a], 0, 0,"test");
+    for(int i = 0; i < 6; i++){
+        boxfill8(0xa0000,320,colors[i], 20,20, 25, 25);
+    }
+    while(1);
 }

@@ -62,18 +62,19 @@ void inthandler21(){
  * Interrupt handler for inner Clock
  **/
 void inthandler20(){
-    _io_out8(PIC0_OCW2, PIC_EOI_IRQ0);
     _io_cli();
-    static uint_8 switch_point = 0;
-    if(switch_point == 0){
-        putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "Clock");
-        switch_point = 1;
-        _io_sti();
-    } else {
-        putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_FFFFFF, "Clock");
-        switch_point = 0;
-        _io_sti();
-    }
+    /* _io_out8(PIC0_OCW2, PIC_EOI_IRQ0); */
+    _io_out8(PIC0_OCW2, 0x20);
+    /* static uint_8 switch_point = 0; */
+    /* if(switch_point == 0){ */
+    /*     putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "Clock"); */
+    /*     switch_point = 1; */
+    /*     _io_sti(); */
+    /* } else { */
+    /*     putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_FFFFFF, "Clock"); */
+    /*     switch_point = 0; */
+    _io_sti();
+    /* } */
     return;
 }
 
@@ -84,7 +85,8 @@ void inthandler2C(){
     _io_out8(PIC1_OCW2, PIC_EOI_IRQ12); // tell slave  IRQ12 is finish
     _io_out8(PIC0_OCW2, PIC_EOI_IRQ2); // tell master IRQ2 is finish
     char data = _io_in8(PORT_KEYDATE) ;
-    putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse");
+    draw_hex(0xa0000,320,COL8_0000FF,16,15,data);
+    /* putfonts8_asc((char *)0xa0000, 320, 16, 15, COL8_0000FF, "PS/2 Mouse"); */
 
     return;
 }
