@@ -54,13 +54,8 @@
 //-----------------------------------------------------------------------------
 //                     Interrupt Callback function 
 //-----------------------------------------------------------------------------
-/* int 0x20;
- * Interrupt handler for inner Clock
- **/
-void inthandler20();
-// void niclas_clock_handler();
 
 
-//
+
 void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags);
 #endif
