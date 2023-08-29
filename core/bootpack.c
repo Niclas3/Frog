@@ -99,17 +99,17 @@ void func(int a){
     for(int i = 0; i < 6; i++){
         boxfill8(0xa0000,320,colors[i], 20,20, 25, 25);
     }
-    while(1){
-        _io_cli();
-        if (keybuf.flag == 0) {
-            _io_stihlt();
-        } else {
-            keybuf.flag = 0;
-            _io_sti();
-            char scan_code[15];  // be careful with the length of the buffer
-            int n = keybuf.data;
-            int len = itoa(n, scan_code, 16);
-            draw_info(0xa0000, 320, COL8_FFFFFF, 0, 0, scan_code);
-        }
-    };
+    /* while(1){ */
+    /*     _io_cli(); */
+    /*     if (keybuf.flag == 0) { */
+    /*         _io_stihlt(); */
+    /*     } else { */
+    /*         keybuf.flag = 0; */
+    /*         _io_sti(); */
+    /*         char scan_code[15];  // be careful with the length of the buffer */
+    /*         int n = keybuf.data; */
+    /*         int len = itoa(n, scan_code, 16); */
+    /*         draw_info(0xa0000, 320, COL8_FFFFFF, 0, 0, scan_code); */
+    /*     } */
+    /* }; */
 }

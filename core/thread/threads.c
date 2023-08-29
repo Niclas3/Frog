@@ -6,6 +6,7 @@
 
 static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
     func_ptr(func_arg);
+    while(1);
 }
 
 /* Init TCB 
@@ -51,7 +52,8 @@ TCB_t* thread_start(char* name,
     //jump to right function,
     //which address at kthread_stack->function
     //      arg     at kthread_stack->func_arg
-    __asm__ volatile ("movl %0, %%esp;\
+    __asm__ volatile ("xchgw %%bx, %%bx;\
+                       movl %0, %%esp;\
                        pop %%ebp;\
                        pop %%ebx;\
                        pop %%edi;\
