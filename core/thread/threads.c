@@ -4,6 +4,8 @@
 
 #include <sys/memory.h>
 
+#include <sys/graphic.h>
+
 static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
     func_ptr(func_arg);
     while(1);
@@ -26,9 +28,12 @@ void init_thread(TCB_t* thread, char* name, uint_8 priority){
 /* Set context ready to execute
  */
 void create_thread(TCB_t *thread, __routine_t func, void* arg){
-    thread->self_kstack -= sizeof(struct context_registers);
 
-    thread->self_kstack -= sizeof(struct thread_stack);
+    uint_32 context_reg_sz = sizeof(struct context_registers);
+    uint_32 thread_stack_sz = sizeof(struct thread_stack);
+    thread->self_kstack = (uint_32 *)((uint_32)thread->self_kstack - context_reg_sz);
+    thread->self_kstack = (uint_32 *)((uint_32)thread->self_kstack - thread_stack_sz);
+
     struct thread_stack* kthread_stack = (struct thread_stack*)thread->self_kstack;
     kthread_stack->ebp = 0;
     kthread_stack->ebx = 0;
@@ -52,8 +57,8 @@ TCB_t* thread_start(char* name,
     //jump to right function,
     //which address at kthread_stack->function
     //      arg     at kthread_stack->func_arg
-    __asm__ volatile ("xchgw %%bx, %%bx;\
-                       movl %0, %%esp;\
+    /* __asm__ volatile ("xchgw %bx, %bx;"); */
+    __asm__ volatile ("movl %0, %%esp;\
                        pop %%ebp;\
                        pop %%ebx;\
                        pop %%edi;\
