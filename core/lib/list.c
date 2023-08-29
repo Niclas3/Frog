@@ -1,5 +1,6 @@
 #include <list.h>
-
+#include <const.h>
+#include <debug.h>
 /**
  * INIT_LIST_HEAD() - Initialize empty list head
  * @head: pointer to list head
@@ -22,12 +23,49 @@ inline void init_list_head(struct list_head *head)
 }
 
 /**
+ * list_find_element(struct list_head *head,)
+ * @node: pointer to the new node
+ * @head: pointer to the head of the list
+ * return 0 == not find
+ * other find
+ * */
+inline int list_find_element(struct list_head *node , struct list_head *head){
+    struct list_head *next = head->next;
+    for(;next != node && next != head->prev;){
+        next = next->next;
+    }
+   return (next != head->prev);
+}
+
+/**
+ * map_list(struct list_head *head, function func, uint_32 arg)
+ * @head: pointer to the head of the list
+ * @func: test function
+ * @arg : arg for function
+ *
+ * */
+inline struct list_head* map_list(struct list_head *head, int func(struct list_head *,int), int arg){
+    if(list_is_empty(head)){
+        return NULL;
+    }
+    struct list_head *next = head->next;
+    while(next != head->prev){
+        if(func(next, arg)){
+            return next;
+        }
+        next = next->next;
+    }
+    return NULL;
+}
+
+/**
  * list_length() - count lenght of giving list
  * @head: pointer of head
  */
 inline int list_length(struct list_head *head)
 {
     if((head->next == head->prev) && head->next == head) return 0;
+    ASSERT(head->next != 0 && head->prev != 0);
     int length = 1;
     struct list_head *iter = head->next;
     for(;iter != head->prev;){
@@ -98,7 +136,8 @@ inline void list_del_init(struct list_head *node){
  * list_empty() - Check if list head has no nodes attached
  * @head: pointer to the head of the list
  *
- * Return: 0 - list is not empty !0 - list is empty
+ * Return: 0 - list is not empty 
+ *        !0 - list is empty
  */
 inline int list_is_empty(const struct list_head *head){
     return (head->next == head);

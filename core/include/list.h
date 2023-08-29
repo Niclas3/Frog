@@ -58,24 +58,59 @@ struct list_head {
 #endif
 
 /**
+ * INIT_LIST_HEAD() - Initialize empty list head
+ * @head: pointer to list head
+ *
+ * This can also be used to initialize a unlinked list node.
+ *
+ * A node is usually linked inside a list, will be added to a list in
+ * the near future or the entry containing the node will be free'd soon.
+ *
+ * But an unlinked node may be given to a function which uses list_del(_init)
+ * before it ends up in a previously mentioned state. The list_del(_init) on an
+ * initialized node is well defined and safe. But the result of a
+ * list_del(_init) on an uninitialized node is undefined (unrelated memory is
+ * modified, crashes, ...).
+ */
+void init_list_head(struct list_head *head);
+
+/**
+ * list_find_element(struct list_head *head,)
+ * @node: pointer to the new node
+ * @head: pointer to the head of the list
+ * return 0 == not find 
+ * other find
+ * */
+inline int list_find_element(struct list_head *node , struct list_head *head);
+
+/**
+ * map_list(struct list_head *head, function func, uint_32 arg)
+ * @head: pointer to the head of the list
+ * @func: test function
+ * @arg : arg for function
+ *
+ * */
+inline struct list_head* map_list(struct list_head *head, int func(struct list_head *,int), int arg);
+
+/**
  * list_length() - count lenght of giving list
  * @head: pointer of head
  */
-inline int list_length(struct list_head *head);
+int list_length(struct list_head *head);
 
 /**
  * list_add() - Add a list node to the beginning of the list
  * @node: pointer to the new node
  * @head: pointer to the head of the list
  */
-inline void list_add(struct list_head *node, struct list_head *head);
+void list_add(struct list_head *node, struct list_head *head);
 
 /**
  * list_add_tail() - Add a list node to the end of the list
  * @node: pointer to the new node
  * @head: pointer to the head of the list
  */
-inline void list_add_tail(struct list_head *node, struct list_head *head);
+void list_add_tail(struct list_head *node, struct list_head *head);
 
 /**
  * list_del() - Remove a list node from the list
@@ -93,7 +128,7 @@ inline void list_add_tail(struct list_head *node, struct list_head *head);
  * This only works on systems which prohibit access to the predefined memory
  * addresses.
  */
-inline void list_del(struct list_head *node);
+void list_del(struct list_head *node);
 
 /**
  * list_del_init() - Remove a list node from the list and reinitialize it
@@ -102,7 +137,7 @@ inline void list_del(struct list_head *node);
  * The removed node will not end up in an uninitialized state like when using
  * list_del. Instead the node is initialized again to the unlinked state.
  */
-inline void list_del_init(struct list_head *node);
+void list_del_init(struct list_head *node);
 
 /**
  * list_empty() - Check if list head has no nodes attached
@@ -110,15 +145,16 @@ inline void list_del_init(struct list_head *node);
  *
  * Return: 0 - list is not empty !0 - list is empty
  */
-inline int list_is_empty(const struct list_head *head);
+int list_is_empty(const struct list_head *head);
 
 /**
  * list_is_singular() - Check if list head has exactly one node attached
  * @head: pointer to the head of the list
  *
- * Return: 0 - list is not singular !0 -list has exactly one entry
+ * Return: 0 - list is not singular 
+ *        !0 - list has exactly one entry
  */
-inline int list_is_singular(const struct list_head *head);
+int list_is_singular(const struct list_head *head);
 
 /**
  * list_splice() - Add list nodes from a list to beginning of another list
@@ -130,7 +166,7 @@ inline int list_is_singular(const struct list_head *head);
  * modified and has to be initialized to be used as a valid list head/node
  * again.
  */
-inline void list_splice(struct list_head *list, struct list_head *head);
+void list_splice(struct list_head *list, struct list_head *head);
 
 /**
  * list_splice_tail() - Add list nodes from a list to end of another list

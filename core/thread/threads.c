@@ -7,6 +7,10 @@
 #include <sys/graphic.h>
 
 static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
+    // Looking for threads' status 
+    // if A thread is finished then checking other threads at a thread-pool
+    // if all threads in pool are handled do while loop at this kernel main thread
+    
     func_ptr(func_arg);
     while(1);
 }
@@ -57,7 +61,6 @@ TCB_t* thread_start(char* name,
     //jump to right function,
     //which address at kthread_stack->function
     //      arg     at kthread_stack->func_arg
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     __asm__ volatile ("movl %0, %%esp;\
                        pop %%ebp;\
                        pop %%ebx;\
