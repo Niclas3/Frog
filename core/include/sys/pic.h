@@ -1,5 +1,7 @@
 #ifndef PIC_H
 #define PIC_H
+#include <ostype.h>
+
 
 /**
  *                ┌────────┐                      ┌────────┐
@@ -205,8 +207,24 @@
 #define PIC_EOI_IRQ4  0x64    // set EOI bit IRQ4 or IRQ12
 #define PIC_EOI_IRQ12 0x64    // set EOI bit IRQ4 or IRQ12
 // -----------------------------------------------------------------
+// -----------------------------------------------------------------
+//                       Programmable Interval Timer
+// -----------------------------------------------------------------
+#define IRQ0_FREQUENCY   100
+#define INPUT_FREQUENCY  1193180
+#define COUNTER0_VALUE   INPUT_FREQUENCY/IRQ0_FREQUENCY
+#define COUNTER0_PORT    0x40
+#define COUNTER0_NO      0
+#define COUTNER_MODE     2
+#define READ_WRITE_LATCH 3
+#define PIT_CONTROL_PROT 0x43
+
+
 // To init 8258A 
-void init_8259A();
+void init_8259A(void);
+
+// init PIT (programmable interval timer)
+void init_PIT8253(void);
 
 #endif
 

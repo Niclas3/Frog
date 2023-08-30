@@ -40,8 +40,7 @@ void UkiMain(void)
     init_gdt();
     init_idt();
 
-
-    // Set 8295A and set IF=1
+    // Set 8295A and PIT_8253 and set IF=1
     init_8259A();
     _io_sti();
 
@@ -53,6 +52,7 @@ void UkiMain(void)
     _io_cli();
     draw_backgrond(info.vram, info.scrnx, info.scrny);
     _io_sti();
+    init_PIT8253();
 
     /* init_palette(); */
 
@@ -72,42 +72,7 @@ void UkiMain(void)
     /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",1, funcb, 4); */
 
-    struct list_head *list1 = get_kernel_page(1);
-    struct list_head *list2 = get_kernel_page(1);
-    struct list_head node1 = { .next=NULL, .prev=NULL};
-    struct list_head node2 = { .next=NULL, .prev=NULL};
-    struct list_head node3 = { .next=NULL, .prev=NULL};
-
-    struct list_head node4 = { .next=NULL, .prev=NULL};
-    struct list_head node5 = { .next=NULL, .prev=NULL};
-    struct list_head node6 = { .next=NULL, .prev=NULL};
-    init_list_head(list1);
     /* __asm__ volatile ("xchgw %bx, %bx;"); */
-    list_add(&node1, list1);
-    list_add(&node2, list1);
-    list_add(&node3, list1);
-
-    init_list_head(list2);
-    list_add_tail(&node4, list2);
-    list_add_tail(&node5, list2);
-    list_add_tail(&node6, list2);
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
-    /* list_del_init(&node1); */
-    /* list_del_init(&node2); */
-    /* list_del_init(&node3); */
-    /* list_del(list1); */
-    /* list_append(list2, list1); */
-    /* list_append_tail(list2, list1); */
-    struct list_head* pick_node = map_list(list1, test, 2);
-    __asm__ volatile ("xchgw %bx, %bx;");
-
-    int len_list1 = list_length(list1);
-    draw_hex(info.vram, info.scrnx, COL8_FFFF00, 0, 0, len_list1);
-    if(list_find_element(list1, list1)){
-        draw_info(info.vram, info.scrnx, COL8_FFFF00, 0, 16, "find!");
-    } else {
-        draw_info(info.vram, info.scrnx, COL8_FFFF00, 0, 16, "not find!");
-    }
 
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */

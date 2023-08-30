@@ -113,6 +113,12 @@ void list_add(struct list_head *node, struct list_head *head);
 void list_add_tail(struct list_head *node, struct list_head *head);
 
 /**
+ * list_pop() - pop element from a list node the head of the list
+ * @head: pointer to the head of the list
+ */
+struct list_head* list_pop(struct list_head *head);
+
+/**
  * list_del() - Remove a list node from the list
  * @node: pointer to the node
  *

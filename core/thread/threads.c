@@ -3,16 +3,32 @@
 #include <const.h> // for PG_SIZE
 
 #include <sys/memory.h>
+#include <debug.h>
 
-#include <sys/graphic.h>
+TCB_t* main_thread; 
+struct list_head *thread_ready_list;
+struct list_head *thread_all_list;
+static struct list_head *thread_tag;
+
+extern void switch_to(TCB_t *cur, TCB_t* next);
+
 
 static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
     // Looking for threads' status 
     // if A thread is finished then checking other threads at a thread-pool
     // if all threads in pool are handled do while loop at this kernel main thread
-    
+
+    __asm__ volatile ("sti");
     func_ptr(func_arg);
     while(1);
+}
+
+/* Get current TCB/PCB
+ * */
+TCB_t* running_thread(void) {
+    uint_32 esp;
+    __asm__ volatile ("mov %%esp, %0":"=g" (esp));
+    return (TCB_t *)(esp & 0xfffff000);
 }
 
 /* Init TCB 
@@ -21,11 +37,17 @@ void init_thread(TCB_t* thread, char* name, uint_8 priority){
     //set all 0 for thread memory
     memset(thread, 0, sizeof(*thread));
     strcpy(thread->name, name);
-    thread->status = SYS_THREAD_TASK_RUNNING;
-    thread->priority = priority;
-
+    if(thread == main_thread){
+        thread->status = SYS_THREAD_TASK_RUNNING;
+    }else{
+        thread->status = SYS_THREAD_TASK_READY;
+    }
     thread->self_kstack = (uint_32*)((uint_32) thread + PG_SIZE);
-    /* thread->stack_magic = 0xFB06D7DD; */
+    thread->priority = priority;
+    thread->ticks = priority;
+    thread->elapsed_ticks = 0;
+    thread->pgdir = NULL;
+
     thread->stack_magic = 0x19900921;
 }
 
@@ -56,18 +78,55 @@ TCB_t* thread_start(char* name,
     init_thread(thread, name, priority);
     create_thread(thread, func, arg);
 
-    //I set ebp, ebx, edi, and esi at kthread_stack which is thread->self_kstack
-    //so set esp to thread->self_kstack then pop all registers, and use `ret`
-    //jump to right function,
-    //which address at kthread_stack->function
-    //      arg     at kthread_stack->func_arg
-    __asm__ volatile ("movl %0, %%esp;\
-                       pop %%ebp;\
-                       pop %%ebx;\
-                       pop %%edi;\
-                       pop %%esi;\
-                       ret"
-                       :: "g" (thread->self_kstack):"memory");
+    ASSERT(!list_find_element(&thread->general_tag, thread_ready_list));
+    list_add(&thread->general_tag, thread_ready_list);
+
+    ASSERT(!list_find_element(&thread->all_list_tag, thread_all_list));
+    list_add(&thread->all_list_tag, thread_all_list);
+
+    /* //I set ebp, ebx, edi, and esi at kthread_stack which is thread->self_kstack */
+    /* //so set esp to thread->self_kstack then pop all registers, and use `ret` */
+    /* //jump to right function, */
+    /* //which address at kthread_stack->function */
+    /* //      arg     at kthread_stack->func_arg */
+    /* __asm__ volatile ("movl %0, %%esp;\ */
+    /*                    pop %%ebp;\ */
+    /*                    pop %%ebx;\ */
+    /*                    pop %%edi;\ */
+    /*                    pop %%esi;\ */
+    /*                    ret" */
+    /*                    :: "g" (thread->self_kstack):"memory"); */
     return thread;
 }
 
+static void make_main_thread(void){
+    main_thread = running_thread();
+    init_thread(main_thread,"main", 42);
+    ASSERT(!list_find_element(&main_thread->all_list_tag, thread_all_list));
+    list_add(&main_thread->all_list_tag, thread_all_list);
+}
+
+void schedule(void){
+    TCB_t *cur = running_thread();
+    if(cur->status == SYS_THREAD_TASK_RUNNING){
+        ASSERT(!list_find_element(&cur->general_tag, thread_ready_list));
+        list_add(&cur->general_tag, thread_ready_list);
+        cur->ticks = cur->priority;
+        cur->status = SYS_THREAD_TASK_READY;
+    } else {
+
+    }
+    ASSERT(!list_is_empty(thread_ready_list));
+    thread_tag = NULL;
+    thread_tag = list_pop(thread_ready_list);
+    TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
+    next->status = SYS_THREAD_TASK_RUNNING;
+    switch_to(cur, next);
+}
+
+
+void thread_init(void){
+    init_list_head(thread_ready_list);
+    init_list_head(thread_all_list);
+    make_main_thread();
+}

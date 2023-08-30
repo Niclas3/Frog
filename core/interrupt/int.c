@@ -56,6 +56,7 @@ void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags)
 			    "#XF SIMD Floating-Point Exception"
 	};
 
+        /* __asm__ volatile ("xchgw %bx, %bx;"); */
         draw_hex(0xa0000,320,COL8_FF0000,0,0, vec_no);
         return;
     /* draw_info(0xa0000,320,COL8_FF0000,0,0, err_msg[vec_no]); */

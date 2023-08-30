@@ -142,19 +142,23 @@ _io_delay:
 
 ;;; 0x20 Clock interrupt handler
 _asm_inthandler20:
-    ; push es
-    ; push ds
-    ; pushad
-    ; MOV		EAX,ESP
-    ; PUSH	EAX
-    ; MOV		AX,SS
-    ; MOV		DS,AX
-    ; MOV		ES,AX
-    call	inthandler20
-    ; POP		EAX
-    ; POPAD
-    ; POP		DS
-    ; POP		ES
+;; save all context
+    push ds
+    push es
+    push fs
+    push gs
+    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    
+    ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ0); 
+    mov al, 0x60
+    out 0x20, al
+
+    call inthandler20
+    popad
+    pop gs
+    pop fs
+    pop es
+    pop ds
     iretd
 
 ;;; 0x21 keyboard interrupt handler
@@ -181,6 +185,17 @@ _asm_inthandler2C:
     mov al,20h
     out 20h, al
     IRETD
+
+global intr_exit
+intr_exit:	     
+   add esp, 4			   ; 跳过中断号
+   popad
+   pop gs
+   pop fs
+   pop es
+   pop ds
+   add esp, 4			   ; 跳过error_code
+   iretd
 ;;------------------------------------------------------------------------------
 
 ;;Function for GDT and IDT
@@ -262,6 +277,7 @@ _general_protection:
 	push	13		; vector_no	= D
 	jmp	_exception
 _page_fault:
+        xchg bx, bx
 	push	14		; vector_no	= E
 	jmp	_exception
 _copr_error:
