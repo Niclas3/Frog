@@ -40,6 +40,7 @@ void UkiMain(void)
     init_gdt();
     init_idt();
 
+    thread_init();
     // Set 8295A and PIT_8253 and set IF=1
     init_8259A();
     _io_sti();
@@ -53,6 +54,7 @@ void UkiMain(void)
     draw_backgrond(info.vram, info.scrnx, info.scrny);
     _io_sti();
     init_PIT8253();
+
 
     /* init_palette(); */
 

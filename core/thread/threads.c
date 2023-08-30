@@ -6,8 +6,8 @@
 #include <debug.h>
 
 TCB_t* main_thread; 
-struct list_head *thread_ready_list;
-struct list_head *thread_all_list;
+struct list_head thread_ready_list;
+struct list_head thread_all_list;
 static struct list_head *thread_tag;
 
 extern void switch_to(TCB_t *cur, TCB_t* next);
@@ -78,11 +78,11 @@ TCB_t* thread_start(char* name,
     init_thread(thread, name, priority);
     create_thread(thread, func, arg);
 
-    ASSERT(!list_find_element(&thread->general_tag, thread_ready_list));
-    list_add(&thread->general_tag, thread_ready_list);
+    ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
+    list_add(&thread->general_tag, &thread_ready_list);
 
-    ASSERT(!list_find_element(&thread->all_list_tag, thread_all_list));
-    list_add(&thread->all_list_tag, thread_all_list);
+    ASSERT(!list_find_element(&thread->all_list_tag, &thread_all_list));
+    list_add(&thread->all_list_tag, &thread_all_list);
 
     /* //I set ebp, ebx, edi, and esi at kthread_stack which is thread->self_kstack */
     /* //so set esp to thread->self_kstack then pop all registers, and use `ret` */
@@ -101,24 +101,25 @@ TCB_t* thread_start(char* name,
 
 static void make_main_thread(void){
     main_thread = running_thread();
+    __asm__ volatile ("xchgw %bx, %bx;");
     init_thread(main_thread,"main", 42);
-    ASSERT(!list_find_element(&main_thread->all_list_tag, thread_all_list));
-    list_add(&main_thread->all_list_tag, thread_all_list);
+    ASSERT(!list_find_element(&main_thread->all_list_tag, &thread_all_list));
+    list_add(&main_thread->all_list_tag, &thread_all_list);
 }
 
 void schedule(void){
     TCB_t *cur = running_thread();
     if(cur->status == SYS_THREAD_TASK_RUNNING){
-        ASSERT(!list_find_element(&cur->general_tag, thread_ready_list));
-        list_add(&cur->general_tag, thread_ready_list);
+        ASSERT(!list_find_element(&cur->general_tag, &thread_ready_list));
+        list_add(&cur->general_tag, &thread_ready_list);
         cur->ticks = cur->priority;
         cur->status = SYS_THREAD_TASK_READY;
     } else {
 
     }
-    ASSERT(!list_is_empty(thread_ready_list));
+    ASSERT(!list_is_empty(&thread_ready_list));
     thread_tag = NULL;
-    thread_tag = list_pop(thread_ready_list);
+    thread_tag = list_pop(&thread_ready_list);
     TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
     next->status = SYS_THREAD_TASK_RUNNING;
     switch_to(cur, next);
@@ -126,7 +127,7 @@ void schedule(void){
 
 
 void thread_init(void){
-    init_list_head(thread_ready_list);
-    init_list_head(thread_all_list);
+    init_list_head(&thread_ready_list);
+    init_list_head(&thread_all_list);
     make_main_thread();
 }
