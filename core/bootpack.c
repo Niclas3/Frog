@@ -22,6 +22,7 @@
 
 void func(int a);
 void funcb(int a);
+int test(struct list_head *node, int arg);
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -81,6 +82,7 @@ void UkiMain(void)
     struct list_head node5 = { .next=NULL, .prev=NULL};
     struct list_head node6 = { .next=NULL, .prev=NULL};
     init_list_head(list1);
+    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     list_add(&node1, list1);
     list_add(&node2, list1);
     list_add(&node3, list1);
@@ -93,12 +95,19 @@ void UkiMain(void)
     /* list_del_init(&node1); */
     /* list_del_init(&node2); */
     /* list_del_init(&node3); */
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     /* list_del(list1); */
-    list_splice(list2, list1);
+    /* list_append(list2, list1); */
+    /* list_append_tail(list2, list1); */
+    struct list_head* pick_node = map_list(list1, test, 2);
+    __asm__ volatile ("xchgw %bx, %bx;");
 
     int len_list1 = list_length(list1);
-    draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, len_list1);
+    draw_hex(info.vram, info.scrnx, COL8_FFFF00, 0, 0, len_list1);
+    if(list_find_element(list1, list1)){
+        draw_info(info.vram, info.scrnx, COL8_FFFF00, 0, 16, "find!");
+    } else {
+        draw_info(info.vram, info.scrnx, COL8_FFFF00, 0, 16, "not find!");
+    }
 
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
@@ -117,6 +126,10 @@ void UkiMain(void)
             draw_info(info.vram, info.scrnx, COL8_FFFFFF, 0, 0, scan_code);
         }
     }
+}
+
+int test(struct list_head *node, int arg){
+    return 1;
 }
 
 void func(int a){

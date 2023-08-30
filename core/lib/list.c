@@ -154,7 +154,7 @@ inline int list_is_singular(const struct list_head *head){
 }
 
 /**
- * list_splice() - Add list nodes from a list to beginning of another list
+ * list_append() - Add list nodes from a list to beginning of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -163,7 +163,8 @@ inline int list_is_singular(const struct list_head *head){
  * modified and has to be initialized to be used as a valid list head/node
  * again.
  */
-inline void list_splice(struct list_head *list, struct list_head *head) {
+inline void list_append(struct list_head *list, struct list_head *head) {
+   if(list_is_empty(list)){ return; }
    struct list_head *h_next = head->next;
    struct list_head *l_next = list->next;
    struct list_head *l_prev = list->prev;
@@ -176,7 +177,7 @@ inline void list_splice(struct list_head *list, struct list_head *head) {
 }
 
 /**
- * list_splice_tail() - Add list nodes from a list to end of another list
+ * list_append_tail() - Add list nodes from a list to end of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -185,7 +186,8 @@ inline void list_splice(struct list_head *list, struct list_head *head) {
  * modified and has to be initialized to be used as a valid list head/node
  * again.
  */
-inline void list_splice_tail(struct list_head *list, struct list_head *head) {
+inline void list_append_tail(struct list_head *list, struct list_head *head) {
+   if(list_is_empty(list)){ return; }
    struct list_head *h_prev = head->prev;
    struct list_head *l_next = list->next;
    struct list_head *l_prev = list->prev;
@@ -196,7 +198,7 @@ inline void list_splice_tail(struct list_head *list, struct list_head *head) {
 }
 
 /**
- * list_splice_init() - Move list nodes from a list to beginning of another list
+ * list_append_init() - Move list nodes from a list to beginning of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -207,13 +209,13 @@ inline void list_splice_tail(struct list_head *list, struct list_head *head) {
  * list_splice. Instead the @list is initialized again to the an empty
  * list/unlinked state.
  */
-inline void list_splice_init(struct list_head *list, struct list_head *head) {
-    list_splice(list, head);
+inline void list_append_init(struct list_head *list, struct list_head *head) {
+    list_append(list, head);
     init_list_head(list);
 }
 
 /**
- * list_splice_tail_init() - Move list nodes from a list to end of another list
+ * list_append_tail_init() - Move list nodes from a list to end of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -224,10 +226,10 @@ inline void list_splice_init(struct list_head *list, struct list_head *head) {
  * list_splice. Instead the @list is initialized again to the an empty
  * list/unlinked state.
  */
-inline void list_splice_tail_init(struct list_head *list,
+inline void list_append_tail_init(struct list_head *list,
                                   struct list_head *head)
 {
-    list_splice_tail(list, head);
+    list_append_tail(list, head);
     init_list_head(list);
 }
 

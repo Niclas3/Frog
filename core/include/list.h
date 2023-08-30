@@ -81,7 +81,7 @@ void init_list_head(struct list_head *head);
  * return 0 == not find 
  * other find
  * */
-inline int list_find_element(struct list_head *node , struct list_head *head);
+int list_find_element(struct list_head *node , struct list_head *head);
 
 /**
  * map_list(struct list_head *head, function func, uint_32 arg)
@@ -90,7 +90,7 @@ inline int list_find_element(struct list_head *node , struct list_head *head);
  * @arg : arg for function
  *
  * */
-inline struct list_head* map_list(struct list_head *head, int func(struct list_head *,int), int arg);
+struct list_head* map_list(struct list_head *head, int func(struct list_head *,int), int arg);
 
 /**
  * list_length() - count lenght of giving list
@@ -157,7 +157,7 @@ int list_is_empty(const struct list_head *head);
 int list_is_singular(const struct list_head *head);
 
 /**
- * list_splice() - Add list nodes from a list to beginning of another list
+ * list_append() - Add list nodes from a list to beginning of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -166,10 +166,10 @@ int list_is_singular(const struct list_head *head);
  * modified and has to be initialized to be used as a valid list head/node
  * again.
  */
-void list_splice(struct list_head *list, struct list_head *head);
+void list_append(struct list_head *list, struct list_head *head);
 
 /**
- * list_splice_tail() - Add list nodes from a list to end of another list
+ * list_append_tail() - Add list nodes from a list to end of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -178,10 +178,10 @@ void list_splice(struct list_head *list, struct list_head *head);
  * modified and has to be initialized to be used as a valid list head/node
  * again.
  */
-inline void list_splice_tail(struct list_head *list, struct list_head *head);
+void list_append_tail(struct list_head *list, struct list_head *head);
 
 /**
- * list_splice_init() - Move list nodes from a list to beginning of another list
+ * list_append_init() - Move list nodes from a list to beginning of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -192,10 +192,10 @@ inline void list_splice_tail(struct list_head *list, struct list_head *head);
  * list_splice. Instead the @list is initialized again to the an empty
  * list/unlinked state.
  */
-inline void list_splice_init(struct list_head *list, struct list_head *head);
+void list_append_init(struct list_head *list, struct list_head *head);
 
 /**
- * list_splice_tail_init() - Move list nodes from a list to end of another list
+ * list_append_tail_init() - Move list nodes from a list to end of another list
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
@@ -206,7 +206,7 @@ inline void list_splice_init(struct list_head *list, struct list_head *head);
  * list_splice. Instead the @list is initialized again to the an empty
  * list/unlinked state.
  */
-inline void list_splice_tail_init(struct list_head *list,
+void list_append_tail_init(struct list_head *list,
                                   struct list_head *head);
 
 /**
@@ -221,7 +221,7 @@ inline void list_splice_tail_init(struct list_head *list,
  * @head_to is replaced when @head_from is not empty. @node must be a real
  * list node from @head_from or the behavior is undefined.
  */
-inline void list_cut_position(struct list_head *head_to,
+void list_cut_position(struct list_head *head_to,
                               struct list_head *head_from,
                               struct list_head *node);
 
@@ -233,7 +233,7 @@ inline void list_cut_position(struct list_head *head_to,
  * The @node is removed from its old position/node and add to the beginning of
  * @head
  */
-inline void list_move(struct list_head *node, struct list_head *head);
+void list_move(struct list_head *node, struct list_head *head);
 
 /**
  * list_move_tail() - Move a list node to the end of the list
@@ -242,7 +242,7 @@ inline void list_move(struct list_head *node, struct list_head *head);
  *
  * The @node is removed from its old position/node and add to the end of @head
  */
-inline void list_move_tail(struct list_head *node, struct list_head *head);
+void list_move_tail(struct list_head *node, struct list_head *head);
 
 
 
