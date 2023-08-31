@@ -25,7 +25,6 @@ void inthandler20(void){
 
     cur_thread->elapsed_ticks++;
     ticks++;
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     if(cur_thread->ticks == 0){
         schedule();
     }else{

@@ -71,8 +71,8 @@ void UkiMain(void)
     /* draw_cursor8(mcursor, COL8_848484); */
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
 
-    /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa",1, func, 4); */
-    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",1, funcb, 4); */
+    TCB_t *t = thread_start("aaaaaaaaaaaaaaa",15, func, 4);
+    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",20, funcb, 3);
 
     /* __asm__ volatile ("xchgw %bx, %bx;"); */
 
@@ -100,19 +100,10 @@ int test(struct list_head *node, int arg){
 }
 
 void func(int a){
-    int colors[6] = {
-        COL8_848400,
-        COL8_FFFFFF,
-        COL8_000084,
-        COL8_008484,
-        COL8_C6C6C6,
-        COL8_FF00FF
-    };
-    for(int i = 0; i < 6; i++){
-        boxfill8(0xa0000,320,colors[i], 20,20, 25, 25);
-    }
+    boxfill8(0xa0000,320,COL8_FFFFFF, 20, 20, 25, 25);
+    /* __asm__ volatile ("xchgw %bx, %bx;"); */
 
-    __asm__ volatile ("xchgw %bx, %bx;");
+    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     /* while(1){ */
     /*     _io_cli(); */
     /*     if (keybuf.flag == 0) { */
@@ -129,17 +120,10 @@ void func(int a){
 }
 
 void funcb(int a){
-    int colors[6] = {
-        COL8_848400,
-        COL8_FFFFFF,
-        COL8_000084,
-        COL8_008484,
-        COL8_C6C6C6,
-        COL8_FF00FF
-    };
-    boxfill8(0xa0000,320,colors[4], 50, 50, 25, 25);
+    draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 0, 0, "T");
+    draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 16, 0, "H");
 
-    __asm__ volatile ("xchgw %bx, %bx;");
+    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     /* while(1){ */
     /*     _io_cli(); */
     /*     if (keybuf.flag == 0) { */

@@ -17,7 +17,6 @@ static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
     // Looking for threads' status 
     // if A thread is finished then checking other threads at a thread-pool
     // if all threads in pool are handled do while loop at this kernel main thread
-
     __asm__ volatile ("sti");
     func_ptr(func_arg);
     while(1);
@@ -74,15 +73,17 @@ TCB_t* thread_start(char* name,
                    int priority,
                    __routine_t func,
                    void* arg){
+
+    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     TCB_t *thread = get_kernel_page(1) ;
     init_thread(thread, name, priority);
     create_thread(thread, func, arg);
 
     ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
-    list_add(&thread->general_tag, &thread_ready_list);
+    list_add_tail(&thread->general_tag, &thread_ready_list);
 
     ASSERT(!list_find_element(&thread->all_list_tag, &thread_all_list));
-    list_add(&thread->all_list_tag, &thread_all_list);
+    list_add_tail(&thread->all_list_tag, &thread_all_list);
 
     /* //I set ebp, ebx, edi, and esi at kthread_stack which is thread->self_kstack */
     /* //so set esp to thread->self_kstack then pop all registers, and use `ret` */
@@ -101,23 +102,23 @@ TCB_t* thread_start(char* name,
 
 static void make_main_thread(void){
     main_thread = running_thread();
-    __asm__ volatile ("xchgw %bx, %bx;");
     init_thread(main_thread,"main", 42);
     ASSERT(!list_find_element(&main_thread->all_list_tag, &thread_all_list));
-    list_add(&main_thread->all_list_tag, &thread_all_list);
+    list_add_tail(&main_thread->all_list_tag, &thread_all_list);
 }
 
 void schedule(void){
     TCB_t *cur = running_thread();
     if(cur->status == SYS_THREAD_TASK_RUNNING){
         ASSERT(!list_find_element(&cur->general_tag, &thread_ready_list));
-        list_add(&cur->general_tag, &thread_ready_list);
+        list_add_tail(&cur->general_tag, &thread_ready_list);
         cur->ticks = cur->priority;
         cur->status = SYS_THREAD_TASK_READY;
     } else {
 
     }
     ASSERT(!list_is_empty(&thread_ready_list));
+    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     thread_tag = NULL;
     thread_tag = list_pop(&thread_ready_list);
     TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
