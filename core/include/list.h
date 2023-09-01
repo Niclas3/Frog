@@ -5,6 +5,7 @@
 #define __LIST_HAVE_TYPEOF 1
 #endif
 
+#include <ostype.h>
 /**
  * struct list_head - Head and node of a doubly-linked list
  * @prev: pointer to the previous node in the list
@@ -34,7 +35,7 @@ struct list_head {
  * @type: type of member
  * @member: member name
  * */
-#define offsetof(type, member) ((size_t) & ((type *) 0)->member)
+#define offsetof(type, member) ((uint_32) & ((type *) 0)->member)
 
 /**
  * container_of() - Calculate address of structure that contains address ptr

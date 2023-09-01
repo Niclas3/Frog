@@ -5,11 +5,6 @@
 #define NULL ((void *) 0)
 #endif
 
-#ifndef _SIZE_T
-#define _SIZE_T
-typedef unsigned int size_t;
-#endif
-
 extern char * strerror(int errno);
 
 extern inline char * strcpy(char * dest,const char *src);
