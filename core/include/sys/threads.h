@@ -16,6 +16,7 @@ typedef enum task_status {
     SYS_THREAD_TASK_DONE,
     SYS_THREAD_TASK_WAITING,
     SYS_THREAD_TASK_HANDING,
+    SYS_THREAD_TASK_BLOCKED,
     SYS_THREAD_TASK_CANCELLED,
     SYS_THREAD_TASK_REJECTED,
 } task_status_t;
@@ -78,6 +79,8 @@ typedef struct thread_control_block {
 TCB_t* running_thread(void);
 TCB_t* thread_start(char* name, int priority, __routine_t func, void* arg);
 void thread_init(void);
+void thread_block(task_status_t status);
+void thread_unblock(TCB_t *thread);
 
 void schedule(void);
 #endif

@@ -72,6 +72,7 @@ void UkiMain(void)
     TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",20, funcb, 3);
 
 
+
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
 

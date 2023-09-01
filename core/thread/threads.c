@@ -1,8 +1,9 @@
 #include <sys/threads.h>
 #include <string.h>
 #include <const.h> // for PG_SIZE
-
 #include <sys/memory.h>
+#include <sys/int.h>
+
 #include <debug.h>
 
 TCB_t* main_thread; 
@@ -17,6 +18,8 @@ static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
     // Looking for threads' status 
     // if A thread is finished then checking other threads at a thread-pool
     // if all threads in pool are handled do while loop at this kernel main thread
+    // Maybe some time cli for block some thread so we sti for open timer
+    // interrupt
     __asm__ volatile ("sti");
     func_ptr(func_arg);
     while(1);
@@ -131,3 +134,46 @@ void thread_init(void){
     init_list_head(&thread_all_list);
     make_main_thread();
 }
+
+// Block self and set self status to status
+// If thread status is 
+/* SYS_THREAD_TASK_HANDING; 
+   SYS_THREAD_TASK_WAITING; 
+   SYS_THREAD_TASK_BLOCKED; */
+// call this function.
+// remove current thread from thread_ready_list
+void thread_block(task_status_t status){
+    ASSERT((status == SYS_THREAD_TASK_HANDING) || \
+           (status == SYS_THREAD_TASK_WAITING) || \
+           (status == SYS_THREAD_TASK_BLOCKED));
+    enum intr_status old_int_status = intr_disable();
+    TCB_t *cur = running_thread();
+    cur->status = status;
+    // This blocked thread is already pop from thread_ready_list
+    // Just call schedule() switch to next thread at thread_ready_list
+    // Don't need delete current thread from thread_ready list
+    schedule();
+    intr_set_status(old_int_status);
+}
+
+// Unblock giving thread 
+// add thread to head of tread_ready_list 
+void thread_unblock(TCB_t *thread){
+    ASSERT((thread->status == SYS_THREAD_TASK_HANDING) || \
+           (thread->status == SYS_THREAD_TASK_WAITING) || \
+           (thread->status == SYS_THREAD_TASK_BLOCKED));
+    enum intr_status old_int_status = intr_disable();
+    if(thread->status != SYS_THREAD_TASK_READY){
+        ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
+        if(list_find_element(&thread->general_tag, &thread_ready_list)){
+            PAINC("The blocked thread at ready list!!?");
+        }
+        list_add(&thread->general_tag, &thread_ready_list);
+        thread->status = SYS_THREAD_TASK_READY;
+    }
+    intr_set_status(old_int_status);
+}
+
+
+
+

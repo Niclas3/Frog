@@ -150,7 +150,9 @@ void list_del_init(struct list_head *node);
  * list_empty() - Check if list head has no nodes attached
  * @head: pointer to the head of the list
  *
- * Return: 0 - list is not empty !0 - list is empty
+ * Return: 0 false - list is not empty 
+ *        !0  true - list is empty
+ *
  */
 int list_is_empty(const struct list_head *head);
 
