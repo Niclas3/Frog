@@ -76,12 +76,13 @@ void UkiMain(void)
     /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
 
     for (;;) {
-        _io_cli();
+        intr_disable();
         if (keybuf.flag == 0) {
             _io_stihlt();
         } else {
             keybuf.flag = 0;
-            _io_sti();
+            intr_enable();
+            /* _io_sti(); */
             char scan_code[15];  // be careful with the length of the buffer
             int n = keybuf.data;
             int len = itoa(n, scan_code, 16);

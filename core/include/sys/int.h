@@ -50,12 +50,21 @@
 #define INT_VECTOR_PS2_MOUSE    0x2C
 #define INT_VECTOR_INNER_CLOCK  0x20
 
+//-----------------------------------------------------------------------------
+//                     Interrupt control
+//-----------------------------------------------------------------------------
+enum intr_status {
+    INTR_ON,
+    INTR_OFF
+};
+
+enum intr_status intr_get_status(void);
+enum intr_status intr_set_status(enum intr_status status);
+enum intr_status intr_enable(void);
+enum intr_status intr_disable(void);
 
 //-----------------------------------------------------------------------------
 //                     Interrupt Callback function 
 //-----------------------------------------------------------------------------
-
-
-
 void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags);
 #endif
