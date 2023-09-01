@@ -18,7 +18,6 @@ extern void schedule(void);
 /* int 0x20;
  * Interrupt handler for inner Clock
  **/
-static uint_8 switch_point = 0;
 void inthandler20(void){
     TCB_t *cur_thread = running_thread();
     ASSERT(cur_thread->stack_magic == 0x19900921);

@@ -118,7 +118,6 @@ void schedule(void){
 
     }
     ASSERT(!list_is_empty(&thread_ready_list));
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     thread_tag = NULL;
     thread_tag = list_pop(&thread_ready_list);
     TCB_t *next = container_of(thread_tag, TCB_t, general_tag);

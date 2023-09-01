@@ -44,17 +44,14 @@ void UkiMain(void)
     // Set 8295A and PIT_8253 and set IF=1
     init_8259A();
     _io_sti();
-
     init_keyboard();
     enable_mouse();
 
     mem_init();
 
-    _io_cli();
     draw_backgrond(info.vram, info.scrnx, info.scrny);
-    _io_sti();
-    init_PIT8253();
 
+    init_PIT8253();
 
     /* init_palette(); */
 
@@ -71,10 +68,8 @@ void UkiMain(void)
     /* draw_cursor8(mcursor, COL8_848484); */
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
 
-    TCB_t *t = thread_start("aaaaaaaaaaaaaaa",15, func, 4);
+    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",20, func, 4);
     TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",20, funcb, 3);
-
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
 
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
@@ -100,9 +95,10 @@ int test(struct list_head *node, int arg){
 }
 
 void func(int a){
-    boxfill8(0xa0000,320,COL8_FFFFFF, 20, 20, 25, 25);
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
-
+    while(1){
+        boxfill8(0xa0000,320,COL8_008484, 100, 0, 16, 16);
+        _io_stihlt();
+    }
     /* __asm__ volatile ("xchgw %bx, %bx;"); */
     /* while(1){ */
     /*     _io_cli(); */
@@ -120,8 +116,11 @@ void func(int a){
 }
 
 void funcb(int a){
-    draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 0, 0, "T");
-    draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 16, 0, "H");
+    while(1){
+        draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 100, 0, "T");
+        draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 116, 0, "H");
+        _io_stihlt();
+    }
 
     /* __asm__ volatile ("xchgw %bx, %bx;"); */
     /* while(1){ */
