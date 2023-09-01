@@ -12,7 +12,7 @@
 /**
  * Total ticks count since open timer interrupt
  */
-uint_32 ticks;
+uint_32 ticks = 0;
 extern void schedule(void);
 
 /* int 0x20;

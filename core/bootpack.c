@@ -96,23 +96,10 @@ int test(struct list_head *node, int arg){
 
 void func(int a){
     while(1){
-        boxfill8(0xa0000,320,COL8_008484, 100, 0, 16, 16);
+        /* boxfill8(0xa0000,320,COL8_00FF00, 100, 0, 16, 16); */
+        draw_info((uint_8 *)0xa0000, 320, COL8_00FF00, 100, 0, "T");
         _io_stihlt();
     }
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
-    /* while(1){ */
-    /*     _io_cli(); */
-    /*     if (keybuf.flag == 0) { */
-    /*         _io_stihlt(); */
-    /*     } else { */
-    /*         keybuf.flag = 0; */
-    /*         _io_sti(); */
-    /*         char scan_code[15];  // be careful with the length of the buffer */
-    /*         int n = keybuf.data; */
-    /*         int len = itoa(n, scan_code, 16); */
-    /*         draw_info(0xa0000, 320, COL8_FFFFFF, 0, 0, scan_code); */
-    /*     } */
-    /* }; */
 }
 
 void funcb(int a){
@@ -121,19 +108,4 @@ void funcb(int a){
         draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 116, 0, "H");
         _io_stihlt();
     }
-
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
-    /* while(1){ */
-    /*     _io_cli(); */
-    /*     if (keybuf.flag == 0) { */
-    /*         _io_stihlt(); */
-    /*     } else { */
-    /*         keybuf.flag = 0; */
-    /*         _io_sti(); */
-    /*         char scan_code[15];  // be careful with the length of the buffer */
-    /*         int n = keybuf.data; */
-    /*         int len = itoa(n, scan_code, 16); */
-    /*         draw_info(0xa0000, 320, COL8_FFFFFF, 0, 0, scan_code); */
-    /*     } */
-    /* }; */
 }
