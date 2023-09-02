@@ -18,11 +18,14 @@
 #include <sys/threads.h>
 #include <sys/memory.h>
 #include <list.h>
+#include <sys/semaphore.h>
 
 
 void func(int a);
 void funcb(int a);
 int test(struct list_head *node, int arg);
+
+struct lock main_lock;
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -67,10 +70,10 @@ void UkiMain(void)
     /* char *mcursor = get_kernel_page(1); */
     /* draw_cursor8(mcursor, COL8_848484); */
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
+    lock_init(&main_lock);
 
-    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",20, func, 4);
-    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",20, funcb, 3);
-
+    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4);
+    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
 
 
     /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
@@ -98,16 +101,21 @@ int test(struct list_head *node, int arg){
 
 void func(int a){
     while(1){
-        /* boxfill8(0xa0000,320,COL8_00FF00, 100, 0, 16, 16); */
+        lock_fetch(&main_lock);
+
         draw_info((uint_8 *)0xa0000, 320, COL8_00FF00, 100, 0, "T");
-        _io_stihlt();
+
+        lock_release(&main_lock);
     }
 }
 
 void funcb(int a){
     while(1){
+        lock_fetch(&main_lock);
+
         draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 100, 0, "T");
         draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 116, 0, "H");
-        _io_stihlt();
+
+        lock_release(&main_lock);
     }
 }

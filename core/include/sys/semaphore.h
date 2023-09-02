@@ -6,7 +6,7 @@
 
 struct semaphore {
     uint_32 value;
-    struct list_head *waiting_queue;
+    struct list_head waiting_queue;
 };
 
 struct lock {

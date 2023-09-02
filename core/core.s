@@ -277,7 +277,6 @@ _general_protection:
 	push	13		; vector_no	= D
 	jmp	_exception
 _page_fault:
-        xchg bx, bx
 	push	14		; vector_no	= E
 	jmp	_exception
 _copr_error:

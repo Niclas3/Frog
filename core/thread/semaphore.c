@@ -6,7 +6,7 @@
 
 void semaphore_init(struct semaphore *sema, uint_32 value){
     sema->value = value;
-    init_list_head(sema->waiting_queue);
+    init_list_head(&sema->waiting_queue);
 }
 
 void lock_init(struct lock *lock){
@@ -42,9 +42,10 @@ void semaphore_down(struct semaphore *sema){
     while(sema->value == 0){
         ASSERT(sema->value == 0);
         TCB_t *cur = running_thread();
-        if(list_find_element(&cur->general_tag, sema->waiting_queue)){
+        if(list_find_element(&cur->general_tag, &sema->waiting_queue)){
             PAINC("semaphore P: blocked thread already in waiting list?!");
         }
+        list_add_tail(&cur->general_tag, &sema->waiting_queue);
         //block self then schedule to next ready thread
         thread_block(SYS_THREAD_TASK_BLOCKED);
     }
@@ -58,8 +59,8 @@ void semaphore_down(struct semaphore *sema){
 // 2. unblock thread at sema->waiting_list
 void semaphore_up(struct semaphore *sema){
     enum intr_status old_status = intr_disable();
-    if(list_is_empty(sema->waiting_queue)){
-        struct list_head *tag = list_pop(sema->waiting_queue);
+    if(!list_is_empty(&sema->waiting_queue)){
+        struct list_head *tag = list_pop(&sema->waiting_queue);
         TCB_t *blocked_thread = container_of( tag, TCB_t, general_tag);
         thread_unblock(blocked_thread);
     }
