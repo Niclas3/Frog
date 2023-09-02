@@ -148,53 +148,44 @@ _asm_inthandler20:
     push fs
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    
     ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ0); 
     mov al, 0x60
     out 0x20, al
 
     call inthandler20
-    popad
-    pop gs
-    pop fs
-    pop es
-    pop ds
-    iretd
+    jmp intr_exit
 
 ;;; 0x21 keyboard interrupt handler
 _asm_inthandler21:
-    ; xchg bx, bx
+;; save all context
+    push ds
+    push es
+    push fs
+    push gs
+    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     call inthandler21
-    IRETD
+    jmp intr_exit
 
 ;;; 0x2C PS/2 Mouse handler
 _asm_inthandler2C:
-    ; PUSH	ES
-    ; PUSH	DS
-    ; PUSHAD
-    ; MOV		EAX,ESP
-    ; PUSH	EAX
-    ; MOV		AX,SS
-    ; MOV		DS,AX
-    ; MOV		ES,AX
+;; save all context
+    push ds
+    push es
+    push fs
+    push gs
+    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     CALL inthandler2C
-    ; POP		EAX
-    ; POPAD
-    ; POP		DS
-    ; POP		ES
-    mov al,20h
-    out 20h, al
-    IRETD
+    jmp intr_exit
 
 global intr_exit
 intr_exit:	     
-   add esp, 4			   ; 跳过中断号
+   ; add esp, 4			   ; 跳过中断号
    popad
    pop gs
    pop fs
    pop es
    pop ds
-   add esp, 4			   ; 跳过error_code
+   ; add esp, 4			   ; 跳过error_code
    iretd
 ;;------------------------------------------------------------------------------
 
