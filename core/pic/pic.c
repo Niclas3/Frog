@@ -53,6 +53,5 @@ static void frequency_set(uint_8 counter_port,\
 
 void init_PIT8253(void)
 {
-
     frequency_set(COUNTER0_PORT, COUNTER0_NO, READ_WRITE_LATCH, COUTNER_MODE, COUNTER0_VALUE);
 }
