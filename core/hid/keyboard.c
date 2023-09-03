@@ -2,6 +2,7 @@
 #include <hid/keymap.h>
 #include <global.h>
 #include <sys/pic.h>
+#include <asm/bootpack.h>
 
 struct KEYBUF keybuf;
 
@@ -27,10 +28,10 @@ void init_keyboard(void){
  * Interrupt handler for Keyboard
  **/
 void inthandler21(){
+    __asm__ volatile ("xchgw %bx, %bx;");
     _io_out8(PIC0_OCW2, PIC_EOI_IRQ1);
     uint_8 scan_code =0x32;
-    _io_cli();
-    while (1){
+    /* while (1){ */
         if(_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
             scan_code = _io_in8(PORT_KEYDATE); // get scan_code
             if(keybuf.flag == 0){
@@ -38,10 +39,9 @@ void inthandler21(){
                 keybuf.flag = 1;
             }
         }else{
-            break;
+            /* break; */
         }
-    }
-    _io_sti();
+    /* } */
     return;
 }
 

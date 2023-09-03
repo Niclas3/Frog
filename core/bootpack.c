@@ -23,7 +23,7 @@
 
 void func(int a);
 void funcb(int a);
-int test(struct list_head *node, int arg);
+void keyboard_consumer(int a);
 
 struct lock main_lock;
 
@@ -32,6 +32,8 @@ void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
                                             //
+
+
     BOOTINFO info = {.vram = (unsigned char *) 0xa0000,
                      .scrnx = 320,
                      .scrny = 200,
@@ -39,7 +41,6 @@ void UkiMain(void)
                      .leds = 0,
                      .vmode = 0,
                      .reserve = 0};
-
     init_gdt();
     init_idt();
 
@@ -74,29 +75,28 @@ void UkiMain(void)
 
     TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4);
     TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
-
-
-    /* uint_32 vaddress2 = (uint_32) get_kernel_page(1); */
-    /* draw_hex(info.vram, info.scrnx, COL8_848400, 0, 0, vaddress2); */
+    TCB_t *keyboard_c = thread_start("keyboard_reader",1, keyboard_consumer , 3);
 
     for (;;) {
-        intr_disable();
-        if (keybuf.flag == 0) {
-            _io_stihlt();
-        } else {
-            keybuf.flag = 0;
-            intr_enable();
-            /* _io_sti(); */
+        _io_stihlt();
+    }
+
+}
+
+void keyboard_consumer(int a){
+    for (;;) {
+        if (keybuf.flag != 0) {
             char scan_code[15];  // be careful with the length of the buffer
             int n = keybuf.data;
             int len = itoa(n, scan_code, 16);
-            draw_info(info.vram, info.scrnx, COL8_FFFFFF, 0, 0, scan_code);
+        lock_fetch(&main_lock);
+            draw_info(0xa0000, 320, COL8_FFFFFF, 100, 0, scan_code);
+        lock_release(&main_lock);
+            keybuf.flag = 0;
+        } else { 
+            _io_stihlt();
         }
     }
-}
-
-int test(struct list_head *node, int arg){
-    return 1;
 }
 
 void func(int a){
@@ -114,7 +114,7 @@ void funcb(int a){
         lock_fetch(&main_lock);
 
         draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 100, 0, "T");
-        draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 116, 0, "H");
+        draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 15, 0, "H");
 
         lock_release(&main_lock);
     }
