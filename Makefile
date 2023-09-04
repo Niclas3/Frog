@@ -4,12 +4,15 @@ DISK = hd.img
 BOOTER = MBR.bin
 LOADER = loader.img
 CORE   = core.img
+CORESYM   = core_symbol.img
 FONT   = hankaku_font.img
 
 # Use ELF format
 # Real OS code ###########################
 core.img:
 	cd ./core && $(MAKE) all
+core_symbol.img:
+	cd ./core && $(MAKE) debug
 ##########################################
 
 # To protected mode ###############################
@@ -47,6 +50,11 @@ mount: bootloader loader.img core.img font
 	# sudo cp core.img /mnt/floppy -v
 	# sudo cp name.txt /mnt/floppy -v
 	# sudo umount /mnt/floppy
+
+mount_debug: bootloader loader.img core_symbol.img font
+	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
+	dd if=$(CORESYM) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core 23k (blank is 64k)
+	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=150 conv=notrunc #font.img for now size 4k
 umount:
 	sudo umount /mnt/floppy
 

@@ -1,0 +1,49 @@
+##
+# Configuration file for bochs
+##
+
+# how much memory the emulated machine will have
+# 32Mb of RAM `megs: 32`
+megs: 32
+
+# filename of ROM images
+romimage: file=/usr/local/share/bochs/BIOS-bochs-latest
+vgaromimage: file=/usr/local/share/bochs/VGABIOS-lgpl-latest
+# what disk images will be used
+floppya: 1_44=./b.img, status=inserted
+# floppya: 1_44=freedos.img, status=inserted
+# floppyb: 1_44=pm.img, status=inserted
+
+# hardware
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+#,cylinders=121, heads=16, spt=63
+ata0-master: type=disk, mode=flat, path=hd.img
+
+# choose the boot disk.
+# boot: a
+boot: disk
+
+# where do we send log messages?
+log: bochsout.txt
+
+# disable mouse
+mouse: type=ps2, enabled=1, toggle=ctrl+f10
+
+# enable key mapping, using US layout as defalut
+keyboard: type=mf, serial_delay=200, paste_delay=100000
+keyboard: keymap=/usr/local/share/bochs/keymaps/x11-pc-us.map
+
+# Magic break
+# https://wiki.osdev.org/Bochs#Magic_Breakpoint
+# When you're using Bochs with the internal debugger, you can 
+# trigger the debugger via a facility called magic breakpoints. 
+# To trigger a breakpoint, you can insert `xchg bx, bx` 
+# (in GAS syntax, xchgw %bx, %bx) anywhere in the code and 
+# Bochs will trap into the debugger as soon as it executes it. 
+# On real hardware this has no effect as it merely 
+# replaces the BX register with itself.
+# You should put the following line in your Bochs configuration file to have it listen to magic breakpoints
+magic_break: enabled=1
+# debug with gdb 
+gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
+

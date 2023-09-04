@@ -6,7 +6,8 @@ BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/hid.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
-	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o $(BUILD_DIR)/list.o \
+	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
+	 $(BUILD_DIR)/list.o $(BUILD_DIR)/ioqueue.o\
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o\
          $(BUILD_DIR)/panic.o  $(BUILD_DIR)/string.o \
@@ -15,6 +16,9 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
  
 $(BUILD_DIR)/list.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "list.c")
+
+$(BUILD_DIR)/ioqueue.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "ioqueue.c")
 
 $(BUILD_DIR)/switch.o:
 	$(AS) $(A_FLAG) -o $@ $(shell find thread -type f -name "switch.s")
@@ -60,6 +64,7 @@ $(BUILD_DIR)/bootpack.o: bootpack.c
 	$(CC) $(C_FLAG) -I $(INCLUDE) -o $@ $<
 $(BUILD_DIR)/core.o: core.s
 	$(AS) $(A_FLAG) -o $@ $<
+
 $(BUILD_DIR)/core: $(C_OBJS)
 	ld $(LD_FLAG) -o $@.img $^
 $(BUILD_DIR)/core_symbol: $(C_OBJS)
@@ -71,10 +76,18 @@ mk_dir:
 
 build: $(BUILD_DIR)/core
 
+build_symbol: $(BUILD_DIR)/core_symbol
+
 move:
 	cp $(BUILD_DIR)/core.img ../
 
+move_symbol:
+	cp $(BUILD_DIR)/core_symbol.img ../
+
 all: mk_dir build move
+
+debug: mk_dir build_symbol move_symbol
+
 clean:
 	rm -rf *.o
 	cd ./build && rm -rf ./*

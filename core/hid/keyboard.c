@@ -1,10 +1,11 @@
 #include <hid/keyboard.h>
 #include <hid/keymap.h>
-#include <global.h>
 #include <sys/pic.h>
 #include <asm/bootpack.h>
 
-struct KEYBUF keybuf;
+#include <ioqueue.h>
+
+CircleQueue keyboard_queue;
 
 void wait_KBC_sendready(void){
     while(1){
@@ -28,20 +29,14 @@ void init_keyboard(void){
  * Interrupt handler for Keyboard
  **/
 void inthandler21(){
-    __asm__ volatile ("xchgw %bx, %bx;");
     _io_out8(PIC0_OCW2, PIC_EOI_IRQ1);
     uint_8 scan_code =0x32;
-    /* while (1){ */
-        if(_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
-            scan_code = _io_in8(PORT_KEYDATE); // get scan_code
-            if(keybuf.flag == 0){
-                keybuf.data = scan_code;
-                keybuf.flag = 1;
-            }
-        }else{
-            /* break; */
-        }
-    /* } */
+    while (_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
+        scan_code = _io_in8(PORT_KEYDATE); // get scan_code
+        struct queue_data qdata = { .data = scan_code, };
+        ioqueue_put_data(&qdata, &keyboard_queue);
+    }
     return;
 }
+
 

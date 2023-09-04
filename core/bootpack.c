@@ -19,7 +19,9 @@
 #include <sys/memory.h>
 #include <list.h>
 #include <sys/semaphore.h>
+#include <ioqueue.h>
 
+extern CircleQueue keyboard_queue;
 
 void func(int a);
 void funcb(int a);
@@ -30,6 +32,8 @@ struct lock main_lock;
 // UkiMain must at top of file
 void UkiMain(void)
 {
+    /* __asm__ ("cli"); */
+    /* _io_cli(); */
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
                                             //
 
@@ -73,10 +77,11 @@ void UkiMain(void)
     /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
     lock_init(&main_lock);
 
-    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4);
-    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
-    TCB_t *keyboard_c = thread_start("keyboard_reader",1, keyboard_consumer , 3);
+    init_ioqueue(&keyboard_queue);
 
+    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4); */
+    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
+    TCB_t *keyboard_c = thread_start("keyboard_reader",1, keyboard_consumer , 3);
     for (;;) {
         _io_stihlt();
     }
@@ -84,18 +89,19 @@ void UkiMain(void)
 }
 
 void keyboard_consumer(int a){
+    int line = 0;
     for (;;) {
-        if (keybuf.flag != 0) {
-            char scan_code[15];  // be careful with the length of the buffer
-            int n = keybuf.data;
-            int len = itoa(n, scan_code, 16);
+        struct queue_data qdata = {0};
+        int error = ioqueue_get_data(&qdata, &keyboard_queue);
         lock_fetch(&main_lock);
-            draw_info(0xa0000, 320, COL8_FFFFFF, 100, 0, scan_code);
-        lock_release(&main_lock);
-            keybuf.flag = 0;
-        } else { 
-            _io_stihlt();
+        if(!error){
+            /* __asm__ volatile ("xchgw %bx, %bx;"); */
+            char code = qdata.data;
+            draw_hex((int_8 *)0xa0000, 320, COL8_00FF00, 100, line, code);
+            line+=16;
         }
+        lock_release(&main_lock);
+        _io_stihlt();
     }
 }
 

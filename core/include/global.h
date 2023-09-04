@@ -2,9 +2,6 @@
 #define GLOBAL_H
 
 ///Keyboard buffer
-struct KEYBUF{
-    unsigned char data,flag;
-};
 struct MOUBUF{
     unsigned char data,flag;
 };
@@ -22,7 +19,6 @@ typedef struct Color {
     unsigned char color_id;
 } COLOR;
 
-extern struct KEYBUF keybuf;
 extern struct MOUBUF mousebuf;
 extern BOOTINFO info;
 
