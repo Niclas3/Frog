@@ -5,8 +5,7 @@
 #include <sys/semaphore.h>
 #include <const.h>
 
-// #define QUEUE_MAX 64
-#define QUEUE_MAX 2
+#define QUEUE_MAX 64
 typedef struct ioqueue{
     struct lock queue_lock;
     char buf[QUEUE_MAX];
