@@ -32,8 +32,6 @@ struct lock main_lock;
 // UkiMain must at top of file
 void UkiMain(void)
 {
-    /* __asm__ ("cli"); */
-    /* _io_cli(); */
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
                                             //
 
@@ -81,7 +79,7 @@ void UkiMain(void)
 
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
-    TCB_t *keyboard_c = thread_start("keyboard_reader",1, keyboard_consumer , 3);
+    TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
     for (;;) {
         _io_stihlt();
     }
@@ -95,9 +93,9 @@ void keyboard_consumer(int a){
         int error = ioqueue_get_data(&qdata, &keyboard_queue);
         lock_fetch(&main_lock);
         if(!error){
-            /* __asm__ volatile ("xchgw %bx, %bx;"); */
             char code = qdata.data;
-            draw_hex((int_8 *)0xa0000, 320, COL8_00FF00, 100, line, code);
+            /* draw_hex((int_8 *)0xa0000, 320, COL8_00FF00, 100, line, code & (0x000000ff)); */
+            draw_info((int_8 *)0xa0000, 320, COL8_00FF00, 100, line, code);
             line+=16;
         }
         lock_release(&main_lock);
