@@ -1,6 +1,8 @@
 #ifndef OSTYPE_H
 #define OSTYPE_H
 
+#include <stdbool.h>
+
 // sizeof(uint_32); // 0x4
 typedef unsigned int uint_32;
 
