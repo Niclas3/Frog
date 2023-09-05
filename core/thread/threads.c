@@ -6,13 +6,13 @@
 
 #include <debug.h>
 
-TCB_t* main_thread; 
+TCB_t* main_thread;
+//TODO: need a max list size
 struct list_head thread_ready_list;
 struct list_head thread_all_list;
 static struct list_head *thread_tag;
 
 extern void switch_to(TCB_t *cur, TCB_t* next);
-
 
 static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
     // Looking for threads' status 
