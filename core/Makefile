@@ -56,8 +56,12 @@ $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
 $(BUILD_DIR)/int.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find interrupt -type f -name "*.c")
+
+$(BUILD_DIR)/tss.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find destab -type f -name "tss.c")
+	
 $(BUILD_DIR)/destab.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find destab -type f -name "*.c")
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find destab -type f -name "descriptor.c")
 $(BUILD_DIR)/graphic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "*.c")
 $(BUILD_DIR)/bootpack.o: bootpack.c
