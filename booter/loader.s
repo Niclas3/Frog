@@ -369,7 +369,9 @@ LABEL_SEG_CODE32:
     ; mov ecx, 40 ; for 20kb
     mov ecx, 128 ; for 64kb
     call SELECTOR_CODE:read_hard_disk_32
-    ;; Break down kernel from 0x90000 ~ ? to 0x80000
+;;==============================================================================
+;; Break down kernel from 0x90000 ~ ? to 0x80000
+;;==============================================================================
     ;;1. Read ELF header, find .text segment
     ; #define EI_NIDENT 16                      offset     ,length
     ; typedef struct {                      0x7f,elf, 1 byte  , 1 byte , 2 bytes    8bytes
@@ -378,7 +380,7 @@ LABEL_SEG_CODE32:
     ;     uint16_t      e_type;            //   16 bytes    ,2 bytes
     ;     uint16_t      e_machine;         //   18 bytes    ,2 bytes 
     ;     uint32_t      e_version;         //   20 bytes    ,4 bytes 
-    ;     ElfN_Addr     e_entry;           //   24 bytes    ,4 bytes
+    ;     ElfN_Addr     e_entry;           //   24 bytes    ,4 bytes  ;Address where execution starts
     ;   * ElfN_Off      e_phoff;           //   28 bytes    ,4 bytes
     ;   * ElfN_Off      e_shoff;           //   32 bytes    ,4 bytes
     ;     uint32_t      e_flags;           //   36 bytes    ,4 bytes
@@ -400,50 +402,43 @@ LABEL_SEG_CODE32:
     ;     uint32_t      p_flags;           //   24 bytes    ,4 bytes
     ;     uint32_t      p_align;           //   28 bytes    ,4 bytes
     ; } Elf32_Phdr;
-    HEADER_NAME_TEXT equ 0x0000000b
-    ELF_BASE equ 0x90000
-    ; Section header  base of section 
-    ; typedef struct {
-    ;   * uint32_t      sh_name;           //   0  byte     ,4 bytes
-    ;     uint32_t      sh_type;           //   4  bytes    ,4 bytes
-    ;     uint32_t      sh_flags;          //   8  bytes    ,4 bytes
-    ;     Elf32_Addr    sh_addr;           //   12 bytes    ,4 bytes
-    ;   * Elf32_Off     sh_offset;         //   16 bytes    ,4 bytes
-    ;   * uint32_t      sh_size;           //   20 bytes    ,4 bytes
-    ;     uint32_t      sh_link;           //   24 bytes    ,4 bytes
-    ;     uint32_t      sh_info;           //   28 bytes    ,4 bytes
-    ;     uint32_t      sh_addralign;      //   32 bytes    ,4 bytes
-    ;     uint32_t      sh_entsize;        //   36 bytes    ,4 bytes
-    ; } Elf32_Shdr;
+    HEADER_NAME_TEXT   equ 0x0000000b
+    ELF_BASE           equ 0x90000
+    E_PHOFF_OFFSET     equ 28   ; 4 bytes
+    E_PHENTSIZE_OFFSET equ 42   ; 2 bytes
+    E_PHNUM_OFFSET     equ 44   ; 2 bytes
+
     ; BASE_OF_SECTION = KERNELBIN_START + eax
     ; int HEADER_NAME_TEXT = 0x0000000b
     ; void copymem(int baseaddress, int size, int desaddress);
-    ; char *elf_base = 0x90000;
-    ; char *section_offset[4] = elf_base[32];
-    ; for(int i=0;i < section_count;i++){
-    ;     char *name[4]      = section_offset[i*section_size]
-    ;     char *sh_offset[2] = section_offset[i*section_size+16]
-    ;     char *sh_size[4]   = section_offset[i*section_size+20]
-    ;     if(name == HEADER_NAME_TEXT){
-    ;         copymem(elf_base+sh_offset,size, 0x80000 )
-    ;     }
+    ; char *ELF_BIN_BASE = 0x90000;
+    ; char program_table[4] = elf_base[E_PHOFF_OFFSET]; // phoff_idx = 28
+    ; char program_number[2] = elf_base[E_PHNUM_OFFSET]; // phnum_idx = 44
+    ; char program_entry_sz[4] = elf_base[E_PHENTSIZE_OFFSET]; // phentsize = 42
+    ; for(int i=0;i < program_number;i++){
+    ;     char *entry = program_table + (i*program_entry_sz);
+    ;     char *p_offset[4] = entry[4];
+    ;     char *p_vaddr[4]  = entry[8];
+    ;     char *p_filez[4]  = entry[16];
+    ;     copymem( ELF_BASE + p_offset , p_filesz, p_vaddr);
     ; }
-    mov dword eax, [KERNELBIN_START+32]   ; section offset
-    mov word bx,   [KERNELBIN_START+46]   ; section entry size
-    mov word cx,   [KERNELBIN_START+48]   ; section entry count
+    mov dword eax, [KERNELBIN_START+E_PHOFF_OFFSET]   ; program table offset
+    mov word cx,   [KERNELBIN_START+E_PHNUM_OFFSET]   ; program entry number
+    mov word bx,   [KERNELBIN_START+E_PHENTSIZE_OFFSET]   ; program table size 
     and ecx, 0x0000ffff
     and ebx, 0x0000ffff
-;Load .text section of elf
-; eax -> section_offset
-; ecx -> section_count
-; ebx -> section_size
+
+;void load_program(program_table, count, program_size)
+    ;; ebp+8 ---> size : program_entry_size
+    ;; ebp+12 ---> count: number of program headers
+    ;; ebp+16---> offset: start of program headers aka program_table
     push eax
     push ecx
     push ebx
-    call load_text_sections
+    call load_program
+    add esp, 12   ; Clean up the stack after the function call
+
 ;;==============================================================================
-
-
     ; push SELECTOR_STACK_RING3
     ; push RING3_STACK_TOP
     ; push SELECTOR_CODE_RING3
@@ -812,7 +807,6 @@ section_loop:
     add esp, 12   ; Clean up the stack after the function call
     add esp, 12   ; Clean all local var stack up
     ret
-
 skip_copymem:
     ;-------------------------------
     mov eax, esp  ;pop 3 useless data
@@ -828,20 +822,75 @@ skip_copymem:
     ret
 
 ;===============================================================================
-; void copymem(elf_base, size, 0x80000)
-    ;; ebp+4 ---> destination 0x0028          ebx 3
-    ;; ebp+8 ---> size                        ecx 2
-    ;; ebp+12---> elf_base                      1
+;void load_program(program_table, count, program_size)
+    ;; ebp+8 ---> size : program_entry_size
+    ;; ebp+12 ---> count: number of program headers
+    ;; ebp+16---> offset: start of program headers aka program_table
+    ; void copymem(int baseaddress, int size, int desaddress);
+    ; char *ELF_BIN_BASE = 0x90000;
+    ; int program_entry_sz = program_size / program_number;
+    ; for(int i=0;i < program_number;i++){
+    ;     char *entry = program_table + (i*program_entry_sz);
+    ;     char *p_offset[4] = entry[4];
+    ;     char *p_vaddr[4]  = entry[8];
+    ;     char *p_filez[4]  = entry[16];
+    ;     char *p_type[4] = entry[0]
+    ;     if(p_type == PT_LOAD){ // PT_LOAD == 0x10000000
+    ;       copymem( ELF_BASE + p_offset , p_filesz, p_vaddr);
+    ;     }
+    ; }
+load_program:
+    push ebp
+    mov ebp, esp
+    xor esi, esi
+    mov ecx, [ebp+12] ; load number of entry
+.load_program_start:
+    mov edx, 32      ; size of each entry is 0x1c but offset is 0x20
+    imul edx, esi    ; entry offset
+    mov ebx, [ebp+16]; program_table offset from base
+    add ebx, KERNELBIN_START
+    add ebx, edx     ; entry address
+    mov eax, [ebx+0] ; p_type
+    cmp eax, 0x1
+    jnz .load_program_continue
+
+    mov eax, [ebx+4] ; p_offset, size 4 bytes
+    add eax, KERNELBIN_START; set elf base address from 0x0 to 0x90000
+    push eax         ; source of start
+    mov eax, [ebx+16]; p_filez,  size 4 bytes
+    push eax         ; size of data we want to copy
+    mov eax, [ebx+8] ; p_vaddr,  size 4 bytes
+    push eax         ; dest of copy
+    call copyMem
+    add esp, 12   ; Clean up the stack after the function call
+    inc esi
+.load_program_continue:
+    loop .load_program_start
+    pop ebp
+    ret
+;===============================================================================
+; void copymem(int baseaddress, int size, int desaddress);
+    ;; ebp+20 ---> destination  0x80000          ebx 3
+    ;; ebp+24 ---> size                        ecx 2
+    ;; ebp+28---> baseaddress                     1
 copyMem:
     ; Implement the copymem function here
     ; This function should copy 'size' bytes from 'baseaddress' to 'desaddress'
     ; You can use the 'movsb' instruction for byte-by-byte copying
+    push ebp
+    push esi
+    push edi
+    push ecx
     mov ebp, esp
-    mov esi, [ebp+12]
-    mov edi, [ebp+4]
-    mov ecx, [ebp+8]
+    mov esi, [ebp+28] ; base address
+    mov edi, [ebp+20]  ; destination
+    mov ecx, [ebp+24]  ; size
     cld
     rep movsb
+    pop ecx
+    pop edi
+    pop esi
+    pop ebp
     ret
 
 ;===============================================================================
