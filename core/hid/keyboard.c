@@ -96,10 +96,9 @@ void inthandler21(){
         }
 
         uint_8 index = (scan_code & 0x00ff);
-        __asm__ volatile ("xchgw %bx, %bx;");
         char key = keymap[index][shift];
         if(key){
-            struct queue_data qdata = { .data = scan_code, };
+            struct queue_data qdata = { .data = key, };
             ioqueue_put_data(&qdata, &keyboard_queue);
 
             return;

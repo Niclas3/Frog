@@ -88,14 +88,14 @@ void UkiMain(void)
 
 void keyboard_consumer(int a){
     int line = 0;
+    int pos = 0;
     for (;;) {
         struct queue_data qdata = {0};
         int error = ioqueue_get_data(&qdata, &keyboard_queue);
         lock_fetch(&main_lock);
         if(!error){
             char code = qdata.data;
-            /* draw_hex((int_8 *)0xa0000, 320, COL8_00FF00, 100, line, code & (0x000000ff)); */
-            draw_info((int_8 *)0xa0000, 320, COL8_00FF00, 100, line, code);
+            put_asc_char((int_8 *)0xa0000, 320, COL8_00FFFF, line, 100, code);
             line+=16;
         }
         lock_release(&main_lock);
