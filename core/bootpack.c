@@ -22,10 +22,12 @@
 #include <ioqueue.h>
 
 extern CircleQueue keyboard_queue;
+extern CircleQueue mouse_queue;
 
 void func(int a);
 void funcb(int a);
 void keyboard_consumer(int a);
+void mouse_consumer(int a);
 
 struct lock main_lock;
 
@@ -76,14 +78,34 @@ void UkiMain(void)
     lock_init(&main_lock);
 
     init_ioqueue(&keyboard_queue);
+    init_ioqueue(&mouse_queue);
 
-    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4); */
-    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
+    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4);
+    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
     TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
+    TCB_t *mouse_c = thread_start("mouse",10, mouse_consumer , 3);
     for (;;) {
         _io_stihlt();
     }
 
+}
+
+void mouse_consumer(int a){
+    int line =0;
+    int x = 0;
+    while(1){
+        struct queue_data qdata;
+        int error = ioqueue_get_data(&qdata, &mouse_queue);
+        lock_fetch(&main_lock);
+        if(!error){
+            char code = qdata.data;
+            draw_hex((uint_8 *)0xa0000, 320, COL8_00FF00, x, 2*16, code);
+            line+=16;
+            x+= 20;
+        }
+        lock_release(&main_lock);
+        _io_stihlt();
+    }
 }
 
 void keyboard_consumer(int a){
