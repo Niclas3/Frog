@@ -34,7 +34,7 @@ void lock_init(struct lock *lock){
 /*             PAINC("semaphore P: blocked thread already in waiting list?!"); */
 /*         } */
 /*         //block self then schedule to next ready thread */
-/*         thread_block(SYS_THREAD_TASK_BLOCKED); */
+/*         thread_block(THREAD_TASK_BLOCKED); */
 /*     } */
 /*     goto test_sema_value; */
 void semaphore_down(struct semaphore *sema){
@@ -47,7 +47,7 @@ void semaphore_down(struct semaphore *sema){
         }
         list_add_tail(&cur->general_tag, &sema->waiting_queue);
         //block self then schedule to next ready thread
-        thread_block(SYS_THREAD_TASK_BLOCKED);
+        thread_block(THREAD_TASK_BLOCKED);
     }
     sema->value--;
     ASSERT(sema->value == 0);

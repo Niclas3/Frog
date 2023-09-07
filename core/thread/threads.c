@@ -40,9 +40,9 @@ void init_thread(TCB_t* thread, char* name, uint_8 priority){
     memset(thread, 0, sizeof(*thread));
     strcpy(thread->name, name);
     if(thread == main_thread){
-        thread->status = SYS_THREAD_TASK_RUNNING;
+        thread->status = THREAD_TASK_RUNNING;
     }else{
-        thread->status = SYS_THREAD_TASK_READY;
+        thread->status = THREAD_TASK_READY;
     }
     thread->self_kstack = (uint_32*)((uint_32) thread + PG_SIZE);
     thread->priority = priority;
@@ -112,11 +112,11 @@ static void make_main_thread(void){
 
 void schedule(void){
     TCB_t *cur = running_thread();
-    if(cur->status == SYS_THREAD_TASK_RUNNING){
+    if(cur->status == THREAD_TASK_RUNNING){
         ASSERT(!list_find_element(&cur->general_tag, &thread_ready_list));
         list_add_tail(&cur->general_tag, &thread_ready_list);
         cur->ticks = cur->priority;
-        cur->status = SYS_THREAD_TASK_READY;
+        cur->status = THREAD_TASK_READY;
     } else {
 
     }
@@ -124,7 +124,7 @@ void schedule(void){
     thread_tag = NULL;
     thread_tag = list_pop(&thread_ready_list);
     TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
-    next->status = SYS_THREAD_TASK_RUNNING;
+    next->status = THREAD_TASK_RUNNING;
     switch_to(cur, next);
 }
 
@@ -137,15 +137,15 @@ void thread_init(void){
 
 // Block self and set self status to status
 // If thread status is 
-/* SYS_THREAD_TASK_HANDING; 
-   SYS_THREAD_TASK_WAITING; 
-   SYS_THREAD_TASK_BLOCKED; */
+/* THREAD_TASK_HANDING; 
+   THREAD_TASK_WAITING; 
+   THREAD_TASK_BLOCKED; */
 // call this function.
 // remove current thread from thread_ready_list
 void thread_block(task_status_t status){
-    ASSERT((status == SYS_THREAD_TASK_HANDING) || \
-           (status == SYS_THREAD_TASK_WAITING) || \
-           (status == SYS_THREAD_TASK_BLOCKED));
+    ASSERT((status == THREAD_TASK_HANDING) || \
+           (status == THREAD_TASK_WAITING) || \
+           (status == THREAD_TASK_BLOCKED));
     enum intr_status old_int_status = intr_disable();
     TCB_t *cur = running_thread();
     cur->status = status;
@@ -159,17 +159,17 @@ void thread_block(task_status_t status){
 // Unblock giving thread 
 // add thread to head of tread_ready_list 
 void thread_unblock(TCB_t *thread){
-    ASSERT((thread->status == SYS_THREAD_TASK_HANDING) || \
-           (thread->status == SYS_THREAD_TASK_WAITING) || \
-           (thread->status == SYS_THREAD_TASK_BLOCKED));
+    ASSERT((thread->status == THREAD_TASK_HANDING) || \
+           (thread->status == THREAD_TASK_WAITING) || \
+           (thread->status == THREAD_TASK_BLOCKED));
     enum intr_status old_int_status = intr_disable();
-    if(thread->status != SYS_THREAD_TASK_READY){
+    if(thread->status != THREAD_TASK_READY){
         ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
         if(list_find_element(&thread->general_tag, &thread_ready_list)){
             PAINC("The blocked thread at ready list!!?");
         }
         list_add(&thread->general_tag, &thread_ready_list);
-        thread->status = SYS_THREAD_TASK_READY;
+        thread->status = THREAD_TASK_READY;
     }
     intr_set_status(old_int_status);
 }
