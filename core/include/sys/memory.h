@@ -2,13 +2,14 @@
 #define __SYS_MEMORY_H
 #include <bitmap.h>
 #include <ostype.h>
+#include <sys/semaphore.h>
 
 // #define MEM_BITMAP_BASE 0xc009a00
 #define MEM_BITMAP_BASE 0x0009a00
-struct virtual_addr {
+typedef struct _virtual_addr {
     struct bitmap vaddr_bitmap;
     uint_32 vaddr_start;
-};
+} virtual_addr;
 
 typedef enum mem_pool_type{
     MP_KERNEL = 1,
@@ -29,6 +30,7 @@ typedef enum mem_pool_type{
                     //
 struct pool {
     struct bitmap pool_bitmap;
+    struct lock lock;
     uint_32 phy_addr_start;  // pool must at a phy address
     uint_32 pool_size;
 };
@@ -53,7 +55,9 @@ void free_page(struct pool *mpool, uint_32 phy_addr_page);
 // phy_addr from `get_free_page()`
 void put_page(void *v_addr, void* phy_addr);
 
+uint_32 addr_v2p(uint_32 vaddr);
 // Get kernel page from memory
 void* get_kernel_page(uint_32 pg_cnt);
+void* get_user_page(uint_32 pg_cnt);
 
 #endif

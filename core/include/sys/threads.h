@@ -3,6 +3,7 @@
 
 #include <ostype.h>
 #include <list.h>
+#include <sys/memory.h>
 
 //Routine type 
 typedef void* (*__routine_ptr_t)(void*);
@@ -67,12 +68,13 @@ typedef struct thread_control_block {
     task_status_t status;
     uint_32       priority;
     char name[16];
-    uint_32 ticks;                // working on CPU ticks
-    uint_32 elapsed_ticks;        // containing how many ticks passed
-    struct list_head general_tag; // set this tag to thread_ready_list
-    struct list_head all_list_tag;// for all_thread_list
-    uint_32 *pgdir;               // virtual address of page directory
-    uint_32 stack_magic;          // mark the board of stack 0x19900921;
+    uint_32 ticks;                     // working on CPU ticks
+    uint_32 elapsed_ticks;             // containing how many ticks passed
+    struct list_head general_tag;      // set this tag to thread_ready_list
+    struct list_head all_list_tag;     // for all_thread_list
+    uint_32 *pgdir;                    // virtual address of page directory
+    virtual_addr progress_vaddr;       // vaddress start and a new bitmap of memory
+    uint_32 stack_magic;               // mark the board of stack 0x19900921;
 } TCB_t;
 
 

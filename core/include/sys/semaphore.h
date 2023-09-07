@@ -2,7 +2,8 @@
 #define __THREAD_SEMAPHORE_H
 #include <ostype.h>
 #include <list.h>
-#include <sys/threads.h>
+
+typedef struct thread_control_block TCB_t;
 
 struct semaphore {
     uint_32 value;

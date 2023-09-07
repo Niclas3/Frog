@@ -77,7 +77,6 @@ TCB_t* thread_start(char* name,
                    __routine_t func,
                    void* arg){
 
-    /* __asm__ volatile ("xchgw %bx, %bx;"); */
     TCB_t *thread = get_kernel_page(1) ;
     init_thread(thread, name, priority);
     create_thread(thread, func, arg);

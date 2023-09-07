@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/memory.h>
 
-#include <sys/graphic.h>
+#include <sys/threads.h>
 
 //Assume that core.o is 70kb aka 0x11800
 //and start at 0x80000
@@ -18,7 +18,7 @@
 
 struct pool kernel_pool;
 struct pool user_pool;
-struct virtual_addr kernel_viraddr;
+struct _virtual_addr kernel_viraddr;
 
 // upper 10 bits pde
 #define PDE_IDX(addr) ((addr & 0xffc00000) >> 22)
@@ -77,9 +77,6 @@ static void mem_pool_init(uint_32 all_mem)
     kernel_pool.pool_bitmap.map_bytes_length = kbm_length;
     user_pool.pool_bitmap.map_bytes_length = ubm_length;
 
-    /* draw_hex(0xa0000, 320, COL8_848400, 16 * (5 + 10), 0, kbm_length); */
-    /* draw_hex(0xa0000, 320, COL8_848400, 16 * (5 + 2), 0, ubm_length); */
-
     // kernel pool bit map fix at MEM_BITMAP_BASE 0x9a00
     kernel_pool.pool_bitmap.bits = (void *) MEM_BITMAP_BASE;
     user_pool.pool_bitmap.bits = (void *) (MEM_BITMAP_BASE + kbm_length);
@@ -88,6 +85,8 @@ static void mem_pool_init(uint_32 all_mem)
     init_bitmap(&kernel_pool.pool_bitmap);
     // init user bitmap
     init_bitmap(&user_pool.pool_bitmap);
+    lock_init(&kernel_pool.lock);
+    lock_init(&user_pool.lock);
 
     kernel_viraddr.vaddr_bitmap.map_bytes_length = kbm_length;
     kernel_viraddr.vaddr_bitmap.bits =
@@ -107,7 +106,8 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
 {
     int_32 v_start_addr = 0;
     int_32 start_pos = -1;
-    if (poolt == MP_KERNEL) {
+    TCB_t *cur = running_thread();
+    if (cur->pgdir == NULL && poolt == MP_KERNEL) {
         start_pos = find_block_bitmap(&kernel_viraddr.vaddr_bitmap, pg_cnt);
         if (start_pos == -1) {
             return NULL;
@@ -117,13 +117,23 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
         }
         v_start_addr = start_pos * PG_SIZE + kernel_viraddr.vaddr_start;
         return (void *) v_start_addr;
+    } else if(cur->pgdir != NULL && poolt == MP_USER){ // TODO: user vaddress pools
+        start_pos = find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap, pg_cnt);
+        if (start_pos == -1) {
+            return NULL;
+        }
+        for (int i = 0; i < pg_cnt; i++) {
+            set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, start_pos + i, 1);
+        }
+        v_start_addr = start_pos * PG_SIZE + cur->progress_vaddr.vaddr_start;
+        return (void *) v_start_addr;
     } else {
-        // TODO: user vaddress pools
-        return (void *) NULL;
+        PAINC("get_free_vaddress: not allow kernel alloc userspace or user alloc kernel space.");
     }
 }
 
-// get or free 4k phy memory aka 1 page -> pte
+// get a free 4k phy memory aka 1 page in pool 
+// -> pte
 void *get_free_page(struct pool *mpool)
 {
     int_32 start_pos = -1;
@@ -146,7 +156,6 @@ void free_page(struct pool *mpool, uint_32 phy_addr_page)
     return;
 }
 
-//
 uint_32 *pte_ptr(uint_32 vaddr)
 {
     // I set last PDE as PDT table address
@@ -171,6 +180,11 @@ uint_32 *pde_ptr(uint_32 vaddr)
     uint_32 *target_pde = (uint_32 *) (0xfffff000 + PDE_IDX(vaddr) * 4);
     return target_pde;
 }
+uint_32 addr_v2p(uint_32 vaddr){
+    uint_32 *pte = pte_ptr(vaddr);
+    return ((*pte & 0xfffff000) + (vaddr & 0x00000fff));
+}
+
 // Combine v address -> phy address
 void put_page(void *v_addr, void *phy_addr)
 {
@@ -203,19 +217,17 @@ void put_page(void *v_addr, void *phy_addr)
         *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
     }
 }
+
+// get free vaddress and paddress and put them together
 void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 {
     ASSERT(pg_cnt > 0 && pg_cnt < 3840);
     void *vaddr_start = get_free_vaddress(poolt, pg_cnt);
-    if (vaddr_start == NULL) {
-        return NULL;
-    }
+    if (vaddr_start == NULL) { return NULL; }
     uint_32 vaddr = (uint_32) vaddr_start;
-    uint_32 cnt = pg_cnt;
-
     struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
 
-    while (cnt--) {
+    while (pg_cnt--) {
         void *phyaddrs = get_free_page(mem_pool);
         if (phyaddrs == NULL) {
             return NULL;
@@ -229,9 +241,25 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 // Get kernel page from memory
 void *get_kernel_page(uint_32 pg_cnt)
 {
+    lock_fetch(&kernel_pool.lock);
     void *vaddr = malloc_page(MP_KERNEL, pg_cnt);
     if (vaddr != NULL) {
         memset(vaddr, 0, pg_cnt * PG_SIZE);
     }
+    lock_release(&kernel_pool.lock);
     return vaddr;
 }
+
+// Get user mode page from memory
+void *get_user_page(uint_32 pg_cnt)
+{
+    lock_fetch(&user_pool.lock);
+    void *vaddr = malloc_page(MP_USER, pg_cnt);
+    if (vaddr != NULL) {
+        memset(vaddr, 0, pg_cnt * PG_SIZE);
+    }
+    lock_release(&user_pool.lock);
+    return vaddr;
+}
+
+

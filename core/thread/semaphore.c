@@ -1,4 +1,5 @@
 #include <sys/semaphore.h>
+#include <sys/threads.h>
 #include <sys/int.h>
 #include <list.h>
 #include <const.h>

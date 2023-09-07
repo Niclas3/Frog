@@ -131,9 +131,7 @@ void keyboard_consumer(int a){
 void func(int a){
     while(1){
         lock_fetch(&main_lock);
-
         draw_info((uint_8 *)0xa0000, 320, COL8_00FF00, 100, 0, "T");
-
         lock_release(&main_lock);
     }
 }
@@ -141,10 +139,8 @@ void func(int a){
 void funcb(int a){
     while(1){
         lock_fetch(&main_lock);
-
         draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 100, 0, "T");
         draw_info((uint_8 *)0xa0000, 320, COL8_FFFFFF, 15, 0, "H");
-
         lock_release(&main_lock);
     }
 }
