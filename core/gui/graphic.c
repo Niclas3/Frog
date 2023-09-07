@@ -126,7 +126,7 @@ void putfonts8_asc(char *vram, int xsize, int x, int y, char color,unsigned char
 
 void put_asc_char(char *vram, int xsize, int x, int y, char color,int num){
     char *hankaku = (char*)FONT_HANKAKU;
-    putfont8((unsigned char *)vram, xsize, x, y, color,hankaku + (num * 16));
+    putfont8((unsigned char *)vram, xsize, x, y, color, hankaku + (num * 16));
 }
 
 void putfonts8_asc_error(unsigned char *s, int x, int y){

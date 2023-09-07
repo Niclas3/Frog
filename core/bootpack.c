@@ -45,8 +45,6 @@ void UkiMain(void)
                      .leds = 0,
                      .vmode = 0,
                      .reserve = 0};
-    /* init_gdt(); */
-    /* init_idt(); */
     init_idt_gdt_tss();
 
     thread_init();
@@ -56,11 +54,11 @@ void UkiMain(void)
     init_keyboard();
     enable_mouse();
 
+    init_PIT8253();
+
     mem_init();
 
     draw_backgrond(info.vram, info.scrnx, info.scrny);
-
-    init_PIT8253();
 
     /* init_palette(); */
 
@@ -81,8 +79,8 @@ void UkiMain(void)
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
 
-    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4);
-    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
+    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4); */
+    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
     TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
     TCB_t *mouse_c = thread_start("mouse",10, mouse_consumer , 3);
     for (;;) {
@@ -111,15 +109,19 @@ void mouse_consumer(int a){
 
 void keyboard_consumer(int a){
     int line = 0;
-    int pos = 0;
+    int xpos = 0;
     for (;;) {
         struct queue_data qdata = {0};
         int error = ioqueue_get_data(&qdata, &keyboard_queue);
         lock_fetch(&main_lock);
         if(!error){
             char code = qdata.data;
-            put_asc_char((int_8 *)0xa0000, 320, COL8_00FFFF, line, 100, code);
-            line+=16;
+            if(xpos >= 300){
+                line+=16;
+                xpos = 0;
+            }
+            put_asc_char((int_8 *)0xa0000, 320, xpos, line, COL8_00FFFF, code);
+            xpos+= 8;
         }
         lock_release(&main_lock);
         _io_stihlt();
