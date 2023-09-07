@@ -6,7 +6,7 @@ BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/hid.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
-	 $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
+	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
 	 $(BUILD_DIR)/list.o $(BUILD_DIR)/ioqueue.o\
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o\

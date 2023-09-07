@@ -11,14 +11,6 @@ GLOBAL_STACK:
 ; GLOBAL_STACK_TOP equ $ - GLOBAL_STACK -1
 GLOBAL_STACK_TOP equ $
 
-section .r3stack
-align 32
-RING3_STACK:
-    times 512 db 0
-RING3_STACK_LIMIT equ $ - RING3_STACK - 1
-
-
-
 ;; memory descriptor
 ;; GDT 8 bytes
 
@@ -34,36 +26,6 @@ GDT_BASE   dd  0x00000000  ; low
 CODE_DESC  dd  0x0000FFFF
            dd  DESC_CODE_HIGH4
 
-; 24 bits high
-;        |
-; 0000 0000 0000 0000 0000 0000
-; ;----new----------------------------------------
-; 0000 0000 1000 0000 0000 0000 ; DESC_G_4K
-; 0000 0000 0100 0000 0000 0000 ; DESC_D_32
-; 0000 0000 0000 0000 1000 0000 ; DESC_P
-; 0000 0000 0000 0000 0000 0000 ; DESC_AVL
-; 0000 0000 0000 1111 0000 0000 ; DESC_LIMIT_CODE2
-; 0000 0000 0000 0000 0000 0000 ; DESC_DPL_0
-; 0000 0000 0000 0000 0001 0000 ; DESC_S_CODE  ;DT1
-; 0000 0000 0000 0000 0000 1000 ; DESC_TYPE_CODE ; TYPE ;X C R A
-; 0000 0000 0000 0000 0000 0000 ; L
-
-; 0000 0000 1100 1111 1001 1000
-;           C    F    9    8
-
-; ;----old-----------------------------------------
-; 0000 0000 0000 0000 0000 0000
-; 1000 0000 0000 0000 0000 0000 ; DESC_G_4K
-; 0100 0000 0000 0000 0000 0000 ; DESC_D_32
-; 0000 0000 1000 0000 0000 0000 ; DESC_P
-; 0000 0000 0000 0000 0000 0000 ; DESC_AVL
-; 0000 1111 0000 0000 0000 0000 ; DESC_LIMIT_CODE2
-; 0000 0000 0000 0000 0000 0000 ; DESC_DPL_0
-; 0000 0000 0001 0000 0000 0000 ; DESC_S_CODE
-; 0000 0000 0000 1000 0000 0000 ; DESC_TYPE_CODE
-
-;;0x00
-
 ;; No.2 
 DATA_STACK_DESC  dd  0x0000FFFF
                  dd  DESC_DATA_HIGH4
@@ -72,105 +34,79 @@ DATA_STACK_DESC  dd  0x0000FFFF
 ; VIDEO_DESC       dd  0xb8000007
 VIDEO_DESC       dd  0x80000007
                  dd  DESC_VIDEO_HIGH4
+
 ;; No.4            dd  0xa000000F
 VGC_DESC         dd  0x0000000F ; limit (0xaffff-0xa0000)/0x1000 = 0xF
                  dd  DESC_VGC_HIGH4
 
 ;; No.5
-CALL_GATE_DESC dw  (CALL_GATE_TEST & 0xFFFF)
-               dw  SELECTOR_RING0_C_C0DE
-               dw  CALL_GATE_HIGH2
-               dw  ((CALL_GATE_TEST>> 16) & 0xFFFF)
+; CALL_GATE_DESC dw  (CALL_GATE_TEST & 0xFFFF)
+;                dw  SELECTOR_RING0_C_C0DE
+;                dw  CALL_GATE_HIGH2
+;                dw  ((CALL_GATE_TEST>> 16) & 0xFFFF)
 
 ;; No.6 
-;;                         base , limit, attr
-CODE_DESC_RING3    Descriptor 0    , code_in_ring3_len -1   , 0x4000+0x98+60h
+;;                           base , limit, attr
+; CODE_DESC_RING3    Descriptor 0    , code_in_ring3_len -1   , 0x4000+0x98+60h
 ;; No.7 
-STACK_DESC_RING3   Descriptor 0    , RING3_STACK_LIMIT , 0x93+0x4000+0x60
+; STACK_DESC_RING3   Descriptor 0    , RING3_STACK_LIMIT , 0x93+0x4000+0x60
 
 ;; No.8
-TSS_DESC           Descriptor 0    , TSS_Len-1, 0x89
+; TSS_DESC             Descriptor 0    , TSS_Len-1, 0x89
 
 ;; No.9
-C_RING0_CODE_DESC  dd  0x0000FFFF
-                   dd  DESC_C_CODE_HIGH4
+; C_RING0_CODE_DESC  dd  0x0000FFFF
+;                    dd  DESC_C_CODE_HIGH4
 
 ;; No.10
-STACK_DESC_GLOBLE  dd  0x0000FFFF
-                   dd  DESC_DATA_HIGH4
+; STACK_DESC_GLOBLE  dd  0x0000FFFF
+;                    dd  DESC_DATA_HIGH4
 
+times 10 dq 0  ;; dq for 8 bytes
 ;;END GDT
-;;---------------------------------
+;;Q: How many gdt descriptor that I need?
+;;A: Maybe for now , I need 4 descriptors, ring0 2, and ring3 2 for code and
+;    data
 
+;;------------------------------------------------------------
+;; For gdtr 32-bit + 16-bit
+;;          base     limit
 GDT_SIZE equ $ - GDT_BASE
-;; for gdtr 32-bit + 16-bit
 GDT_LIMIT equ GDT_SIZE - 1
+;;------------------------------------------------------------
 
-times 60 dq 0
-;;; 15-3                             2        1-0
-;;; descriptor index                TI        RPL
+;;; Selector
+;;; +----------------------------------------------+
+;;; |      15-3                     |   2  |  1-0  |
+;;; |descriptor index               |  TI  |  RPL  |
+;;; +----------------------------------------------+
 ;;; TI == 0 in GDT
 ;;; TI == 1 in LDT
-
 SELECTOR_CODE        equ (0x0001<<3) + TI_GDT + RPL0
 SELECTOR_DATA        equ (0x0002<<3) + TI_GDT + RPL0
 SELECTOR_VIDEO       equ (0x0003<<3) + TI_GDT + RPL0
 SELECTOR_VGC         equ (0x0004<<3) + TI_GDT + RPL0
-SELECTOR_CALL_GATE   equ (0x0005<<3) + TI_GDT + RPL0
-SELECTOR_CODE_RING3  equ (0x0006<<3) + TI_GDT + RPL3
-SELECTOR_STACK_RING3 equ (0x0007<<3) + TI_GDT + RPL3
-SELECTOR_TSS         equ (0x0008<<3) + TI_GDT + RPL0
-SELECTOR_RING0_C_C0DE equ (0x0009<<3) + TI_GDT + RPL0
-SELECTOR_STACK       equ (0x000a<<3) + TI_GDT + RPL0
+; SELECTOR_CALL_GATE   equ (0x0005<<3) + TI_GDT + RPL0
+; SELECTOR_CODE_RING3  equ (0x0006<<3) + TI_GDT + RPL3
+; SELECTOR_STACK_RING3 equ (0x0007<<3) + TI_GDT + RPL3
+; SELECTOR_TSS         equ (0x0008<<3) + TI_GDT + RPL0
+; SELECTOR_RING0_C_C0DE equ (0x0009<<3) + TI_GDT + RPL0
+; SELECTOR_STACK       equ (0x000a<<3) + TI_GDT + RPL0
 
 gdt_ptr dw GDT_LIMIT
         dd GDT_BASE
 
-;;TSS
-section .tss
-LABEL_TSS:
-         dd 0                   ;; Previous Task link
-         dd GLOBAL_STACK_TOP    ;; ESP0
-         dd SELECTOR_DATA       ;; SS0
-         dd 0                   ;; ESP1
-         dd 0                   ;; SS1
-         dd 0                   ;; ESP2
-         dd 0                   ;; SS2
-         dd 0                   ;; CR3(PDBR)
-         dd 0                   ;; EIP
-         dd 0                   ;; EFLAGS
-         dd 0                   ;; EAX
-         dd 0                   ;; ECX 
-         dd 0                   ;; EDX
-         dd 0                   ;; EBX 
-         dd 0                   ;; ESP
-         dd 0                   ;; EBP
-         dd 0                   ;; ESI
-         dd 0                   ;; EDI
-         dd 0                   ;; ES
-         dd 0                   ;; CS
-         dd 0                   ;; SS
-         dd 0                   ;; DS
-         dd 0                   ;; FS
-         dd 0                   ;; GS
-         dd 0                   ;; LDT Segment Selector
-         dw 0                   ;; T
-         dw $-LABEL_TSS +2      ;; I/O map base address 
-         db 0ffh
-         ; dd 0                   ;; SSP
-TSS_Len equ $-LABEL_TSS
-
-;;END TSS
-
-;; IDT
+;;--------------------------------------------------------
+;;                      IDT
+;;--------------------------------------------------------
 section .idt
 ; [bits 32]
 IDT_BASE:
 %rep 255
-         dw  (Putchar & 0xFFFF)
+         dw  (Dumb_handler& 0xFFFF)
          dw  SELECTOR_CODE
          dw  INTR_GATE_HIGH2
-         dw  ((Putchar >> 16) & 0xFFFF)
+         dw  ((Dumb_handler >> 16) & 0xFFFF)
 %endrep
 
 IDT_SIZE equ $$-IDT_BASE
@@ -180,19 +116,24 @@ idt_ptr  dw IDT_LIMIT
          dd IDT_BASE
 
 ;; END IDT
+;;--------------------------------------------------------
 
-; [section .s16]
-; [bits 16]
+;;--------------------------------------------------------
+;; Real mode code (aka 16-bits codes)
+;;--------------------------------------------------------
+section .s16
+[bits 16]
 loadermsg db 'loader in real.'
           db 0
-
-loader_start:
-;----------------------------print message -------------------------------
 mov byte [VMODE],8
 mov word [SCRNX],320
 mov word [SCRNY],200
 mov dword [VRAM],0x000a0000
-;----------------------------print message -------------------------------
+
+loader_start:
+;-----------------------------------------------------------
+;  print message 
+;-----------------------------------------------------------
 print_begin:
     mov ax, loadermsg
     mov si, ax
@@ -206,136 +147,47 @@ _print_begin:
     mov bx, 15
     int 10h
     jmp _print_begin
+;-----------------------------------------------------------
 
-;--reset black screen---------------------------
+;----------------------------------------------------
+; Reset black screen
+;----------------------------------------------------
 rst_b_scr:
-    ; nop
     mov al,0x13
     mov ah,0x00
     int 0x10
 ;----------------------------------------------------
 
-; Init 32 bits code description 0x01
-    xor eax, eax
-    mov ax, cs
-    shl eax, 4
-    ; add eax, LABEL_SEG_CODE32  ;; start of code segments
-    add eax, 0x0                 ;; start of code segments base address
-    mov word [CODE_DESC+ 2], ax
-    shr eax, 16
-    mov byte [CODE_DESC+ 4], al
-    mov byte [CODE_DESC+ 7], ah
-
-; Init 32 bits data description 0x02
-    xor eax, eax
-    mov eax, 0x0           ;base address
-    mov word [DATA_STACK_DESC+ 2], ax
-    shr eax, 16
-    mov byte [DATA_STACK_DESC+ 4], al
-    mov byte [DATA_STACK_DESC+ 7], ah
-
-; Init 32 bits call gate code description 0x05
-    xor eax, eax
-    mov eax, _CALL_GATE_TEST; offset
-    mov word [CALL_GATE_DESC], ax
-    shr eax, 16
-    mov word [CALL_GATE_DESC+6], ax
-
-; Init 32 bits ring3 code description 0x06
-    xor eax, eax
-    mov ax, cs
-    shl eax, 4
-    add eax, _code_in_ring3     ;; start of code segments base address
-    mov word [CODE_DESC_RING3 + 2], ax
-    shr eax, 16
-    mov byte [CODE_DESC_RING3 + 4], al
-    mov byte [CODE_DESC_RING3 + 7], ah
-
-; Init 32 bits stack description 0x07
-    xor eax, eax
-    mov ax, cs
-    shl eax, 4
-    add eax, RING3_STACK; start of code segments base address
-    mov word [STACK_DESC_RING3+ 2], ax
-    shr eax, 16
-    mov byte [STACK_DESC_RING3+ 4], al
-    mov byte [STACK_DESC_RING3+ 7], ah
-
-; Init 32 bits stack description 0x08
-    xor eax, eax
-    mov ax, cs
-    shl eax, 4
-    add eax, LABEL_TSS ;; start of code segments base address
-    mov word [TSS_DESC + 2], ax
-    shr eax, 16
-    mov byte [TSS_DESC + 4], al
-    mov byte [TSS_DESC + 7], ah
-
-; Init 32 bits stack description 0x09
-    ; xor eax, eax
-    ; mov eax, GLOBAL_STACK                 ;; start of code segments base address
-    ; mov word [STACK_DESC_GLOBLE + 2], ax
-    ; shr eax, 16
-    ; mov byte [STACK_DESC_GLOBLE+ 4], al
-    ; mov byte [STACK_DESC_GLOBLE+ 7], ah
-
-
-; Init IDT at 0x00
-    xor eax, eax
-    mov eax, _Putchar  ; offset
-    mov word [IDT_BASE], ax
-    shr eax, 16
-    mov word [IDT_BASE+6], ax
-
-; Init IDT at 0x01
-    xor eax, eax
-    mov eax, _ClockHandler; offset
-    mov word [IDT_BASE+8], ax
-    shr eax, 16
-    mov word [IDT_BASE+6+8], ax
-
-; Init IDT at 0x20  time interrupt IRQ0
-    xor eax, eax
-    mov eax, _ClockHandler; offset
-    mov word [IDT_BASE+(8*32)], ax
-    shr eax, 16
-    mov word [IDT_BASE+6+(8*32)], ax
-
-; Init IDT at 0x21  keyboard interrupt IRQ1
-    xor eax, eax
-    mov eax, _KeyboardHandler; offset
-    mov word [IDT_BASE+(8*0x21)], ax
-    shr eax, 16
-    mov word [IDT_BASE+6+(8*0x21)], ax
-
-; A20 open
+;----------------------------------------------------
+;                  A20 open
+;----------------------------------------------------
 in al, 0x92
 or al, 0000_0010b
 out 0x92, al
 
-;------------------load gdt to gdtr-------------------
-
+;-----------------------------------------------------
+;                  load gdt to gdtr
+;-----------------------------------------------------
 lgdt [gdt_ptr]
-
-;------------------cr0 set PE ------------------------
-
+;-----------------------------------------------------
+;                  cr0 set PE 
+;-----------------------------------------------------
 mov eax, cr0
 or  eax, 0x00000001
 mov cr0, eax
-
 ;------------------init idt---------------------------
 cli
 lidt [idt_ptr]
-
+;-----------------------------------------------------
+;  Jump to protected mode
 ;-----------------------------------------------------
 jmp dword SELECTOR_CODE: LABEL_SEG_CODE32; reflash code-flow?
-
-; jmp dword SELECTOR_CODE: 0; reflash code-flow? 
+;-----------------------------------------------------
 
 section .s32
 bits 32
 LABEL_SEG_CODE32:
-    mov ax, SELECTOR_STACK
+    mov ax, SELECTOR_DATA   ;;SELECTOR_STACK
     mov ss, ax
 
     xor ax, ax
@@ -343,17 +195,10 @@ LABEL_SEG_CODE32:
     mov ds, ax
     mov es, ax
 
-    mov esp, GLOBAL_STACK_TOP
+    mov esp, GLOBAL_STACK_TOP ; loader stack
     mov ax, SELECTOR_VGC
     mov gs, ax
 
-    mov byte [gs:160], 'Z'
-    ; call Init8259A
-    ; int 00h
-    ; int 01h
-    ; sti
-    mov ax, SELECTOR_TSS
-    ltr ax
 ;;==============================================================================
 ;; load kernel to 0x90000
 ;;==============================================================================
@@ -479,95 +324,27 @@ LABEL_SEG_CODE32:
     mov eax, PAGE_DIR_START
     mov cr3, eax
 
-    ;open cr0 pg bit
+    ;open cr0 page bit
     mov eax, cr0
     or eax, 0x8000_0000
     mov cr0, eax
 
-    ; reload gdt_ptr
-    ; lgdt [gdt_ptr]
 ;;-----------------------------------------------------------------------------
-    mov esp, 0x9f000
+    mov esp, 0x9f000  ;set kernel stack
     jmp dword SELECTOR_CODE: KERNEL_START
 
 ;===============================================================================
-; Call back code ( Provisional )
+; dumb handler for interrupt handler 
+; (just for place holder)
 ;===============================================================================
-_Putchar:
-Putchar equ _Putchar - $$
-    mov ah, 0ch
-    mov al, `!`
-    mov word [gs:160], ax
-    ; jmp $
+_Dumb_handler:
+Dumb_handler equ _Dumb_handler - $$
     iretd
 
-_ClockHandler:
-ClockHandler equ _ClockHandler - $$
-    ; mov byte [eax+edx*320+0], 8
-    ; there is no end!!
-    ; cmp edx, 168
-    ; jnle _clock_test_end
-    ; mov eax, [VRAM]
-    ; imul ecx, edx, 320
-    ; add ecx, edx
-    ; add eax, ecx
-    ; mov byte [eax], 8
-    ; inc edx
-    ; _clock_test_end:
-    ; mov al,20h
-    ; out 20h, al
-    inc word [gs:160]
-    mov al,20h
-    out 20h, al
-    iretd
-
-_KeyboardHandler:
-KeyboardHandler equ _KeyboardHandler- $$
-    ; mov eax, [VRAM]
-    ; imul ecx, edx, 400
-    ; add ecx, edx
-    ; add eax, ecx
-    ; mov byte [eax], 10
-    ; inc edx
-    inc word [gs:260]
-
-    cli            ; Disable interrupts
-empty_buffer:
-    in al, 0x64    ; Read keyboard status register into AL
-    test al, 0x01  ; Check bit 0 of AL (keyboard status)
-    jz buffer_empty ; If zero, jump to buffer_empty (buffer is empty)
-
-    in al, 0x60    ; Read keyboard data register into AL
-    jmp empty_buffer ; Repeat until buffer is empty
-
-buffer_empty:
-    sti            ; Enable interrupts
-    mov al,20h
-    out 20h, al
-    iretd
-
-
-_CALL_GATE_TEST:
-CALL_GATE_TEST equ _CALL_GATE_TEST- $$
-    mov ah, 0ch
-    mov al, `C`
-    mov word [gs:300], ax
-    jmp $
-    retf
-
-_code_in_ring3:
-    mov ah, 0ch
-    mov al, `3`
-    mov word [gs:310], ax
-    jmp SELECTOR_CALL_GATE:0xe000
-    ; call SELECTOR_CALL_GATE:0xe000
-    jmp $
-code_in_ring3_len equ $-_code_in_ring3
 ;===============================================================================
-
-;;paging
-;===============================================================================
+; Paging
 ; void setup_page()
+;===============================================================================
 setup_page:
     ; size   counts
     ;   4b x  1024 = 4096d aka 0x1000
@@ -674,10 +451,12 @@ PG_MSIZE_4M   equ 1024
 ;     add eax, 0x1000 ;4096 = size page table
 ;     loop .create_kernel_pde
     ret
+
 ;===============================================================================
-;setpage(start_addr, count)
+;void setpage(start_addr, count)
 ; ebp+4 --> count    e.g 1024
 ; ebp+8 --> start_addr e.g ebx
+;===============================================================================
 
 setpage:
     mov ecx, [ebp+4]
@@ -694,11 +473,11 @@ setpage:
 ;===============================================================================
 ; void read_hard_disk_32(sector_number, base_address,count_of_read-in_sector)
 ; Read n sector from hard disk 
-read_hard_disk_32:
-;------------------------------------------------------------
 ;; eax = LBA sector number
 ;; ebx  = base address 
 ;; ecx  = read-in sector number
+;===============================================================================
+read_hard_disk_32:
     mov esi, eax
     mov di, cx
 ;;Read disk
@@ -759,9 +538,10 @@ read_hard_disk_32:
 
 ;===============================================================================
 ;void load_text_sections(section_offset, count, size)
-    ;; ebp+4 ---> size   0x0028          ebx 3
-    ;; ebp+8 ---> count  0x0007          ecx 2
-    ;; ebp+12---> section_offset 0x3070  eax 1
+;; ebp+4 ---> size   0x0028          ebx 3
+;; ebp+8 ---> count  0x0007          ecx 2
+;; ebp+12---> section_offset 0x3070  eax 1
+;===============================================================================
 load_text_sections:
     mov ebp, esp
     ; Getting the values of section_offset array
@@ -823,22 +603,23 @@ skip_copymem:
 
 ;===============================================================================
 ;void load_program(program_table, count, program_size)
-    ;; ebp+8 ---> size : program_entry_size
-    ;; ebp+12 ---> count: number of program headers
-    ;; ebp+16---> offset: start of program headers aka program_table
-    ; void copymem(int baseaddress, int size, int desaddress);
-    ; char *ELF_BIN_BASE = 0x90000;
-    ; int program_entry_sz = program_size / program_number;
-    ; for(int i=0;i < program_number;i++){
-    ;     char *entry = program_table + (i*program_entry_sz);
-    ;     char *p_offset[4] = entry[4];
-    ;     char *p_vaddr[4]  = entry[8];
-    ;     char *p_filez[4]  = entry[16];
-    ;     char *p_type[4] = entry[0]
-    ;     if(p_type == PT_LOAD){ // PT_LOAD == 0x10000000
-    ;       copymem( ELF_BASE + p_offset , p_filesz, p_vaddr);
-    ;     }
-    ; }
+;; ebp+8 ---> size : program_entry_size
+;; ebp+12 ---> count: number of program headers
+;; ebp+16---> offset: start of program headers aka program_table
+;===============================================================================
+; void copymem(int baseaddress, int size, int desaddress);
+; char *ELF_BIN_BASE = 0x90000;
+; int program_entry_sz = program_size / program_number;
+; for(int i=0;i < program_number;i++){
+;     char *entry = program_table + (i*program_entry_sz);
+;     char *p_offset[4] = entry[4];
+;     char *p_vaddr[4]  = entry[8];
+;     char *p_filez[4]  = entry[16];
+;     char *p_type[4] = entry[0]
+;     if(p_type == PT_LOAD){ // PT_LOAD == 0x10000000
+;       copymem( ELF_BASE + p_offset , p_filesz, p_vaddr);
+;     }
+; }
 load_program:
     push ebp
     mov ebp, esp
@@ -870,9 +651,10 @@ load_program:
     ret
 ;===============================================================================
 ; void copymem(int baseaddress, int size, int desaddress);
-    ;; ebp+20 ---> destination  0x80000          ebx 3
-    ;; ebp+24 ---> size                        ecx 2
-    ;; ebp+28---> baseaddress                     1
+;; ebp+20 ---> destination  0x80000          ebx 3
+;; ebp+24 ---> size                        ecx 2
+;; ebp+28---> baseaddress                     1
+;===============================================================================
 copyMem:
     ; Implement the copymem function here
     ; This function should copy 'size' bytes from 'baseaddress' to 'desaddress'
@@ -897,6 +679,7 @@ copyMem:
 ; void clearmem(start_addr, size)
 ;     ebp+4 ---> size in byte
 ;     ebp+8 ---> start_addr
+;===============================================================================
 clearmem:
     mov ebp, esp
     mov ecx, [ebp+4]

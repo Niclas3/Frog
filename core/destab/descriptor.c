@@ -11,6 +11,7 @@ typedef enum DescriptorTable_Type{
     LDT
 } DT_type;
 
+
 void __get_from_descriptor_table_register(Descriptor_REG *data, DT_type type){
     //e.g.
     //0xc820 0057 low  data[0]
@@ -36,6 +37,17 @@ void __get_from_descriptor_table_register(Descriptor_REG *data, DT_type type){
     data->address = addr;
     data->limit   = limit;
     return;
+}
+
+Segment_Descriptor* get_gdt_base_address(void){
+    Descriptor_REG gdtr_data = {0};
+    save_gdtr(&gdtr_data);
+    return (Segment_Descriptor *) gdtr_data.address;
+}
+Segment_Descriptor* get_idt_base_address(void){
+    Descriptor_REG idtr_data = {0};
+    save_idtr(&idtr_data);
+    return (Segment_Descriptor *) idtr_data.address;
 }
 
 void save_gdtr(Descriptor_REG *data){

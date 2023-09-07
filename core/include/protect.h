@@ -1,8 +1,6 @@
 #ifndef PROTECT_H
 #define PROTECT_H
 
-void init_idt();
-
-void init_gdt();
+void init_idt_gdt_tss(void);
 
 #endif

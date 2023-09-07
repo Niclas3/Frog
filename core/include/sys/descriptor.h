@@ -42,6 +42,21 @@
 #define DESC_TYPE_TRAP 0xF  // D=1 1  1  1  (Trap Gate) D=1 for 386cpu else for 286
 #define DESC_TYPE_CALL 0xC  // 1   1  0  0  (Call Gate)
 
+// Bit 11 ~ 8
+//                                   TYPE
+// TYPE:  (4 bits) 
+// TSS 
+// `B` for busy
+// The busy flag in the type field indicates whether the task is busy. A busy
+// task currently running or suspended. A type field with a value of 1001B
+// indicates an inactive task; a value of 1011B indicates a busy task. Task are
+// not recursive. The processor uses the busy flag to detect an attempt to call
+// a task whose execution has been interrupted.To ensure that there is noly one
+// busy flag is associated with a task, each TSS should have only on TSS
+// descriptor that points to it.
+                            // 0  1  2    3   bits
+#define DESC_TYPE_TSS 0x9   // 1  0  B=0  1   (TSS)
+
 // Bit 12
 // S: if or not if system segment
 // 000* 0000 0000 0000
@@ -177,8 +192,17 @@ typedef struct _GATE {
 #define RPL2 0x2
 #define RPL3 0x3
 typedef short Selector;
+
+//Preset selectors
+#define SEL_IDX_CODE_DPL_0   1
+#define SEL_IDX_DATA_DPL_0   2
+#define SEL_IDX_VIDEO_DPL_0  3
+#define SEL_IDX_VGC_DPL_0    4
+#define SEL_IDX_TSS_DPL_0    5
+#define SEL_IDX_CODE_DPL_3   6
+#define SEL_IDX_DATA_DPL_3   7
 //==============================================================================
-typedef void(Inthandle_t)();
+typedef void* (Inthandle_t)(void*);
 
 void create_gate(Gate_Descriptor *gd,
                  Selector selector,
@@ -193,5 +217,8 @@ void create_descriptor(Segment_Descriptor *sd,
                        uint_8 attribute); //   4 bits; G,B/D,L,AVL
 
 Selector create_selector(uint_16 index, char ti, char rpl);
+
+Segment_Descriptor* get_idt_base_address(void);
+Segment_Descriptor* get_gdt_base_address(void);
 
 #endif

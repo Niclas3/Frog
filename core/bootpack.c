@@ -45,8 +45,9 @@ void UkiMain(void)
                      .leds = 0,
                      .vmode = 0,
                      .reserve = 0};
-    init_gdt();
-    init_idt();
+    /* init_gdt(); */
+    /* init_idt(); */
+    init_idt_gdt_tss();
 
     thread_init();
     // Set 8295A and PIT_8253 and set IF=1
