@@ -28,6 +28,8 @@ global _io_delay
 global _load_idtr, _save_idtr
 global _load_gdtr, _save_gdtr
 ;;----------------------------------------------------------------------------
+global intr_exit
+;;----------------------------------------------------------------------------
 ;; Interrupt handler by Intel init
 global  _divide_error
 global  _single_step_exception
@@ -177,9 +179,10 @@ _asm_inthandler2C:
     CALL inthandler2C
     jmp intr_exit
 
-global intr_exit
 intr_exit:	     
    ; add esp, 4			   ; 跳过中断号
+;; push 32bits register as order 
+;; eax,ecx, edx, ebx, esp, ebp, esi, edi
    popad
    pop gs
    pop fs

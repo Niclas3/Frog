@@ -44,4 +44,6 @@ void _general_protection(void);
 void _page_fault(void);
 void _copr_error(void);
 
+void intr_exit(void);
+
 #endif
