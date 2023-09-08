@@ -39,6 +39,8 @@ void mem_init(void);
 
 //Picking a pool return a free v_address
 static void* get_free_vaddress(pool_type poolt, uint_32 pg_cnt);
+//Alloc a page aka (4kb) link to vaddr_start
+void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start);
 
 // get or free 4k phy memory aka 1 page -> pte
 void* get_free_page(struct pool *mpool);

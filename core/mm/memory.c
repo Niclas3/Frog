@@ -238,6 +238,29 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
     return vaddr_start;
 }
 
+// get free vaddress and paddress and put them together
+void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
+{
+    struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
+    int_32 bit_idx = -1;
+    TCB_t *cur = running_thread();
+    if(cur->pgdir == NULL && poolt == MP_KERNEL){
+        bit_idx = (vaddr_start - kernel_viraddr.vaddr_start) / PG_SIZE;
+        ASSERT(bit_idx > 0);
+        set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, 1);
+    } else if(cur->pgdir != NULL && poolt == MP_USER){
+        bit_idx = (vaddr_start - cur->progress_vaddr.vaddr_start) / PG_SIZE;
+        ASSERT(bit_idx > 0);
+        set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1);
+    } else {
+        PAINC("get_free_vaddress: not allow kernel alloc userspace or user alloc kernel space.");
+    }
+    void *phyaddrs = get_free_page(mem_pool);
+    if (phyaddrs == NULL) { return NULL; }
+    put_page((void *) vaddr_start, phyaddrs);
+    return (void *)vaddr_start;
+}
+
 // Get kernel page from memory
 void *get_kernel_page(uint_32 pg_cnt)
 {
