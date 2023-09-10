@@ -34,6 +34,8 @@
 
 // Interrupt 16 --x87 FPU Floating-Point Error(#MF) (fault)
 #define INT_VECTOR_X87_FPU_ERROR 0x10
+
+// !Below not register
 // Interrupt 17 --Alignment Check Exception (#AC) (fault)
 #define INT_VECTOR_ALIGN_CHECK   0x11
 // Interrupt 18 --Machine-Check Exception (#MC) (abort)

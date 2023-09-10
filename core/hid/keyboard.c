@@ -31,7 +31,7 @@ void init_keyboard(void){
  * int 0x21; 
  * Interrupt handler for Keyboard
  **/
-void inthandler21(){
+void inthandler21(void){
     bool is_break_code;
     bool ctrl_pressed = ctrl_status;
     bool shift_pressed = shift_status;

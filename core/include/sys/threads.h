@@ -22,7 +22,8 @@ typedef enum task_status {
     THREAD_TASK_REJECTED,
 } task_status_t;
 
-/* Save registers context
+/* Saved registers context when change privilege
+ * e.g From ring0 to ring3
  * stack
  **/
 struct context_registers{
@@ -35,6 +36,8 @@ struct context_registers{
     uint_32 edx;
     uint_32 ecx;
     uint_32 eax;
+    // pushad   ;; push 32bits register as 
+    // order eax, ecx, edx, ebx, esp, ebp, esi, edi
     uint_32 gs;
     uint_32 fs;
     uint_32 es;

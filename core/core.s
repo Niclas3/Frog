@@ -150,10 +150,10 @@ _asm_inthandler20:
     push fs
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    push 0x20;
     ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ0); 
     mov al, 0x60
     out 0x20, al
-
     call inthandler20
     jmp intr_exit
 
@@ -164,7 +164,8 @@ _asm_inthandler21:
     push es
     push fs
     push gs
-    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    push 0x21 ;; push interrupt Number
     call inthandler21
     jmp intr_exit
 
@@ -176,11 +177,12 @@ _asm_inthandler2C:
     push fs
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    CALL inthandler2C
+    push 0x2c ;; push interrupt Number
+    call inthandler2C
     jmp intr_exit
 
 intr_exit:	     
-   ; add esp, 4			   ; 跳过中断号
+   add esp, 4			   ; 跳过中断号
 ;; push 32bits register as order 
 ;; eax,ecx, edx, ebx, esp, ebp, esi, edi
    popad

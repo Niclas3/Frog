@@ -80,14 +80,13 @@ void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags)
 			    "#PF Page Fault",
 			    "--  (Intel reserved. Do not use.)",
 			    "#MF x87 FPU Floating-Point Error (Math Fault)",
-			    "#AC Alignment Check",
-			    "#MC Machine Check",
-			    "#XF SIMD Floating-Point Exception"
+			    /* "#AC Alignment Check", */
+			    /* "#MC Machine Check", */
+			    /* "#XF SIMD Floating-Point Exception" */
 	};
 
-        /* __asm__ volatile ("xchgw %bx, %bx;"); */
         draw_hex(0xa0000,320,COL8_FF0000,0,0, vec_no);
+        draw_info(0xa0000,320,COL8_FF0000,32,0, err_msg[vec_no]);
         return;
-    /* draw_info(0xa0000,320,COL8_FF0000,0,0, err_msg[vec_no]); */
     /* putfonts8_asc((char *)0xa0000, 320, 0, 0, COL8_FF0000, (unsigned char*)err_msg[vec_no]); */
 }
