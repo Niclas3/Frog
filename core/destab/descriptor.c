@@ -120,8 +120,9 @@ void create_descriptor(Segment_Descriptor *sd,
 //       1 -> LDT
 // Requested Privilege Level(RPL)
 // 2 bytes
-Selector create_selector(uint_16 index, char ti, char rpl) 
-{
-    return (index << 3) + ti + rpl;
-}
+// use MACRO function at descriptor.h
+/* Selector create_selector(uint_16 index, char ti, char rpl) */
+/* { */
+/*     return (index << 3) + ti + rpl; */
+/* } */
 

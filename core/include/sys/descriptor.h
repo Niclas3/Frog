@@ -201,6 +201,9 @@ typedef short Selector;
 #define SEL_IDX_TSS_DPL_0    5
 #define SEL_IDX_CODE_DPL_3   6
 #define SEL_IDX_DATA_DPL_3   7
+
+#define CREATE_SELECTOR(IDX, TI, RPL) (IDX << 3) + TI + RPL
+
 //==============================================================================
 typedef void* (Inthandle_t)(void*);
 
@@ -215,8 +218,6 @@ void create_descriptor(Segment_Descriptor *sd,
                        uint_32 limit,  //   20 bits=16+4 bits
                        uint_8 access_right,//8 bits; P,DPL,S,TYPE
                        uint_8 attribute); //   4 bits; G,B/D,L,AVL
-
-Selector create_selector(uint_16 index, char ti, char rpl);
 
 Segment_Descriptor* get_idt_base_address(void);
 Segment_Descriptor* get_gdt_base_address(void);

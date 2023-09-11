@@ -10,7 +10,7 @@ void register_ring0_INT(uint_32 int_vector_code, Inthandle_t handler_address)
     Descriptor_REG idtr_data = {0};
     save_idtr(&idtr_data);
     Gate_Descriptor *idt_start = (Gate_Descriptor *) idtr_data.address;
-    Selector selector_code = create_selector(SEL_IDX_CODE_DPL_0, TI_GDT, RPL0);
+    Selector selector_code = CREATE_SELECTOR(SEL_IDX_CODE_DPL_0, TI_GDT, RPL0);
     create_gate(idt_start + int_vector_code, selector_code, handler_address,
                 DESC_P_1 | DESC_DPL_0 | DESC_TYPE_INTR, 0);
     return;
@@ -45,7 +45,7 @@ void init_gdt(void)
     /* Descriptor_REG gdtr_data = {0}; */
     /* save_gdtr(&gdtr_data); */
     /* Selector sel_code = create_selector(SEL_IDX_CODE_DPL_0, TI_GDT, RPL0); */
-    /* Selector sel_data = create_selector(SEL_IDX_DATA_DPL_0, TI_GDT, RPL0); */
+    Selector sel_data = CREATE_SELECTOR(SEL_IDX_DATA_DPL_0, TI_GDT, RPL0);
     /* create_ring0_Descriptor(SEL_IDX_CODE_DPL_0, DESC_TYPE_CODEX); */
     /* create_ring0_Descriptor(SEL_IDX_DATA_DPL_0, DESC_TYPE_DATARW); */
     create_ring3_Descriptor(SEL_IDX_CODE_DPL_3, DESC_TYPE_CODEX);
