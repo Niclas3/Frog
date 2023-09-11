@@ -3,6 +3,7 @@
 #include <ostype.h>
 #include <sys/descriptor.h>
 
+typedef struct thread_control_block TCB_t;
 
 typedef struct tss {
     uint_32 prev_tss;
@@ -40,4 +41,6 @@ void create_tss_descriptor(Segment_Descriptor *des_addr,
                            uint_32 limit,
                            int dpl);
 void create_tss(void);
+
+void update_tss_esp0(TCB_t *thread);
 #endif
