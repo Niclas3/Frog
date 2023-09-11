@@ -45,14 +45,14 @@ struct context_registers{
     //ring3->ring0
     uint_32 err_code;
     void (*eip)(void);
-    uint_32 ss;
     uint_32 cs;
     uint_32 eflags;
     void* esp_ptr;
+    uint_32 ss;
 };
 
 /* thread stack
- *
+ * for thread resume and pause
  * */
 struct thread_stack {
     uint_32 ebp;
