@@ -4,8 +4,6 @@
 #include <ostype.h>
 #include <sys/semaphore.h>
 
-// #define MEM_BITMAP_BASE 0xc009a00
-#define MEM_BITMAP_BASE 0x0009a00
 typedef struct _virtual_addr {
     struct bitmap vaddr_bitmap;
     uint_32 vaddr_start;

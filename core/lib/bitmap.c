@@ -4,8 +4,8 @@
 void init_bitmap(struct bitmap *bmap)
 {
     uint_8 *p_map = bmap->bits;
-    uint_32 lenght = bmap->map_bytes_length;
-    for (uint_32 i = 0; i < lenght; i++) {
+    uint_32 length = bmap->map_bytes_length;
+    for (uint_32 i = 0; i < length; i++) {
         *p_map++ = 0x0;
     }
 }

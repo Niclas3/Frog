@@ -3,18 +3,23 @@
 #include <panic.h>
 #include <string.h>
 #include <sys/memory.h>
-
 #include <sys/threads.h>
 
 //Assume that core.o is 70kb aka 0x11800
 //and start at 0x80000
 //so the end is 0x80000 + 0x11800 = 0x91800
-#define K_HEAP_START 0x00092000
-// to                      0xa0000
+/* #define K_HEAP_START 0x00092000 */
+#define K_HEAP_START 0xc0100000
+// from 0x92000 to 0xa0000 aka 0xe000 => 12 threads
 // 14 pages aka 14 * 4kb = 0xe000
+/* #define K_HEAP_START 0x00100000 */
+
+#define MEM_BITMAP_BASE 0xc0009a00
+/* #define MEM_BITMAP_BASE 0x00009a00 */
+
 // 1 page dir table and 8 page table
 #define PDT_COUNT 1
-#define PGT_COUNT 8
+#define PGT_COUNT 254 + 1 + 1
 
 struct pool kernel_pool;
 struct pool user_pool;
@@ -27,17 +32,25 @@ struct _virtual_addr kernel_viraddr;
 
 static void mem_pool_init(uint_32 all_mem)
 {
-    // 1 page dir table and 8 page table
+    // 1 page dir table and 254 page table
+    //                      769 ~ 1022 pde
+    //                      768 and 0 pg
     uint_32 page_table_size = PG_SIZE * (PDT_COUNT + PGT_COUNT);
     /*
-     *  page table start at 0x100000 (aka 1MB)
+     *  Page table start at 0x100000
      *  used_mem = page_table_size + 1MB
      *  1MB includes 0xa000 and 0xb800
      **/
-    /* uint_32 used_mem = page_table_size + 0x100000;  
+    /* uint_32 used_mem = page_table_size + 0x100000;
      * I put page table at 0x0
+     * 0x80000 ~ 0x92000    kernel code
+     * 0xa0000              vga
+     * 0xb8000              text view
+     * 0x100000             end of used memory
+     * 0x100000 ~ 4kb * (PDT_COUNT + PGT_COUNT)   page table
+     * physical memory usage
      * */
-    uint_32 used_mem = 0x100000;
+    uint_32 used_mem = page_table_size + 0x100000;
     /*
      *  all_mem for now is 32MB
      *  It must be calculate by loader.s before entering protected mode
@@ -49,6 +62,7 @@ static void mem_pool_init(uint_32 all_mem)
      * */
     uint_16 kernel_free_page = all_free_pages / 2;
     uint_16 user_free_page = all_free_pages - kernel_free_page;
+
 
     // Kernel bitmap length
     // In bitmap 1 bit represents a free page.
@@ -88,6 +102,7 @@ static void mem_pool_init(uint_32 all_mem)
     lock_init(&kernel_pool.lock);
     lock_init(&user_pool.lock);
 
+    // vaddr for kernel used
     kernel_viraddr.vaddr_bitmap.map_bytes_length = kbm_length;
     kernel_viraddr.vaddr_bitmap.bits =
         (void *) (MEM_BITMAP_BASE + kbm_length + ubm_length);

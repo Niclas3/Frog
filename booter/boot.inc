@@ -197,8 +197,8 @@ TI_GDT  equ  000b
 TI_LDT  equ  100b
 
 ;;Page 
-;PAGE_DIR_START equ 0x100000
-PAGE_DIR_START equ 0x0
+PAGE_DIR_START equ 0x100000
+; PAGE_DIR_START equ 0x0
 PG_P equ 1b
 PG_RW_R equ 00b
 PG_RW_W equ 10b

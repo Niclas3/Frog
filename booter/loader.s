@@ -200,10 +200,40 @@ LABEL_SEG_CODE32:
     mov gs, ax
 
 ;;==============================================================================
-;; load kernel to 0x90000
+; Paging
+    call setup_page
+    sgdt [gdt_ptr]
+
+    ;TODO: should I change to new base address
+    ; set video descriptor new base
+    ; mov ebx, [gdt_ptr+2]
+    ;             No.x * 8
+    ; or dword [ebx+0x18+4], 0xc000_0000
+
+    ; set VGA descriptor new base
+    ; or dword [ebx+0x20+4], 0xc000_0000
+
+    ; set Data descriptor new base 
+    ; or dword [ebx+0x10+4], 0xc000_0000
+
+    ; set code descriptor new base 
+    ; or dword [ebx+0x8+4], 0xc000_0000
+
+    ; add esp, 0xc000_0000
+
+    mov eax, PAGE_DIR_START
+    mov cr3, eax
+
+    ;open cr0 page bit
+    mov eax, cr0
+    or eax, 0x8000_0000
+    mov cr0, eax
+
+;;==============================================================================
+;; load kernel.elf to 0x90000
 ;;==============================================================================
     KERNELBIN_START equ 0x90000
-    KERNEL_START    equ 0x80000
+    KERNEL_START    equ 0xc0080000
 
 ;; eax = LBA sector number
 ;; ebx  = base address 
@@ -282,13 +312,7 @@ LABEL_SEG_CODE32:
     push ebx
     call load_program
     add esp, 12   ; Clean up the stack after the function call
-
 ;;==============================================================================
-    ; push SELECTOR_STACK_RING3
-    ; push RING3_STACK_TOP
-    ; push SELECTOR_CODE_RING3
-    ; push 0
-    ; retf
     ;Load font.img
     ; load font start at FONT_START
     FONT_START equ 0x90000
@@ -299,38 +323,10 @@ LABEL_SEG_CODE32:
     mov ebx, FONT_START
     mov ecx, 8            ; all size = 4K  = 8 * 512
     call SELECTOR_CODE:read_hard_disk_32
-;;==============================================================================
-; Paging
-    call setup_page
-    ; sgdt [gdt_ptr]
-
-    ;TODO: should I change to new base address
-    ; set video descriptor new base
-    ; mov ebx, [gdt_ptr+2]
-    ;             No.x * 8
-    ; or dword [ebx+0x18+4], 0xc000_0000
-
-    ; set VGA descriptor new base
-    ; or dword [ebx+0x20+4], 0xc000_0000
-
-    ; set Data descriptor new base 
-    ; or dword [ebx+0x10+4], 0xc000_0000
-
-    ; set code descriptor new base 
-    ; or dword [ebx+0x8+4], 0xc000_0000
-
-    ; add esp, 0xc000_0000
-
-    mov eax, PAGE_DIR_START
-    mov cr3, eax
-
-    ;open cr0 page bit
-    mov eax, cr0
-    or eax, 0x8000_0000
-    mov cr0, eax
 
 ;;-----------------------------------------------------------------------------
-    mov esp, 0x9f000  ;set kernel stack
+    ; mov esp, 0x80000  ;set kernel stack
+    mov esp, 0xc009f000  ;set kernel stack
     jmp dword SELECTOR_CODE: KERNEL_START
 
 ;===============================================================================
@@ -362,7 +358,7 @@ setup_page:
 ;     inc esi
 ;     loop .clear_page_dir
 
-    push PAGE_DIR_START
+    push PAGE_DIR_START  ;;push 0x100000
     push 4096 * 9        ;;size of 1 page dir table + 8 page tables
     call clearmem
     add esp, 8
@@ -380,8 +376,8 @@ setup_page:
 ;; 0xc00 upper for kernel as
 ;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernel
 ;;       0x0000_0000 ~ 0xbfff_ffff all 3G size for user
-    ; mov [PAGE_DIR_START+0xc00],eax
-;; the last entry point to it self
+    mov [PAGE_DIR_START+0xc00],eax
+;;The last entry point to it self
     sub eax, 0x1000
     mov [PAGE_DIR_START+4092], eax
 
@@ -413,24 +409,27 @@ PG_MSIZE_4M   equ 1024
     inc esi
     loop .create_pte
 
+;;-------------------------------------------------------
 ; Other 7 PDEs
 ; 2nd page table address
 ; int_32 pt_address = 0x2000;
 ; int_32 pde = pt_address | PG_US_U | PG_RW_W | PG_P;
-    mov eax, PAGE_DIR_START
-    add eax, 0x2000
-    or  eax, PG_US_U | PG_RW_W | PG_P
+;;-------------------------------------------------------
+;     mov eax, PAGE_DIR_START
+;     add eax, 0x2000
+;     or  eax, PG_US_U | PG_RW_W | PG_P
+;
+;     mov ebx, PAGE_DIR_START
+;     mov ecx, 7 ; 7 page tables represent for 7 * 4M
+;     mov esi, 1 ; the first page tables has already set
+; .create_pde:
+;     mov [ebx+esi*4], eax
+;     inc esi
+;     add eax, 0x1000
+;     loop .create_pde
+;;-----------------------------------------------------
 
-    mov ebx, PAGE_DIR_START
-    mov ecx, 7 ; 7 page tables represent for 7 * 4M
-    mov esi, 1 ; the first page tables has already set
-.create_pde:
-    mov [ebx+esi*4], eax
-    inc esi
-    add eax, 0x1000
-    loop .create_pde
-
-;First page  .pg1
+;Second page  .pg1
 ;     mov ebx, PAGE_DIR_START
 ;     add ebx, 0x2000
 ;     mov ecx, 1024
@@ -442,14 +441,18 @@ PG_MSIZE_4M   equ 1024
 ;     inc esi
 ;     loop .create_pg1_pte
 
-;     mov ebx, PAGE_DIR_START
-;     mov ecx, 254
-;     mov esi, 769
-; .create_kernel_pde:
-;     mov [ebx+esi*4], eax ; no.769 ~ no.1023 pde -> 2nd page address
-;     inc esi
-;     add eax, 0x1000 ;4096 = size page table
-;     loop .create_kernel_pde
+    mov eax, PAGE_DIR_START
+    add eax, 0x2000
+    or  eax, PG_US_U | PG_RW_W | PG_P
+    mov ebx, PAGE_DIR_START
+    mov ecx, 254
+    mov esi, 769
+.create_kernel_pde:
+    mov [ebx+esi*4], eax ; no.769 ~ no.1023 pde -> 2nd page address
+    inc esi
+    add eax, 0x1000 ;4096 = size page table
+    loop .create_kernel_pde
+
     ret
 
 ;===============================================================================
