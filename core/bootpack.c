@@ -20,16 +20,21 @@
 #include <list.h>
 #include <sys/semaphore.h>
 #include <ioqueue.h>
+#include <sys/process.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
 
 void func(int a);
 void funcb(int a);
+void u_fund(int a);
+void u_funf(int a);
 void keyboard_consumer(int a);
 void mouse_consumer(int a);
 
 struct lock main_lock;
+
+int u_test_a = 0;
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -59,7 +64,6 @@ void UkiMain(void)
     init_PIT8253();
 
     mem_init();
-
     draw_backgrond(info.vram, info.scrnx, info.scrny);
 
     /* init_palette(); */
@@ -83,7 +87,7 @@ void UkiMain(void)
 
     TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
     TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
-    TCB_t *mouse_c1 = thread_start("mouse2",10, mouse_consumer , 3);
+    /* TCB_t *mouse_c1 = thread_start("mouse2",10, mouse_consumer , 3); */
     /* TCB_t *mouse_c2 = thread_start("mouse3",10, mouse_consumer , 3); */
     /* TCB_t *mouse_c3 = thread_start("mouse4",10, mouse_consumer , 3); */
     /* TCB_t *mouse_c4 = thread_start("mouse5",10, mouse_consumer , 3); */
@@ -103,8 +107,10 @@ void UkiMain(void)
     /* TCB_t *mouse_c21314 = thread_start("mouse15",10, mouse_consumer , 3); */
     /* TCB_t *mouse_dc2134 = thread_start("mouse14",10, mouse_consumer , 3); */
     /* TCB_t *mouse_dc21314 = thread_start("mouse15",10, mouse_consumer , 3); */
-    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",10, func, 4);
-    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
+    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
+    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
+    process_execute(u_fund, "u_fund");
+
     for (;;) {
         /* __asm__ volatile ("sti;hlt;" : : : ); */
         _io_stihlt();
@@ -154,7 +160,10 @@ void keyboard_consumer(int a){
 void func(int a){
     while(1){
         lock_fetch(&main_lock);
-        draw_info((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 0, "T");
+        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 0, "T"); */
+        if(u_test_a > 0){
+            draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, u_test_a);
+        }
         lock_release(&main_lock);
     }
 }
@@ -164,6 +173,19 @@ void funcb(int a){
         lock_fetch(&main_lock);
         draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T");
         draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "H");
+        lock_release(&main_lock);
+    }
+}
+
+void u_fund(int a){
+    while(1){
+        u_test_a++ ;
+    }
+}
+void u_funf(int a){
+    while(1){
+        lock_fetch(&main_lock);
+        draw_info((uint_8 *)0xc00a0000, 320, COL8_FF0000, 100, 0, "U");
         lock_release(&main_lock);
     }
 }

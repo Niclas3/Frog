@@ -3,6 +3,7 @@
 #include <const.h> // for PG_SIZE
 #include <sys/memory.h>
 #include <sys/int.h>
+#include <sys/process.h>
 
 #include <debug.h>
 
@@ -124,6 +125,7 @@ void schedule(void){
     thread_tag = list_pop(&thread_ready_list);
     TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
     next->status = THREAD_TASK_RUNNING;
+    process_activate(next);
     switch_to(cur, next);
 }
 

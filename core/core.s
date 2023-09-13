@@ -145,6 +145,7 @@ _io_delay:
 ;;; 0x20 Clock interrupt handler
 _asm_inthandler20:
 ;; save all context
+    push 0 ;; error code
     push ds
     push es
     push fs
@@ -160,6 +161,7 @@ _asm_inthandler20:
 ;;; 0x21 keyboard interrupt handler
 _asm_inthandler21:
 ;; save all context
+    push 0 ;; error code
     push ds
     push es
     push fs
@@ -172,6 +174,7 @@ _asm_inthandler21:
 ;;; 0x2C PS/2 Mouse handler
 _asm_inthandler2C:
 ;; save all context
+    push 0 ;; error code
     push ds
     push es
     push fs
@@ -190,7 +193,7 @@ intr_exit:
    pop fs
    pop es
    pop ds
-   ; add esp, 4			   ; 跳过error_code
+   add esp, 4			   ; 跳过error_code
    iretd
 ;;------------------------------------------------------------------------------
 

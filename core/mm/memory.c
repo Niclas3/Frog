@@ -9,7 +9,7 @@
 //and start at 0x80000
 //so the end is 0x80000 + 0x11800 = 0x91800
 /* #define K_HEAP_START 0x00092000 */
-#define K_HEAP_START 0xc0100000
+#define K_HEAP_START 0xc0100000 + (PG_SIZE * (PDT_COUNT + PGT_COUNT))
 // from 0x92000 to 0xa0000 aka 0xe000 => 12 threads
 // 14 pages aka 14 * 4kb = 0xe000
 /* #define K_HEAP_START 0x00100000 */
@@ -81,8 +81,8 @@ static void mem_pool_init(uint_32 all_mem)
     // free_page = 0xf80; // 3968
     uint_32 up_start = kp_start + kernel_free_page * PG_SIZE;
 
-
     kernel_pool.phy_addr_start = kp_start;
+
     user_pool.phy_addr_start = up_start;
 
     kernel_pool.pool_size = kernel_free_page * PG_SIZE;

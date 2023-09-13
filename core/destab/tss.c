@@ -3,7 +3,7 @@
 #include <sys/tss.h>
 #include <sys/threads.h>
 #include <const.h>
-#define K_STACK_ADDRESS 0x9f000
+#define K_STACK_ADDRESS 0xc009f000
 
 static TSS tss;
 

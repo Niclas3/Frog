@@ -202,24 +202,6 @@ LABEL_SEG_CODE32:
 ;;==============================================================================
 ; Paging
     call setup_page
-    sgdt [gdt_ptr]
-
-    ;TODO: should I change to new base address
-    ; set video descriptor new base
-    ; mov ebx, [gdt_ptr+2]
-    ;             No.x * 8
-    ; or dword [ebx+0x18+4], 0xc000_0000
-
-    ; set VGA descriptor new base
-    ; or dword [ebx+0x20+4], 0xc000_0000
-
-    ; set Data descriptor new base 
-    ; or dword [ebx+0x10+4], 0xc000_0000
-
-    ; set code descriptor new base 
-    ; or dword [ebx+0x8+4], 0xc000_0000
-
-    ; add esp, 0xc000_0000
 
     mov eax, PAGE_DIR_START
     mov cr3, eax
@@ -228,6 +210,30 @@ LABEL_SEG_CODE32:
     mov eax, cr0
     or eax, 0x8000_0000
     mov cr0, eax
+;--------------------------------------------------------
+; Change GDT position
+    sgdt [gdt_ptr]
+
+    ;TODO: should I change to new base address
+    ; set video descriptor new base
+    mov ebx, [gdt_ptr+2]
+    ;Change gdt base to 0xc00XX_XXXX
+    or ebx, 0xc000_0000
+    mov [gdt_ptr+2], ebx
+    ; ;             No.x * 8
+    ; or dword [ebx+0x18+4], 0xc000_0000
+    ;
+    ; ; set VGA descriptor new base
+    ; or dword [ebx+0x20+4], 0xc000_0000
+    ;
+    ; ; set Data descriptor new base 
+    ; or dword [ebx+0x10+4], 0xc000_0000
+
+    ; set code descriptor new base 
+    ; or dword [ebx+0x8+4], 0xc000_0000
+
+    ; add esp, 0xc000_0000
+    lgdt [gdt_ptr]
 
 ;;==============================================================================
 ;; load kernel.elf to 0x90000

@@ -83,6 +83,8 @@ typedef struct thread_control_block {
 
 TCB_t* running_thread(void);
 TCB_t* thread_start(char* name, int priority, __routine_t func, void* arg);
+void init_thread(TCB_t* thread, char* name, uint_8 priority);
+void create_thread(TCB_t *thread, __routine_t func, void* arg);
 void thread_init(void);
 void thread_block(task_status_t status);
 void thread_unblock(TCB_t *thread);

@@ -33,7 +33,7 @@ void create_ring3_Descriptor(uint_32 desc_index, int des_type)
     Descriptor_REG gdtr_data = {0};
     save_gdtr(&gdtr_data);
     Segment_Descriptor *gdt_start = (Segment_Descriptor *) gdtr_data.address;
-    create_descriptor(gdt_start + desc_index, 0x0, 0xffffffff,
+    create_descriptor(gdt_start + desc_index, 0x00000000, 0xffffffff,
                       DESC_P_1 | DESC_DPL_3 | DESC_S_DATA | des_type,
                       DESC_G_4K | DESC_D_32 | DESC_L_32BITS | DESC_AVL);
 }
@@ -58,6 +58,11 @@ void init_gdt(void)
 
 void init_idt(void)
 {
+    // 1.Get idt root address
+    Descriptor_REG idtr_data = {0};
+    save_idtr(&idtr_data);
+    idtr_data.address |= 0xc0000000;
+    load_idtr(&idtr_data);
     register_ring0_INT(INT_VECTOR_DIVIDE, _divide_error);
     register_ring0_INT(INT_VECTOR_DEBUG, _single_step_exception);
     register_ring0_INT(INT_VECTOR_NMI, _nmi);
