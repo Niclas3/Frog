@@ -18,11 +18,15 @@ extern struct list_head thread_all_list;
 // Use this function jmp code from ring0 to ring3
 extern void intr_exit(void);
 
+
+/*
+ *
+ * */
 void start_process(void *filename)
 {
     void *function = filename;
     TCB_t *cur = running_thread();
-    cur->self_kstack += sizeof(struct thread_stack);
+    cur->self_kstack += sizeof(struct thread_stack); // To the bottom of context_register
     struct context_registers *proc_stack =
         (struct context_registers *) cur->self_kstack;
     proc_stack->edi = proc_stack->esi = proc_stack->ebp = proc_stack->esp = 0;
@@ -37,15 +41,21 @@ void start_process(void *filename)
         (void *) ((uint_32) malloc_page_with_vaddr(MP_USER, USER_STACK3_VADDR) +
                   PG_SIZE);
     proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_3, TI_GDT, RPL3);
-    __asm__ volatile("movl %0, %%esp; jmp intr_exit" ::"g"(proc_stack)
+    __asm__ volatile("movl %0, %%esp;\
+                      jmp intr_exit" 
+                     ::"g"(proc_stack)
                      : "memory");
 }
 
+/*
+ * Change current process page dir to new physical address
+ * If current thread does not have "thread->pgdir" use default page dir aka
+ * kernel page dir address (0x100000)
+ */
 void page_dir_activate(TCB_t *thread)
 {
     uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address is 0x0
     if (thread->pgdir != NULL) {
-/* __asm__ volatile ("xchgw %bx, %bx;"); */
         pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
     }
     __asm__ volatile("movl %0, %%cr3;" : : "r"(pagedir_phy_addr) : "memory");

@@ -88,18 +88,6 @@ TCB_t* thread_start(char* name,
     ASSERT(!list_find_element(&thread->all_list_tag, &thread_all_list));
     list_add_tail(&thread->all_list_tag, &thread_all_list);
 
-    /* //I set ebp, ebx, edi, and esi at kthread_stack which is thread->self_kstack */
-    /* //so set esp to thread->self_kstack then pop all registers, and use `ret` */
-    /* //jump to right function, */
-    /* //which address at kthread_stack->function */
-    /* //      arg     at kthread_stack->func_arg */
-    /* __asm__ volatile ("movl %0, %%esp;\ */
-    /*                    pop %%ebp;\ */
-    /*                    pop %%ebx;\ */
-    /*                    pop %%edi;\ */
-    /*                    pop %%esi;\ */
-    /*                    ret" */
-    /*                    :: "g" (thread->self_kstack):"memory"); */
     return thread;
 }
 

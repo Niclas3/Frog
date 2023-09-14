@@ -110,6 +110,7 @@ void UkiMain(void)
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
     process_execute(u_fund, "u_fund");
+    process_execute(u_funf, "u_funf");
 
     for (;;) {
         /* __asm__ volatile ("sti;hlt;" : : : ); */
@@ -179,13 +180,15 @@ void funcb(int a){
 
 void u_fund(int a){
     while(1){
-        u_test_a++ ;
+        /* u_test_a++ ; */
+        /* lock_fetch(&main_lock); */
+        draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "H");
+        /* lock_release(&main_lock); */
     }
 }
 void u_funf(int a){
     while(1){
-        lock_fetch(&main_lock);
-        draw_info((uint_8 *)0xc00a0000, 320, COL8_FF0000, 100, 0, "U");
-        lock_release(&main_lock);
+        int a = 0;
+        a++;
     }
 }

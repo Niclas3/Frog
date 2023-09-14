@@ -24,7 +24,7 @@ void create_tss(void)
     Selector sel_dat_ring0 = CREATE_SELECTOR(SEL_IDX_DATA_DPL_0, TI_GDT, RPL0);
     tss.ss0 = sel_dat_ring0;
     tss.esp0 = (uint_32 *) K_STACK_ADDRESS;
-    tss.io_bitmaps_offset = tss_size;
+    tss.io_bitmaps_offset = 0x0; //tss_size;
     /* tss.iomap = 0xff; */
 
     Segment_Descriptor *gdt_start = get_gdt_base_address();
