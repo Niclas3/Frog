@@ -3,6 +3,7 @@
 #include <bitmap.h>
 #include <ostype.h>
 #include <sys/semaphore.h>
+#include <list.h>
 
 typedef struct _virtual_addr {
     struct bitmap vaddr_bitmap;
@@ -13,6 +14,22 @@ typedef enum mem_pool_type{
     MP_KERNEL = 1,
     MP_USER
 } pool_type;
+
+struct mem_block {
+    struct list_head free_elem;
+};
+
+// The largest size is 4KB
+// There are seven different descriptions 
+//
+// @Attr block_size :
+struct mem_block_desc {
+    uint_32 block_size;
+    uint_32 blocks_per_arena;
+    struct list_head free_list;
+};
+
+#define DESC_CNT 7    // type counts of memory blocks
 
 /* P bit shows if or not this entry in memory 
  * R/W W bit shows read / execute
@@ -25,13 +42,16 @@ typedef enum mem_pool_type{
 #define PG_RW_R  0
 #define PG_US_S  0  // supervisor
 #define PG_US_U  4  // user
-                    //
+                    
 struct pool {
     struct bitmap pool_bitmap;
     struct lock lock;
     uint_32 phy_addr_start;  // pool must at a phy address
     uint_32 pool_size;
 };
+
+// alloc any size memory
+void *sys_malloc(uint_32 size);
 
 void mem_init(void);
 

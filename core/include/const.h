@@ -37,6 +37,8 @@
 #define EFLAGS_IOPL_3 (3 << 12)
 #define EFLAGS_IOPL_0 (0 << 12)
 
+#define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
+
 #ifndef NULL
 #define NULL ((void *) 0)
 #endif

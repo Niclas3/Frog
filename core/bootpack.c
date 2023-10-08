@@ -110,7 +110,7 @@ void UkiMain(void)
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
     process_execute(u_fund, "u_fund");
-    process_execute(u_funf, "u_funf");
+    /* process_execute(u_funf, "u_funf"); */
 
     for (;;) {
         /* __asm__ volatile ("sti;hlt;" : : : ); */
@@ -159,12 +159,12 @@ void keyboard_consumer(int a){
 }
 
 void func(int a){
+    void * b = sys_malloc(33);
+    void * c = sys_malloc(33);
     while(1){
         lock_fetch(&main_lock);
-        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 0, "T"); */
-        if(u_test_a > 0){
-            draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, u_test_a);
-        }
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, b);
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 20, c);
         lock_release(&main_lock);
     }
 }
@@ -182,7 +182,7 @@ void u_fund(int a){
     while(1){
         /* u_test_a++ ; */
         /* lock_fetch(&main_lock); */
-        draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "H");
+        draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "Q");
         /* lock_release(&main_lock); */
     }
 }

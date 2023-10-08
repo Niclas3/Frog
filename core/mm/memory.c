@@ -2,12 +2,13 @@
 #include <debug.h>
 #include <panic.h>
 #include <string.h>
+#include <sys/int.h>
 #include <sys/memory.h>
 #include <sys/threads.h>
 
-//Assume that core.o is 70kb aka 0x11800
-//and start at 0x80000
-//so the end is 0x80000 + 0x11800 = 0x91800
+// Assume that core.o is 70kb aka 0x11800
+// and start at 0x80000
+// so the end is 0x80000 + 0x11800 = 0x91800
 /* #define K_HEAP_START 0x00092000 */
 #define K_HEAP_START 0xc0100000 + (PG_SIZE * (PDT_COUNT + PGT_COUNT))
 // from 0x92000 to 0xa0000 aka 0xe000 => 12 threads
@@ -21,6 +22,28 @@
 #define PDT_COUNT 1
 #define PGT_COUNT 254 + 1 + 1
 
+/*  If struct arena's attribute large is true cnt stand for page_frame cnt,
+ *  if not for mem_block count.
+ *  there are 7 different description.
+ *  1. 1024 B
+ *  2. 512  B
+ *  3. 256  B
+ *  4. 128  B
+ *  5. 64   B
+ *  6. 32   B
+ *  7. 16   B
+ * Why we use 16B?
+ * int -> 32bits -> 8B
+ * So the smallest arena can hold 2 int numbers.
+ */
+struct arena {
+    struct mem_block_desc *desc;
+    uint_32 cnt;
+    bool large;  // flag about this arena is over 1024b or not
+};
+
+struct mem_block_desc k_block_descs[DESC_CNT];
+
 struct pool kernel_pool;
 struct pool user_pool;
 struct _virtual_addr kernel_viraddr;
@@ -29,6 +52,25 @@ struct _virtual_addr kernel_viraddr;
 #define PDE_IDX(addr) ((addr & 0xffc00000) >> 22)
 // mid   10 bits pte
 #define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
+
+void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt);
+
+/*
+ * Init description of memory block from 16B to 1024B
+ * kernel description block array is `k_block_descs[DESC_CNT]`
+ * */
+void block_desc_init(struct mem_block_desc *desc_array)
+{
+    uint_16 desc_idx = 0;
+    uint_16 block_size = 16;
+    for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
+        desc_array[desc_idx].block_size = block_size;
+        desc_array[desc_idx].blocks_per_arena =
+            (PG_SIZE - sizeof(struct arena)) / block_size;
+        init_list_head(&desc_array[desc_idx].free_list);
+        block_size *= 2;
+    }
+}
 
 static void mem_pool_init(uint_32 all_mem)
 {
@@ -112,8 +154,115 @@ static void mem_pool_init(uint_32 all_mem)
 
 void mem_init()
 {
-    uint_32 mem_bytes_total = 0x2000000;//32M //(*(uint_32 *) (0xb00));
+    uint_32 mem_bytes_total = 0x2000000;  // 32M //(*(uint_32 *) (0xb00));
     mem_pool_init(mem_bytes_total);
+    block_desc_init(k_block_descs);
+}
+
+// Return a mem_block from a arena[idx]
+static struct mem_block *arena2block(struct arena *a, uint_32 idx)
+{
+    return (struct mem_block *) ((uint_32) a + sizeof(struct arena) +
+                                 idx * a->desc->block_size);
+}
+
+// Return a given mem_block
+// the block size is 4kb aka 0xfff;
+static struct arena *block2arena(struct mem_block *b)
+{
+    return (struct arena *) ((uint_32) b & 0xfffff000);
+}
+
+// Alloc memory
+// alloc 'size' memory from memory
+// First we need know who want to alloc memory from mm, so test current process
+// if is kernel use kernel pool of memory if not use user pool of memory.
+void *sys_malloc(uint_32 size)
+{
+    pool_type pool_t;
+    struct pool *mem_pool;
+    uint_32 pool_size;
+    struct mem_block_desc *descs;
+    TCB_t *cur = running_thread();
+    // Kernel
+    if (cur->pgdir == NULL) {
+        pool_t = MP_KERNEL;
+        mem_pool = &kernel_pool;
+        pool_size = kernel_pool.pool_size;
+        descs = k_block_descs;
+    } else {
+        // User
+        pool_t = MP_USER;
+        mem_pool = &user_pool;
+        pool_size = user_pool.pool_size;
+        descs = cur->u_block_descs;
+    }
+
+    if (!(size > 0 && size < pool_size)) {
+        return NULL;
+    }
+
+    struct arena *area;
+    struct mem_block *block;
+    lock_fetch(&mem_pool->lock);
+    // If be allocted size is over 1024B return a whole arena
+    if (size > 1024) {
+        uint_32 page_cnt = DIV_ROUND_UP(size + sizeof(struct arena), PG_SIZE);
+        area = malloc_page(pool_t, page_cnt);
+
+        if (area != NULL) {
+            memset(area, 0, PG_SIZE * page_cnt);
+            area->desc = NULL;
+            area->cnt = page_cnt;
+            area->large = true;
+            lock_release(&mem_pool->lock);
+            return (void *) (area + 1);
+        } else {
+            // maybe not enough memory
+            lock_release(&mem_pool->lock);
+            return NULL;
+        }
+    } else {  // require memory less than 1024B
+        uint_8 desc_idx;
+        for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
+            if (size <= descs[desc_idx].block_size) {
+                // from small to large
+                break;
+            }
+        }
+        // Alloc 1 page for arena if descriptor free list is empty
+        if (list_is_empty(&descs[desc_idx].free_list)) {
+            area = malloc_page(pool_t, 1);
+            if (area == NULL) {
+                lock_release(&mem_pool->lock);
+                return NULL;
+            }
+            memset(area, 0, PG_SIZE);
+
+            area->desc = &descs[desc_idx];
+            area->large = false;
+            area->cnt = descs[desc_idx].blocks_per_arena;
+            uint_32 block_idx;
+            enum intr_status old_status = intr_disable();
+            for (block_idx = 0; block_idx < descs[desc_idx].blocks_per_arena;
+                 block_idx++) {
+                block = arena2block(area, block_idx);
+                list_add_tail(&block->free_elem, &area->desc->free_list);
+            }
+            intr_set_status(old_status);
+        } else {
+        }
+
+        // alloc block
+        block = container_of(list_pop(&(descs[desc_idx].free_list)),
+                             struct mem_block,
+                             free_elem);
+        memset(block, 0, descs[desc_idx].block_size);
+        area = block2arena(block);
+        area->cnt--;
+        lock_release(&mem_pool->lock);
+        return (void *)block;
+    }
 }
 
 // Picking a pool return a free v_address
@@ -132,22 +281,27 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
         }
         v_start_addr = start_pos * PG_SIZE + kernel_viraddr.vaddr_start;
         return (void *) v_start_addr;
-    } else if(cur->pgdir != NULL && poolt == MP_USER){ // TODO: user vaddress pools
-        start_pos = find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap, pg_cnt);
+    } else if (cur->pgdir != NULL &&
+               poolt == MP_USER) {  // TODO: user vaddress pools
+        start_pos =
+            find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap, pg_cnt);
         if (start_pos == -1) {
             return NULL;
         }
         for (int i = 0; i < pg_cnt; i++) {
-            set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, start_pos + i, 1);
+            set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, start_pos + i,
+                             1);
         }
         v_start_addr = start_pos * PG_SIZE + cur->progress_vaddr.vaddr_start;
         return (void *) v_start_addr;
     } else {
-        PAINC("get_free_vaddress: not allow kernel alloc userspace or user alloc kernel space.");
+        PAINC(
+            "get_free_vaddress: not allow kernel alloc userspace or user alloc "
+            "kernel space.");
     }
 }
 
-// get a free 4k phy memory aka 1 page in pool 
+// get a free 4k phy memory aka 1 page in pool
 // -> pte
 void *get_free_page(struct pool *mpool)
 {
@@ -179,10 +333,9 @@ uint_32 *pte_ptr(uint_32 vaddr)
     // It will get pdt table address
     // top    10 bits 0xffc    <--- this is the last PDE point to page aka PDT
     // middle 10 bits (vaddr's top 10 bits which is original pde index)
-    uint_32 target_pte = (0xffc00000 +
-                          ((vaddr & 0xffc00000) >> 10) +
-                          PTE_IDX(vaddr) * 4);
-    return (uint_32 *)target_pte;
+    uint_32 target_pte =
+        (0xffc00000 + ((vaddr & 0xffc00000) >> 10) + PTE_IDX(vaddr) * 4);
+    return (uint_32 *) target_pte;
 }
 
 uint_32 *pde_ptr(uint_32 vaddr)
@@ -195,7 +348,8 @@ uint_32 *pde_ptr(uint_32 vaddr)
     uint_32 *target_pde = (uint_32 *) (0xfffff000 + PDE_IDX(vaddr) * 4);
     return target_pde;
 }
-uint_32 addr_v2p(uint_32 vaddr){
+uint_32 addr_v2p(uint_32 vaddr)
+{
     uint_32 *pte = pte_ptr(vaddr);
     return ((*pte & 0xfffff000) + (vaddr & 0x00000fff));
 }
@@ -212,7 +366,7 @@ void put_page(void *v_addr, void *phy_addr)
     if (*pde & 0x00000001) {
         // TODO:
         // test if pte is exist
-        // should re-consider v-address start 
+        // should re-consider v-address start
         /* ASSERT(!(*pte & 0x00000001)); */
         if ((!(*pte & 0x00000001))) {
             *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
@@ -238,7 +392,9 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 {
     ASSERT(pg_cnt > 0 && pg_cnt < 3840);
     void *vaddr_start = get_free_vaddress(poolt, pg_cnt);
-    if (vaddr_start == NULL) { return NULL; }
+    if (vaddr_start == NULL) {
+        return NULL;
+    }
     uint_32 vaddr = (uint_32) vaddr_start;
     struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
 
@@ -259,21 +415,25 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
     struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
     int_32 bit_idx = -1;
     TCB_t *cur = running_thread();
-    if(cur->pgdir == NULL && poolt == MP_KERNEL){
+    if (cur->pgdir == NULL && poolt == MP_KERNEL) {
         bit_idx = (vaddr_start - kernel_viraddr.vaddr_start) / PG_SIZE;
         ASSERT(bit_idx > 0);
         set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, 1);
-    } else if(cur->pgdir != NULL && poolt == MP_USER){
+    } else if (cur->pgdir != NULL && poolt == MP_USER) {
         bit_idx = (vaddr_start - cur->progress_vaddr.vaddr_start) / PG_SIZE;
         ASSERT(bit_idx > 0);
         set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1);
     } else {
-        PAINC("get_free_vaddress: not allow kernel alloc userspace or user alloc kernel space.");
+        PAINC(
+            "get_free_vaddress: not allow kernel alloc userspace or user alloc "
+            "kernel space.");
     }
     void *phyaddrs = get_free_page(mem_pool);
-    if (phyaddrs == NULL) { return NULL; }
+    if (phyaddrs == NULL) {
+        return NULL;
+    }
     put_page((void *) vaddr_start, phyaddrs);
-    return (void *)vaddr_start;
+    return (void *) vaddr_start;
 }
 
 // Get kernel page from memory
@@ -299,5 +459,3 @@ void *get_user_page(uint_32 pg_cnt)
     lock_release(&user_pool.lock);
     return vaddr;
 }
-
-
