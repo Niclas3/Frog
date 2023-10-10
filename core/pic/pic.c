@@ -35,8 +35,10 @@ void init_8259A(){
     _io_out8(PIC0_OCW1, PIC_OPEN_IRQ0 & PIC_OPEN_IRQ2 & PIC_OPEN_IRQ1);
     /* _io_out8(OCW1_M, PIC_OPEN_IRQ1); */
     _io_delay();
-    //               IRQ12 is PS/2 mouse
-    _io_out8(PIC1_OCW1, PIC_OPEN_IRQ12);
+    //Slave chip
+    //IRQ12 is PS/2 mouse
+    //IRQ14 is AT disk
+    _io_out8(PIC1_OCW1, PIC_OPEN_IRQ12 & PIC_OPEN_IRQ14);
     /* _io_out8(OCW1_S, PIC_MASK_ALL); */
     _io_delay();
 }

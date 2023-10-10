@@ -76,7 +76,7 @@ clean:
 	rm -rf *.o
 	rm -rf *.lock
 	find . -type f -name "core.*" ! -name "core.s" -delete
-	find . -type f -name "*.img" ! -name "a.img" -delete
+	find . -type f -name "*.img" ! -name "hd80M.img" -delete
 clean-all: clean
 	cd ./booter && $(MAKE) clean
 	cd ./core   && $(MAKE) clean

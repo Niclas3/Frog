@@ -17,9 +17,9 @@
  *                │        │                      │        │
  *                │        │◄───── IRQ5 LPT2      │        │◄────── IRQ13 FPU exception 
  *                │        │                      │        │
- *                │        │◄───── IRQ6 Floppy    │        │◄────── IRQ14 AT disk 
+ *                │        │◄───── IRQ6 Floppy    │        │◄────── IRQ14 AT disk
  *                │        │                      │        │
- *                │        │◄───── IRQ7 LPT1      │        │◄────── IRQ15 Reserve 
+ *                │        │◄───── IRQ7 LPT1      │        │◄────── IRQ15 Reserve  (slave Hard disk)
  *                └────────┘                      └────────┘
  **/
 
@@ -192,20 +192,33 @@
 #define PIC_OPEN_IRQ2  0xFB  // 1111 1011  links slave
 #define PIC_OPEN_IRQ4  0xEF  // 1110 1111  serial port1
 #define PIC_OPEN_IRQ12 0xEF  // 1110 1111  PS/2 mouse if slave
-                            
+#define PIC_OPEN_IRQ14 0xBF  // 1011 1111  AT disk
+#define PIC_OPEN_IRQ15 0x7F  // 0111 1111  slave AT disk
 // -----------------------------------------------------------------
 
-#define PIC_EOI_IRQ0  0x60    // set EOI bit IRQ0 or IRQ8
-#define PIC_EOI_IRQ8  0x60    // set EOI bit IRQ0 or IRQ8
-                              //
-#define PIC_EOI_IRQ1  0x61    // set EOI bit IRQ1 or IRQ9
-#define PIC_EOI_IRQ9  0x61    // set EOI bit IRQ1 or IRQ9
+#define PIC_EOI_IRQ0  0x60    // Clock
+#define PIC_EOI_IRQ8  0x60    // Real clock
 
-#define PIC_EOI_IRQ2   0x62    // set EOI bit IRQ2 or IRQ10
-#define PIC_EOI_IRQ10  0x62    // set EOI bit IRQ2 or IRQ10
+#define PIC_EOI_IRQ1  0x61    // keyboard
+#define PIC_EOI_IRQ9  0x61    // Redirection IRQ2
 
-#define PIC_EOI_IRQ4  0x64    // set EOI bit IRQ4 or IRQ12
-#define PIC_EOI_IRQ12 0x64    // set EOI bit IRQ4 or IRQ12
+#define PIC_EOI_IRQ2   0x62    // Connect
+#define PIC_EOI_IRQ10  0x62    // Reserve
+
+#define PIC_EOI_IRQ3   0x63    // Serial2
+#define PIC_EOI_IRQ11  0x63    // Reserve
+
+#define PIC_EOI_IRQ4  0x64    // Serial1
+#define PIC_EOI_IRQ12 0x64    // PS/2 mouse
+
+#define PIC_EOI_IRQ5  0x65    // LPT2
+#define PIC_EOI_IRQ13 0x65    // FPU exception
+
+#define PIC_EOI_IRQ6  0x66    // Floppy
+#define PIC_EOI_IRQ14 0x66    // AT Disk
+
+#define PIC_EOI_IRQ7  0x67    // LPT1
+#define PIC_EOI_IRQ15 0x67    // Slave disk
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
 //                       Programmable Interval Timer
