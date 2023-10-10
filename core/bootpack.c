@@ -87,29 +87,9 @@ void UkiMain(void)
 
     TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
     TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
-    /* TCB_t *mouse_c1 = thread_start("mouse2",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c2 = thread_start("mouse3",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c3 = thread_start("mouse4",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c4 = thread_start("mouse5",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c11 = thread_start("mouse6",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c22 = thread_start("mouse7",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c33 = thread_start("mouse8",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c44 = thread_start("mouse9",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c11111 = thread_start("mouse10",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c12 = thread_start("mouse11",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c13 = thread_start("mouse12",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c14 = thread_start("mouse13",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c134 = thread_start("mouse14",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c1314 = thread_start("mouse15",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c213 = thread_start("mouse12",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c214 = thread_start("mouse13",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c2134 = thread_start("mouse14",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_c21314 = thread_start("mouse15",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_dc2134 = thread_start("mouse14",10, mouse_consumer , 3); */
-    /* TCB_t *mouse_dc21314 = thread_start("mouse15",10, mouse_consumer , 3); */
-    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
-    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
-    process_execute(u_fund, "u_fund");
+    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4);
+    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
+    /* process_execute(u_fund, "u_fund"); */
     /* process_execute(u_funf, "u_funf"); */
 
     for (;;) {
@@ -159,8 +139,9 @@ void keyboard_consumer(int a){
 }
 
 void func(int a){
-    void * b = sys_malloc(33);
+    void * b = sys_malloc(4444);
     void * c = sys_malloc(33);
+    sys_free(b);
     while(1){
         lock_fetch(&main_lock);
         draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, b);

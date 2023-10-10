@@ -53,7 +53,16 @@ struct _virtual_addr kernel_viraddr;
 // mid   10 bits pte
 #define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
 
+void free_addr_bitmap(struct bitmap *map,
+                             uint_32 addr_start,
+                             uint_32 addr,
+                             uint_32 pos,
+                             uint_32 pg_cnt);
+uint_32 virtual_addr_to_phycial_addr(void *v_addr);
+void free_vaddress(pool_type poolt, uint_32 vaddress, uint_32 pg_cnt);
+
 void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt);
+void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt);
 
 /*
  * Init description of memory block from 16B to 1024B
@@ -255,13 +264,70 @@ void *sys_malloc(uint_32 size)
 
         // alloc block
         block = container_of(list_pop(&(descs[desc_idx].free_list)),
-                             struct mem_block,
-                             free_elem);
+                             struct mem_block, free_elem);
         memset(block, 0, descs[desc_idx].block_size);
         area = block2arena(block);
         area->cnt--;
         lock_release(&mem_pool->lock);
-        return (void *)block;
+        return (void *) block;
+    }
+}
+
+void sys_free(void *ptr)
+{
+    ASSERT(ptr != NULL);
+    struct pool *mem_pool;
+    enum mem_pool_type pool_t;
+    if (ptr != NULL) {
+        TCB_t *cur = running_thread();
+        // Is thread
+        if (cur->pgdir == NULL) {
+            ASSERT((uint_32) ptr >= K_HEAP_START);
+            pool_t = MP_KERNEL;
+            mem_pool = &kernel_pool;
+        } else {  // is process
+            pool_t = MP_USER;
+            mem_pool = &user_pool;
+        }
+        lock_fetch(&mem_pool->lock);
+        // Get target pointer arena get metadate
+        struct mem_block *block = ptr;
+        struct arena *a = block2arena(block);
+        ASSERT(a->large == 0 || a->large == 1);
+        if (a->desc == NULL &&
+            a->large == true) {  // arena is equal or over 1024B
+            mfree_page(pool_t, a, a->cnt);
+        } else {
+            /* If less than 1024B, first free memory to desc->free_list
+             * */
+            list_add_tail(&block->free_elem, &a->desc->free_list);
+            // Test all arena free_list are free, if true release arena
+            if (++a->cnt == a->desc->blocks_per_arena) {
+                uint_32 block_idx;
+                for (block_idx = 0; block_idx < a->desc->blocks_per_arena;
+                     block_idx++) {
+                    struct mem_block *b = arena2block(a, block_idx);
+                    list_del_init(&b->free_elem);
+                }
+                mfree_page(pool_t, a, 1);
+            }
+        }
+        lock_release(&mem_pool->lock);
+    }
+}
+
+void free_addr_bitmap(struct bitmap *map,
+                             uint_32 addr_start,
+                             uint_32 addr,
+                             uint_32 pos,
+                             uint_32 pg_cnt)
+{
+    if (addr < addr_start)
+        panic("free bad phy address");
+    if (pos > map->map_bytes_length)
+        panic("free bad address over length");
+    for (int i = 0; i < pg_cnt; i++) {
+        set_value_bitmap(map, pos + i, 0);
     }
 }
 
@@ -281,8 +347,8 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
         }
         v_start_addr = start_pos * PG_SIZE + kernel_viraddr.vaddr_start;
         return (void *) v_start_addr;
-    } else if (cur->pgdir != NULL &&
-               poolt == MP_USER) {  // TODO: user vaddress pools
+    } else if (cur->pgdir != NULL && poolt == MP_USER) {
+        // TODO: user vaddress pools
         start_pos =
             find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap, pg_cnt);
         if (start_pos == -1) {
@@ -298,10 +364,27 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
         PAINC(
             "get_free_vaddress: not allow kernel alloc userspace or user alloc "
             "kernel space.");
+        return NULL;
     }
 }
 
-// get a free 4k phy memory aka 1 page in pool
+// Remove assign vaddress at `pos`
+void free_vaddress(pool_type poolt, uint_32 vaddress, uint_32 pg_cnt)
+{
+    if (poolt == MP_KERNEL) {
+        uint_32 pos = (vaddress - kernel_viraddr.vaddr_start) / PG_SIZE;
+        free_addr_bitmap(&kernel_viraddr.vaddr_bitmap,
+                         kernel_viraddr.vaddr_start, vaddress, pos, pg_cnt);
+    } else {
+        TCB_t *cur = running_thread();
+        uint_32 pos = (vaddress - cur->progress_vaddr.vaddr_start) / PG_SIZE;
+        free_addr_bitmap(&cur->progress_vaddr.vaddr_bitmap,
+                         cur->progress_vaddr.vaddr_start, vaddress, pos,
+                         pg_cnt);
+    }
+}
+
+// Get a free 4k phy memory aka 1 page in pool
 // -> pte
 void *get_free_page(struct pool *mpool)
 {
@@ -314,6 +397,7 @@ void *get_free_page(struct pool *mpool)
     return (void *) (start_pos * PG_SIZE + mpool->phy_addr_start);
 }
 
+// Release target address at mpool
 void free_page(struct pool *mpool, uint_32 phy_addr_page)
 {
     if (phy_addr_page < mpool->phy_addr_start)
@@ -322,7 +406,6 @@ void free_page(struct pool *mpool, uint_32 phy_addr_page)
     if (pos > mpool->pool_bitmap.map_bytes_length)
         panic("free bad address over length");
     set_value_bitmap(&mpool->pool_bitmap, pos, 0);
-    return;
 }
 
 uint_32 *pte_ptr(uint_32 vaddr)
@@ -353,7 +436,19 @@ uint_32 addr_v2p(uint_32 vaddr)
     uint_32 *pte = pte_ptr(vaddr);
     return ((*pte & 0xfffff000) + (vaddr & 0x00000fff));
 }
-
+uint_32 virtual_addr_to_phycial_addr(void *v_addr)
+{
+    uint_32 *pde = pde_ptr((uint_32) v_addr);
+    uint_32 *pte = pte_ptr((uint_32) v_addr);
+    if (*pde & 0x00000001) {        // pde is exist
+        if ((*pte & 0x00000001)) {  // pte is exist
+            uint_32 p_addr = *pte & 0xfffff000;
+            return (uint_32) p_addr;
+        } else {
+            return NULL;
+        }
+    }
+}
 // Combine v address -> phy address
 void put_page(void *v_addr, void *phy_addr)
 {
@@ -387,7 +482,28 @@ void put_page(void *v_addr, void *phy_addr)
     }
 }
 
-// get free vaddress and paddress and put them together
+// Remove v address from page table
+void remove_page(void *v_addr)
+{
+    uint_32 vaddress = (uint_32) v_addr;
+    uint_32 *pde = pde_ptr(vaddress);
+    uint_32 *pte = pte_ptr(vaddress);
+    if (*pde & 0x00000001) {      // test pde if exist
+        if (*pte & 0x00000001) {  // test pde if exist or not
+            *pte &= 0x11111110;    // PG_P_CLI;
+        } else {  // pte is not exists
+            panic("Free twice");
+            // Still make pde is unexist
+            *pte &= 0x11111110;             //PG_P_CLI;
+        }
+        __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory");
+    }
+}
+
+// Get free vaddress and paddress and put them together
+// 1. get free vaddress from vpool according to kernel or user
+// 2. get free phy address from pool using get_free_page(pool)
+// 3. put vaddress and paddress together using put_page(vaddr, paddr)
 void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 {
     ASSERT(pg_cnt > 0 && pg_cnt < 3840);
@@ -407,6 +523,23 @@ void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
         vaddr += PG_SIZE;
     }
     return vaddr_start;
+}
+
+/* @param poolt  : pool types
+ * @param vddr   : start freed virtual address
+ * @param pg_cnt : continue page numbers
+ * */
+void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt)
+{
+    uint_32 vaddr = (uint_32) _vaddr;
+    struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
+    free_vaddress(poolt, vaddr, pg_cnt);
+    for (int i = 0; i < pg_cnt; i++) {
+        uint_32 phy_addr = virtual_addr_to_phycial_addr(vaddr);
+        free_page(mem_pool, phy_addr);
+        remove_page(vaddr);
+        vaddr += PG_SIZE;
+    }
 }
 
 // get free vaddress and paddress and put them together

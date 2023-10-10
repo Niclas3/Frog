@@ -52,6 +52,8 @@ struct pool {
 
 // alloc any size memory
 void *sys_malloc(uint_32 size);
+// Free pointed memory
+void sys_free(void* ptr);
 
 void mem_init(void);
 
@@ -78,6 +80,7 @@ void put_page(void *v_addr, void* phy_addr);
 uint_32 addr_v2p(uint_32 vaddr);
 // Get kernel page from memory
 void* get_kernel_page(uint_32 pg_cnt);
+
 void* get_user_page(uint_32 pg_cnt);
 
 #endif
