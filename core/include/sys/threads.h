@@ -5,6 +5,8 @@
 #include <list.h>
 #include <sys/memory.h>
 
+typedef uint_16 pid_t;
+
 //Routine type 
 typedef void* (*__routine_ptr_t)(void*);
 typedef void* __routine_t (void*);
@@ -68,6 +70,7 @@ struct thread_stack {
 
 typedef struct thread_control_block {
     uint_32 *self_kstack;              // <--- thread_stack + context_registers >
+    pid_t pid;
     task_status_t status;
     uint_32       priority;
     char name[16];

@@ -142,19 +142,22 @@ void func(int a){
     void * b = sys_malloc(4444);
     void * c = sys_malloc(33);
     sys_free(b);
+    TCB_t *cur = running_thread();
     while(1){
         lock_fetch(&main_lock);
-        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, b);
-        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 20, c);
+        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, b); */
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 20, cur->pid);
         lock_release(&main_lock);
     }
 }
 
 void funcb(int a){
+    TCB_t *cur = running_thread();
     while(1){
         lock_fetch(&main_lock);
-        draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T");
-        draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "H");
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid);
+        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T"); */
+        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "H"); */
         lock_release(&main_lock);
     }
 }

@@ -8,10 +8,14 @@
 #include <debug.h>
 
 TCB_t* main_thread;
+struct lock pid_lock;
 //TODO: need a max list size
 struct list_head thread_ready_list;
 struct list_head thread_all_list;
 static struct list_head *thread_tag;
+
+
+static pid_t allocte_pid(void);
 
 extern void switch_to(TCB_t *cur, TCB_t* next);
 
@@ -34,11 +38,12 @@ TCB_t* running_thread(void) {
     return (TCB_t *)(esp & 0xfffff000);
 }
 
-/* Init TCB 
+/* Init TCB
  */
 void init_thread(TCB_t* thread, char* name, uint_8 priority){
     //set all 0 for thread memory
     memset(thread, 0, sizeof(*thread));
+    thread->pid = allocte_pid();
     strcpy(thread->name, name);
     if(thread == main_thread){
         thread->status = THREAD_TASK_RUNNING;
@@ -118,9 +123,13 @@ void schedule(void){
 }
 
 
+/* Init all things that thread need
+ * before all things start
+ * */
 void thread_init(void){
     init_list_head(&thread_ready_list);
     init_list_head(&thread_all_list);
+    lock_init(&pid_lock);
     make_main_thread();
 }
 
@@ -163,6 +172,13 @@ void thread_unblock(TCB_t *thread){
     intr_set_status(old_int_status);
 }
 
+static pid_t allocte_pid(void){
+    static pid_t next_pid = 0;
+    lock_fetch(&pid_lock);
+    next_pid++;
+    lock_release(&pid_lock);
+    return next_pid;
+}
 
 
 
