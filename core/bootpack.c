@@ -15,6 +15,7 @@
 #include <protect.h>
 
 // test
+#include <sys/sched.h>
 #include <sys/threads.h>
 #include <sys/memory.h>
 #include <list.h>
@@ -41,10 +42,7 @@ void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
                                             //
-
-
     BOOTINFO info = {
-                     /* .vram = (unsigned char *) 0xa0000, */
                      .vram = (unsigned char *) 0xc00a0000,
                      .scrnx = 320,
                      .scrny = 200,
@@ -68,32 +66,34 @@ void UkiMain(void)
 
     draw_backgrond(info.vram, info.scrnx, info.scrny);
 
-    /* init_palette(); */
-
-    /* int pysize = 16; */
-    /* int pxsize = 16; */
-    /* int bxsize = 16; */
-    /* int vxsize = info.scrnx; */
-    /* int py0 = 50; */
-    /* int px0 = 50; */
-    /* int mx = 70; */
-    /* int my = 50; */
-
-    /* char *mcursor = get_kernel_page(1); */
-    /* draw_cursor8(mcursor, COL8_848484); */
-    /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16); */
     lock_init(&main_lock);
-
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
 
+    /* init_palette(); */
+
+    int pysize = 16;
+    int pxsize = 16;
+    int bxsize = 16;
+    int vxsize = info.scrnx;
+    int py0 = 50;
+    int px0 = 50;
+    int mx = 70;
+    int my = 50;
+
+
     TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
     TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
-    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4);
+    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
     /* process_execute(u_fund, "u_fund"); */
     /* process_execute(u_funf, "u_funf"); */
 
+    mtime_sleep(1000*1*60*60); // 1 hour
+
+    char *mcursor = sys_malloc(256);
+    draw_cursor8(mcursor, COL8_848484);
+    putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
     for (;;) {
         /* __asm__ volatile ("sti;hlt;" : : : ); */
         _io_stihlt();
@@ -141,27 +141,23 @@ void keyboard_consumer(int a){
 }
 
 void func(int a){
-    void * b = sys_malloc(4444);
-    void * c = sys_malloc(33);
-    sys_free(b);
-    TCB_t *cur = running_thread();
     while(1){
         lock_fetch(&main_lock);
-        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, b); */
-        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 20, cur->pid);
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, 10);
         lock_release(&main_lock);
     }
 }
 
 void funcb(int a){
-    TCB_t *cur = running_thread();
-    while(1){
+    /* TCB_t *cur = running_thread(); */
+    /* while(1){ */
         lock_fetch(&main_lock);
-        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid);
-        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T"); */
-        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "H"); */
+        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid); */
+        draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T");
+        draw_info((uint_8 *)0xc00a0000, 320, COL8_FF00FF, 100, 0, "H");
         lock_release(&main_lock);
-    }
+    /* } */
+    while(1);
 }
 
 void u_fund(int a){
