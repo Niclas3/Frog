@@ -1,4 +1,5 @@
 #include <const.h>  // for PG_SIZE
+#include <math.h>   // for DIV_ROUND_UP
 #include <debug.h>
 #include <panic.h>
 #include <string.h>
