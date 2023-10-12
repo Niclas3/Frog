@@ -5,7 +5,7 @@ C_FLAG += -g
 BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
-	 $(BUILD_DIR)/hid.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
+	 $(BUILD_DIR)/device.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
 	 $(BUILD_DIR)/list.o $(BUILD_DIR)/ioqueue.o\
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
@@ -52,8 +52,8 @@ $(BUILD_DIR)/oslib.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "oslib.c")
 $(BUILD_DIR)/protect.o: protect.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
-$(BUILD_DIR)/hid.o:
-	cd ./hid && $(MAKE) hid.o
+$(BUILD_DIR)/device.o:
+	cd ./device && $(MAKE) device.o
 
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
@@ -98,5 +98,5 @@ debug: mk_dir build_symbol move_symbol
 clean:
 	rm -rf *.o
 	cd ./build && rm -rf ./*
-	cd ./hid && $(MAKE) clean
+	cd ./device && $(MAKE) clean
 
