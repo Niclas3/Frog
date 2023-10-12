@@ -54,6 +54,9 @@ void UkiMain(void)
                      .reserve = 0};
     init_idt_gdt_tss();
 
+    mem_init(); // mem_init must early that thread_init beause thread_init need
+                // alloc memory use memory
+
     thread_init();
     // Set 8295A and PIT_8253 and set IF=1
     init_8259A();
@@ -63,7 +66,6 @@ void UkiMain(void)
 
     init_PIT8253();
 
-    mem_init();
     draw_backgrond(info.vram, info.scrnx, info.scrny);
 
     /* init_palette(); */

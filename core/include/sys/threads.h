@@ -92,6 +92,7 @@ void create_thread(TCB_t *thread, __routine_t func, void* arg);
 void thread_init(void);
 void thread_block(task_status_t status);
 void thread_unblock(TCB_t *thread);
+void thread_yield(void);
 
 void schedule(void);
 #endif

@@ -4,10 +4,13 @@
 #include <sys/memory.h>
 #include <sys/int.h>
 #include <sys/process.h>
+#include <stdbool.h>
 
 #include <debug.h>
 
-TCB_t* main_thread;
+TCB_t* main_thread; //kernel_thread()
+TCB_t* idle_thread; //idle()
+
 struct lock pid_lock;
 //TODO: need a max list size
 struct list_head thread_ready_list;
@@ -19,6 +22,13 @@ static pid_t allocte_pid(void);
 
 extern void switch_to(TCB_t *cur, TCB_t* next);
 
+// a thread when os is idle, block itself
+static void idle(void* arg ){
+    while (1){
+        thread_block(THREAD_TASK_BLOCKED);
+        __asm__ volatile ("sti; hlt" : : : "memory");
+    }
+}
 static void kernel_thread(__routine_ptr_t func_ptr, void* func_arg){
     // Looking for threads' status 
     // if A thread is finished then checking other threads at a thread-pool
@@ -113,7 +123,9 @@ void schedule(void){
     } else {
 
     }
-    ASSERT(!list_is_empty(&thread_ready_list));
+    if(list_is_empty(&thread_ready_list)){
+        thread_unblock(idle_thread);
+    }
     thread_tag = NULL;
     thread_tag = list_pop(&thread_ready_list);
     TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
@@ -131,6 +143,7 @@ void thread_init(void){
     init_list_head(&thread_all_list);
     lock_init(&pid_lock);
     make_main_thread();
+    idle_thread = thread_start("idle", 10, idle, 0);
 }
 
 // Block self and set self status to status
@@ -170,6 +183,17 @@ void thread_unblock(TCB_t *thread){
         thread->status = THREAD_TASK_READY;
     }
     intr_set_status(old_int_status);
+}
+
+// Yield self for other thread
+void thread_yield(void){
+    TCB_t *cur = running_thread();
+    enum intr_status old_status = intr_disable();
+    ASSERT(!list_find_element(&cur->general_tag, &thread_ready_list));
+    list_add_tail(&cur->general_tag, &thread_ready_list);
+    cur->status = THREAD_TASK_READY;
+    schedule();
+    intr_set_status(old_status);
 }
 
 static pid_t allocte_pid(void){
