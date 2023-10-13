@@ -5,6 +5,7 @@
 #include <const.h>
 #include <debug.h>
 
+// Init semaphore with value 
 void semaphore_init(struct semaphore *sema, uint_32 value){
     sema->value = value;
     init_list_head(&sema->waiting_queue);

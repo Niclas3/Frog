@@ -34,5 +34,6 @@ struct ide_channel {
     struct semaphore disk_done; // To block or awake driver
     struct disk devices[2];     // represent master or slave disk
 };
+void ide_init(void);
 
 #endif
