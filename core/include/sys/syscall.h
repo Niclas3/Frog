@@ -3,8 +3,8 @@
 #include <ostype.h>
 
 enum SYSCALL_NR{
-    SYS_getpid,
-    SYS_write,
+    SYS_getpid, // 0
+    SYS_write,  // 1
 };
 
 uint_32 getpid(void);

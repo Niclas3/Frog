@@ -143,10 +143,10 @@ _io_delay:
 ;;
 ;;------------------------------------------------------------------------------
 ;;------------------------------------------------------------------------------
-
+;; 0x93 handler system call
 syscall_handler:
 ;1. save context
-    push 0 ;; error code
+    push 0 ;; push error code
     push ds
     push es
     push fs
@@ -161,9 +161,13 @@ syscall_handler:
     push ebx   ; 1st 
 ;3. call sub-routine according to eax which is subroutine number at
 ; syscall_table
+; eax is syscall number,
+; syscall_table contains function pointer which size is 4 bytes
     call [syscall_table + eax * 4]
     add esp, 12
-;4. return value at eax
+;4. return value at eax,
+;   esp+8*4 is eax 
+; pushad push 8 registers
     mov [esp+8*4], eax
     jmp intr_exit
 
