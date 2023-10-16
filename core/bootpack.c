@@ -86,8 +86,8 @@ void UkiMain(void)
     int my = 50;
 
 
-    /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3); */
-    /* TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3); */
+    TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
+    TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
     process_execute(u_fund, "u_fund");

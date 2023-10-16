@@ -6,19 +6,13 @@ BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/device.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
-	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
-	 $(BUILD_DIR)/list.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/usr.o \
+	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
+	 $(BUILD_DIR)/usr.o \
+	 $(BUILD_DIR)/lib.o \
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o \
-         $(BUILD_DIR)/panic.o  $(BUILD_DIR)/string.o \
-	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/debug.o \
+         $(BUILD_DIR)/panic.o  \
 	 $(BUILD_DIR)/core.o
- 
-$(BUILD_DIR)/list.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "list.c")
-
-$(BUILD_DIR)/ioqueue.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "ioqueue.c")
 
 $(BUILD_DIR)/switch.o:
 	$(AS) $(A_FLAG) -o $@ $(shell find thread -type f -name "switch.s")
@@ -40,18 +34,11 @@ $(BUILD_DIR)/panic.o: panic.c
 $(BUILD_DIR)/memory.o: mm/memory.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 
-$(BUILD_DIR)/bitmap.o: lib/bitmap.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
-
-$(BUILD_DIR)/string.o: lib/string.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -fno-builtin $^
-
-$(BUILD_DIR)/debug.o: lib/debug.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
-$(BUILD_DIR)/oslib.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "oslib.c")
 $(BUILD_DIR)/protect.o: protect.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
+
+$(BUILD_DIR)/lib.o:
+	cd ./lib && $(MAKE) lib.o
 
 $(BUILD_DIR)/device.o:
 	cd ./device && $(MAKE) device.o
