@@ -8,8 +8,8 @@
 
 #include <debug.h>
 
-TCB_t* main_thread; //kernel_thread()
-TCB_t* idle_thread; //idle()
+TCB_t* main_thread; //kernel_thread() pid = 1
+TCB_t* idle_thread; //idle()          pid = 2
 
 struct lock pid_lock;
 //TODO: need a max list size
@@ -142,7 +142,9 @@ void thread_init(void){
     init_list_head(&thread_ready_list);
     init_list_head(&thread_all_list);
     lock_init(&pid_lock);
+    //main thread pid = 1
     make_main_thread();
+    //idle thread pid = 2
     idle_thread = thread_start("idle", 10, idle, 0);
 }
 

@@ -52,6 +52,9 @@
 #define INT_VECTOR_PS2_MOUSE    0x2C
 #define INT_VECTOR_INNER_CLOCK  0x20
 
+/* For system call*/
+#define INT_VECTOR_SYSCALL      0x93
+
 //-----------------------------------------------------------------------------
 //                     Interrupt control
 //-----------------------------------------------------------------------------

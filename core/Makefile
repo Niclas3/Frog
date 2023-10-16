@@ -7,7 +7,7 @@ BUILD_DIR = ./build
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/device.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o $(BUILD_DIR)/oslib.o \
-	 $(BUILD_DIR)/list.o $(BUILD_DIR)/ioqueue.o\
+	 $(BUILD_DIR)/list.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/usr.o \
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o \
          $(BUILD_DIR)/panic.o  $(BUILD_DIR)/string.o \
@@ -52,8 +52,12 @@ $(BUILD_DIR)/oslib.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "oslib.c")
 $(BUILD_DIR)/protect.o: protect.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
+
 $(BUILD_DIR)/device.o:
 	cd ./device && $(MAKE) device.o
+
+$(BUILD_DIR)/usr.o:
+	cd ./usr && $(MAKE) usr.o
 
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")

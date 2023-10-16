@@ -4,12 +4,13 @@
 #include <sys/graphic.h>
 #include <sys/int.h>
 #include <sys/pic.h>
+#include <sys/syscall-init.h>
 
 #include <hid/keyboard.h>
 #include <hid/ps2mouse.h>
 
 #include <debug.h>
-#include <global.h>  // global variable like keybuf
+#include <global.h>
 #include <const.h>
 #include <oslib.h>
 #include <protect.h>
@@ -22,6 +23,7 @@
 #include <sys/semaphore.h>
 #include <ioqueue.h>
 #include <sys/process.h>
+#include <sys/syscall.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -54,8 +56,10 @@ void UkiMain(void)
 
     mem_init(); // mem_init must early that thread_init beause thread_init need
                 // alloc memory use memory
-
     thread_init();
+
+    syscall_init();
+
     // Set 8295A and PIT_8253 and set IF=1
     init_8259A();
     _io_sti();
@@ -82,11 +86,11 @@ void UkiMain(void)
     int my = 50;
 
 
-    TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
-    TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
-    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
-    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
-    /* process_execute(u_fund, "u_fund"); */
+    /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3); */
+    /* TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3); */
+    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4);
+    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
+/* process_execute(u_fund, "u_fund"); */
     /* process_execute(u_funf, "u_funf"); */
 
     mtime_sleep(1000*1*60*60); // 1 hour
@@ -141,9 +145,10 @@ void keyboard_consumer(int a){
 }
 
 void func(int a){
+    uint_32 pid = getpid();
     while(1){
         lock_fetch(&main_lock);
-        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, 10);
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, pid);
         lock_release(&main_lock);
     }
 }
@@ -164,7 +169,9 @@ void u_fund(int a){
     while(1){
         /* u_test_a++ ; */
         /* lock_fetch(&main_lock); */
-        draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "Q");
+        uint_32 pid = getpid();
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, pid );
+        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "Q"); */
         /* lock_release(&main_lock); */
     }
 }

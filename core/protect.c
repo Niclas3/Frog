@@ -4,15 +4,26 @@
 #include <sys/int.h>
 #include <sys/tss.h>
 
-void register_ring0_INT(uint_32 int_vector_code, Inthandle_t handler_address)
-{
+uint_32 syscall_handler(void);
+
+void register_INT(uint_32 int_vector_code, Inthandle_t handler_address, uint_32 dpl){
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
     save_idtr(&idtr_data);
     Gate_Descriptor *idt_start = (Gate_Descriptor *) idtr_data.address;
     Selector selector_code = CREATE_SELECTOR(SEL_IDX_CODE_DPL_0, TI_GDT, RPL0);
     create_gate(idt_start + int_vector_code, selector_code, handler_address,
-                DESC_P_1 | DESC_DPL_0 | DESC_TYPE_INTR, 0);
+                DESC_P_1 | dpl | DESC_TYPE_INTR, 0);
+    return;
+}
+void register_ring0_INT(uint_32 int_vector_code, Inthandle_t handler_address)
+{
+    register_INT(int_vector_code, handler_address, DESC_DPL_0);
+    return;
+}
+void register_ring3_INT(uint_32 int_vector_code, Inthandle_t handler_address)
+{
+    register_INT(int_vector_code, handler_address, DESC_DPL_3);
     return;
 }
 
@@ -85,6 +96,9 @@ void init_idt(void)
     register_ring0_INT(INT_VECTOR_KEYBOARD, _asm_inthandler21);
     // Interrupt gate for IRQ12 aka PS/2 mouse interrupt
     register_ring0_INT(INT_VECTOR_PS2_MOUSE, _asm_inthandler2C);
+
+    // System_call interrupt 
+    register_ring3_INT(INT_VECTOR_SYSCALL, syscall_handler);
 }
 
 void init_idt_gdt_tss(void){

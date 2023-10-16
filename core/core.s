@@ -12,6 +12,8 @@ extern inthandler21, inthandler20, inthandler2C
 ;      Keyboard         ;      Clock        ;      PS/2 Mouse    
 global _asm_inthandler21, _asm_inthandler20, _asm_inthandler2C
 ;---------------------------------------------------------------
+extern syscall_table
+global syscall_handler
 
 extern exception_handler
 
@@ -141,6 +143,29 @@ _io_delay:
 ;;
 ;;------------------------------------------------------------------------------
 ;;------------------------------------------------------------------------------
+
+syscall_handler:
+;1. save context
+    push 0 ;; error code
+    push ds
+    push es
+    push fs
+    push gs
+    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    push 0x93 ;; number of interrupt
+;2. pass arguments
+;I only support 3 arguments
+; first at ebx, second at ecx, third at edx
+    push edx   ; 3th
+    push ecx   ; 2nd
+    push ebx   ; 1st 
+;3. call sub-routine according to eax which is subroutine number at
+; syscall_table
+    call [syscall_table + eax * 4]
+    add esp, 12
+;4. return value at eax
+    mov [esp+8*4], eax
+    jmp intr_exit
 
 ;;; 0x20 Clock interrupt handler
 _asm_inthandler20:
