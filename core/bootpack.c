@@ -88,9 +88,9 @@ void UkiMain(void)
 
     /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3); */
     /* TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3); */
-    TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4);
+    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
-/* process_execute(u_fund, "u_fund"); */
+    process_execute(u_fund, "u_fund");
     /* process_execute(u_funf, "u_funf"); */
 
     mtime_sleep(1000*1*60*60); // 1 hour
@@ -166,11 +166,12 @@ void funcb(int a){
 }
 
 void u_fund(int a){
+        write("XoX");
     while(1){
         /* u_test_a++ ; */
         /* lock_fetch(&main_lock); */
-        uint_32 pid = getpid();
-        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, pid );
+        /* uint_32 pid = getpid(); */
+        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, pid ); */
         /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "Q"); */
         /* lock_release(&main_lock); */
     }

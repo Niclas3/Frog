@@ -6,23 +6,12 @@
 void draw_cursor8(char *mouse, char bc)
 {
     char cursor[16][16] = {
-        "**************..", 
-        "*OOOOOOOOOOO*...", 
-        "*OOOOOOOOOO*....",
-        "*OOOOOOOOO*.....", 
-        "*OOOOOOOO*......", 
-        "*OOOOOOO*.......",
-        "*OOOOOOO*.......", 
-        "*OOOOOOOO*......", 
-        "*OOOO**OOO*.....",
-        "*OOO*..*OOO*....", 
-        "*OO*....*OOO*...", 
-        "*O*......*OOO*..",
-        "**........*OOO*.", 
-        "*..........*OOO*", 
-        "............*OO*",
-        ".............***"
-    };
+        "**************..", "*OOOOOOOOOOO*...", "*OOOOOOOOOO*....",
+        "*OOOOOOOOO*.....", "*OOOOOOOO*......", "*OOOOOOO*.......",
+        "*OOOOOOO*.......", "*OOOOOOOO*......", "*OOOO**OOO*.....",
+        "*OOO*..*OOO*....", "*OO*....*OOO*...", "*O*......*OOO*..",
+        "**........*OOO*.", "*..........*OOO*", "............*OO*",
+        ".............***"};
     for (int i = 0; i < 16; i++) {
         for (int j = 0; j < 16; j++) {
             if (cursor[i][j] == '*') {
@@ -116,32 +105,44 @@ void putfont8(unsigned char *vram, int xsize, int x, int y, char c, char *font)
     return;
 }
 
-void putfonts8_asc(char *vram, int xsize, int x, int y, char color,unsigned char *s){
-    char *hankaku = (char*)FONT_HANKAKU;
-    for(;*s != 0x00 ;s++){
-        putfont8((unsigned char *)vram, xsize, x, y, color,hankaku + (*s * 16));
-        x+=8;
+void putfonts8_asc(char *vram,
+                   int xsize,
+                   int x,
+                   int y,
+                   char color,
+                   unsigned char *s)
+{
+    char *hankaku = (char *) FONT_HANKAKU;
+    for (; *s != 0x00; s++) {
+        putfont8((unsigned char *) vram, xsize, x, y, color,
+                 hankaku + (*s * 16));
+        x += 8;
     }
 }
 
-void put_asc_char(char *vram, int xsize, int x, int y, char color,int num){
-    char *hankaku = (char*)FONT_HANKAKU;
-    putfont8((unsigned char *)vram, xsize, x, y, color, hankaku + (num * 16));
+void put_asc_char(char *vram, int xsize, int x, int y, char color, int num)
+{
+    char *hankaku = (char *) FONT_HANKAKU;
+    putfont8((unsigned char *) vram, xsize, x, y, color, hankaku + (num * 16));
 }
 
-void putfonts8_asc_error(unsigned char *s, int x, int y){
-    /* boxfill8(info.vram, info.scrnx, COL8_FF00FF, 0, 0, info.scrnx- 1, info.scrny- 29); */
-    putfonts8_asc((char *)0xa0000, 320, x, y, COL8_FFFFFF, s);
+void putfonts8_asc_error(unsigned char *s, int x, int y)
+{
+    /* boxfill8(info.vram, info.scrnx, COL8_FF00FF, 0, 0, info.scrnx- 1,
+     * info.scrny- 29); */
+    putfonts8_asc((char *) 0xa0000, 320, x, y, COL8_FFFFFF, s);
 }
 
-void draw_hex(char* vram, int scrnx, char color, int px, int py, int num){
-    char str[]="        ";
-    itoa(num, str,16);
+void draw_hex(char *vram, int scrnx, char color, int px, int py, int num)
+{
+    char str[] = "        ";
+    itoa(num, str, 16);
     draw_info(vram, scrnx, color, px, py, str);
 }
 
 
-void draw_info(char* vram, int scrnx, char color, int px, int py, char* str){
+void draw_info(char *vram, int scrnx, char color, int px, int py, char *str)
+{
     boxfill8(vram, scrnx, COL8_008484, px, py, 16, 16);
     putfonts8_asc(vram, scrnx, px, py, color, str);
 }
@@ -207,7 +208,7 @@ void boxfill8(unsigned char *vram,
     for (y = y0; y <= y1; y++) {
         for (x = x0; x <= x1; x++) {
             pos = y * xsize + x;
-            *(vram+pos) = c;
+            *(vram + pos) = c;
         }
     }
     return;

@@ -43,3 +43,7 @@
 uint_32 getpid(void){
     return _syscall0(SYS_getpid);
 }
+
+uint_32 write(char* str){
+    return _syscall1(SYS_write, str);
+}
