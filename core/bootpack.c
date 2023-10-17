@@ -22,6 +22,7 @@
 #include <list.h>
 #include <sys/semaphore.h>
 #include <ioqueue.h>
+#include <stdio.h>
 #include <sys/process.h>
 #include <sys/syscall.h>
 
@@ -90,8 +91,15 @@ void UkiMain(void)
     TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
-    process_execute(u_fund, "u_fund");
+    /* process_execute(u_fund, "u_fund"); */
     /* process_execute(u_funf, "u_funf"); */
+
+    char *str = sys_malloc(32);
+    /* sprintf(str,"test %s %d %c and 10%%", "niclas", 22, 'c'); */
+    /* sprintf(str,"a%s ", "nnnn"); */
+    /* sprintf(str,"a%d", 90909090); */
+    sprintf(str,"a%x", 90909090);
+    /* sprintf(str,"a%c", ')'); */
 
     mtime_sleep(1000*1*60*60); // 1 hour
 

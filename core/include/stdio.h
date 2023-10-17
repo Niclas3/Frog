@@ -2,7 +2,7 @@
 #define __LIB_STDIO_H
 #include <ostype.h>
 
-uint_32 printf(const char *fmt, ...);
+uint_32 sprintf(char* str, const char *fmt, ...);
 
 
 #endif
