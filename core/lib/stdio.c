@@ -3,15 +3,12 @@
 #include <string.h>
 #include <oslib.h>
 
-uint_32 sprintf(char *str, const char *fmt, ...)
-{
-    va_list ap;
+uint_32 vsprintf(char *str, const char *fmt, va_list ap){
     char *s;
     int d;
     char c;
     char *res = str;
     bool seen_mark = false;
-    va_start(ap, fmt);
     while (*fmt) {
         if(*fmt == '%' && !seen_mark){
             seen_mark = true;
@@ -56,9 +53,18 @@ uint_32 sprintf(char *str, const char *fmt, ...)
         }
         fmt++;
     }
-    va_end(ap);
     *res = '\0';
     int res_len = strlen(str);
     return res_len;
+}
+
+uint_32 sprintf(char *str, const char *fmt, ...)
+{
+    va_list args;
+    uint_32 len;
+    va_start(args, fmt);
+    len = vsprintf(str, fmt, args);
+    va_end(args);
+    return len;
 }
 

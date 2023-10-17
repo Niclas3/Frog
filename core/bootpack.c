@@ -95,11 +95,8 @@ void UkiMain(void)
     /* process_execute(u_funf, "u_funf"); */
 
     char *str = sys_malloc(32);
-    /* sprintf(str,"test %s %d %c and 10%%", "niclas", 22, 'c'); */
-    /* sprintf(str,"a%s ", "nnnn"); */
-    /* sprintf(str,"a%d", 90909090); */
-    sprintf(str,"a%x", 90909090);
-    /* sprintf(str,"a%c", ')'); */
+    sprintf(str,"test %s %d %c and 10%%", "niclas", 22, 'c');
+    draw_info((uint_8 *)0xc00a0000, 320, COL8_FF00FF, 100, 0, str);
 
     mtime_sleep(1000*1*60*60); // 1 hour
 
