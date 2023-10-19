@@ -22,5 +22,6 @@ switch_to:
     pop ebx
     pop edi
     pop esi
+    ;; Return to kernel_thread() for each process
     ret
 

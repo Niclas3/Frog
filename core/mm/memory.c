@@ -215,7 +215,7 @@ void *sys_malloc(uint_32 size)
     struct arena *area;
     struct mem_block *block;
     lock_fetch(&mem_pool->lock);
-    // If be allocted size is over 1024B return a whole arena
+    // If be allocated size is over 1024B return a whole arena
     if (size > 1024) {
         uint_32 page_cnt = DIV_ROUND_UP(size + sizeof(struct arena), PG_SIZE);
         area = malloc_page(pool_t, page_cnt);

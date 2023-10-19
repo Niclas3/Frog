@@ -53,6 +53,8 @@ void create_ring3_Descriptor(uint_32 desc_index, int des_type)
 
 void init_gdt(void)
 {
+    //TODO: Move gdt init from loader.s to this file.
+    
     /* Descriptor_REG gdtr_data = {0}; */
     /* save_gdtr(&gdtr_data); */
     /* Selector sel_code = create_selector(SEL_IDX_CODE_DPL_0, TI_GDT, RPL0); */

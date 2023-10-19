@@ -193,7 +193,8 @@ typedef struct _GATE {
 #define RPL3 0x3
 typedef short Selector;
 
-//Preset selectors
+//Preset descriptor's selectors
+//Init at protect.c
 #define SEL_IDX_CODE_DPL_0   1
 #define SEL_IDX_DATA_DPL_0   2
 #define SEL_IDX_VIDEO_DPL_0  3
