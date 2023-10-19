@@ -50,7 +50,8 @@ global  _general_protection
 global  _page_fault
 global  _copr_error
 ;-----------------------------------------------------------------------------
-
+INT_VEC_SYS_CALL equ 0x93
+;-----------------------------------------------------------------------------
 
 _start:
     call UkiMain
@@ -152,10 +153,11 @@ syscall_handler:
     push fs
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    push 0x93 ;; number of interrupt
+    push INT_VEC_SYS_CALL ;; number of interrupt
 ;2. pass arguments
-;I only support 3 arguments
+;I only support 4 arguments
 ; first at ebx, second at ecx, third at edx
+    push esi   ; 4th
     push edx   ; 3th
     push ecx   ; 2nd
     push ebx   ; 1st 
@@ -164,7 +166,7 @@ syscall_handler:
 ; eax is syscall number,
 ; syscall_table contains function pointer which size is 4 bytes
     call [syscall_table + eax * 4]
-    add esp, 12
+    add esp, 4*4
 ;4. return value at eax,
 ;   esp+8*4 is eax 
 ; pushad push 8 registers
