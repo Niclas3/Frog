@@ -1,4 +1,5 @@
 #include <sys/syscall.h>
+#include <sys/threads.h>
 
 /* X is 0–6, which are  the  number  of  arguments taken by the system call */
 // NUMBER sub-routine number
@@ -40,10 +41,25 @@
         __res;                                                          \
     });
 
+#define _syscall4(NUMBER, ARG1, ARG2, ARG3, ARG4)                             \
+    ({                                                                  \
+        int __res;                                                      \
+        __asm__ volatile("int $0x93"                                    \
+                         : "=a"(__res)                                  \
+                         : "a"(NUMBER), "b"(ARG1), "c"(ARG2), "d"(ARG3), "S"(ARG4) \
+                         : "memory");                                   \
+        __res;                                                          \
+    });
+
 uint_32 getpid(void){
     return _syscall0(SYS_getpid);
 }
 
 uint_32 write(char* str){
     return _syscall1(SYS_write, str);
+}
+
+uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg){
+    TCB_t *caller = running_thread();
+    return _syscall4(SYS_sendrec, func, src_dest, p_msg, caller);
 }
