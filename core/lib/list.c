@@ -1,6 +1,7 @@
-#include <list.h>
 #include <const.h>
 #include <debug.h>
+#include <list.h>
+#include <stdbool.h>
 /**
  * INIT_LIST_HEAD() - Initialize empty list head
  * @head: pointer to list head
@@ -16,7 +17,7 @@
  * list_del(_init) on an uninitialized node is undefined (unrelated memory is
  * modified, crashes, ...).
  */
-inline void init_list_head(struct list_head *head)
+void init_list_head(struct list_head *head)
 {
     head->next = head;
     head->prev = head;
@@ -29,46 +30,69 @@ inline void init_list_head(struct list_head *head)
  * return 0 == not find
  * other find
  * */
-inline int list_find_element(struct list_head *node , struct list_head *head){
+int list_find_element(struct list_head *node, struct list_head *head)
+{
     struct list_head *next = head->next;
-    for(;next != node && next != head->prev;){
+    for (; next != node && next != head->prev;) {
         next = next->next;
     }
-   return (next != head->prev);
+    return (next != head->prev);
 }
 
 /**
- * map_list(struct list_head *head, function func, uint_32 arg)
- * @head: pointer to the head of the list
- * @func: test function
+ * list_map(struct list_head *head, function func, uint_32 arg)
+ * @head: pointer to the head of the list target list
+ * @func: map function
  * @arg : arg for function
  *
+ * @Return :!0 success ,0 error happens
  * */
-inline struct list_head* map_list(struct list_head *head, int func(struct list_head *,int), int arg){
-    if(list_is_empty(head)){
-        return NULL;
+int list_map(struct list_head *head,
+             struct list_head *res,
+             struct list_head *func(struct list_head *cur))
+{
+    if (list_is_empty(head)) {
+        return 0;
     }
+    if (!list_is_empty(res)) {
+        return 0;
+    }
+
     struct list_head *next = head->next;
-    while(next != head->prev){
-        if(func(next, arg)){
-            return next;
+    while (next != head->prev) {  // go though all list
+        struct list_head *res_node = func(next);
+        if (res_node) {
+            list_add_tail(res_node, res);
         }
         next = next->next;
     }
-    return NULL;
+    return 1;
+}
+
+/**
+ * list_filter()
+ *
+ * @param param write here
+ * @return return Comments write here
+ *****************************************************************************/
+int list_filter(struct list_head *head,
+                struct list_head *res,
+                bool *func(struct list_head *cur))
+{
 }
 
 /**
  * list_length() - count lenght of giving list
  * @head: pointer of head
  */
-inline int list_length(struct list_head *head)
+int list_length(struct list_head *head)
 {
-    if((head->next == head->prev) && head->next == head) return 0;
+    if ((head->next == head->prev) && head->next == head)
+        return 0;
     ASSERT(head->next != 0 && head->prev != 0);
     int length = 1;
     struct list_head *iter = head->next;
-    for(;iter != head->prev;){
+    for (; iter != head->prev;) {
         length++;
         iter = iter->next;
     }
@@ -80,7 +104,8 @@ inline int list_length(struct list_head *head)
  * @node: pointer to the new node
  * @head: pointer to the head of the list
  */
-inline void list_add(struct list_head *node, struct list_head *head){
+void list_add(struct list_head *node, struct list_head *head)
+{
     struct list_head *first_node = head->next;
     first_node->prev = node;
     node->next = first_node;
@@ -93,7 +118,8 @@ inline void list_add(struct list_head *node, struct list_head *head){
  * @node: pointer to the new node
  * @head: pointer to the head of the list
  */
-inline void list_add_tail(struct list_head *node, struct list_head *head){
+void list_add_tail(struct list_head *node, struct list_head *head)
+{
     struct list_head *last_node = head->prev;
     last_node->next = node;
     node->next = head;
@@ -105,8 +131,9 @@ inline void list_add_tail(struct list_head *node, struct list_head *head){
  * list_pop() - pop element from a list node the head of the list
  * @head: pointer to the head of the list
  */
-struct list_head* list_pop(struct list_head *head){
-    struct list_head *target= head->next;
+struct list_head *list_pop(struct list_head *head)
+{
+    struct list_head *target = head->next;
     list_del_init(target);
     return target;
 }
@@ -123,7 +150,8 @@ struct list_head* list_pop(struct list_head *head){
  * Unlinked, initialized nodes are also uninitialized after list_del.
  *
  */
-inline void list_del(struct list_head *node){
+void list_del(struct list_head *node)
+{
     struct list_head *next = node->next;
     struct list_head *prev = node->prev;
     next->prev = prev;
@@ -137,19 +165,39 @@ inline void list_del(struct list_head *node){
  * The removed node will not end up in an uninitialized state like when using
  * list_del. Instead the node is initialized again to the unlinked state.
  */
-inline void list_del_init(struct list_head *node){
+void list_del_init(struct list_head *node)
+{
     list_del(node);
     init_list_head(node);
 }
 
 /**
- * list_empty() - Check if list head has no nodes attached
+ * list_destory()
+ * Remove all node from a list
+ *
+ * @param head list head
+ * @return !0 success/ 0 failed
+ *****************************************************************************/
+int list_destory(struct list_head* head){
+    if(list_is_empty(head)){ return -1; }
+    struct list_head *iter = head->next;
+    for (; iter != head->prev;) {
+        iter = iter->next;
+        list_del(iter);
+    }
+    init_list_head(head);
+    return -1;
+}
+
+/**
+ * list_is_empty() - Check if list head has no nodes attached
  * @head: pointer to the head of the list
  *
- * Return: 0 - list is not empty 
+ * Return: 0 - list is not empty
  *        !0 - list is empty
  */
-inline int list_is_empty(const struct list_head *head){
+int list_is_empty(const struct list_head *head)
+{
     return (head->next == head);
 }
 
@@ -159,7 +207,8 @@ inline int list_is_empty(const struct list_head *head){
  *
  * Return: 0 - list is not singular !0 -list has exactly one entry
  */
-inline int list_is_singular(const struct list_head *head){
+int list_is_singular(const struct list_head *head)
+{
     return list_length(head) == 1 ? 1 : 0;
 }
 
@@ -173,17 +222,20 @@ inline int list_is_singular(const struct list_head *head){
  * modified and has to be initialized to be used as a valid list head/node
  * again.
  */
-inline void list_append(struct list_head *list, struct list_head *head) {
-   if(list_is_empty(list)){ return; }
-   struct list_head *h_next = head->next;
-   struct list_head *l_next = list->next;
-   struct list_head *l_prev = list->prev;
+void list_append(struct list_head *list, struct list_head *head)
+{
+    if (list_is_empty(list)) {
+        return;
+    }
+    struct list_head *h_next = head->next;
+    struct list_head *l_next = list->next;
+    struct list_head *l_prev = list->prev;
 
-   head->next = l_next;
-   h_next->prev = l_prev;
+    head->next = l_next;
+    h_next->prev = l_prev;
 
-   l_next->prev = head;
-   l_prev->next = h_next;
+    l_next->prev = head;
+    l_prev->next = h_next;
 }
 
 /**
@@ -196,15 +248,18 @@ inline void list_append(struct list_head *list, struct list_head *head) {
  * modified and has to be initialized to be used as a valid list head/node
  * again.
  */
-inline void list_append_tail(struct list_head *list, struct list_head *head) {
-   if(list_is_empty(list)){ return; }
-   struct list_head *h_prev = head->prev;
-   struct list_head *l_next = list->next;
-   struct list_head *l_prev = list->prev;
-   head->prev = l_prev;
-   h_prev->next = l_next;
-   l_next->prev = h_prev;
-   l_prev->next = head;
+void list_append_tail(struct list_head *list, struct list_head *head)
+{
+    if (list_is_empty(list)) {
+        return;
+    }
+    struct list_head *h_prev = head->prev;
+    struct list_head *l_next = list->next;
+    struct list_head *l_prev = list->prev;
+    head->prev = l_prev;
+    h_prev->next = l_next;
+    l_next->prev = h_prev;
+    l_prev->next = head;
 }
 
 /**
@@ -219,7 +274,8 @@ inline void list_append_tail(struct list_head *list, struct list_head *head) {
  * list_splice. Instead the @list is initialized again to the an empty
  * list/unlinked state.
  */
-inline void list_append_init(struct list_head *list, struct list_head *head) {
+void list_append_init(struct list_head *list, struct list_head *head)
+{
     list_append(list, head);
     init_list_head(list);
 }
@@ -236,8 +292,7 @@ inline void list_append_init(struct list_head *list, struct list_head *head) {
  * list_splice. Instead the @list is initialized again to the an empty
  * list/unlinked state.
  */
-inline void list_append_tail_init(struct list_head *list,
-                                  struct list_head *head)
+void list_append_tail_init(struct list_head *list, struct list_head *head)
 {
     list_append_tail(list, head);
     init_list_head(list);
@@ -255,12 +310,10 @@ inline void list_append_tail_init(struct list_head *list,
  * @head_to is replaced when @head_from is not empty. @node must be a real
  * list node from @head_from or the behavior is undefined.
  */
-inline void list_cut_position(struct list_head *head_to,
-                              struct list_head *head_from,
-                              struct list_head *node)
+void list_cut_position(struct list_head *head_to,
+                       struct list_head *head_from,
+                       struct list_head *node)
 {
-
-
 }
 
 /**
@@ -271,7 +324,8 @@ inline void list_cut_position(struct list_head *head_to,
  * The @node is removed from its old position/node and add to the beginning of
  * @head
  */
-inline void list_move(struct list_head *node, struct list_head *head) {
+void list_move(struct list_head *node, struct list_head *head)
+{
     list_del(node);
     list_add(node, head);
 }
@@ -283,7 +337,8 @@ inline void list_move(struct list_head *node, struct list_head *head) {
  *
  * The @node is removed from its old position/node and add to the end of @head
  */
-inline void list_move_tail(struct list_head *node, struct list_head *head) {
+void list_move_tail(struct list_head *node, struct list_head *head)
+{
     list_del(node);
     list_add_tail(node, head);
 }

@@ -29,6 +29,8 @@
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
 
+struct list_head *map_func(struct list_head*);
+
 void func(int a);
 void funcb(int a);
 void u_fund(int a);
@@ -39,6 +41,12 @@ void mouse_consumer(int a);
 struct lock main_lock;
 
 int u_test_a = 0;
+
+struct test_struct{
+    struct list_head test_tag;
+    struct list_head res_tag;
+    uint_32 pid;
+};
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -97,8 +105,29 @@ void UkiMain(void)
     char *str = sys_malloc(32);
     sprintf(str,"test %s %d %c and 10%%", "niclas", 22, 'c');
     draw_info((uint_8 *)0xc00a0000, 320, COL8_FF00FF, 100, 0, str);
+    sys_free(str);
 
     mtime_sleep(1000*1*60*60); // 1 hour
+
+    struct list_head test_list;
+    struct list_head res_list;
+
+    init_list_head(&test_list);
+    init_list_head(&res_list);
+    for(int i=0; i<20; i++){
+        struct test_struct *ptr_test_st = sys_malloc(64);
+        ptr_test_st->pid = i;
+        struct list_head* node = &ptr_test_st->test_tag;
+        list_add_tail(node, &test_list);
+    }
+    uint_32 test_list_len = list_length(&test_list);
+    list_map(&test_list, &res_list, map_func);
+
+    uint_32 res_list_len = list_length(&res_list);
+    list_destory(&res_list);
+    res_list_len = list_length(&res_list);
+    draw_hex((uint_8*) 0xc00a0000, 320, COL8_848484, 100, 20, test_list_len);
+    draw_hex((uint_8*) 0xc00a0000, 320, COL8_848400, 100, 36, res_list_len);
 
     char *mcursor = sys_malloc(256);
     draw_cursor8(mcursor, COL8_848484);
@@ -107,7 +136,16 @@ void UkiMain(void)
         /* __asm__ volatile ("sti;hlt;" : : : ); */
         _io_stihlt();
     }
+}
 
+struct list_head *map_func(struct list_head* cur){
+    struct list_head* current = cur;
+    struct test_struct *ts =  container_of(current, struct test_struct, test_tag);
+    if(ts->pid / 2 == 0){
+        return &ts->res_tag;
+    } else {
+        return NULL;
+    }
 }
 
 void mouse_consumer(int a){
@@ -159,10 +197,10 @@ void func(int a){
 }
 
 void funcb(int a){
-    /* TCB_t *cur = running_thread(); */
+    TCB_t *cur = running_thread();
     /* while(1){ */
         lock_fetch(&main_lock);
-        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid); */
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid);
         draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T");
         draw_info((uint_8 *)0xc00a0000, 320, COL8_FF00FF, 100, 0, "H");
         lock_release(&main_lock);
@@ -171,12 +209,12 @@ void funcb(int a){
 }
 
 void u_fund(int a){
-        write("XoX");
+        /* write("XoX"); */
+    uint_32 pid = getpid();
     while(1){
         /* u_test_a++ ; */
         /* lock_fetch(&main_lock); */
-        /* uint_32 pid = getpid(); */
-        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, pid ); */
+        draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, pid );
         /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "Q"); */
         /* lock_release(&main_lock); */
     }

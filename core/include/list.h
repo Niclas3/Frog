@@ -85,13 +85,19 @@ void init_list_head(struct list_head *head);
 int list_find_element(struct list_head *node , struct list_head *head);
 
 /**
- * map_list(struct list_head *head, function func, uint_32 arg)
+ * list_map(struct list_head *head, function func, uint_32 arg)
  * @head: pointer to the head of the list
+ * @res : res of list 
  * @func: test function
  * @arg : arg for function
  *
+ * @Return :!0 success ,0 error happens
+ *
  * */
-struct list_head* map_list(struct list_head *head, int func(struct list_head *,int), int arg);
+
+int list_map(struct list_head *head,
+                        struct list_head *res,
+                        struct list_head *func(struct list_head *));
 
 /**
  * list_length() - count lenght of giving list
@@ -145,6 +151,15 @@ void list_del(struct list_head *node);
  * list_del. Instead the node is initialized again to the unlinked state.
  */
 void list_del_init(struct list_head *node);
+
+/**
+ * list_destory()
+ * Remove all node from a list
+ *
+ * @param head list head
+ * @return !0 success/ 0 failed
+ *****************************************************************************/
+int list_destory(struct list_head* head);
 
 /**
  * list_empty() - Check if list head has no nodes attached
@@ -252,7 +267,6 @@ void list_move(struct list_head *node, struct list_head *head);
  * The @node is removed from its old position/node and add to the end of @head
  */
 void list_move_tail(struct list_head *node, struct list_head *head);
-
 
 
 #endif
