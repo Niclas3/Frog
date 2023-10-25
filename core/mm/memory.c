@@ -59,7 +59,7 @@ void free_addr_bitmap(struct bitmap *map,
                              uint_32 addr,
                              uint_32 pos,
                              uint_32 pg_cnt);
-uint_32 virtual_addr_to_phycial_addr(void *v_addr);
+static uint_32 virtual_addr_to_physical_addr(void *v_addr);
 void free_vaddress(pool_type poolt, uint_32 vaddress, uint_32 pg_cnt);
 
 void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt);
@@ -424,6 +424,7 @@ uint_32 *pte_ptr(uint_32 vaddr)
 
 uint_32 *pde_ptr(uint_32 vaddr)
 {
+    // the last page table address of main process
     // The last page table address in PDE is
     // 0xfffffxxx
     // top    10 bits 0x3ff   <-- the last entry of PDT
@@ -432,12 +433,16 @@ uint_32 *pde_ptr(uint_32 vaddr)
     uint_32 *target_pde = (uint_32 *) (0xfffff000 + PDE_IDX(vaddr) * 4);
     return target_pde;
 }
+
+// get accurate physical from vaddress
 uint_32 addr_v2p(uint_32 vaddr)
 {
     uint_32 *pte = pte_ptr(vaddr);
     return ((*pte & 0xfffff000) + (vaddr & 0x00000fff));
 }
-uint_32 virtual_addr_to_phycial_addr(void *v_addr)
+
+// Only get page frame address.
+static uint_32 virtual_addr_to_physical_addr(void *v_addr)
 {
     uint_32 *pde = pde_ptr((uint_32) v_addr);
     uint_32 *pte = pte_ptr((uint_32) v_addr);
@@ -446,9 +451,12 @@ uint_32 virtual_addr_to_phycial_addr(void *v_addr)
             uint_32 p_addr = *pte & 0xfffff000;
             return (uint_32) p_addr;
         } else {
-            return NULL;
+            panic("Some thing wrong.");
+            return 0;
         }
     }
+    panic("Some thing wrong.");
+    return 0;
 }
 // Combine v address -> phy address
 void put_page(void *v_addr, void *phy_addr)
@@ -536,7 +544,7 @@ void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt)
     struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
     free_vaddress(poolt, vaddr, pg_cnt);
     for (int i = 0; i < pg_cnt; i++) {
-        uint_32 phy_addr = virtual_addr_to_phycial_addr(vaddr);
+        uint_32 phy_addr = virtual_addr_to_physical_addr(vaddr);
         free_page(mem_pool, phy_addr);
         remove_page(vaddr);
         vaddr += PG_SIZE;
