@@ -60,6 +60,5 @@ uint_32 write(char* str){
 }
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg){
-    TCB_t *caller = running_thread();
-    return _syscall4(SYS_sendrec, func, src_dest, p_msg, caller);
+    return _syscall3(SYS_sendrec, func, src_dest, p_msg);
 }
