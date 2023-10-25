@@ -37,6 +37,9 @@
 #define EFLAGS_IOPL_3 (3 << 12)
 #define EFLAGS_IOPL_0 (0 << 12)
 
+// TASK number aka pid
+#define TASK_SYS 2
+#define TASK_FS 3
 
 #ifndef NULL
 #define NULL ((void *) 0)
