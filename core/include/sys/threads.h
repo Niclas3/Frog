@@ -4,8 +4,13 @@
 #include <ostype.h>
 #include <list.h>
 #include <sys/memory.h>
+#include <ipc.h>
 
-typedef uint_16 pid_t;
+#define GET_THREAD_FROM_READYLIST(ptr) container_of((ptr), TCB_t, general_tag);
+#define GET_THREAD_FROM_ALLLIST(ptr) container_of((ptr), TCB_t, all_list_tag);
+#define GET_PROC_FROM_PROCLIST(ptr) container_of((ptr), TCB_t, proc_list_tag);
+
+typedef uint_16 tid_t; // thread id for each thread 
 
 //Routine type 
 typedef void* (*__routine_ptr_t)(void*);
@@ -70,17 +75,26 @@ struct thread_stack {
 
 typedef struct thread_control_block {
     uint_32 *self_kstack;              // <--- thread_stack + context_registers >
-    pid_t pid;
+    pid_t pid;                         // process id
+    tid_t tid;                         // thread id for each thread
     task_status_t status;
     uint_32       priority;
     char name[16];
     uint_32 ticks;                                // working on CPU ticks
     uint_32 elapsed_ticks;                        // containing how many ticks passed
     struct list_head general_tag;                 // set this tag to thread_ready_list
-    struct list_head all_list_tag;                // for all_thread_list
+    struct list_head all_list_tag;                // for thread_all_list
+    struct list_head proc_list_tag;               // for process_all_list
     uint_32 *pgdir;                               // virtual address of page directory
     virtual_addr progress_vaddr;                  // vaddress start and a new bitmap of memory
     struct mem_block_desc u_block_descs[DESC_CNT];// block descriptor from alloc memory 
+    //IPC things
+    message p_message;                           // pointer to message 
+    pid_t p_recvfrom;     // if process want to receive message, but no process to sent things. this contain who this process wants to receive.
+    pid_t p_sendto;       // if process want to send message, but no process to receive things. this contain who this process wants to send.
+    uint_8 p_flags;       // for ipc SENDING or RECEIVING BOTH
+    struct thread_control_block *p_sending_queue;  // a queue for sender to this process.
+    struct thread_control_block *p_next_sending;  // a queue for sender to this process.
     uint_32 stack_magic;                          // mark the board of stack 0x19900921;
 } TCB_t;
 
@@ -90,6 +104,8 @@ TCB_t* thread_start(char* name, int priority, __routine_t func, void* arg);
 void init_thread(TCB_t* thread, char* name, uint_8 priority);
 void create_thread(TCB_t *thread, __routine_t func, void* arg);
 void thread_init(void);
+
+void thread_auth_block(TCB_t*task, task_status_t status);
 void thread_block(task_status_t status);
 void thread_unblock(TCB_t *thread);
 void thread_yield(void);
