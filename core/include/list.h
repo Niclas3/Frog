@@ -97,7 +97,16 @@ int list_find_element(struct list_head *node , struct list_head *head);
 
 int list_map(struct list_head *head,
                         struct list_head *res,
-                        struct list_head *func(struct list_head *));
+                        struct list_head* (*func)(struct list_head *));
+/**
+ * list_filter()
+ *
+ * @param param write here
+ * @return return Comments write here
+ *****************************************************************************/
+struct list_head* list_walker(struct list_head *head,
+              bool func(struct list_head *cur, int value),
+              int value);
 
 /**
  * list_length() - count lenght of giving list

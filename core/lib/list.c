@@ -47,6 +47,7 @@ int list_find_element(struct list_head *node, struct list_head *head)
  *
  * @Return :!0 success ,0 error happens
  * */
+//TODO: I think it is in wrong abstractions, maybe find same things in linux kernel.
 int list_map(struct list_head *head,
              struct list_head *res,
              struct list_head *func(struct list_head *cur))
@@ -70,15 +71,29 @@ int list_map(struct list_head *head,
 }
 
 /**
- * list_filter()
+ * list_walker() walk through list find one return
  *
  * @param param write here
  * @return return Comments write here
  *****************************************************************************/
-int list_filter(struct list_head *head,
-                struct list_head *res,
-                bool *func(struct list_head *cur))
+
+struct list_head* list_walker(struct list_head *head,
+              bool func(struct list_head *cur, int value),
+              int value)
 {
+    if (list_is_empty(head)) {
+        return NULL;
+    }
+
+    struct list_head *next = head->next;
+    while (next != head) {  // go though all list
+        bool test = func(next, value);
+        if (test) {
+            return next;
+        }
+        next = next->next;
+    }
+    return NULL;
 }
 
 /**
