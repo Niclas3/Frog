@@ -7,11 +7,12 @@ BUILD_DIR = ./build
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/device.o $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
-	 $(BUILD_DIR)/usr.o \
-	 $(BUILD_DIR)/lib.o \
+	 $(BUILD_DIR)/usr.o $(BUILD_DIR)/systask.o $(BUILD_DIR)/syscall-init.o \
+	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/ipc.o \
+	 $(BUILD_DIR)/fs.o \
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o \
-         $(BUILD_DIR)/panic.o  \
+         $(BUILD_DIR)/panic.o \
 	 $(BUILD_DIR)/core.o
 
 $(BUILD_DIR)/switch.o:
@@ -46,6 +47,18 @@ $(BUILD_DIR)/device.o:
 $(BUILD_DIR)/usr.o:
 	cd ./usr && $(MAKE) usr.o
 
+$(BUILD_DIR)/systask.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find usr -type f -name "systask.c")
+
+$(BUILD_DIR)/syscall-init.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find usr -type f -name "syscall-init.c")
+
+$(BUILD_DIR)/ipc.o:
+	cd ./ipc && $(MAKE) ipc.o
+
+$(BUILD_DIR)/fs.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find fs -type f -name "*.c")
+
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
 $(BUILD_DIR)/int.o:
@@ -65,8 +78,9 @@ $(BUILD_DIR)/core.o: core.s
 
 $(BUILD_DIR)/core: $(C_OBJS)
 	ld $(LD_FLAG) -o $@.img $^
+
 $(BUILD_DIR)/core_symbol: $(C_OBJS)
-	ld $(LD_DEBUG_FLAG) -M -o $@.img $^
+	ld $(LD_DEBUG_FLAG) -M -o $@.img $^ 
 
 .PHONY : clean mk_dir move
 mk_dir:
