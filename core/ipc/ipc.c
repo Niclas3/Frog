@@ -8,6 +8,34 @@
 extern struct list_head process_all_list;
 
 /**
+ * Detect the messaging graph contains a cycle.
+ * For instance, if we have process trying to send messages like this: 
+ * A -> B -> C -> A, then a deadlock occurs, because all of them will wait
+ * forever, If no cycles detected, It is considered as safe.
+ *
+ * continuing asking the dest_process if sending message or not , if it is
+ * sending, then checking the target if src or not, if not check dest->p_sendto
+ * process and repeating 
+ *
+ * @param param write here param Comments write here
+ * @return return zero if success
+ *****************************************************************************/
+uint_32 detect_cycle(pid_t src, pid_t dest){
+    TCB_t *proc = pid2proc(dest);
+    while(1){
+        if(proc->p_flags & SENDING) {
+            if(proc->p_sendto == src) {
+                return 1;
+            }
+            proc = pid2proc(proc->p_sendto);
+        } else {
+            break;
+        }
+    }
+    return 0;
+}
+
+/**
  * Go though thread_all_list to find target id and return tcb pointer.
  * There are plural thread on same pid in thread_all_list, if it happens choose
  * the one who thread id(tid) is 1.
@@ -60,9 +88,10 @@ uint_32 msg_send(TCB_t *sender, pid_t dest, message *msg)
     TCB_t *p_sender = sender;
     TCB_t *p_dest = pid2proc(dest);
     ASSERT(p_dest != NULL);
-    // check for deadlock
-    //  TODO:
-
+    // Check for deadlock
+    if(detect_cycle(sender->pid, dest)) {
+        PAINC(">>DEADLOCK<<");
+    }
     /*
      * First dest process is waiting for message aka p_dest->status ==
      * THREAD_TASK_RECEIVING second test if dest is expecting p_sender aka
@@ -132,8 +161,6 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
     TCB_t *prev = NULL;
     int copyok = 0;
 
-    uint_32* pgdir = p_receiver->pgdir;
-
     /**
      * TODO:
      *
@@ -185,7 +212,6 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
         //copy message 
 
         memcpy(msg, &p_from->p_message, sizeof(message));
-        /* p_from->p_message = NULL; */
         reset_msg(&p_from->p_message);
         p_from->p_sendto = NO_TASK;
         p_from->p_flags &= ~SENDING;
@@ -197,12 +223,13 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
          * set p_flag 
          * p_receiver will not be scheduled utill some one unblock it.
          *****************************************************************************/
-
         p_receiver->p_flags |= RECEIVING;
         /* p_receiver->p_message = msg; */
         memcpy(&p_receiver->p_message, msg, sizeof(message));
         p_receiver->p_recvfrom = src;
         thread_auth_block(p_receiver, THREAD_TASK_BLOCKED);
+        // If and only if, receiver wanted message be set.
+        memcpy(msg, &p_receiver->p_message, sizeof(message));
     }
 
     return 0;

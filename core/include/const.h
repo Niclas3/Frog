@@ -38,6 +38,8 @@
 #define EFLAGS_IOPL_0 (0 << 12)
 
 // TASK number aka pid
+
+#define TASK_KERNEL 1
 #define TASK_SYS 2
 #define TASK_FS 3
 

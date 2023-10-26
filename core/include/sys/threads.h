@@ -92,7 +92,7 @@ typedef struct thread_control_block {
     message p_message;                           // pointer to message 
     pid_t p_recvfrom;     // if process want to receive message, but no process to sent things. this contain who this process wants to receive.
     pid_t p_sendto;       // if process want to send message, but no process to receive things. this contain who this process wants to send.
-    uint_8 p_flags;       // for ipc SENDING or RECEIVING BOTH
+    uint_8 p_flags;       // for ipc SENDING or RECEIVING
     struct thread_control_block *p_sending_queue;  // a queue for sender to this process.
     struct thread_control_block *p_next_sending;  // a queue for sender to this process.
     uint_32 stack_magic;                          // mark the board of stack 0x19900921;

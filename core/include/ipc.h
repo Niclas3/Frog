@@ -17,11 +17,12 @@
 #define RECEIVE		2
 #define BOTH		3	/* BOTH = (SEND | RECEIVE) */
 
+/* Does not used */
 #define SEND_MAX        50   // max number of sending queue each process(task)
 
 // TASK number
-#define NR_TASKS	2
-#define NR_PROCS	3
+#define NR_TASKS	10
+#define NR_PROCS	30
 //Task Number
 #define ANY_TASK        0xffffffff
 #define NO_TASK         0xfffffff7
@@ -44,6 +45,7 @@ typedef enum kwaak_type{
 
 	/* SYS task */
 	GET_TICKS,
+        GET_PID,
         /* FS task*/
         OPEN_FILE,
 } msg_type;
@@ -63,7 +65,8 @@ typedef struct {
 } mess_u32;
 _ASSERT_MSG_SIZE(mess_u32);
 
-
+//Message return Macro
+#define RETVAL m_u32.data[0]
 // kwaak name from this https://medium.com/@radams20/what-does-the-frog-say-792b9f50b870
 typedef struct kwaak_msg {
 	pid_t m_source;		        /* who sent the message it is a task number*/

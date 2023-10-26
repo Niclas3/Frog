@@ -69,6 +69,31 @@ void start_process(void *filename)
                      : "memory");
 }
 
+void start_process_ring1(void *filename)
+{
+    void *function = filename;
+    TCB_t *cur = running_thread();
+    cur->self_kstack += sizeof(struct thread_stack); // To the bottom of context_register
+    struct context_registers *proc_stack =
+        (struct context_registers *) cur->self_kstack;
+    proc_stack->edi = proc_stack->esi = proc_stack->ebp = proc_stack->esp = 0;
+    proc_stack->eax = proc_stack->ebx = proc_stack->ecx = proc_stack->edx = 0;
+    proc_stack->gs = 0;
+    proc_stack->ds = proc_stack->es = proc_stack->fs =
+        CREATE_SELECTOR(SEL_IDX_DATA_DPL_1, TI_GDT, RPL1);
+    proc_stack->cs = CREATE_SELECTOR(SEL_IDX_CODE_DPL_1, TI_GDT, RPL1);
+    proc_stack->eip = function;
+    proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED);
+    proc_stack->esp_ptr =
+        (void *) ((uint_32) malloc_page_with_vaddr(MP_USER, USER_STACK3_VADDR) +
+                  PG_SIZE);
+    proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_1, TI_GDT, RPL1);
+    __asm__ volatile("movl %0, %%esp;\
+                      jmp intr_exit" 
+                     ::"g"(proc_stack)
+                     : "memory");
+}
+
 /*
  * Change current process page dir to new physical address
  * If current thread does not have "thread->pgdir" use default page dir aka
@@ -127,6 +152,27 @@ void process_execute(void *filename, char *name)
     init_thread(thread, name, default_priority);
     create_user_vaddr_bitmap(thread);
     create_thread(thread, start_process, filename);
+    thread->pgdir = create_page_dir();
+    thread->pid   = allocate_pid();
+    enum intr_status old_status = intr_disable();
+    ASSERT(!list_find_element(&thread->proc_list_tag, &process_all_list));
+    list_add_tail(&thread->proc_list_tag, &process_all_list);
+
+    ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
+    list_add_tail(&thread->general_tag, &thread_ready_list);
+
+    ASSERT(!list_find_element(&thread->all_list_tag, &thread_all_list));
+    list_add_tail(&thread->all_list_tag, &thread_all_list);
+
+    intr_set_status(old_status);
+}
+
+void process_execute_ring1(void *filename, char *name)
+{
+    TCB_t *thread = get_kernel_page(1);
+    init_thread(thread, name, default_priority);
+    create_user_vaddr_bitmap(thread);
+    create_thread(thread, start_process_ring1, filename);
     thread->pgdir = create_page_dir();
     thread->pid   = allocate_pid();
     enum intr_status old_status = intr_disable();

@@ -46,6 +46,7 @@ static void kernel_thread(__routine_ptr_t func_ptr, void *func_arg)
 }
 
 /* Get current TCB/PCB
+ * can only use at Ring0!!
  * */
 TCB_t *running_thread(void)
 {

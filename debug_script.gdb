@@ -2,14 +2,15 @@ target remote localhost:1234
 
 file core_symbol.img
 
-b UkiMain
+# b bootpack.c:100
+# b bootpack.c:114
+# b systask.c:12
 
-# b msg_receive
-# b msg_send
-# b sys_sendrec
+b msg_receive
+b msg_send
+b sys_sendrec
 # b task_sys
-# b get_ticks_mm_test
-# b ipc.c:106
+# b u_funf
 
 tui en
 c

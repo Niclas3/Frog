@@ -202,6 +202,8 @@ typedef short Selector;
 #define SEL_IDX_TSS_DPL_0    5
 #define SEL_IDX_CODE_DPL_3   6
 #define SEL_IDX_DATA_DPL_3   7
+#define SEL_IDX_CODE_DPL_1   8
+#define SEL_IDX_DATA_DPL_1   9
 
 #define CREATE_SELECTOR(IDX, TI, RPL) (IDX << 3) + TI + RPL
 

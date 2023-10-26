@@ -19,6 +19,10 @@ uint_32* create_page_dir(void);
 
 void process_activate(TCB_t *thread);
 
+// Create process at ring3
 void process_execute(void *filename, char *name);
+
+// Create process at ring1
+void process_execute_ring1(void *filename, char *name);
 
 #endif
