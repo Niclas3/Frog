@@ -100,21 +100,20 @@ void UkiMain(void)
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
     process_execute_ring1(task_sys, "TASK_SYS");  // pid 2
 
-    process_execute(u_funf, "C");  // pid 3
+    /* process_execute(u_funf, "C");  // pid 3 */
 
-    process_execute(u_fund, "B");  // pid 4
+    /* process_execute(u_fund, "B");  // pid 4 */
 
-    process_execute(u_fune, "A");  // pid 5
+    /* process_execute(u_fune, "A");  // pid 5 */
     /* process_execute(task_fs, "TASK_FS"); */
 
     /* int maybe100 = get_ticks_mm_test(); */
     /* pid_t pid_what= get_pid_mm_test(); */
     /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 2*16, pid_what); */
 
-    /* char *mcursor = sys_malloc(256); */
-    /* draw_cursor8(mcursor, COL8_848484); */
-    /* putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
-     */
+    char *mcursor = sys_malloc(256);
+    draw_cursor8(mcursor, COL8_848484);
+    putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
     for (;;) {
         /* __asm__ volatile ("sti;hlt;" : : : ); */
         _io_stihlt();
