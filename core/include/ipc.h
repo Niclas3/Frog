@@ -80,6 +80,7 @@ typedef struct kwaak_msg {
 } message;                  // __ALIGNED(16);
 
 TCB_t* pid2proc(pid_t id);
+void notify_intr(int task_nr);
 void reset_msg(message *msg);
 uint_32 msg_send(TCB_t *sender, pid_t dest, message *msg);
 uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg);

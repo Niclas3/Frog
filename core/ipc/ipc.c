@@ -2,29 +2,30 @@
 #include <ipc.h>
 #include <list.h>
 #include <string.h>
-#include <sys/threads.h>
 #include <sys/memory.h>
+#include <sys/threads.h>
 
 extern struct list_head process_all_list;
 
 /**
  * Detect the messaging graph contains a cycle.
- * For instance, if we have process trying to send messages like this: 
+ * For instance, if we have process trying to send messages like this:
  * A -> B -> C -> A, then a deadlock occurs, because all of them will wait
  * forever, If no cycles detected, It is considered as safe.
  *
  * continuing asking the dest_process if sending message or not , if it is
  * sending, then checking the target if src or not, if not check dest->p_sendto
- * process and repeating 
+ * process and repeating
  *
  * @param param write here param Comments write here
  * @return return zero if success
  *****************************************************************************/
-uint_32 detect_cycle(pid_t src, pid_t dest){
+uint_32 detect_cycle(pid_t src, pid_t dest)
+{
     TCB_t *proc = pid2proc(dest);
-    while(1){
-        if(proc->p_flags & SENDING) {
-            if(proc->p_sendto == src) {
+    while (1) {
+        if (proc->p_flags & SENDING) {
+            if (proc->p_sendto == src) {
                 return 1;
             }
             proc = pid2proc(proc->p_sendto);
@@ -89,7 +90,7 @@ uint_32 msg_send(TCB_t *sender, pid_t dest, message *msg)
     TCB_t *p_dest = pid2proc(dest);
     ASSERT(p_dest != NULL);
     // Check for deadlock
-    if(detect_cycle(sender->pid, dest)) {
+    if (detect_cycle(sender->pid, dest)) {
         PAINC(">>DEADLOCK<<");
     }
     /*
@@ -101,7 +102,7 @@ uint_32 msg_send(TCB_t *sender, pid_t dest, message *msg)
     if ((p_dest->p_flags & RECEIVING) &&
             (p_dest->p_recvfrom == p_sender->pid) ||
         (p_dest->p_recvfrom == ANY_TASK)) {
-        ASSERT(p_dest->p_message.m_source>0);
+        ASSERT(p_dest->p_message.m_source > 0);
         ASSERT(msg);
         memcpy(&p_dest->p_message, msg, sizeof(message));
 
@@ -162,13 +163,18 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
     int copyok = 0;
 
     /**
-     * TODO:
-     *
      * Message from interrupt
      *****************************************************************************/
-
-
-
+    if ((p_receiver->p_intr_present) && (src == ANY_TASK) ||
+        (src == INTR_TASK)) {
+        message msg_int;
+        reset_msg(&msg_int);
+        msg_int.m_source = INTR_TASK;
+        msg_int.m_type = HARD_INT;
+        memcpy(&p_receiver->p_message, &msg_int, sizeof(message));
+        p_receiver->p_intr_present = 0;
+        return 0;
+    }
     /**
      * If no interrupt for p_receiver
      *****************************************************************************/
@@ -194,11 +200,10 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
                 p = p->p_next_sending;
             }
             ASSERT(p_receiver->p_flags == 0);
-
         }
     }
-    if(copyok){
-        if(p_from == p_receiver->p_sending_queue){
+    if (copyok) {
+        if (p_from == p_receiver->p_sending_queue) {
             ASSERT(prev == 0);
             p_receiver->p_sending_queue = p_from->p_next_sending;
             p_from->p_next_sending = 0;
@@ -209,7 +214,7 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
         }
         ASSERT(msg);
         ASSERT(p_from->p_message.m_source > 0);
-        //copy message 
+        // copy message
 
         memcpy(msg, &p_from->p_message, sizeof(message));
         reset_msg(&p_from->p_message);
@@ -219,8 +224,8 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
         thread_unblock(p_from);
     } else {
         /**
-         * no tasks sending any message 
-         * set p_flag 
+         * no tasks sending any message
+         * set p_flag
          * p_receiver will not be scheduled utill some one unblock it.
          *****************************************************************************/
         p_receiver->p_flags |= RECEIVING;
@@ -233,4 +238,31 @@ uint_32 msg_receive(TCB_t *receiver, pid_t src, message *msg)
     }
 
     return 0;
+}
+
+/**
+ * <Ring 0> Inform a proc that an interrupt has occured.
+ *
+ * @param task_nr  The task which will be informed.
+ *****************************************************************************/
+void notify_intr(int task_nr)
+{
+    TCB_t *p = pid2proc(task_nr);
+
+    if ((p->p_flags & RECEIVING) && /* dest is waiting for the msg */
+        ((p->p_recvfrom == INTR_TASK) || (p->p_recvfrom == ANY_TASK))) {
+        p->p_message.m_source = INTR_TASK;
+        p->p_message.m_type = HARD_INT;
+        p->p_intr_present = 0;
+        p->p_flags &= ~RECEIVING; /* dest has received the msg */
+        p->p_recvfrom = NO_TASK;
+        ASSERT(p->p_flags == 0);
+        thread_unblock(p);
+
+        ASSERT(p->p_flags == 0);
+        ASSERT(p->p_recvfrom == NO_TASK);
+        ASSERT(p->p_sendto == NO_TASK);
+    } else {
+        p->p_intr_present = 1;
+    }
 }
