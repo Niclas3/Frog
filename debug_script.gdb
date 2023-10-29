@@ -9,8 +9,10 @@ file core_symbol.img
 b msg_receive
 b msg_send
 b sys_sendrec
-# b task_sys
+b task_sys
 # b u_funf
+
+b UkiMain
 
 tui en
 c

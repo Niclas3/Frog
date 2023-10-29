@@ -1,6 +1,7 @@
 #ifndef __SYS_SYSCALL_H
 #define __SYS_SYSCALL_H
 #include <ostype.h>
+#include <ipc.h>
 
 typedef struct kwaak_msg message;
 
@@ -11,6 +12,9 @@ enum SYSCALL_NR{
 };
 
 uint_32 getpid(void);
+
+pid_t get_pid(void);
+uint_32 get_ticks(void);
 
 //System call: uint_32 write(char*)
 //return len of str

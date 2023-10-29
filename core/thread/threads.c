@@ -174,7 +174,7 @@ void thread_init(void)
    THREAD_TASK_BLOCKED; */
 // call this function.
 // remove current thread from thread_ready_list
-void thread_auth_block(TCB_t*task, task_status_t status)
+void thread_auth_block(TCB_t *task, task_status_t status)
 {
     ASSERT((status == THREAD_TASK_HANDING) || (status == THREAD_TASK_WAITING) ||
            (status == THREAD_TASK_BLOCKED));
@@ -250,4 +250,3 @@ static tid_t allocate_tid(void)
     lock_release(&tid_lock);
     return next_tid;
 }
-

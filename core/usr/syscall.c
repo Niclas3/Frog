@@ -59,6 +59,26 @@ uint_32 write(char* str){
     return _syscall1(SYS_write, str);
 }
 
+pid_t get_pid(void)
+{
+    message msg;
+    reset_msg(&msg);
+    msg.m_type = GET_PID;
+    sendrec(BOTH, TASK_SYS, &msg);
+    return msg.RETVAL;
+}
+
+// How to communicate with kernel code, like use interrupt
+uint_32 get_ticks(void)
+{
+    message msg;
+    reset_msg(&msg);
+    msg.m_type = GET_TICKS;
+    sendrec(BOTH, TASK_SYS, &msg);
+    return msg.RETVAL;
+}
+
+
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg){
     return _syscall3(SYS_sendrec, func, src_dest, p_msg);
 }

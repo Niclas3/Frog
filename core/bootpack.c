@@ -93,23 +93,24 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
-    /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer
-     * , 3); */
+    /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3); */
     /* TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3); */
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
+    
+    //System process at ring1
     process_execute_ring1(task_sys, "TASK_SYS");  // pid 2
+    process_execute_ring1(task_fs, "TASK_FS");  // pid 3
 
-    /* process_execute(u_funf, "C");  // pid 3 */
+    // User process test
+    process_execute(u_funf, "C");  // pid 4
+    /* process_execute(u_fund, "B");  // pid 5 */
+    /* process_execute(u_fune, "A");  // pid 6 */
 
-    /* process_execute(u_fund, "B");  // pid 4 */
-
-    /* process_execute(u_fune, "A");  // pid 5 */
-    /* process_execute(task_fs, "TASK_FS"); */
-
-    /* int maybe100 = get_ticks_mm_test(); */
-    /* pid_t pid_what= get_pid_mm_test(); */
-    /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 2*16, pid_what); */
+    int maybe100 = get_ticks();
+    draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 3*16, maybe100);
+    pid_t pid_what= get_pid();
+    draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 2*16, pid_what);
 
     char *mcursor = sys_malloc(256);
     draw_cursor8(mcursor, COL8_848484);
@@ -120,24 +121,6 @@ void UkiMain(void)
     }
 }
 
-// How to communicate with kernel code, like use interrupt
-int get_ticks_mm_test(void)
-{
-    message msg;
-    reset_msg(&msg);
-    msg.m_type = GET_TICKS;
-    sendrec(BOTH, TASK_SYS, &msg);
-    return msg.RETVAL;
-}
-
-pid_t get_pid_mm_test(void)
-{
-    message msg;
-    reset_msg(&msg);
-    msg.m_type = GET_PID;
-    sendrec(BOTH, TASK_SYS, &msg);
-    return msg.RETVAL;
-}
 
 void mouse_consumer(int a)
 {
@@ -236,6 +219,7 @@ void u_funf(int a)
 {
     // pid expecting 2
     /* pid_t pid_what = get_pid_mm_test(); */
+    pid_t pid = getpid();
 
     while (1) {
         // C->A

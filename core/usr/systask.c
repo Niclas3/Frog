@@ -7,7 +7,6 @@
 extern uint_32 ticks;
 void task_sys(void)
 {
-    while(1);
     message msg;
     while (1) {
         sendrec(RECEIVE, ANY_TASK, &msg);
