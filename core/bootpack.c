@@ -43,9 +43,6 @@ void mouse_consumer(int a);
 struct lock main_lock;
 
 // test valuable
-//
-int get_ticks_mm_test(void);
-pid_t get_pid_mm_test(void);
 extern struct list_head process_all_list;
 
 // UkiMain must at top of file
@@ -82,7 +79,7 @@ void UkiMain(void)
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
 
-    /* init_palette(); */
+    init_palette();
 
     int pysize = 16;
     int pxsize = 16;
@@ -93,31 +90,31 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
-    /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3); */
+    /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer
+     * , 3); */
     /* TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3); */
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
-    
-    //System process at ring1
+
+    // System process at ring1
     process_execute_ring1(task_sys, "TASK_SYS");  // pid 2
-    process_execute_ring1(task_fs, "TASK_FS");  // pid 3
+    process_execute_ring1(task_fs, "TASK_FS");    // pid 3
 
     // User process test
     process_execute(u_funf, "C");  // pid 4
     /* process_execute(u_fund, "B");  // pid 5 */
     /* process_execute(u_fune, "A");  // pid 6 */
 
-    int maybe100 = get_ticks();
-    draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 3*16, maybe100);
-    pid_t pid_what= get_pid();
-    draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 2*16, pid_what);
+    /* int maybe100 = get_ticks(); */
+    /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 3*16, maybe100); */
+    /* pid_t pid_what= get_pid(); */
+    /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 2*16, pid_what); */
 
     char *mcursor = sys_malloc(256);
     draw_cursor8(mcursor, COL8_848484);
-    putblock8_8((char *)info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
+    putblock8_8((char *) info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
     for (;;) {
-        /* __asm__ volatile ("sti;hlt;" : : : ); */
-        _io_stihlt();
+        __asm__ volatile("sti;hlt;");
     }
 }
 
@@ -220,6 +217,8 @@ void u_funf(int a)
     // pid expecting 2
     /* pid_t pid_what = get_pid_mm_test(); */
     pid_t pid = getpid();
+    pid_t pid_what = get_pid();
+    int maybe100 = get_ticks();
 
     while (1) {
         // C->A
@@ -229,8 +228,11 @@ void u_funf(int a)
             msg.m_type = 1234;
             sendrec(SEND, 5, &msg);
         }
-        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 2*16,
-         * pid_what); */
+        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16,
+                 maybe100);
+        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16,
+                 pid_what);
+        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid);
     }
 }
 
