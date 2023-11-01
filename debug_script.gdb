@@ -6,13 +6,14 @@ file core_symbol.img
 # b bootpack.c:114
 # b systask.c:12
 
-b msg_receive
-b msg_send
-b sys_sendrec
-b task_sys
+# b msg_receive
+# b msg_send
+# b sys_sendrec
+# b task_sys
 # b u_funf
 
 b UkiMain
+b panic_print
 
 tui en
 c

@@ -2,6 +2,7 @@
 #include <sys/graphic.h>
 #include <asm/bootpack.h>
 #include <sys/pic.h>
+#include <stdio.h>
 
 #define IF_SET 0x00000200
 #define GET_EFLAGS(EFLAG_V) __asm__ volatile ("pushfl; popl %0" : "=g" (EFLAG_V));
@@ -85,8 +86,9 @@ void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags)
 			    /* "#XF SIMD Floating-Point Exception" */
 	};
 
-        draw_hex(0xa0000,320,COL8_FF0000,0,0, vec_no);
-        draw_info(0xa0000,320,COL8_FF0000,32,0, err_msg[vec_no]);
+        char str[50];
+        sprintf(str, "No.%d, %s", vec_no, err_msg[vec_no]);
+        draw_info(0xc00a0000,320,COL8_FF0000,0,100, str);
         return;
     /* putfonts8_asc((char *)0xa0000, 320, 0, 0, COL8_FF0000, (unsigned char*)err_msg[vec_no]); */
 }

@@ -2,13 +2,14 @@
  # Real OS code ###########################
 include ../../Makefile.os_rules
 INCLUDE = ../include
-OUT_FILE= bitmap.o debug.o ioqueue.o list.o oslib.o stdio.o string.o
+# OUT_FILE= bitmap.o debug.o ioqueue.o list.o oslib.o stdio.o string.o
+OUT_FILE= bitmap.o ioqueue.o list.o oslib.o stdio.o string.o
 
 bitmap.o: bitmap.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
-debug.o: debug.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+# debug.o: debug.c
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 ioqueue.o: ioqueue.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<

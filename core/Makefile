@@ -5,11 +5,12 @@ C_FLAG += -g
 BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
-	 $(BUILD_DIR)/device.o $(BUILD_DIR)/ide.o \
+	 $(BUILD_DIR)/device.o $(BUILD_DIR)/ide.o $(BUILD_DIR)/ide_s.o \
          $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
 	 $(BUILD_DIR)/usr.o $(BUILD_DIR)/systask.o $(BUILD_DIR)/syscall-init.o \
-	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/ipc.o \
+	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o\
+	 $(BUILD_DIR)/ipc.o \
 	 $(BUILD_DIR)/fs.o \
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o \
@@ -42,11 +43,17 @@ $(BUILD_DIR)/protect.o: protect.c
 $(BUILD_DIR)/lib.o:
 	cd ./lib && $(MAKE) lib.o
 
+$(BUILD_DIR)/libdebug.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find lib -type f -name "debug.c")
+
 $(BUILD_DIR)/device.o:
 	cd ./device && $(MAKE) device.o
 
 $(BUILD_DIR)/ide.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ide.c")
+
+$(BUILD_DIR)/ide_s.o:
+	$(AS) $(A_FLAG) -o $@ $(shell find device -type f -name "ide.s")
 
 $(BUILD_DIR)/usr.o:
 	cd ./usr && $(MAKE) usr.o
