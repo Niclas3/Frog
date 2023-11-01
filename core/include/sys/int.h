@@ -52,6 +52,9 @@
 #define INT_VECTOR_PS2_MOUSE    0x2C
 #define INT_VECTOR_INNER_CLOCK  0x20
 
+#define INT_VECTOR_PRI_CH_HD    0x2e
+#define INT_VECTOR_SEC_CH_HD    0x2f
+
 /* For system call*/
 #define INT_VECTOR_SYSCALL      0x93
 

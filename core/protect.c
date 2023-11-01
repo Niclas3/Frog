@@ -113,6 +113,12 @@ void init_idt(void)
     // Interrupt gate for IRQ12 aka PS/2 mouse interrupt
     register_ring0_INT(INT_VECTOR_PS2_MOUSE, _asm_inthandler2C);
 
+    // Interrupt gate for IRQ14 aka IDE primary channel
+    register_ring0_INT(INT_VECTOR_PRI_CH_HD , _asm_inthandler2e);
+    // Interrupt gate for IRQ15 aka IDE secondary channel
+    register_ring0_INT(INT_VECTOR_SEC_CH_HD , _asm_inthandler2f);
+
+
     // System_call interrupt 
     register_ring3_INT(INT_VECTOR_SYSCALL, syscall_handler);
 }

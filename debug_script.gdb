@@ -14,6 +14,7 @@ file core_symbol.img
 
 b UkiMain
 b panic_print
+b intr_hd_handler
 
 tui en
 c

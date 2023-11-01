@@ -3,8 +3,37 @@ org 0x7c00
 mov eax, 2  ;; LOADER_START_SECTOR
 mov bx, LOADER_BASE_ADDR
 mov cx, 10
+; call ide_identify
 call read_hard_disk_16
 jmp LOADER_BASE_ADDR
+
+ide_identify:
+    xchg bx, bx
+    mov dx, 0x1f6 ; device register port
+    mov eax, 0x0f
+    out dx, al
+
+    mov dx, 0x1f7; command port
+    mov eax, 0xEC; to identify device
+    out dx, al   ;
+    ;;No4 test disk status
+    .not_ready:
+        in al, dx
+        and al, 0x88
+        cmp al, 0x08
+        jnz .not_ready
+
+    ;;No5: read data from 0x1f0     
+        mov dx, 0x1f0
+        mov bx, 0x9000
+        mov cx, 512
+    .go_on_read:
+        in ax, dx
+        mov [bx], ax
+        add bx, 2
+        dec cl
+        jnz .go_on_read
+        ret
 
 ;------------------------------------------------------------
 ; Read n sector from hard disk 

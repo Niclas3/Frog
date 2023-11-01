@@ -25,6 +25,8 @@ void _io_store_eflags(int eflags);
 void _asm_inthandler20(void); //Clock int
 void _asm_inthandler21(void); //Keyboard int
 void _asm_inthandler2C(void); //PS/2 mouse int
+void _asm_inthandler2e(void); //primary channel IDE int
+void _asm_inthandler2f(void); //secondary channel IDE int
 
 // Intel CPU Interrupt 0x0 ~ 0xF
 void _divide_error(void);

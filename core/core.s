@@ -5,12 +5,16 @@ extern UkiMain         ;start symbol of C file
 ;---------------------------------------------------------------
 ;      Keyboard     ;      Clock  ;      PS/2 Mouse     
 extern inthandler21, inthandler20, inthandler2C
+;      primary ide  ;   secondary ide
+extern intr_hd_handler
 ;---------------------------------------------------------------
 ;---------------------------------------------------------------
 ; Globale Interrupt real handler 
 ;---------------------------------------------------------------
 ;      Keyboard         ;      Clock        ;      PS/2 Mouse    
 global _asm_inthandler21, _asm_inthandler20, _asm_inthandler2C
+;      primary ide      ;   secondary ide
+global _asm_inthandler2e, _asm_inthandler2f
 ;---------------------------------------------------------------
 extern syscall_table
 global syscall_handler
@@ -213,6 +217,32 @@ _asm_inthandler2C:
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push 0x2c ;; push interrupt Number
     call inthandler2C
+    jmp intr_exit
+
+;; 0x2e primary channel handler
+_asm_inthandler2e:
+;; save all context
+    push 0 ;; error code
+    push ds
+    push es
+    push fs
+    push gs
+    pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    push 0x2e ;; push interrupt Number
+    call intr_hd_handler
+    jmp intr_exit
+
+;; 0x2f secondary channel handler
+_asm_inthandler2f:
+;; save all context
+    push 0 ;; error code
+    push ds
+    push es
+    push fs
+    push gs
+    pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    push 0x2f ;; push interrupt Number
+    call intr_hd_handler
     jmp intr_exit
 
 intr_exit:	     

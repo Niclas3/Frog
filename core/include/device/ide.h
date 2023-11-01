@@ -25,6 +25,100 @@ struct disk {
     struct partition logic_partition[8]; // only support 8 logic partitions
 };
 
+/* -----------------------------------------------------------------------------
+ * ide device I/O ports and register
+ * -----------------------------------------------------------------------------
+ *|           |       I/O ports       |                   |                    |
+ *|   Group   |-----------------------|       Read        |        write       |
+ *|           |  primary  | secondary |                   |                    |
+ *|-----------|-----------|-----------|-------------------|--------------------+
+ *|           |   1F0h    |  170h     | Data              | Data               |
+ *|           |-----------|-----------|-------------------|--------------------+
+  |           |   1F1h    |  171h     | Error             | Features           |
+ *|           |-----------|-----------|-------------------|--------------------+
+  |           |   1F2h    |  172h     | Sector Count      | Sector Count       |
+ *|           |-----------|-----------|-------------------|--------------------+
+ *| Command   |   1F3h    |  173h     | LBA Low           | LBA Low            |
+ *| Block     |-----------|-----------|-------------------|--------------------+
+  | Registers |   1F4h    |  174h     | LBA Middle        | LBA Middle         |
+ *|           |-----------|-----------|-------------------|--------------------+
+  |           |   1F5h    |  175h     | LBA High          | LBA High           |
+ *|           |-----------|-----------|-------------------|--------------------+
+ *|           |   1F6h    |  176h     | Device            | Device             |
+ *|           |-----------|-----------|-------------------|--------------------+
+  |           |   1F7h    |  177h     | Status            | Command            |
+ *|-----------|-----------|-----------|-------------------|--------------------+
+ *| Control   |           |           | Alternate         | Device             |
+ *| Block     |   3F6h    |  376h     |                   |                    |
+  | Register  |           |           | status            | Control            |
+ *|-----------|-----------------------------------------------------------------
+ *
+ * Command hex
+ * 1. identify     : 0xEC    To identify device 
+ * 2. read sector  : 0x20    To read sector
+ * 3. write sector : 0x30    To write sector
+ *----------------------------------------------------------------------------
+ * two different registers : Device register/ Status register
+ *----------------------------------------------------------------------------
+ *   Device register
+ *   |-----------|
+ * 7 |     1     |
+ *   |-----------|
+ * 6 |    MOD    |   LBA mode. this bit selects the mode of operation, 0 for CHS mode , 1 for LBA mode (use LBA28 stands)
+ *   |-----------|
+ * 5 |     1     |
+ *   |-----------|
+ * 4 |    DEV    |   drive when dev=0, drive 0 (master) is selected , when dev = 1 , drive 1 (slave) is selected
+ *   |-----------|
+ * 3 |    HS3    |  \
+ *   |-----------|  |   if L = 0, these four bits select the head number.
+ * 2 |    HS2    |  |
+ *   |-----------|   >  if L = 1, HS0 through HS3 contain bit 24-27 of the LBA
+ * 1 |    HS1    |  |
+ *   |-----------|  |
+ * 0 |    HS0    |  |
+ *   |-----------|  /
+ *
+ *   Status register
+ *   |-----------|
+ * 7 |    BSY    |  if this bit is 1, it means busy.
+ *   |-----------|
+ * 6 |   DRDY    |  if this bit is 1, it means device is ready
+ *   |-----------|
+ * 5 |  DF/SE    |  Device Fault / Stream Error
+ *   |-----------|
+ * 4 |     #     |  Command dependent. (formerly DSC bit)
+ *   |-----------|
+ * 3 |    DRQ    |  if this bit is 1, it means data is ready
+ *   |-----------|  
+ * 2 |     -     |  Obsolete
+ *   |-----------|  
+ * 1 |     -     |  Obsolete
+ *   |-----------|  
+ * 0 |    ERR    |  if this bit is 1, it mean error happening. Error message at error register
+ *   |-----------|
+ *
+ *
+ *   Device Control register
+ *   |-----------|
+ * 7 |    HOB    |  High Order Byte (defined by 48-bit Address feature set).
+ *   |-----------|
+ * 6 |     -     |  
+ *   |-----------|
+ * 5 |     -     |  
+ *   |-----------|
+ * 4 |     -     |  
+ *   |-----------|
+ * 3 |     -     |  
+ *   |-----------|  
+ * 2 |   SRST    |  Software reset
+ *   |-----------|  
+ * 1 |   -IEN    |  Interrupt Enable
+ *   |-----------|  
+ * 0 |     0     |  
+ *   |-----------|
+ * */
+
 struct ide_channel {
     char name[8];               // name of ata channel
     uint_16 port_base;          // this channel start port
@@ -35,5 +129,10 @@ struct ide_channel {
     struct disk devices[2];     // represent master or slave disk
 };
 void ide_init(void);
+void identify_disk(struct disk* hd);
+
+
+// hd interrupt handler
+void intr_hd_handler(uint_8 irq_no);
 
 #endif

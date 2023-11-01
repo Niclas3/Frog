@@ -16,6 +16,7 @@
 #include <protect.h>
 
 // test
+#include <device/ide.h>
 #include <ioqueue.h>
 #include <list.h>
 #include <stdio.h>
@@ -44,6 +45,7 @@ struct lock main_lock;
 
 // test valuable
 extern struct list_head process_all_list;
+extern struct ide_channel channels[2];  // 2 different channels
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -81,6 +83,15 @@ void UkiMain(void)
 
     init_palette();
 
+    ide_init();
+
+struct disk hd = {
+    .name = "testhd1",
+    .dev_no = 1,
+    .my_channel = &channels[0],
+};
+    identify_disk(&hd);
+
     int pysize = 16;
     int pxsize = 16;
     int bxsize = 16;
@@ -97,18 +108,13 @@ void UkiMain(void)
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
 
     // System process at ring1
-    process_execute_ring1(task_sys, "TASK_SYS");  // pid 2
-    process_execute_ring1(task_fs, "TASK_FS");    // pid 3
+    /* process_execute_ring1(task_sys, "TASK_SYS");  // pid 2 */
+    /* process_execute_ring1(task_fs, "TASK_FS");    // pid 3 */
 
     // User process test
-    process_execute(u_funf, "C");  // pid 4
+    /* process_execute(u_funf, "C");  // pid 4 */
     /* process_execute(u_fund, "B");  // pid 5 */
     /* process_execute(u_fune, "A");  // pid 6 */
-
-    /* int maybe100 = get_ticks(); */
-    /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 3*16, maybe100); */
-    /* pid_t pid_what= get_pid(); */
-    /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 100, 2*16, pid_what); */
 
     char *mcursor = sys_malloc(256);
     draw_cursor8(mcursor, COL8_848484);
