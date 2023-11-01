@@ -56,6 +56,25 @@ global  _copr_error
 ;-----------------------------------------------------------------------------
 INT_VEC_SYS_CALL equ 0x93
 ;-----------------------------------------------------------------------------
+%macro interrupt 2
+;; save all context
+    push 0 ;; error code
+    push ds
+    push es
+    push fs
+    push gs
+    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    push $1;
+    ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ0);
+    mov al, 0x60
+    out 0x20, al
+
+    call $2
+    jmp intr_exit
+
+%endmacro
+
+;-----------------------------------------------------------------------------
 
 _start:
     call UkiMain
@@ -188,6 +207,7 @@ _asm_inthandler20:
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push 0x20;
     ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ0); 
+    ;; answer interrupt chip
     mov al, 0x60
     out 0x20, al
     call inthandler20
@@ -203,6 +223,10 @@ _asm_inthandler21:
     push gs
     pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push 0x21 ;; push interrupt Number
+    ;; answer interrupt chip
+    ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ1); */
+    mov al, 0x61
+    out 0x20, al
     call inthandler21
     jmp intr_exit
 
@@ -216,6 +240,16 @@ _asm_inthandler2C:
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push 0x2c ;; push interrupt Number
+    ; _io_out8(PIC1_OCW2, PIC_EOI_IRQ12); // tell slave  IRQ12 is finish */
+    ; _io_out8(PIC0_OCW2, PIC_EOI_IRQ2); // tell master IRQ2 is finish */
+    ;define PIC1_OCW2 0xa0
+    ;define PIC0_OCW2 0x20
+    ;define PIC_EOI_IRQ12 0x64    // PS/2 mouse
+    ;define PIC_EOI_IRQ2   0x62    // Connect
+    ; mov al, 0x64
+    ; out 0xa0, al
+    ; mov al, 0x62
+    ; out 0x20, al
     call inthandler2C
     jmp intr_exit
 
@@ -229,6 +263,12 @@ _asm_inthandler2e:
     push gs
     pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push 0x2e ;; push interrupt Number
+
+    mov al, 0x66
+    out 0xa0, al
+
+    mov al, 0x62
+    out 0x20, al
     call intr_hd_handler
     jmp intr_exit
 
@@ -242,6 +282,7 @@ _asm_inthandler2f:
     push gs
     pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push 0x2f ;; push interrupt Number
+
     call intr_hd_handler
     jmp intr_exit
 

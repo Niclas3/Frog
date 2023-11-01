@@ -6,8 +6,8 @@ INCLUDE = ../include
 keyboard.o: keyboard.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
-ps2mouse.o: ps2mouse.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+# ps2mouse.o: ps2mouse.c
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 # ide.o: ide.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
@@ -15,7 +15,7 @@ ps2mouse.o: ps2mouse.c
 # device.o: keyboard.o ps2mouse.o ide.o
 # 	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
 
-device.o: keyboard.o ps2mouse.o
+device.o: keyboard.o
 	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
 
 clean:

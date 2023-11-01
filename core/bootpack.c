@@ -81,7 +81,7 @@ void UkiMain(void)
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
 
-    init_palette();
+    /* init_palette(); */
 
     ide_init();
 
@@ -101,9 +101,8 @@ struct disk hd = {
     int mx = 70;
     int my = 50;
 
-    /* TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer
-     * , 3); */
-    /* TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3); */
+    TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
+    TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
 

@@ -37,7 +37,6 @@ void inthandler21(void){
     bool shift_pressed = shift_status;
     bool cap_lock_pressed = caps_lock_status;
 
-    _io_out8(PIC0_OCW2, PIC_EOI_IRQ1);
     uint_16 scan_code =0x0;
     while (_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
         scan_code = _io_in8(PORT_KEYDATE); // get scan_code

@@ -88,6 +88,7 @@ void init_idt(void)
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
     save_idtr(&idtr_data);
+    // 2. move base address to high 1G memory 
     idtr_data.address |= 0xc0000000;
     load_idtr(&idtr_data);
     register_ring0_INT(INT_VECTOR_DIVIDE, _divide_error);
@@ -112,7 +113,6 @@ void init_idt(void)
     register_ring0_INT(INT_VECTOR_KEYBOARD, _asm_inthandler21);
     // Interrupt gate for IRQ12 aka PS/2 mouse interrupt
     register_ring0_INT(INT_VECTOR_PS2_MOUSE, _asm_inthandler2C);
-
     // Interrupt gate for IRQ14 aka IDE primary channel
     register_ring0_INT(INT_VECTOR_PRI_CH_HD , _asm_inthandler2e);
     // Interrupt gate for IRQ15 aka IDE secondary channel
