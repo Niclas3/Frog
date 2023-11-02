@@ -5,8 +5,13 @@
 #include <sys/tss.h>
 
 uint_32 syscall_handler(void);
+extern void *intr_entry_table[IDT_DESC_CNT];
+Inthandle_t *intr_table[IDT_DESC_CNT];  // register c function into this global table
 
-void register_INT(uint_32 int_vector_code, Inthandle_t handler_address, uint_32 dpl){
+void register_INT(uint_32 int_vector_code,
+                  Inthandle_t handler_address,
+                  uint_32 dpl)
+{
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
     save_idtr(&idtr_data);
@@ -64,8 +69,8 @@ void create_ring3_Descriptor(uint_32 desc_index, int des_type)
 
 void init_gdt(void)
 {
-    //TODO: Move gdt init from loader.s to this file.
-    
+    // TODO: Move gdt init from loader.s to this file.
+
     /* Descriptor_REG gdtr_data = {0}; */
     /* save_gdtr(&gdtr_data); */
     /* Selector sel_code = create_selector(SEL_IDX_CODE_DPL_0, TI_GDT, RPL0); */
@@ -88,43 +93,80 @@ void init_idt(void)
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
     save_idtr(&idtr_data);
-    // 2. move base address to high 1G memory 
+    // 2. move base address to high 1G memory
     idtr_data.address |= 0xc0000000;
     load_idtr(&idtr_data);
-    register_ring0_INT(INT_VECTOR_DIVIDE, _divide_error);
-    register_ring0_INT(INT_VECTOR_DEBUG, _single_step_exception);
-    register_ring0_INT(INT_VECTOR_NMI, _nmi);
-    register_ring0_INT(INT_VECTOR_BREAKPOINT, _breakpoint_exception);
-    register_ring0_INT(INT_VECTOR_OVERFLOW, _overflow);
-    register_ring0_INT(INT_VECTOR_BOUNDEX, _bounds_check);
-    register_ring0_INT(INT_VECTOR_INVAL_OP, _inval_opcode);
-    register_ring0_INT(INT_VECTOR_DEV_NOT_AVA, _copr_not_available);
-    register_ring0_INT(INT_VECTOR_DOUBLE_FAULT, _double_fault);
-    register_ring0_INT(INT_VECTOR_COP_SEG_OVERRUN, _copr_seg_overrun);
-    register_ring0_INT(INT_VECTOR_INVAL_TSS, _inval_tss);
-    register_ring0_INT(INT_VECTOR_SEG_NOT_PRESENT, _segment_not_present);
-    register_ring0_INT(INT_VECTOR_STACK_FAULT, _stack_exception);
-    register_ring0_INT(INT_VECTOR_PROTECTION, _general_protection);
-    register_ring0_INT(INT_VECTOR_PAGE_FAULT, _page_fault);
+    /* register_ring0_INT(INT_VECTOR_DIVIDE, _divide_error); */
+    register_ring0_INT(INT_VECTOR_DIVIDE, intr_entry_table[INT_VECTOR_DIVIDE]);
+
+    /* register_ring0_INT(INT_VECTOR_DEBUG, _single_step_exception); */
+    register_ring0_INT(INT_VECTOR_DEBUG, intr_entry_table[INT_VECTOR_DEBUG]);
+
+    /* register_ring0_INT(INT_VECTOR_NMI, _nmi); */
+    register_ring0_INT(INT_VECTOR_NMI, intr_entry_table[INT_VECTOR_NMI]);
+
+    /* register_ring0_INT(INT_VECTOR_BREAKPOINT, _breakpoint_exception); */
+    register_ring0_INT(INT_VECTOR_BREAKPOINT, intr_entry_table[INT_VECTOR_BREAKPOINT]);
+
+    /* register_ring0_INT(INT_VECTOR_OVERFLOW, _overflow); */
+    register_ring0_INT(INT_VECTOR_OVERFLOW, intr_entry_table[INT_VECTOR_OVERFLOW]);
+
+    /* register_ring0_INT(INT_VECTOR_BOUNDEX, _bounds_check); */
+    register_ring0_INT(INT_VECTOR_BOUNDEX, intr_entry_table[INT_VECTOR_BOUNDEX]);
+
+    /* register_ring0_INT(INT_VECTOR_INVAL_OP, _inval_opcode); */
+    register_ring0_INT(INT_VECTOR_INVAL_OP, intr_entry_table[INT_VECTOR_INVAL_OP]);
+
+    /* register_ring0_INT(INT_VECTOR_DEV_NOT_AVA, _copr_not_available); */
+    register_ring0_INT(INT_VECTOR_DEV_NOT_AVA, intr_entry_table[INT_VECTOR_DEV_NOT_AVA]);
+
+    /* register_ring0_INT(INT_VECTOR_DOUBLE_FAULT, _double_fault); */
+    register_ring0_INT(INT_VECTOR_DOUBLE_FAULT, intr_entry_table[INT_VECTOR_DOUBLE_FAULT]);
+
+    /* register_ring0_INT(INT_VECTOR_COP_SEG_OVERRUN, _copr_seg_overrun); */
+    register_ring0_INT(INT_VECTOR_COP_SEG_OVERRUN, intr_entry_table[INT_VECTOR_COP_SEG_OVERRUN]);
+
+    /* register_ring0_INT(INT_VECTOR_INVAL_TSS, _inval_tss); */
+    register_ring0_INT(INT_VECTOR_INVAL_TSS, intr_entry_table[INT_VECTOR_INVAL_TSS]);
+
+    /* register_ring0_INT(INT_VECTOR_SEG_NOT_PRESENT, _segment_not_present); */
+    register_ring0_INT(INT_VECTOR_SEG_NOT_PRESENT, intr_entry_table[INT_VECTOR_SEG_NOT_PRESENT]);
+
+    /* register_ring0_INT(INT_VECTOR_STACK_FAULT, _stack_exception); */
+    register_ring0_INT(INT_VECTOR_STACK_FAULT, intr_entry_table[INT_VECTOR_STACK_FAULT]);
+
+    /* register_ring0_INT(INT_VECTOR_PROTECTION, _general_protection); */
+    register_ring0_INT(INT_VECTOR_PROTECTION, intr_entry_table[INT_VECTOR_PROTECTION]);
+
+    /* register_ring0_INT(INT_VECTOR_PAGE_FAULT, _page_fault); */
+    register_ring0_INT(INT_VECTOR_PAGE_FAULT, intr_entry_table[INT_VECTOR_PAGE_FAULT]);
 
     // Interrupt gate for IRQ0 aka clock interrupt
-    register_ring0_INT(INT_VECTOR_INNER_CLOCK, _asm_inthandler20);
+    /* register_ring0_INT(INT_VECTOR_INNER_CLOCK, _asm_inthandler20); */
+    register_ring0_INT(INT_VECTOR_INNER_CLOCK, intr_entry_table[INT_VECTOR_INNER_CLOCK]);
+
     // Interrupt gate for IRQ1 aka keyboard interrupt
-    register_ring0_INT(INT_VECTOR_KEYBOARD, _asm_inthandler21);
+    /* register_ring0_INT(INT_VECTOR_KEYBOARD, _asm_inthandler21); */
+    register_ring0_INT(INT_VECTOR_KEYBOARD, intr_entry_table[INT_VECTOR_KEYBOARD]);
+
     // Interrupt gate for IRQ12 aka PS/2 mouse interrupt
-    register_ring0_INT(INT_VECTOR_PS2_MOUSE, _asm_inthandler2C);
+    /* register_ring0_INT(INT_VECTOR_PS2_MOUSE, _asm_inthandler2C); */
+    register_ring0_INT(INT_VECTOR_PS2_MOUSE, intr_entry_table[INT_VECTOR_PS2_MOUSE]);
     // Interrupt gate for IRQ14 aka IDE primary channel
-    register_ring0_INT(INT_VECTOR_PRI_CH_HD , _asm_inthandler2e);
+    /* register_ring0_INT(INT_VECTOR_PRI_CH_HD, _asm_inthandler2e); */
+    register_ring0_INT(INT_VECTOR_PRI_CH_HD, intr_entry_table[INT_VECTOR_PRI_CH_HD]);
     // Interrupt gate for IRQ15 aka IDE secondary channel
-    register_ring0_INT(INT_VECTOR_SEC_CH_HD , _asm_inthandler2f);
+    /* register_ring0_INT(INT_VECTOR_SEC_CH_HD, _asm_inthandler2f); */
+    register_ring0_INT(INT_VECTOR_SEC_CH_HD, intr_entry_table[INT_VECTOR_SEC_CH_HD]);
 
 
-    // System_call interrupt 
+    // System_call interrupt
     register_ring3_INT(INT_VECTOR_SYSCALL, syscall_handler);
 }
 
-void init_idt_gdt_tss(void){
+void init_idt_gdt_tss(void)
+{
     init_gdt();
     init_idt();
-    create_tss(); // tss define in tss.c
+    create_tss();  // tss define in tss.c
 }

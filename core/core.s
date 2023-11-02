@@ -53,29 +53,99 @@ global  _stack_exception
 global  _general_protection
 global  _page_fault
 global  _copr_error
+
+;-----------------------------------------------------------------------------
+global intr_entry_table
 ;-----------------------------------------------------------------------------
 INT_VEC_SYS_CALL equ 0x93
 ;-----------------------------------------------------------------------------
-%macro interrupt 2
+section .data
+intr_entry_table
+
+%define PUSH_ZERO_ERRCODE push 0
+%define PUSH_FULL1_ERRCODE push 0xFFFFFFFF
+%define DO_NOTHING nop
+
+;;filler function intr_entry_table
+%macro INTR_FILLER_DWORD 1
+section .data
+    resd %1
+%endmacro
+
+;Create interrupt handler at master pic
+; @param %1 interrupt number
+; @param %2 error code
+; @param %3 C function handler
+; @param %4 EOI(end of interrupt)
+;
+%macro INTR_M_HANDLER 4
 ;; save all context
-    push 0 ;; error code
+section .text
+_asm_inthandler%1:
+    %2     ;; error code
     push ds
     push es
     push fs
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    push $1;
-    ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ0);
-    mov al, 0x60
-    out 0x20, al
+    push %1; ;; push interrupt number
 
-    call $2
+    mov al, %4
+    out 0x20, al  ;; send ack to master
+
+    call %3
     jmp intr_exit
-
+section .data
+    dd _asm_inthandler%1 ;; each interrupt entry 
 %endmacro
 
-;-----------------------------------------------------------------------------
+;Create interrupt handler at slave pic
+; @param %1 interrupt number
+; @param %2 error code
+; @param %3 C function handler
+; @param %4 master EOI(end of interrupt)
+; @param %5 slave  EOI(end of interrupt)
+;
+%macro INTR_S_HANDLER 5
+;; save all context
+section .text
+_asm_inthandler%1:
+    %2     ;; error code
+    push ds
+    push es
+    push fs
+    push gs
+    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
+    push %1; ;; push interrupt number
 
+    mov al, %5
+    out 0xa0, al  ;; send ack to slaver
+    mov al, %4
+    out 0x20, al  ;; send ack to master
+
+    call %3
+    jmp intr_exit
+section .data
+    dd _asm_inthandler%1 ;; each interrupt entry 
+%endmacro
+
+
+%macro EXCEPTION_HANDLER 2
+section .text
+_asm_exceptionhandler%1:
+        xchg bx, bx
+	%2              ; err code
+	push	%1              ; vector_no 
+	call	exception_handler
+	add	esp, 4*2
+	hlt
+section .data
+    dd _asm_exceptionhandler%1 ;; each exception entry 
+%endmacro
+
+
+section .text
+;-----------------------------------------------------------------------------
 _start:
     call UkiMain
     jmp $
@@ -196,97 +266,175 @@ syscall_handler:
     mov [esp+8*4], eax
     jmp intr_exit
 
+;-------------------------------------------------------------------------------
+;Interrupt handler from orange'os
+;-------------------------------------------------------------------------------
+; _divide_error:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	0		; vector_no	= 0
+; 	jmp	_exception
+;0x0 divide error 
+EXCEPTION_HANDLER 0x0, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _single_step_exception:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	1		; vector_no	= 1
+; 	jmp	_exception
+; section .data
+;     dd 0xffffffff ;; each exception entry 
+;0x1 single_step_exception
+EXCEPTION_HANDLER 0x1, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _nmi:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	2		; vector_no	= 2
+; 	jmp	_exception
+;0x2 Non-maskable interrupt
+EXCEPTION_HANDLER 0x2, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _breakpoint_exception:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	3		; vector_no	= 3
+; 	jmp	_exception
+; 0x3 break point exception
+EXCEPTION_HANDLER 0x3, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _overflow:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	4		; vector_no	= 4
+; 	jmp	_exception
+; 0x4 over flow exception
+EXCEPTION_HANDLER 0x4, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _bounds_check:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	5		; vector_no	= 5
+; 	jmp	_exception
+; 0x5 bounds check
+EXCEPTION_HANDLER 0x5, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _inval_opcode:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	6		; vector_no	= 6
+; 	jmp	_exception
+; 0x6 inval opcode
+EXCEPTION_HANDLER 0x6, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _copr_not_available:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	7		; vector_no	= 7
+; 	jmp	_exception
+; 0x7 copr not available 
+EXCEPTION_HANDLER 0x7, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _double_fault:
+; 	push	8		; vector_no	= 8
+; 	jmp	_exception
+; 0x8 double fault
+EXCEPTION_HANDLER 0x8, DO_NOTHING
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _copr_seg_overrun:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	9		; vector_no	= 9
+; 	jmp	_exception
+; 0x9 copr segment overrun
+EXCEPTION_HANDLER 0x9, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _inval_tss:
+; 	push	10		; vector_no	= A
+; 	jmp	_exception
+; 0xa inval TSS
+EXCEPTION_HANDLER 0xa, DO_NOTHING
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _segment_not_present:
+; 	push	11		; vector_no	= B
+; 	jmp	_exception
+; 0xb segment not present
+EXCEPTION_HANDLER 0xb, DO_NOTHING
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _stack_exception:
+; 	push	12		; vector_no	= C
+; 	jmp	_exception
+; 0xc stack exception
+EXCEPTION_HANDLER 0xc, DO_NOTHING
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _general_protection:
+; 	push	13		; vector_no	= D
+; 	jmp	_exception
+; 0xd general protection
+EXCEPTION_HANDLER 0xd, DO_NOTHING
+;-------------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; _page_fault:
+; 	push	14		; vector_no	= E
+; 	jmp	_exception
+; 0xd page fault
+EXCEPTION_HANDLER 0xe, DO_NOTHING
+;-------------------------------------------------------------------------------
+;; fill one dword for intr_entry_table
+INTR_FILLER_DWORD 1
+
+; _copr_error:
+; 	push	0xFFFFFFFF	; no err code
+; 	push	16		; vector_no	= 10h
+; 	jmp	_exception
+; 0x10 copr error
+EXCEPTION_HANDLER 0x10, PUSH_FULL1_ERRCODE
+;-------------------------------------------------------------------------------
+
+;;filler function for intr_entry_table
+INTR_FILLER_DWORD 0xf
+
 ;;; 0x20 Clock interrupt handler
-_asm_inthandler20:
-;; save all context
-    push 0 ;; error code
-    push ds
-    push es
-    push fs
-    push gs
-    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    push 0x20;
-    ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ0); 
-    ;; answer interrupt chip
-    mov al, 0x60
-    out 0x20, al
-    call inthandler20
-    jmp intr_exit
+INTR_M_HANDLER 0x20, PUSH_ZERO_ERRCODE, inthandler20, 0x60
 
 ;;; 0x21 keyboard interrupt handler
-_asm_inthandler21:
-;; save all context
-    push 0 ;; error code
-    push ds
-    push es
-    push fs
-    push gs
-    pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    push 0x21 ;; push interrupt Number
-    ;; answer interrupt chip
-    ;;_io_out8(PIC0_OCW2, PIC_EOI_IRQ1); */
-    mov al, 0x61
-    out 0x20, al
-    call inthandler21
-    jmp intr_exit
+INTR_M_HANDLER 0x21, PUSH_ZERO_ERRCODE, inthandler21, 0x61
+
+;;filler function for intr_entry_table
+INTR_FILLER_DWORD 10
 
 ;;; 0x2C PS/2 Mouse handler
-_asm_inthandler2C:
-;; save all context
-    push 0 ;; error code
-    push ds
-    push es
-    push fs
-    push gs
-    pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    push 0x2c ;; push interrupt Number
-    ; _io_out8(PIC1_OCW2, PIC_EOI_IRQ12); // tell slave  IRQ12 is finish */
-    ; _io_out8(PIC0_OCW2, PIC_EOI_IRQ2); // tell master IRQ2 is finish */
-    ;define PIC1_OCW2 0xa0
-    ;define PIC0_OCW2 0x20
-    ;define PIC_EOI_IRQ12 0x64    // PS/2 mouse
-    ;define PIC_EOI_IRQ2   0x62    // Connect
-    ; mov al, 0x64
-    ; out 0xa0, al
-    ; mov al, 0x62
-    ; out 0x20, al
-    call inthandler2C
-    jmp intr_exit
+INTR_S_HANDLER 0x2c, PUSH_ZERO_ERRCODE, inthandler2C, 0x62, 0x64
+
+;;filler function intr_entry_table
+INTR_FILLER_DWORD 1
 
 ;; 0x2e primary channel handler
-_asm_inthandler2e:
-;; save all context
-    push 0 ;; error code
-    push ds
-    push es
-    push fs
-    push gs
-    pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    push 0x2e ;; push interrupt Number
-
-    mov al, 0x66
-    out 0xa0, al
-
-    mov al, 0x62
-    out 0x20, al
-    call intr_hd_handler
-    jmp intr_exit
+INTR_S_HANDLER 0x2e, PUSH_ZERO_ERRCODE, intr_hd_handler, 0x62, 0x66
 
 ;; 0x2f secondary channel handler
-_asm_inthandler2f:
-;; save all context
-    push 0 ;; error code
-    push ds
-    push es
-    push fs
-    push gs
-    pushad    ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-    push 0x2f ;; push interrupt Number
+INTR_S_HANDLER 0x2f, PUSH_ZERO_ERRCODE, intr_hd_handler, 0x62, 0x67
 
-    call intr_hd_handler
-    jmp intr_exit
-
-intr_exit:	     
+;;------------------------------------------------------------------------------
+intr_exit:
    add esp, 4			   ; 跳过中断号
 ;; push 32bits register as order 
 ;; eax,ecx, edx, ebx, esp, ebp, esi, edi
@@ -324,68 +472,3 @@ _save_idtr:  ;void save_idtr(int_32* address);
     mov eax, [esp+4]
     sidt [eax] ; address
     ret
-;-------------------------------------------------------------------------------
-;Interrupt handler from orange'os
-_divide_error:
-	push	0xFFFFFFFF	; no err code
-	push	0		; vector_no	= 0
-	jmp	_exception
-_single_step_exception:
-	push	0xFFFFFFFF	; no err code
-	push	1		; vector_no	= 1
-	jmp	_exception
-_nmi:
-	push	0xFFFFFFFF	; no err code
-	push	2		; vector_no	= 2
-	jmp	_exception
-_breakpoint_exception:
-	push	0xFFFFFFFF	; no err code
-	push	3		; vector_no	= 3
-	jmp	_exception
-_overflow:
-	push	0xFFFFFFFF	; no err code
-	push	4		; vector_no	= 4
-	jmp	_exception
-_bounds_check:
-	push	0xFFFFFFFF	; no err code
-	push	5		; vector_no	= 5
-	jmp	_exception
-_inval_opcode:
-	push	0xFFFFFFFF	; no err code
-	push	6		; vector_no	= 6
-	jmp	_exception
-_copr_not_available:
-	push	0xFFFFFFFF	; no err code
-	push	7		; vector_no	= 7
-	jmp	_exception
-_double_fault:
-	push	8		; vector_no	= 8
-	jmp	_exception
-_copr_seg_overrun:
-	push	0xFFFFFFFF	; no err code
-	push	9		; vector_no	= 9
-	jmp	_exception
-_inval_tss:
-	push	10		; vector_no	= A
-	jmp	_exception
-_segment_not_present:
-	push	11		; vector_no	= B
-	jmp	_exception
-_stack_exception:
-	push	12		; vector_no	= C
-	jmp	_exception
-_general_protection:
-	push	13		; vector_no	= D
-	jmp	_exception
-_page_fault:
-	push	14		; vector_no	= E
-	jmp	_exception
-_copr_error:
-	push	0xFFFFFFFF	; no err code
-	push	16		; vector_no	= 10h
-	jmp	_exception
-
-_exception:
-	call	exception_handler
-	add	esp, 4*2
-	hlt

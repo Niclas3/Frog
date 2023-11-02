@@ -3,6 +3,7 @@
 #include <asm/bootpack.h>
 #include <sys/pic.h>
 #include <stdio.h>
+#include <string.h>
 
 #define IF_SET 0x00000200
 #define GET_EFLAGS(EFLAG_V) __asm__ volatile ("pushfl; popl %0" : "=g" (EFLAG_V));
@@ -89,6 +90,10 @@ void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags)
         char str[50];
         sprintf(str, "No.%d, %s", vec_no, err_msg[vec_no]);
         draw_info(0xc00a0000,320,COL8_FF0000,0,100, str);
+
+        memset(str, 0, 50);
+        sprintf(str, "eip 0x%x ", eip);
+        draw_info(0xc00a0000,320,COL8_FF0000,0,120, str);
         return;
     /* putfonts8_asc((char *)0xa0000, 320, 0, 0, COL8_FF0000, (unsigned char*)err_msg[vec_no]); */
 }

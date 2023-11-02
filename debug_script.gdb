@@ -2,7 +2,6 @@ target remote localhost:1234
 
 file core_symbol.img
 
-# b bootpack.c:100
 # b bootpack.c:114
 # b systask.c:12
 
@@ -12,9 +11,10 @@ file core_symbol.img
 # b task_sys
 # b u_funf
 
-b UkiMain
-b panic_print
-b intr_hd_handler
-
+# b UkiMain
+# b bootpack.c:76
+# b int.c:89
+# b protect.c:114
+b exception_handler
 tui en
 c
