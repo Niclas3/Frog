@@ -1,6 +1,7 @@
 #include <device/ide.h>
 #include <debug.h>
 #include <math.h>
+#include <sys/int.h>
 #include <protect.h>
 #include <stdbool.h>
 #include <sys/sched.h>
@@ -119,7 +120,7 @@ void ide_init(void)
         lock_init(&channel->lock);
 
         semaphore_init(&channel->disk_done, 0);
-        /* register_ring0_INT(channel->irq_no, intr_hd_handler); */
+        register_r0_intr_handler(channel->irq_no, intr_hd_handler);
         channel_no++;
     }
 }

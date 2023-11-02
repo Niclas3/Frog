@@ -5,10 +5,15 @@
 #include <ostype.h>
 #include <debug.h>
 
+#include <sys/int.h>
+#include <protect.h>
+
 #include <ioqueue.h>
 
 CircleQueue keyboard_queue;
 static boolean ctrl_status, shift_status, alt_status, caps_lock_status, ext_scancode;
+
+void inthandler21(void);
 
 void wait_KBC_sendready(void){
     while(1){
@@ -24,6 +29,7 @@ void init_keyboard(void){
     _io_out8(PORT_KEYCOMMD, KEYCMD_WRITE_MODE);
     wait_KBC_sendready();
     _io_out8(PORT_KEYDATE, KBC_MODE);
+    register_r0_intr_handler(INT_VECTOR_KEYBOARD, inthandler21);
 }
 
 

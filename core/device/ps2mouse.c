@@ -6,6 +6,10 @@
 #include <ostype.h>
 #include <ioqueue.h>
 
+#include <sys/int.h>
+#include <protect.h>
+
+
 CircleQueue mouse_queue;
 struct mouse_data{
     int_32 x;
@@ -20,13 +24,14 @@ struct mouse_raw_data {
 };
 
 int mouse_decode(struct mouse_raw_data *mdata, uint_8 code);
+void inthandler2C(void);
 
 void enable_mouse(){
     wait_KBC_sendready();
     _io_out8(PORT_KEYCOMMD, KEYCMD_SENDTO_MOUSE);
     wait_KBC_sendready();
     _io_out8(PORT_KEYDATE, MOUSECMD_ENABLE);
-
+    register_r0_intr_handler(INT_VECTOR_PS2_MOUSE, inthandler2C);
     return;
 }
 

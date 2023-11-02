@@ -11,7 +11,7 @@ file core_symbol.img
 # b task_sys
 # b u_funf
 
-# b UkiMain
+b UkiMain
 # b bootpack.c:76
 # b int.c:89
 # b protect.c:114

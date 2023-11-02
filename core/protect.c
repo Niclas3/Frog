@@ -5,12 +5,20 @@
 #include <sys/tss.h>
 
 uint_32 syscall_handler(void);
+/**
+ * All interrupt entry table is defined at core.s*/
 extern void *intr_entry_table[IDT_DESC_CNT];
-Inthandle_t *intr_table[IDT_DESC_CNT];  // register c function into this global table
+/*****************************************************************************/
 
-void register_INT(uint_32 int_vector_code,
-                  Inthandle_t handler_address,
-                  uint_32 dpl)
+/**
+ *  All interrupt real handlers table
+ *  register c function into this global table*/
+Inthandle_t *intr_table[IDT_DESC_CNT];
+/*****************************************************************************/
+
+static void register_INT(uint_32 int_vector_code,
+                         Inthandle_t handler_address,
+                         uint_32 dpl)
 {
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
@@ -21,19 +29,22 @@ void register_INT(uint_32 int_vector_code,
                 DESC_P_1 | dpl | DESC_TYPE_INTR, 0);
     return;
 }
-void register_ring0_INT(uint_32 int_vector_code, Inthandle_t handler_address)
+
+void register_ring0_INT(uint_32 int_vector_code)
 {
-    register_INT(int_vector_code, handler_address, DESC_DPL_0);
+    Inthandle_t *handler = intr_entry_table[int_vector_code];
+    register_INT(int_vector_code, handler, DESC_DPL_0);
     return;
 }
-void register_ring3_INT(uint_32 int_vector_code, Inthandle_t handler_address)
+
+static void register_ring3_INT(uint_32 int_vector_code, Inthandle_t handler_address)
 {
     register_INT(int_vector_code, handler_address, DESC_DPL_3);
     return;
 }
 
 /* Create some DPL = 0 descriptor base address 0x0 and limit is 0xffffffff */
-void create_ring0_Descriptor(uint_32 desc_index, int des_type)
+static void create_ring0_Descriptor(uint_32 desc_index, int des_type)
 {
     Descriptor_REG gdtr_data = {0};
     save_gdtr(&gdtr_data);
@@ -44,7 +55,7 @@ void create_ring0_Descriptor(uint_32 desc_index, int des_type)
 }
 
 /* Create some DPL = 1 descriptor base address 0x0 and limit is 0xffffffff */
-void create_ring1_Descriptor(uint_32 desc_index, int des_type)
+static void create_ring1_Descriptor(uint_32 desc_index, int des_type)
 {
     Descriptor_REG gdtr_data = {0};
     save_gdtr(&gdtr_data);
@@ -55,7 +66,7 @@ void create_ring1_Descriptor(uint_32 desc_index, int des_type)
 }
 
 /* Create some DPL = 3 descriptor base address 0x0 and limit is 0xffffffff */
-void create_ring3_Descriptor(uint_32 desc_index, int des_type)
+static void create_ring3_Descriptor(uint_32 desc_index, int des_type)
 {
     Descriptor_REG gdtr_data = {0};
     save_gdtr(&gdtr_data);
@@ -66,8 +77,7 @@ void create_ring3_Descriptor(uint_32 desc_index, int des_type)
 }
 
 
-
-void init_gdt(void)
+static void init_gdt(void)
 {
     // TODO: Move gdt init from loader.s to this file.
 
@@ -88,7 +98,7 @@ void init_gdt(void)
      */
 }
 
-void init_idt(void)
+static void init_idt(void)
 {
     // 1.Get idt root address
     Descriptor_REG idtr_data = {0};
@@ -96,77 +106,28 @@ void init_idt(void)
     // 2. move base address to high 1G memory
     idtr_data.address |= 0xc0000000;
     load_idtr(&idtr_data);
-    /* register_ring0_INT(INT_VECTOR_DIVIDE, _divide_error); */
-    register_ring0_INT(INT_VECTOR_DIVIDE, intr_entry_table[INT_VECTOR_DIVIDE]);
-
-    /* register_ring0_INT(INT_VECTOR_DEBUG, _single_step_exception); */
-    register_ring0_INT(INT_VECTOR_DEBUG, intr_entry_table[INT_VECTOR_DEBUG]);
-
-    /* register_ring0_INT(INT_VECTOR_NMI, _nmi); */
-    register_ring0_INT(INT_VECTOR_NMI, intr_entry_table[INT_VECTOR_NMI]);
-
-    /* register_ring0_INT(INT_VECTOR_BREAKPOINT, _breakpoint_exception); */
-    register_ring0_INT(INT_VECTOR_BREAKPOINT, intr_entry_table[INT_VECTOR_BREAKPOINT]);
-
-    /* register_ring0_INT(INT_VECTOR_OVERFLOW, _overflow); */
-    register_ring0_INT(INT_VECTOR_OVERFLOW, intr_entry_table[INT_VECTOR_OVERFLOW]);
-
-    /* register_ring0_INT(INT_VECTOR_BOUNDEX, _bounds_check); */
-    register_ring0_INT(INT_VECTOR_BOUNDEX, intr_entry_table[INT_VECTOR_BOUNDEX]);
-
-    /* register_ring0_INT(INT_VECTOR_INVAL_OP, _inval_opcode); */
-    register_ring0_INT(INT_VECTOR_INVAL_OP, intr_entry_table[INT_VECTOR_INVAL_OP]);
-
-    /* register_ring0_INT(INT_VECTOR_DEV_NOT_AVA, _copr_not_available); */
-    register_ring0_INT(INT_VECTOR_DEV_NOT_AVA, intr_entry_table[INT_VECTOR_DEV_NOT_AVA]);
-
-    /* register_ring0_INT(INT_VECTOR_DOUBLE_FAULT, _double_fault); */
-    register_ring0_INT(INT_VECTOR_DOUBLE_FAULT, intr_entry_table[INT_VECTOR_DOUBLE_FAULT]);
-
-    /* register_ring0_INT(INT_VECTOR_COP_SEG_OVERRUN, _copr_seg_overrun); */
-    register_ring0_INT(INT_VECTOR_COP_SEG_OVERRUN, intr_entry_table[INT_VECTOR_COP_SEG_OVERRUN]);
-
-    /* register_ring0_INT(INT_VECTOR_INVAL_TSS, _inval_tss); */
-    register_ring0_INT(INT_VECTOR_INVAL_TSS, intr_entry_table[INT_VECTOR_INVAL_TSS]);
-
-    /* register_ring0_INT(INT_VECTOR_SEG_NOT_PRESENT, _segment_not_present); */
-    register_ring0_INT(INT_VECTOR_SEG_NOT_PRESENT, intr_entry_table[INT_VECTOR_SEG_NOT_PRESENT]);
-
-    /* register_ring0_INT(INT_VECTOR_STACK_FAULT, _stack_exception); */
-    register_ring0_INT(INT_VECTOR_STACK_FAULT, intr_entry_table[INT_VECTOR_STACK_FAULT]);
-
-    /* register_ring0_INT(INT_VECTOR_PROTECTION, _general_protection); */
-    register_ring0_INT(INT_VECTOR_PROTECTION, intr_entry_table[INT_VECTOR_PROTECTION]);
-
-    /* register_ring0_INT(INT_VECTOR_PAGE_FAULT, _page_fault); */
-    register_ring0_INT(INT_VECTOR_PAGE_FAULT, intr_entry_table[INT_VECTOR_PAGE_FAULT]);
-
-    // Interrupt gate for IRQ0 aka clock interrupt
-    /* register_ring0_INT(INT_VECTOR_INNER_CLOCK, _asm_inthandler20); */
-    register_ring0_INT(INT_VECTOR_INNER_CLOCK, intr_entry_table[INT_VECTOR_INNER_CLOCK]);
-
-    // Interrupt gate for IRQ1 aka keyboard interrupt
-    /* register_ring0_INT(INT_VECTOR_KEYBOARD, _asm_inthandler21); */
-    register_ring0_INT(INT_VECTOR_KEYBOARD, intr_entry_table[INT_VECTOR_KEYBOARD]);
-
-    // Interrupt gate for IRQ12 aka PS/2 mouse interrupt
-    /* register_ring0_INT(INT_VECTOR_PS2_MOUSE, _asm_inthandler2C); */
-    register_ring0_INT(INT_VECTOR_PS2_MOUSE, intr_entry_table[INT_VECTOR_PS2_MOUSE]);
-    // Interrupt gate for IRQ14 aka IDE primary channel
-    /* register_ring0_INT(INT_VECTOR_PRI_CH_HD, _asm_inthandler2e); */
-    register_ring0_INT(INT_VECTOR_PRI_CH_HD, intr_entry_table[INT_VECTOR_PRI_CH_HD]);
-    // Interrupt gate for IRQ15 aka IDE secondary channel
-    /* register_ring0_INT(INT_VECTOR_SEC_CH_HD, _asm_inthandler2f); */
-    register_ring0_INT(INT_VECTOR_SEC_CH_HD, intr_entry_table[INT_VECTOR_SEC_CH_HD]);
-
+    /**
+     * Register all exception and all outer interrupt
+     * IDT_DESC_CNT is 0x30
+     * all vector number are defined at <sys/int.h>
+     *****************************************************************************/
+    for (int vec_nr = 0; vec_nr < IDT_DESC_CNT; vec_nr++) {
+        register_ring0_INT(vec_nr);
+    }
 
     // System_call interrupt
     register_ring3_INT(INT_VECTOR_SYSCALL, syscall_handler);
 }
 
+//Public function
 void init_idt_gdt_tss(void)
 {
     init_gdt();
     init_idt();
     create_tss();  // tss define in tss.c
+}
+
+void register_r0_intr_handler(uint_32 int_vector_code, Inthandle_t handler){
+    intr_table[int_vector_code] = handler;
+    return;
 }

@@ -1,20 +1,14 @@
 extern UkiMain         ;start symbol of C file
 
+;;----------------------------------------------------------------------------
+;; Interrupt entry handler by Intel init
+  global intr_entry_table
 ;---------------------------------------------------------------
-; Export Interrupt C code handler
+; All interrupt real handlers table
+; register C function into this global table*/
+  extern intr_table
 ;---------------------------------------------------------------
-;      Keyboard     ;      Clock  ;      PS/2 Mouse     
-extern inthandler21, inthandler20, inthandler2C
-;      primary ide  ;   secondary ide
-extern intr_hd_handler
-;---------------------------------------------------------------
-;---------------------------------------------------------------
-; Globale Interrupt real handler 
-;---------------------------------------------------------------
-;      Keyboard         ;      Clock        ;      PS/2 Mouse    
-global _asm_inthandler21, _asm_inthandler20, _asm_inthandler2C
-;      primary ide      ;   secondary ide
-global _asm_inthandler2e, _asm_inthandler2f
+
 ;---------------------------------------------------------------
 extern syscall_table
 global syscall_handler
@@ -35,32 +29,11 @@ global _load_idtr, _save_idtr
 global _load_gdtr, _save_gdtr
 ;;----------------------------------------------------------------------------
 global intr_exit
-;;----------------------------------------------------------------------------
-;; Interrupt handler by Intel init
-global  _divide_error
-global  _single_step_exception
-global  _nmi
-global  _breakpoint_exception
-global  _overflow
-global  _bounds_check
-global  _inval_opcode
-global  _copr_not_available
-global  _double_fault
-global  _copr_seg_overrun
-global  _inval_tss
-global  _segment_not_present
-global  _stack_exception
-global  _general_protection
-global  _page_fault
-global  _copr_error
-
-;-----------------------------------------------------------------------------
-global intr_entry_table
 ;-----------------------------------------------------------------------------
 INT_VEC_SYS_CALL equ 0x93
 ;-----------------------------------------------------------------------------
 section .data
-intr_entry_table
+intr_entry_table:
 
 %define PUSH_ZERO_ERRCODE push 0
 %define PUSH_FULL1_ERRCODE push 0xFFFFFFFF
@@ -75,10 +48,9 @@ section .data
 ;Create interrupt handler at master pic
 ; @param %1 interrupt number
 ; @param %2 error code
-; @param %3 C function handler
-; @param %4 EOI(end of interrupt)
+; @param %3 EOI(end of interrupt)
 ;
-%macro INTR_M_HANDLER 4
+%macro INTR_M_HANDLER 3
 ;; save all context
 section .text
 _asm_inthandler%1:
@@ -90,10 +62,10 @@ _asm_inthandler%1:
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push %1; ;; push interrupt number
 
-    mov al, %4
+    mov al, %3
     out 0x20, al  ;; send ack to master
 
-    call %3
+    call [intr_table+%1*4]
     jmp intr_exit
 section .data
     dd _asm_inthandler%1 ;; each interrupt entry 
@@ -102,11 +74,10 @@ section .data
 ;Create interrupt handler at slave pic
 ; @param %1 interrupt number
 ; @param %2 error code
-; @param %3 C function handler
-; @param %4 master EOI(end of interrupt)
-; @param %5 slave  EOI(end of interrupt)
+; @param %3 master EOI(end of interrupt)
+; @param %4 slave  EOI(end of interrupt)
 ;
-%macro INTR_S_HANDLER 5
+%macro INTR_S_HANDLER 4
 ;; save all context
 section .text
 _asm_inthandler%1:
@@ -118,12 +89,12 @@ _asm_inthandler%1:
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push %1; ;; push interrupt number
 
-    mov al, %5
-    out 0xa0, al  ;; send ack to slaver
     mov al, %4
+    out 0xa0, al  ;; send ack to slaver
+    mov al, %3
     out 0x20, al  ;; send ack to master
 
-    call %3
+    call [intr_table+%1*4]
     jmp intr_exit
 section .data
     dd _asm_inthandler%1 ;; each interrupt entry 
@@ -413,25 +384,25 @@ EXCEPTION_HANDLER 0x10, PUSH_FULL1_ERRCODE
 INTR_FILLER_DWORD 0xf
 
 ;;; 0x20 Clock interrupt handler
-INTR_M_HANDLER 0x20, PUSH_ZERO_ERRCODE, inthandler20, 0x60
+INTR_M_HANDLER 0x20, PUSH_ZERO_ERRCODE, 0x60
 
 ;;; 0x21 keyboard interrupt handler
-INTR_M_HANDLER 0x21, PUSH_ZERO_ERRCODE, inthandler21, 0x61
+INTR_M_HANDLER 0x21, PUSH_ZERO_ERRCODE, 0x61
 
 ;;filler function for intr_entry_table
 INTR_FILLER_DWORD 10
 
 ;;; 0x2C PS/2 Mouse handler
-INTR_S_HANDLER 0x2c, PUSH_ZERO_ERRCODE, inthandler2C, 0x62, 0x64
+INTR_S_HANDLER 0x2c, PUSH_ZERO_ERRCODE,  0x62, 0x64
 
 ;;filler function intr_entry_table
 INTR_FILLER_DWORD 1
 
 ;; 0x2e primary channel handler
-INTR_S_HANDLER 0x2e, PUSH_ZERO_ERRCODE, intr_hd_handler, 0x62, 0x66
+INTR_S_HANDLER 0x2e, PUSH_ZERO_ERRCODE, 0x62, 0x66
 
 ;; 0x2f secondary channel handler
-INTR_S_HANDLER 0x2f, PUSH_ZERO_ERRCODE, intr_hd_handler, 0x62, 0x67
+INTR_S_HANDLER 0x2f, PUSH_ZERO_ERRCODE, 0x62, 0x67
 
 ;;------------------------------------------------------------------------------
 intr_exit:

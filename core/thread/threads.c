@@ -6,7 +6,10 @@
 #include <sys/process.h>
 #include <sys/threads.h>
 
+#include <protect.h>
 #include <debug.h>
+
+extern void inthandler20(void);
 
 TCB_t *main_thread;  // kernel_thread() tid = 1
 TCB_t *idle_thread;  // idle()          tid = 2
@@ -155,6 +158,8 @@ void schedule(void)
  * */
 void thread_init(void)
 {
+    // register timer interrupt handler
+    register_r0_intr_handler(INT_VECTOR_INNER_CLOCK, inthandler20);
     init_list_head(&thread_ready_list);
     init_list_head(&thread_all_list);
     init_list_head(&process_all_list);
