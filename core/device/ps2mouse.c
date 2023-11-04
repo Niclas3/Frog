@@ -27,11 +27,11 @@ int mouse_decode(struct mouse_raw_data *mdata, uint_8 code);
 void inthandler2C(void);
 
 void enable_mouse(){
+    register_r0_intr_handler(INT_VECTOR_PS2_MOUSE, inthandler2C);
     wait_KBC_sendready();
     _io_out8(PORT_KEYCOMMD, KEYCMD_SENDTO_MOUSE);
     wait_KBC_sendready();
     _io_out8(PORT_KEYDATE, MOUSECMD_ENABLE);
-    register_r0_intr_handler(INT_VECTOR_PS2_MOUSE, inthandler2C);
     return;
 }
 
