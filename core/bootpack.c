@@ -29,6 +29,7 @@
 
 #include <sys/fstask.h>
 #include <sys/systask.h>
+#include <string.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -85,12 +86,17 @@ void UkiMain(void)
 
     ide_init();
 
-struct disk hd = {
-    .name = "testhd1",
-    .dev_no = 1,
+/* struct disk hd_master = { */
+/*     .name = "testhd1", */
+/*     .dev_no = 0, // for master disk */
+/*     .my_channel = &channels[0], */
+/* }; */
+struct disk hd_slave = {
+    .name = "testhd2",
+    .dev_no = 1, // for slave disk
     .my_channel = &channels[0],
 };
-    identify_disk(&hd);
+    read_all_dpt(&hd_slave);
 
     int pysize = 16;
     int pxsize = 16;
