@@ -11,7 +11,7 @@
 #include <io.h>
 
 // ide registers numbers
-//
+
 #define reg_data(channel) (channel->port_base + 0)
 #define reg_error(channel) (channel->port_base + 1)
 #define reg_sect_cnt(channel) (channel->port_base + 2)
@@ -110,6 +110,12 @@ struct partition_table_entry {
                          // to covert to xxx bytes
     uint_32 sec_cnt;     // all sector counts
 } __attribute__((packed));
+
+struct boot_sector{
+    uint_8 code_area[446];                  // Bootstrap code area
+    struct partition_table_entry tables[4]; // primary partition table 
+    uint_16 signature;                      // 0xaa55
+}__attribute__((packed));
 
 void ide_init(void)
 {
@@ -351,7 +357,6 @@ static void copy_4_entries(struct partition_table_entry *des,
         copy_entry(&des[i], &src[i]);
     }
 }
-
 static void move_4_entries(struct partition_table_entry *des,
                            struct partition_table_entry *src)
 {
@@ -370,20 +375,16 @@ static uint_32 get_dpt(struct disk *hd,
                        uint_32 offset_lba,
                        struct partition_table_entry *entries)
 {
-    char sector[512] = {0};  // One sector has 512 bytes
-    char *dpt;
+    struct boot_sector sector;
     /*
      * Read the first sector of given hard disk, it contains MBR(master boot
      * record)layout is here[https://en.wikipedia.org/wiki/Master_boot_record]
      * The first partition entry at 0x01be, size 16 bytes. There are 4 same
      * partition entries
      * * */
-    ide_read(hd, offset_lba, sector, 1);
-    dpt = &sector[FIRST_P_ENTRY];
-    copy_4_entries(entries, (struct partition_table_entry *) dpt);
-    dpt += (sizeof(struct partition_table_entry) * 4);
-    uint_16 end_mark = *(uint_16 *) dpt;
-    ASSERT(end_mark == 0xaa55);
+    ide_read(hd, offset_lba, &sector, 1);
+    copy_4_entries(entries,(struct partition_table_entry*) &sector.tables);
+    ASSERT(sector.signature == 0xaa55);
     return 0;
 }
 
@@ -395,25 +396,17 @@ static uint_32 get_dpt(struct disk *hd,
  * @return return 0 represent the last entry
  *****************************************************************************/
 
-uint_32 g_ext_partition_offset = 0;  // in lba type
+uint_32 g_ext_base_offset = 0;  // in lba type
 static uint_32 next_dpt(struct disk *hd,
-                        struct partition_table_entry *entries,
-                        struct partition_table_entry *next)
+                              struct partition_table_entry *entries,
+                              struct partition_table_entry *next)
 {
     for (uint_32 i = 0; i < 4; i++) {
-        struct partition_table_entry entry =
-            entries[i];  // Some time there is only 2 entries in dpt
-        if (IS_NULL_ENTRY(entry)) {
-            continue;
-        }
+        struct partition_table_entry entry = entries[i];
+        if (IS_NULL_ENTRY(entry)) { continue; }
         // 1. test (entries->fs_type) if it is 0x5 which means next dpt
         if (entry.fs_type == DPT_FILE_SYSTEM_TYPE_EXT) {
-            if (entry.offset_lba > g_ext_partition_offset) {
-                g_ext_partition_offset = entry.offset_lba;
-                get_dpt(hd, entry.offset_lba, next);
-            } else {
-                get_dpt(hd, g_ext_partition_offset + entry.offset_lba, next);
-            }
+            get_dpt(hd, g_ext_base_offset + entry.offset_lba, next);
             return 1;
         } else {
             // ignore other type disk partition table
@@ -422,7 +415,15 @@ static uint_32 next_dpt(struct disk *hd,
     return 0;
 }
 
-
+/**
+ * read all disk partition table to
+ *                                   hd->prim_partition
+ *                                   hd->logic_partition
+ *
+ * @param hd disk
+ * @param ext_lba first is 0
+ * @return
+ *****************************************************************************/
 void read_all_dpt(struct disk *hd)
 {
     // TODO: maybe should use mm/sys_malloc()
@@ -441,15 +442,22 @@ void read_all_dpt(struct disk *hd)
         hd->prim_partition[i].start_lba = entries[i].offset_lba;
         hd->prim_partition[i].my_disk = hd;
     }
+
+    // set ext partition offset
+    uint_32 ext_base = entries[3].offset_lba;
+    uint_32 pre_offset = 0;
+    // 2. hd->logic_partition
     while (next_dpt(hd, p_entries, p_next)) {
-        // 2. hd->logic_partition
+        if(g_ext_base_offset == 0) { g_ext_base_offset = ext_base; }
         hd->logic_partition[lp_idx].sec_cnt = next[0].sec_cnt;
         strncpy(hd->logic_partition[lp_idx].name, name, 8);
         // g_ext_partition_offset is set at next_dpt() when the get first logic
-        // partition 
-        hd->logic_partition[lp_idx].start_lba = next[0].offset_lba + g_ext_partition_offset;
+        // partition
+        hd->logic_partition[lp_idx].start_lba =
+            next[0].offset_lba + g_ext_base_offset + pre_offset;
         hd->logic_partition[lp_idx].my_disk = hd;
-        
+
+        pre_offset = next[1].offset_lba;
         lp_idx++;
         copy_4_entries(p_entries, p_next);
     }

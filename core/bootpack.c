@@ -86,11 +86,6 @@ void UkiMain(void)
 
     ide_init();
 
-/* struct disk hd_master = { */
-/*     .name = "testhd1", */
-/*     .dev_no = 0, // for master disk */
-/*     .my_channel = &channels[0], */
-/* }; */
 struct disk hd_slave = {
     .name = "testhd2",
     .dev_no = 1, // for slave disk

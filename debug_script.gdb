@@ -14,11 +14,14 @@ file core_symbol.img
 # b UkiMain
 # b identify_disk
 # b bootpack.c:99
-b bootpack.c:99
-b read_dpt
+# b bootpack.c:99
+# b read_dpt
 # b ide.c:338
-b next_dpt
+# b next_dpt
 b read_all_dpt
+b ide.c:464
+# b get_dpt
+# b enable_mouse
 # b ide_init
 # b bootpack.c:106
 # b ide_read
