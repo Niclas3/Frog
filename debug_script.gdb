@@ -11,15 +11,15 @@ file core_symbol.img
 # b task_sys
 # b u_funf
 
-# b UkiMain
+b UkiMain
 # b identify_disk
 # b bootpack.c:99
 # b bootpack.c:99
 # b read_dpt
 # b ide.c:338
 # b next_dpt
-b read_all_dpt
-b ide.c:464
+b ide.c:509
+b partition_info
 # b get_dpt
 # b enable_mouse
 # b ide_init

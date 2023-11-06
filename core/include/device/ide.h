@@ -136,7 +136,9 @@ void ide_read(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt);
 
 void ide_write(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt);
 
-void read_all_dpt(struct disk *hd);
+void scan_partitions(struct disk *hd);
+
+bool partitions_info(struct list_head *p_list, int arg );
 
 // hd interrupt handler
 void intr_hd_handler(uint_8 irq_no);

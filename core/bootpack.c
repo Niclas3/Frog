@@ -46,7 +46,9 @@ struct lock main_lock;
 
 // test valuable
 extern struct list_head process_all_list;
+extern struct list_head partition_list;  // partition list
 extern struct ide_channel channels[2];  // 2 different channels
+
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -91,7 +93,8 @@ struct disk hd_slave = {
     .dev_no = 1, // for slave disk
     .my_channel = &channels[0],
 };
-    read_all_dpt(&hd_slave);
+    scan_partitions(&hd_slave);
+    list_walker(&partition_list, partitions_info, 0);
 
     int pysize = 16;
     int pxsize = 16;
