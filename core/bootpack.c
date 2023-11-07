@@ -94,7 +94,7 @@ struct disk hd_slave = {
     .my_channel = &channels[0],
 };
     scan_partitions(&hd_slave);
-    list_walker(&partition_list, partitions_info, 0);
+    /* list_walker(&partition_list, partitions_info, 0); */
 
     int pysize = 16;
     int pxsize = 16;

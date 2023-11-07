@@ -7,14 +7,14 @@
 
 struct partition {
     uint_32 start_lba;             // start of sector
-    uint_32 sec_cnt;               // sector count
+    uint_32 sec_cnt;               // all sector count of this partition
     struct disk* my_disk;          // disk of this partition
     struct list_head part_tag;     // list mark
     char name[8];                  // name of this partition
-    // struct super_block* sb;        // super block of this partition
-    // struct bitmap block_bitmap;    // bitmap of block
-    // struct bitmap inode_bitmap;    // bitmap of inode
-    // struct list_head open_inodes;  // list of open inode 
+    struct super_block* sb;        // super block of this partition
+    struct bitmap zone_bitmap;     // bitmap of block (aka zone)
+    struct bitmap inode_bitmap;    // bitmap of inode
+    struct list_head open_inodes;  // list of open inode 
 };
 
 struct disk {
