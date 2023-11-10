@@ -18,8 +18,12 @@ b UkiMain
 # b read_dpt
 # b ide.c:338
 # b next_dpt
-b ide.c:509
-b partition_info
+# b ide.c:485
+# b partition_info
+# b fs.c:66
+b fs_init
+b partition_format
+b fs.c:93
 # b get_dpt
 # b enable_mouse
 # b ide_init

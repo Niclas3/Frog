@@ -40,6 +40,9 @@ reset:  clean umount newimg mount
 newimg:
 	cp ../hd.img ./$(DISK)
 
+newhd80img:
+	cp ../hd80M.img ./hd80M.img
+
 #C:10 H:2 S:18
 mount: bootloader loader.img core.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader

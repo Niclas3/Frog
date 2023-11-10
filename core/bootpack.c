@@ -30,6 +30,7 @@
 #include <sys/fstask.h>
 #include <sys/systask.h>
 #include <string.h>
+#include <fs/fs.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -84,17 +85,11 @@ void UkiMain(void)
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
 
-    /* init_palette(); */
+    init_palette();
 
     ide_init();
 
-struct disk hd_slave = {
-    .name = "testhd2",
-    .dev_no = 1, // for slave disk
-    .my_channel = &channels[0],
-};
-    scan_partitions(&hd_slave);
-    /* list_walker(&partition_list, partitions_info, 0); */
+    fs_init();
 
     int pysize = 16;
     int pxsize = 16;
