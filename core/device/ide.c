@@ -117,38 +117,6 @@ struct boot_sector {
     uint_16 signature;                       // 0xaa55
 } __attribute__((packed));
 
-void ide_init(void)
-{
-    uint_8 hd_cnt = *((uint_8 *) (0x475));  // get hd numbers
-    ASSERT(hd_cnt > 0);
-    // 1 channel -> 2 hd
-    // channel_cnt * 2 = hd_cnt
-    channel_cnt = DIV_ROUND_UP(hd_cnt, 2);
-    struct ide_channel *channel;
-    uint_8 channel_no = 0;
-    while (channel_no < channel_cnt) {
-        channel = &channels[channel_no];
-        switch (channel_no) {
-        case 0:
-            channel->port_base = 0x1f0;
-            channel->irq_no = 0x20 + 14;  // channel primary 0x2e
-            break;
-        case 1:
-            channel->port_base = 0x170;
-            channel->irq_no = 0x20 + 15;  // channel secondary 0x2f
-            break;
-        default:
-            ASSERT(channel_no == 0 || channel_no == 1);
-            break;
-        }
-        channel->expecting_intr = false;
-        lock_init(&channel->lock);
-
-        semaphore_init(&channel->disk_done, 0);
-        register_r0_intr_handler(channel->irq_no, intr_hd_handler);
-        channel_no++;
-    }
-}
 
 static void swap_pairs_bytes(const char *dst, char *buf, uint_32 len)
 {
@@ -440,7 +408,6 @@ void scan_partitions(struct disk *hd)
     // 1. hd->prim_partition
     for (int i = 0; i < 4; i++) {
         hd->prim_partition[i].sec_cnt = entries[i].sec_cnt;
-        strncpy(hd->prim_partition[i].name, name, 8);
         hd->prim_partition[i].start_lba = entries[i].offset_lba;
         hd->prim_partition[i].my_disk = hd;
         // main partition number start at no.1
@@ -464,7 +431,8 @@ void scan_partitions(struct disk *hd)
         // partition
         hd->logic_partition[lp_idx].start_lba =
             next[0].offset_lba + g_ext_base_offset + pre_offset;
-        list_append_tail(&partition_list, &hd->logic_partition[lp_idx].part_tag);
+        list_append_tail(&partition_list,
+                         &hd->logic_partition[lp_idx].part_tag);
 
         // save offset to previous offset
         pre_offset = next[1].offset_lba;
@@ -472,14 +440,64 @@ void scan_partitions(struct disk *hd)
         copy_4_entries(p_entries, p_next);
     }
 }
-bool partitions_info(struct list_head *p_list, int arg ){
-    struct partition *part = container_of(p_list,struct partition, part_tag);
+bool partitions_info(struct list_head *p_list, int arg)
+{
+    struct partition *part = container_of(p_list, struct partition, part_tag);
     char str[120] = {0};
-    sprintf(str, "partition: %s capacity:%x start:%x\n", part->name, part->sec_cnt, part->start_lba);
+    sprintf(str, "partition: %s capacity:%x start:%x\n", part->name,
+            part->sec_cnt, part->start_lba);
     int x = 0;
     int y = 0;
-    draw_info(0xc00a0000,320,COL8_FF0000,x ,y, str);
+    draw_info(0xc00a0000, 320, COL8_FF0000, x, y, str);
     return false;
+}
+
+void ide_init(void)
+{
+    uint_8 hd_cnt = *((uint_8 *) (0x475));  // get hd numbers
+    ASSERT(hd_cnt > 0);
+    // 1 channel -> 2 hd
+    // channel_cnt * 2 = hd_cnt
+    channel_cnt = DIV_ROUND_UP(hd_cnt, 2);
+    struct ide_channel *channel;
+    uint_8 channel_no = 0;
+    uint_8 dev_no = 0;
+    while (channel_no < channel_cnt) {
+        channel = &channels[channel_no];
+        switch (channel_no) {
+        case 0:
+            channel->port_base = 0x1f0;
+            channel->irq_no = 0x20 + 14;  // channel primary 0x2e
+            break;
+        case 1:
+            channel->port_base = 0x170;
+            channel->irq_no = 0x20 + 15;  // channel secondary 0x2f
+            break;
+        default:
+            ASSERT(channel_no == 0 || channel_no == 1);
+            break;
+        }
+        channel->expecting_intr = false;
+        lock_init(&channel->lock);
+
+        semaphore_init(&channel->disk_done, 0);
+        register_r0_intr_handler(channel->irq_no, intr_hd_handler);
+
+        while (dev_no < 2) {
+            if (dev_no != 0) {
+                struct disk *hd = &channel->devices[dev_no];
+                hd->dev_no = dev_no;
+                hd->my_channel = channel;
+                sprintf(hd->name, "sd%c", 'a' + channel_no * 2 + dev_no);
+                scan_partitions(hd);
+            } else {
+                dev_no++;
+                continue;
+            }
+            dev_no++;
+        }
+        channel_no++;
+    }
 }
 
 // interrupt of disk
