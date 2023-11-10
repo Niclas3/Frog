@@ -10,10 +10,16 @@
 //sector size is 512 bytes
 #define SECTOR_SIZE 512
 #define ZONE_SIZE SECTOR_SIZE
+struct disk;
 
 enum file_type{
-    FT_UNKOWN,
-    FT_REGULAR,        
+    FT_UNKOWN=0,
+    FT_FIFO=1,
+    FT_CHAR,
     FT_DIRECTORY,
+    FT_BLOCK,
+    FT_REGULAR,
 };
+
+void fs_init(void);
 #endif

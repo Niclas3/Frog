@@ -29,9 +29,10 @@ struct super_block {
     uint_16 s_dev;             // device number of super block in
     uint_32 s_time;            // modified date
     uint_8 s_rd_only;          // read only mark
+                               
     uint_8 s_dirt;             // dirty mark
 
-    uint_8 pad[11];            // for up to 512 bytes
+    uint_8 pad[447];            // for up to 512 bytes
 }__attribute__((packed));
 
 #endif
