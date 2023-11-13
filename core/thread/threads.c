@@ -63,8 +63,22 @@ TCB_t *running_thread(void)
  */
 void init_thread(TCB_t *thread, char *name, uint_8 priority)
 {
-    // set all 0 for thread memory
+    // Set all 0 for thread memory
     memset(thread, 0, sizeof(*thread));
+    // Set default stdio 
+    // fd stdio input  0
+    // fd stdio output 1
+    // fd stdio error  2
+    thread->fd_table[0] = 0;
+    thread->fd_table[1] = 1;
+    thread->fd_table[2] = 2;
+    uint_8 fd_idx = MAX_FILES_OPEN_PER_PROC-3;
+    while(fd_idx){
+        // -1 represents available file description
+        thread->fd_table[fd_idx] = -1;
+        fd_idx--;
+    }
+
     thread->tid = allocate_tid();
     strcpy(thread->name, name);
     if (thread == main_thread) {

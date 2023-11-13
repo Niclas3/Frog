@@ -6,6 +6,8 @@
 #include <sys/memory.h>
 #include <ipc.h>
 
+#define MAX_FILES_OPEN_PER_PROC 8
+
 #define GET_THREAD_FROM_READYLIST(ptr) container_of((ptr), TCB_t, general_tag);
 #define GET_THREAD_FROM_ALLLIST(ptr) container_of((ptr), TCB_t, all_list_tag);
 #define GET_PROC_FROM_PROCLIST(ptr) container_of((ptr), TCB_t, proc_list_tag);
@@ -87,7 +89,9 @@ typedef struct thread_control_block {
     struct list_head proc_list_tag;               // for process_all_list
     uint_32 *pgdir;                               // virtual address of page directory
     virtual_addr progress_vaddr;                  // vaddress start and a new bitmap of memory
-    struct mem_block_desc u_block_descs[DESC_CNT];// block descriptor from alloc memory 
+    struct mem_block_desc u_block_descs[DESC_CNT];// block descriptor from allocate memory 
+    //File things
+    int_32 fd_table[MAX_FILES_OPEN_PER_PROC];     // file description of each thread
     //IPC things
     message p_message;                           // pointer to message 
     pid_t p_recvfrom;     // if process want to receive message, but no process to sent things. this contain who this process wants to receive.
