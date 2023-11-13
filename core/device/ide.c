@@ -402,7 +402,6 @@ void scan_partitions(struct disk *hd)
     struct partition_table_entry *p_entries = entries;
     struct partition_table_entry *p_next = next;
 
-    char name[8] = "test";
     uint_8 lp_idx = 0;  // logic_partition idex max is 8
     get_dpt(hd, 0, p_entries);
     // 1. hd->prim_partition
@@ -412,7 +411,7 @@ void scan_partitions(struct disk *hd)
         hd->prim_partition[i].my_disk = hd;
         // main partition number start at no.1
         sprintf(hd->prim_partition[i].name, "%s%d", hd->name, i + 1);
-        list_append_tail(&partition_list, &hd->prim_partition[i].part_tag);
+        list_add_tail(&hd->prim_partition[i].part_tag, &partition_list);
     }
 
     // set ext partition offset
@@ -431,8 +430,7 @@ void scan_partitions(struct disk *hd)
         // partition
         hd->logic_partition[lp_idx].start_lba =
             next[0].offset_lba + g_ext_base_offset + pre_offset;
-        list_append_tail(&partition_list,
-                         &hd->logic_partition[lp_idx].part_tag);
+        list_add_tail(&hd->logic_partition[lp_idx].part_tag, &partition_list);
 
         // save offset to previous offset
         pre_offset = next[1].offset_lba;
@@ -481,6 +479,7 @@ void ide_init(void)
         lock_init(&channel->lock);
 
         semaphore_init(&channel->disk_done, 0);
+        init_list_head(&partition_list);
         register_r0_intr_handler(channel->irq_no, intr_hd_handler);
 
         while (dev_no < 2) {

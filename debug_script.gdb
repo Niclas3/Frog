@@ -21,9 +21,18 @@ b UkiMain
 # b ide.c:485
 # b partition_info
 # b fs.c:66
-b fs_init
-b partition_format
-b fs.c:93
+# b fs_init
+# b ide_init
+# b partition_format
+# b scan_partitions
+# b mount_partition
+# b fs.c:103
+# b fs.c:64
+# b fs.c:222
+b fs.c: 159
+# b fs.c:67
+# b fs.c:191
+# b list_length
 # b get_dpt
 # b enable_mouse
 # b ide_init
