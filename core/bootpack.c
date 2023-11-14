@@ -31,6 +31,7 @@
 #include <sys/systask.h>
 #include <string.h>
 #include <fs/fs.h>
+#include <fs/inode.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -90,6 +91,10 @@ void UkiMain(void)
     ide_init();
 
     fs_init();
+
+    struct partition test_part = channels[0].devices[1].prim_partition[0];
+    /* inode_open(&test_part, 0); */
+
 
     int pysize = 16;
     int pxsize = 16;

@@ -120,6 +120,7 @@ static void partition_format(struct partition *part)
     memset(buf, 0, buf_sz);
     buf[0] |= 0x1;  // first inode is root inode
     ide_write(part->my_disk, sb.s_imap_lba, buf, sb.s_imap_sz);
+    
     // 4. Write inode table
     memset(buf, 0, buf_sz);
     struct inode *i = (struct inode *) buf;
@@ -128,6 +129,7 @@ static void partition_format(struct partition *part)
     i->i_mode = FT_DIRECTORY;
     i->i_zones[0] = sb.s_data_start_lba;
     ide_write(part->my_disk, sb.s_inode_table_lba, buf, sb.s_inode_table_sz);
+
     // 5. free zone
     // write root directory 2 directory entries
     memset(buf, 0, buf_sz);

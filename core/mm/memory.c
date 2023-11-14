@@ -69,7 +69,7 @@ void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt);
  * Init description of memory block from 16B to 1024B
  * kernel description block array is `k_block_descs[DESC_CNT]`
  * */
-void block_desc_init(struct mem_block_desc *desc_array)
+static void block_desc_init(struct mem_block_desc *desc_array)
 {
     uint_16 desc_idx = 0;
     uint_16 block_size = 16;
@@ -409,7 +409,7 @@ void free_page(struct pool *mpool, uint_32 phy_addr_page)
     set_value_bitmap(&mpool->pool_bitmap, pos, 0);
 }
 
-uint_32 *pte_ptr(uint_32 vaddr)
+static uint_32 *pte_ptr(uint_32 vaddr)
 {
     // I set last PDE as PDT table address
     // So the No.1023 pde to hex is 0x3ff
@@ -422,7 +422,7 @@ uint_32 *pte_ptr(uint_32 vaddr)
     return (uint_32 *) target_pte;
 }
 
-uint_32 *pde_ptr(uint_32 vaddr)
+static uint_32 *pde_ptr(uint_32 vaddr)
 {
     // the last page table address of main process
     // The last page table address in PDE is
@@ -492,7 +492,7 @@ void put_page(void *v_addr, void *phy_addr)
 }
 
 // Remove v address from page table
-void remove_page(void *v_addr)
+static void remove_page(void *v_addr)
 {
     uint_32 vaddress = (uint_32) v_addr;
     uint_32 *pde = pde_ptr(vaddress);
