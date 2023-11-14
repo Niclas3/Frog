@@ -4,8 +4,10 @@
 #include <ostype.h>
 #include <list.h>
 
+struct partition;
+
 struct inode {
-    uint_16 i_num;            // inode number
+    uint_32 i_num;            // inode number
     /*
      * i_mode
      * +15+14+13+12+11+10+09+8+7-6+-----+----0+
@@ -21,7 +23,8 @@ struct inode {
     uint_32 i_mtime;          // modified time (from 1970.1.1:00:00:00, seconds)
     uint_8  i_gid;            // file owner's group id
     uint_8  i_nlinks;         // links number. (how many directories link in this inode)
-    uint_16 i_zones[13];      // in lba
+    // TODO: 
+    uint_32 i_zones[13];      // start address in lba
     uint_32 i_atime;          // last access time
     uint_32 i_ctime;          // inode self modified time
     uint_16 i_dev;            // device number of inode
@@ -34,5 +37,11 @@ struct inode {
     uint_8  i_update;         // inode is updated mark
     struct list_head inode_tag;
 };
+
+struct inode *inode_open(struct partition *part, uint_32 inode_nr);
+
+void inode_close(struct inode *inode);
+
+void inode_new(uint_32 inode_nr, struct inode* new_inode);
 
 #endif
