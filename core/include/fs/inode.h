@@ -13,9 +13,9 @@ struct inode {
      * +15+14+13+12+11+10+09+8+7-6+-----+----0+
      * |  |  |  |  |  |  |  |R|W|X|R|W|X|R|W|X|
      * +--+--+--+--+--+--+--+-+---+-----+-----+
-     * \__________/
-     *       +
-     *   file type
+     * \__________/ \_______/
+     *       +          +
+     *   file type    exec_mode
      * */
     uint_16 i_mode;           // file type and attributes (rwx bits)
     uint_16 i_uid;            // file owner's user id

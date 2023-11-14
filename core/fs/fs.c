@@ -120,13 +120,15 @@ static void partition_format(struct partition *part)
     memset(buf, 0, buf_sz);
     buf[0] |= 0x1;  // first inode is root inode
     ide_write(part->my_disk, sb.s_imap_lba, buf, sb.s_imap_sz);
-    
+
     // 4. Write inode table
     memset(buf, 0, buf_sz);
     struct inode *i = (struct inode *) buf;
     i->i_size = sb.dir_entry_size * 2;  // directory . and ..
     i->i_num = 0;                       // the root directory
-    i->i_mode = FT_DIRECTORY;
+    //TODO: need inode mode mask
+    //      like exec_mode and access right bits
+    i->i_mode = FT_DIRECTORY << 11;
     i->i_zones[0] = sb.s_data_start_lba;
     ide_write(part->my_disk, sb.s_inode_table_lba, buf, sb.s_inode_table_sz);
 
@@ -162,6 +164,9 @@ static bool mount_partition(struct list_head *ele, int arg)
     ide_read(part->my_disk, part->start_lba + 1, sb, 1);
     ASSERT(sb->s_magic == 0x2023b07a);
     mounted_part.sb = sb;
+    mounted_part.my_disk = part->my_disk;
+    /* mounted_part.start_lba = part->start_lba; */
+    /* mounted_part.sec_cnt = part->sec_cnt; */
 
     // 1.create zone  bitmap
     uint_8 *zbm_bits = sys_malloc(sb->s_zmap_sz * SECTOR_SIZE);

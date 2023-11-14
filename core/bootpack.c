@@ -27,11 +27,11 @@
 #include <sys/syscall.h>
 #include <sys/threads.h>
 
-#include <sys/fstask.h>
-#include <sys/systask.h>
-#include <string.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
+#include <string.h>
+#include <sys/fstask.h>
+#include <sys/systask.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -41,6 +41,7 @@ void funcb(int a);
 void u_fund(int a);
 void u_funf(int a);
 void u_fune(int a);
+void u_fung(int a);
 void keyboard_consumer(int a);
 void mouse_consumer(int a);
 
@@ -49,8 +50,8 @@ struct lock main_lock;
 // test valuable
 extern struct list_head process_all_list;
 extern struct list_head partition_list;  // partition list
-extern struct ide_channel channels[2];  // 2 different channels
-
+extern struct ide_channel channels[2];   // 2 different channels
+extern struct partition mounted_part;    // the partition what we want to mount.
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -92,8 +93,8 @@ void UkiMain(void)
 
     fs_init();
 
-    struct partition test_part = channels[0].devices[1].prim_partition[0];
-    /* inode_open(&test_part, 0); */
+    struct inode *inode = inode_open(&mounted_part, 0);
+    inode_close(inode);
 
 
     int pysize = 16;
@@ -105,8 +106,9 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
-    TCB_t *keyboard_c = thread_start("keyboard_reader",10, keyboard_consumer , 3);
-    TCB_t *mouse_c = thread_start("mouse1",10, mouse_consumer , 3);
+    TCB_t *keyboard_c =
+        thread_start("keyboard_reader", 10, keyboard_consumer, 3);
+    TCB_t *mouse_c = thread_start("mouse1", 10, mouse_consumer, 3);
     /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
 
@@ -118,6 +120,8 @@ void UkiMain(void)
     /* process_execute(u_funf, "C");  // pid 4 */
     /* process_execute(u_fund, "B");  // pid 5 */
     /* process_execute(u_fune, "A");  // pid 6 */
+
+    /* process_execute(u_fung, "D");  */
 
     char *mcursor = sys_malloc(256);
     draw_cursor8(mcursor, COL8_848484);
@@ -257,4 +261,9 @@ void u_fune(int a)
             sendrec(SEND, 4, &msg);
         }
     }
+}
+
+void u_fung(int a){
+    struct inode *inode = inode_open(&mounted_part, 0);
+    inode_close(inode);
 }

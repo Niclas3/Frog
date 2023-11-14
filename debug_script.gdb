@@ -29,7 +29,9 @@ b UkiMain
 # b fs.c:103
 # b fs.c:64
 # b fs.c:222
-b fs.c: 159
+# b fs.c: 159
+b bootpack.c:95
+b inode.c:140
 # b fs.c:67
 # b fs.c:191
 # b list_length

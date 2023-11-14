@@ -11,6 +11,7 @@ struct partition {
     struct disk* my_disk;          // disk of this partition
     struct list_head part_tag;     // list mark
     char name[8];                  // name of this partition
+//below attributes only at memory
     struct super_block* sb;        // super block of this partition
     struct bitmap zone_bitmap;     // bitmap of block (aka zone)
     struct bitmap inode_bitmap;    // bitmap of inode

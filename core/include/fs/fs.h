@@ -21,5 +21,11 @@ enum file_type{
     FT_REGULAR,
 };
 
+enum exec_mode{
+    EM_SET_USER_ID,
+    EM_SET_GROUP_ID,
+    EM_DIR_MAKR     // for directory rm limit mark
+};
+
 void fs_init(void);
 #endif

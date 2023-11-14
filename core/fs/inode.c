@@ -7,8 +7,8 @@
 #include <sys/memory.h>
 
 #include <fs/super_block.h>
-#include <sys/threads.h>
 #include <sys/int.h>
+#include <sys/threads.h>
 
 #define HAS_INODE(inode, nr) ((inode).i_num == (nr))
 
@@ -110,6 +110,12 @@ static struct inode *find_open_inode(struct list_head *list, uint_32 inode_nr)
 }
 struct inode *inode_open(struct partition *part, uint_32 inode_nr)
 {
+    // 0.Test part is mounted partition
+    ASSERT(part->sb);
+    if (!part->sb) {
+        PAINC("Not a mounted partition.");
+    }
+
     // 1. lookup open_inode at partition if there is a inode number match
     //    inode_nr return it.
     struct inode *target = find_open_inode(&part->open_inodes, inode_nr);
@@ -133,8 +139,7 @@ struct inode *inode_open(struct partition *part, uint_32 inode_nr)
 
         uint_8 *buf = sys_malloc(read_sz * SECTOR_SIZE);
         ide_read(part->my_disk, pos.start_lba, buf, read_sz);
-        memcpy(target, buf, sizeof(struct inode));
-        target = (struct inode *) (buf + pos.offset);
+        memcpy(target, buf+pos.offset, sizeof(struct inode));
         target->i_nlinks += 1;
 
         list_add(&target->inode_tag, &part->open_inodes);
@@ -152,11 +157,12 @@ struct inode *inode_open(struct partition *part, uint_32 inode_nr)
  * @param inode_nr inode number
  * @return void
  *****************************************************************************/
-void inode_close(struct inode *inode) {
+void inode_close(struct inode *inode)
+{
     enum intr_status old_status = intr_disable();
-    if(--inode->i_nlinks == 0){
+    if (--inode->i_nlinks == 0) {
         list_del_init(&inode->inode_tag);
-        //free kernel memory
+        // free kernel memory
         TCB_t *cur = running_thread();
         uint_32 *cur_pagedir_bak = cur->pgdir;
         cur->pgdir = NULL;
@@ -175,12 +181,13 @@ void inode_close(struct inode *inode) {
  * @param new_inode returned inode
  * @return void
  *****************************************************************************/
-void inode_new(uint_32 inode_nr, struct inode *new_inode) {
+void inode_new(uint_32 inode_nr, struct inode *new_inode)
+{
     new_inode->i_num = inode_nr;
     new_inode->i_size = 0;
     new_inode->i_nlinks = 0;
     new_inode->i_lock = false;
-    for(int i=0; i < 12; i++){
+    for (int i = 0; i < 12; i++) {
         new_inode->i_zones[i] = 0;
     }
 }
