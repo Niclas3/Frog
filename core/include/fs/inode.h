@@ -23,7 +23,12 @@ struct inode {
     uint_32 i_mtime;          // modified time (from 1970.1.1:00:00:00, seconds)
     uint_8  i_gid;            // file owner's group id
     uint_8  i_nlinks;         // links number. (how many directories link in this inode)
-    // TODO: 
+    /*
+     * TODO:
+     *  i_zones[0] - i_zones[11] all 12 zones for direct access
+     *  i_zones[12] secondary access
+     *
+     * */
     uint_32 i_zones[13];      // start address in lba
     uint_32 i_atime;          // last access time
     uint_32 i_ctime;          // inode self modified time
