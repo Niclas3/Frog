@@ -11,7 +11,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/usr.o $(BUILD_DIR)/systask.o $(BUILD_DIR)/syscall-init.o \
 	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o $(BUILD_DIR)/list.o\
 	 $(BUILD_DIR)/ipc.o \
-	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o \
+	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o\
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o \
          $(BUILD_DIR)/panic.o \
@@ -78,6 +78,9 @@ $(BUILD_DIR)/inode.o:
 
 $(BUILD_DIR)/fs_c.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find fs -type f -name "fs.c")
+
+$(BUILD_DIR)/file.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find fs -type f -name "file.c")
 
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")

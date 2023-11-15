@@ -364,7 +364,7 @@ static uint_32 get_dpt(struct disk *hd,
  * @return return 0 represent the last entry
  *****************************************************************************/
 
-uint_32 g_ext_base_offset = 0;  // in lba type
+static uint_32 g_ext_base_offset = 0;  // in lba type
 static uint_32 next_dpt(struct disk *hd,
                         struct partition_table_entry *entries,
                         struct partition_table_entry *next)
