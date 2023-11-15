@@ -33,6 +33,7 @@
 #include <fs/fs.h>
 #include <fs/inode.h>
 #include <fs/file.h>
+#include <fs/dir.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -54,6 +55,7 @@ extern struct list_head partition_list;  // partition list
 extern struct ide_channel channels[2];   // 2 different channels
 extern struct partition mounted_part;    // the partition what we want to mount.
 extern struct file g_file_table[];
+extern struct dir root; // root directory
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -96,6 +98,7 @@ void UkiMain(void)
     fs_init();
 
     occupy_file_table_slot();
+    open_root_dir(&mounted_part);
 
     /* struct inode *inode = inode_open(&mounted_part, 0); */
     /* inode_close(inode); */
