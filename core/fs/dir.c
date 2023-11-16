@@ -65,6 +65,9 @@ int_32 search_dir_entry(struct partition *part,
     }
 
     // there are 140 lba address
+    // Go through all lba address sector by sector. 1 sector has
+    // 512/sizeof(struct dir_entry) dir_entries. Testing all dir_entries find
+    // entry name equals given name.
     uint_8 *buf = sys_malloc(512);
     for (int i = 0; i < 140; i++) {
         uint_32 d_entry_lba = all_zones[i];
@@ -73,12 +76,12 @@ int_32 search_dir_entry(struct partition *part,
         struct dir_entry *entries = (struct dir_entry *) buf;
         for (int entry_idx = 0; entry_idx < (512 / sizeof(struct dir_entry));
              entry_idx++) {
-            struct dir_entry entry = *(entries+entry_idx);
-            if(strncmp(entry.filename, name, strlen(name))){
+            struct dir_entry entry = *(entries + entry_idx);
+            if (!strncmp(entry.filename, name, strlen(name))) {
                 memcpy(target_entry, &entry, sizeof(struct dir_entry));
                 sys_free(all_zones);
                 return 0;
-            } else if(strlen(entry.filename)<=0){
+            } else if (strlen(entry.filename) <= 0) {
                 break;
             }
         }
@@ -120,7 +123,7 @@ void dir_close(struct dir *d)
  * @param param write here param Comments write here
  * @return return Comments write here
  *****************************************************************************/
-void new_dir_entry(struct dir_entry *entry, char *name, uint_32 inode_nr)
+void new_dir_entry(char *name, uint_32 inode_nr, struct dir_entry *entry)
 {
     uint_32 nlen = strlen(name);
     ASSERT(nlen < MAX_FILE_NAME_LEN);

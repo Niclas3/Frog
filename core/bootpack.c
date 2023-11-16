@@ -55,7 +55,7 @@ extern struct list_head partition_list;  // partition list
 extern struct ide_channel channels[2];   // 2 different channels
 extern struct partition mounted_part;    // the partition what we want to mount.
 extern struct file g_file_table[];
-extern struct dir root; // root directory
+extern struct dir root_dir; // root directory
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -97,8 +97,18 @@ void UkiMain(void)
 
     fs_init();
 
-    occupy_file_table_slot();
     open_root_dir(&mounted_part);
+    struct dir_entry *first_entry = sys_malloc(sizeof(struct dir_entry));
+    new_dir_entry("test_dir", 1, first_entry);
+    struct dir *d = dir_open(&mounted_part, 1);
+
+    struct dir_entry *entry;
+    int_32 is_failed = search_dir_entry(&mounted_part, ".", &root_dir, entry);
+    int_32 root_is_failed = search_dir_entry(&mounted_part, "..", &root_dir, entry);
+    int_32 test_dir_is_failed = search_dir_entry(&mounted_part, "/", &root_dir, entry);
+    if(!is_failed){
+        char *name = entry->filename;
+    }
 
     /* struct inode *inode = inode_open(&mounted_part, 0); */
     /* inode_close(inode); */
