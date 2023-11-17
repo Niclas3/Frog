@@ -35,7 +35,7 @@ struct list_head {
  * @type: type of member
  * @member: member name
  * */
-#define offsetof(type, member) ((uint_32) & ((type *) 0)->member)
+#define offsetof(type, member) ((uint_32) &((type *) 0)->member)
 
 /**
  * container_of() - Calculate address of structure that contains address ptr
