@@ -30,7 +30,9 @@ b UkiMain
 # b fs.c:64
 # b fs.c:222
 # b fs.c: 159
+b bootpack.c:98
 b bootpack.c:106
+b dir.c:156
 # b inode.c:140
 # b fs.c:67
 # b fs.c:191

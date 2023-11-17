@@ -100,15 +100,9 @@ void UkiMain(void)
     open_root_dir(&mounted_part);
     struct dir_entry *first_entry = sys_malloc(sizeof(struct dir_entry));
     new_dir_entry("test_dir", 1, first_entry);
-    struct dir *d = dir_open(&mounted_part, 1);
 
-    struct dir_entry *entry;
-    int_32 is_failed = search_dir_entry(&mounted_part, ".", &root_dir, entry);
-    int_32 root_is_failed = search_dir_entry(&mounted_part, "..", &root_dir, entry);
-    int_32 test_dir_is_failed = search_dir_entry(&mounted_part, "/", &root_dir, entry);
-    if(!is_failed){
-        char *name = entry->filename;
-    }
+    uint_32* io_buf = sys_malloc(512);
+    uint_32 status = flush_dir_entry(&mounted_part, &root_dir, first_entry, io_buf);
 
     /* struct inode *inode = inode_open(&mounted_part, 0); */
     /* inode_close(inode); */
@@ -280,6 +274,6 @@ void u_fune(int a)
 }
 
 void u_fung(int a){
-    struct inode *inode = inode_open(&mounted_part, 0);
-    inode_close(inode);
+    /* struct inode *inode = inode_open(&mounted_part, 0); */
+    /* inode_close(inode); */
 }
