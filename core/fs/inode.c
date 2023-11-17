@@ -98,8 +98,8 @@ static void flush_inode(struct partition *part,
 static struct inode *find_open_inode(struct list_head *list, uint_32 inode_nr)
 {
     struct inode *target;
-    struct list_head *cur = list;
-    while (cur->next != list) {
+    struct list_head *cur = list->next;
+    while (cur != list) {
         target = container_of(cur, struct inode, inode_tag);
         if (target->i_num == inode_nr) {
             return target;
