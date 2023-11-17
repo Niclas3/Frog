@@ -79,7 +79,7 @@ int_32 inode_bitmap_alloc(struct partition *part)
  * @param part partition which is mounted at fs_init
  * @return return zone address in lba
  *****************************************************************************/
-int_32 zone_bitmap_alloc(struct partition *part)
+uint_32 zone_bitmap_alloc(struct partition *part)
 {
     int_32 idx = find_block_bitmap(&part->zone_bitmap, 1);
     if (idx == -1) {
