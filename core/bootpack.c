@@ -97,15 +97,14 @@ void UkiMain(void)
 
     fs_init();
 
-    open_root_dir(&mounted_part);
-    struct dir_entry *first_entry = sys_malloc(sizeof(struct dir_entry));
-    new_dir_entry("test_dir", 1, first_entry);
+    path_depth("/home/zm/Development/C/test.c");
 
-    uint_32* io_buf = sys_malloc(512);
-    uint_32 status = flush_dir_entry(&mounted_part, &root_dir, first_entry, io_buf);
-
-    /* struct inode *inode = inode_open(&mounted_part, 0); */
-    /* inode_close(inode); */
+    /* open_root_dir(&mounted_part); */
+    /* struct dir_entry *first_entry = sys_malloc(sizeof(struct dir_entry)); */
+    /* new_dir_entry("test_dir", 1, first_entry); */
+    /*  */
+    /* uint_32* io_buf = sys_malloc(512); */
+    /* uint_32 status = flush_dir_entry(&mounted_part, &root_dir, first_entry, io_buf); */
 
     int pysize = 16;
     int pxsize = 16;

@@ -1,5 +1,7 @@
 #ifndef __FS_FS
 #define __FS_FS
+#include <fs/fcntl.h>
+#include <ostype.h>
 
 #define MAX_FILES_PER_PARTITION 4096
 
@@ -10,7 +12,9 @@
 //sector size is 512 bytes
 #define SECTOR_SIZE 512
 #define ZONE_SIZE SECTOR_SIZE
-struct disk;
+// struct disk;
+
+extern struct partition mounted_part;  // the partition what we want to mount.
 
 enum file_type{
     FT_UNKOWN=0,
@@ -28,4 +32,5 @@ enum exec_mode{
 };
 
 void fs_init(void);
+int_32 path_depth(char *path);
 #endif

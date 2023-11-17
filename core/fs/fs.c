@@ -4,6 +4,7 @@
 #include <fs/super_block.h>
 
 #include <device/ide.h>
+#include <fs/file.h>
 #include <math.h>
 #include <string.h>
 #include <sys/memory.h>
@@ -14,6 +15,7 @@
 extern struct ide_channel channels[2];  // 2 different channels
 extern uint_8 channel_cnt;
 extern struct list_head partition_list;  // partition list
+extern struct file g_file_table[MAX_FILE_OPEN];
 
 struct partition mounted_part;  // the partition what we want to mount.
 
@@ -126,8 +128,8 @@ static void partition_format(struct partition *part)
     struct inode *i = (struct inode *) buf;
     i->i_size = sb.dir_entry_size * 2;  // directory . and ..
     i->i_num = 0;                       // the root directory
-    //TODO: need inode mode mask
-    //      like exec_mode and access right bits
+    // TODO: need inode mode mask
+    //       like exec_mode and access right bits
     i->i_mode = FT_DIRECTORY << 11;
     i->i_zones[0] = sb.s_data_start_lba;
     ide_write(part->my_disk, sb.s_inode_table_lba, buf, sb.s_inode_table_sz);
@@ -243,4 +245,69 @@ void fs_init(void)
     if (!list_is_empty(&partition_list)) {
         list_walker(&partition_list, mount_partition, (int) default_p);
     }
+    // Open root directory
+    open_root_dir(&mounted_part);
+
+    // Init g_file_table all inode pointer
+    for (int i = 0; i < MAX_FILE_OPEN; i++) {
+        g_file_table[i].fd_inode = NULL;
+    }
+}
+
+
+/**
+ * path_peel
+ *
+ * need pass copy of path
+ *
+ * divide path into `directory` + `file`
+ * e.g ready path: `/home/tom/Desktop/city.img`
+ *     break down to parts: `/home/tom/Desktop/` and `city.img`
+ * like a reverse version (from tail) `car`
+ *
+ * @param whole_path path ready to be peeled
+ * @param last_name last file(or directory) name
+ * @return anther path without last_name
+ *****************************************************************************/
+static char *path_peel(char *path, char *last_name)
+{
+    // 1. test if path is valid path
+    uint_32 path_len = strlen(path);
+    char *cursor = path;
+    char *last_slash;
+    while (*cursor != '\0') {
+        if (*cursor == '/') {
+            last_slash = cursor;
+        }
+        cursor++;
+    }
+    uint_32 res_len = last_slash - path + 1; // +1 for over '/'
+    uint_32 name_len = path_len - res_len;
+    memcpy(last_name, path + res_len, name_len);
+    path[res_len] = '\0';
+    return path;
+}
+
+/**
+ * path_depth
+ *
+ * @param path a path
+ * @return path depth number
+ *****************************************************************************/
+int_32 path_depth(char *path)
+{
+    char name[20] = {0};
+    path_peel(path, name);
+    return 0;
+}
+
+/**
+ * Search file from root directory and return inode
+ *
+ * @param file_name searched file name
+ * @return target inode
+ *****************************************************************************/
+static int_32 search_file(const char *file_name)
+{
+    return 0;
 }
