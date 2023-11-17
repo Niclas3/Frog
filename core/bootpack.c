@@ -97,8 +97,9 @@ void UkiMain(void)
 
     fs_init();
 
-    /* path_depth("/home/zm/Development/C/test.c"); */
-    path_depth("/");
+    uint_32 depth = path_depth("/home/zm/Development/C/test");
+    uint_32 depth2 = path_depth("/home/zm/Development/C/test/");
+    uint_32 depth1 = path_depth("/");
 
     /* open_root_dir(&mounted_part); */
     /* struct dir_entry *first_entry = sys_malloc(sizeof(struct dir_entry)); */

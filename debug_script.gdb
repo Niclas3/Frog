@@ -33,7 +33,7 @@ b UkiMain
 # b bootpack.c:98
 b bootpack.c:100
 # b dir.c:156
-b path_peel
+b path_depth
 
 # b inode.c:140
 # b fs.c:67

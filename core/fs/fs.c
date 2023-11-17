@@ -278,7 +278,8 @@ static char *path_peel(char *path, char *last_name)
     char *cursor = path;
     char *last_slash;
     while (*cursor != '\0') {
-        if (*cursor == '/') {
+        if (*cursor == '/' &&
+            cursor-path != path_len-1) {
             last_slash = cursor;
         }
         cursor++;
@@ -292,19 +293,27 @@ static char *path_peel(char *path, char *last_name)
 
 /**
  * path_depth
+ * e.g path: `/home/tom/Desktop/city.img`
+ *     depth: 4
  *
  * @param path a path
  * @return path depth number
  *****************************************************************************/
 int_32 path_depth(char *path)
 {
-    char name[20] = {0};
+    if(strlen(path) == 0) return 0;
+    char name[MAX_FILE_NAME_LEN] = {0};
     char *tmp_path = sys_malloc(strlen(path));
     memcpy(tmp_path, path, strlen(path));
-    char *p_path = path_peel(tmp_path, name);
-
+    char *p_path;
+    p_path = path_peel(tmp_path, name);
+    uint_32 depth = 1;
+    while(strcmp(p_path, "/")){
+        p_path = path_peel(p_path, name);
+        depth++;
+    }
     sys_free(tmp_path);
-    return 0;
+    return depth;
 }
 
 /**
