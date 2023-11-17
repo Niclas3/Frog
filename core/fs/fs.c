@@ -271,6 +271,8 @@ void fs_init(void)
  *****************************************************************************/
 static char *path_peel(char *path, char *last_name)
 {
+    if(strlen(path) == 0) return NULL;
+    if(strlen(path) == 1 && !strcmp("/", path)) return path;
     // 1. test if path is valid path
     uint_32 path_len = strlen(path);
     char *cursor = path;
@@ -297,7 +299,11 @@ static char *path_peel(char *path, char *last_name)
 int_32 path_depth(char *path)
 {
     char name[20] = {0};
-    path_peel(path, name);
+    char *tmp_path = sys_malloc(strlen(path));
+    memcpy(tmp_path, path, strlen(path));
+    char *p_path = path_peel(tmp_path, name);
+
+    sys_free(tmp_path);
     return 0;
 }
 
