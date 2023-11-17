@@ -27,4 +27,9 @@ int_32 search_dir_entry(struct partition *part,
 struct dir *dir_open(struct partition *part, uint_32 inode_nr);
 void dir_close(struct dir *d);
 void new_dir_entry(char *name, uint_32 inode_nr, struct dir_entry *entry);
+
+int_32 flush_dir_entry(struct partition *part,
+                       struct dir *p_dir,
+                       struct dir_entry *new_entry,
+                       void *io_buf);
 #endif
