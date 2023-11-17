@@ -140,9 +140,11 @@ static void partition_format(struct partition *part)
     struct dir_entry *d_entry = (struct dir_entry *) buf;
     memcpy(d_entry->filename, ".", 1);
     d_entry->i_no = 0;
+    d_entry->f_type = FT_DIRECTORY;
     d_entry++;
     memcpy(d_entry->filename, "..", 2);
     d_entry->i_no = 0;
+    d_entry->f_type = FT_DIRECTORY;
 
     ide_write(part->my_disk, sb.s_data_start_lba, buf, 1);
 
@@ -271,20 +273,21 @@ void fs_init(void)
  *****************************************************************************/
 static char *path_peel(char *path, char *last_name)
 {
-    if(strlen(path) == 0) return NULL;
-    if(strlen(path) == 1 && !strcmp("/", path)) return path;
+    if (strlen(path) == 0)
+        return NULL;
+    if (strlen(path) == 1 && !strcmp("/", path))
+        return path;
     // 1. test if path is valid path
     uint_32 path_len = strlen(path);
     char *cursor = path;
     char *last_slash;
     while (*cursor != '\0') {
-        if (*cursor == '/' &&
-            cursor-path != path_len-1) {
+        if (*cursor == '/' && cursor - path != path_len - 1) {
             last_slash = cursor;
         }
         cursor++;
     }
-    uint_32 res_len = last_slash - path + 1; // +1 for over '/'
+    uint_32 res_len = last_slash - path + 1;  // +1 for over '/'
     uint_32 name_len = path_len - res_len;
     memcpy(last_name, path + res_len, name_len);
     path[res_len] = '\0';
@@ -301,14 +304,15 @@ static char *path_peel(char *path, char *last_name)
  *****************************************************************************/
 int_32 path_depth(char *path)
 {
-    if(strlen(path) == 0) return 0;
+    if (strlen(path) == 0)
+        return 0;
     char name[MAX_FILE_NAME_LEN] = {0};
     char *tmp_path = sys_malloc(strlen(path));
     memcpy(tmp_path, path, strlen(path));
     char *p_path;
     p_path = path_peel(tmp_path, name);
     uint_32 depth = 1;
-    while(strcmp(p_path, "/")){
+    while (strcmp(p_path, "/")) {
         p_path = path_peel(p_path, name);
         depth++;
     }
@@ -317,12 +321,64 @@ int_32 path_depth(char *path)
 }
 
 /**
- * Search file from root directory and return inode
+ * Search file from directory and return inode number
  *
- * @param file_name searched file name
+ * @param this_dir search at this dir
+ * @param name searched file name
  * @return target inode
+ *         if failed return -1
  *****************************************************************************/
-static int_32 search_file(const char *file_name)
+int_32 search_file(struct partition *part,
+                   struct dir *this_dir,
+                   const char *name)
 {
-    return 0;
+    // Read this_dir->inode->i_zones[] for all dir_entry and dig into directory
+    // at this_dir
+    // 1. read p_dir from disk by p_dir.inode
+    uint_32 all_zones[140] = {0};
+    // First 12 i_zones[] elements is direct address of data (aka dir_entry)
+    for (int i = 0; i < 12; i++) {
+        all_zones[i] = this_dir->inode->i_zones[i];
+    }
+    // the 13th i_zones[] is a in-direct table which size is 512 bytes
+    if (this_dir->inode->i_zones[12]) {
+        uint_32 *buf = (uint_32 *) sys_malloc(512);
+        ide_read(part->my_disk, this_dir->inode->i_zones[12], buf, 1);
+        for (int i = 0; i < 512 / 4; i++) {
+            all_zones[12 + i] = buf[i];
+        }
+        sys_free(buf);
+    }
+
+    struct dir_entry *entries_buf = sys_malloc(512);
+    for (int zones_idx = 0; zones_idx < 140; zones_idx++) {
+        ide_read(part->my_disk, all_zones[zones_idx], entries_buf, 1);
+        for (int entry_idx = 0; entry_idx < (512 / sizeof(struct dir_entry));
+             entry_idx++) {
+            struct dir_entry cur_entry = entries_buf[entry_idx];
+            // Skip directory '.' and '..'
+            if (strcmp(cur_entry.filename, ".") == 0 ||
+                strcmp(cur_entry.filename, "..") == 0) {
+                continue;
+            }
+            if (cur_entry.i_no == 0 && cur_entry.f_type == FT_UNKOWN) {
+                sys_free(entries_buf);
+                return -1;
+            }
+            if (cur_entry.f_type == FT_DIRECTORY) {
+                struct dir *sub_d = dir_open(part, entries_buf[entry_idx].i_no);
+                int_32 inode_nr = search_file(part, sub_d, name);
+                sys_free(entries_buf);
+                return inode_nr;
+            } else if (cur_entry.f_type == FT_REGULAR) {
+                if (strcmp(cur_entry.filename, name) == 0) {
+                    sys_free(entries_buf);
+                    return cur_entry.i_no;
+                }
+            }
+        }
+    }
+
+    sys_free(entries_buf);
+    return -1;
 }

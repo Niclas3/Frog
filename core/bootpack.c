@@ -27,13 +27,13 @@
 #include <sys/syscall.h>
 #include <sys/threads.h>
 
+#include <fs/dir.h>
+#include <fs/file.h>
+#include <fs/fs.h>
+#include <fs/inode.h>
 #include <string.h>
 #include <sys/fstask.h>
 #include <sys/systask.h>
-#include <fs/fs.h>
-#include <fs/inode.h>
-#include <fs/file.h>
-#include <fs/dir.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -55,7 +55,7 @@ extern struct list_head partition_list;  // partition list
 extern struct ide_channel channels[2];   // 2 different channels
 extern struct partition mounted_part;    // the partition what we want to mount.
 extern struct file g_file_table[];
-extern struct dir root_dir; // root directory
+extern struct dir root_dir;  // root directory
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -97,16 +97,18 @@ void UkiMain(void)
 
     fs_init();
 
-    uint_32 depth = path_depth("/home/zm/Development/C/test");
-    uint_32 depth2 = path_depth("/home/zm/Development/C/test/");
-    uint_32 depth1 = path_depth("/");
+    /* uint_32 depth = path_depth("/home/zm/Development/C/test"); */
+    /* uint_32 depth2 = path_depth("/home/zm/Development/C/test/"); */
+    /* uint_32 depth1 = path_depth("/"); */
+    int_32 is_exist = search_file(&mounted_part, &root_dir, "test");
 
     /* open_root_dir(&mounted_part); */
     /* struct dir_entry *first_entry = sys_malloc(sizeof(struct dir_entry)); */
     /* new_dir_entry("test_dir", 1, first_entry); */
     /*  */
     /* uint_32* io_buf = sys_malloc(512); */
-    /* uint_32 status = flush_dir_entry(&mounted_part, &root_dir, first_entry, io_buf); */
+    /* uint_32 status = flush_dir_entry(&mounted_part, &root_dir, first_entry,
+     * io_buf); */
 
     int pysize = 16;
     int pxsize = 16;
@@ -274,7 +276,8 @@ void u_fune(int a)
     }
 }
 
-void u_fung(int a){
+void u_fung(int a)
+{
     /* struct inode *inode = inode_open(&mounted_part, 0); */
     /* inode_close(inode); */
 }

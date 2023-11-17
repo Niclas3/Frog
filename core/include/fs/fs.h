@@ -12,7 +12,8 @@
 //sector size is 512 bytes
 #define SECTOR_SIZE 512
 #define ZONE_SIZE SECTOR_SIZE
-// struct disk;
+
+struct dir;
 
 extern struct partition mounted_part;  // the partition what we want to mount.
 
@@ -33,4 +34,7 @@ enum exec_mode{
 
 void fs_init(void);
 int_32 path_depth(char *path);
+int_32 search_file(struct partition *part,
+                          struct dir *this_dir,
+                          const char *name);
 #endif
