@@ -1,6 +1,7 @@
 #ifndef __FS_DIR
 #define __FS_DIR
 
+#include <fs/fs.h>
 #include <ostype.h>
 
 #define MAX_FILE_NAME_LEN 16
@@ -16,6 +17,7 @@ struct dir {
 struct dir_entry {
     char filename[MAX_FILE_NAME_LEN];
     uint_32 i_no;
+    enum file_type f_type;
 };
 
 void open_root_dir(struct partition *part);
@@ -26,7 +28,11 @@ int_32 search_dir_entry(struct partition *part,
 
 struct dir *dir_open(struct partition *part, uint_32 inode_nr);
 void dir_close(struct dir *d);
-void new_dir_entry(char *name, uint_32 inode_nr, struct dir_entry *entry);
+
+void new_dir_entry(char *name,
+                   uint_32 inode_nr,
+                   enum file_type file_type,
+                   struct dir_entry *entry);
 
 int_32 flush_dir_entry(struct partition *part,
                        struct dir *p_dir,
