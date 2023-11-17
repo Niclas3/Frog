@@ -368,6 +368,7 @@ int_32 search_file(struct partition *part,
             if (cur_entry.f_type == FT_DIRECTORY) {
                 struct dir *sub_d = dir_open(part, entries_buf[entry_idx].i_no);
                 int_32 inode_nr = search_file(part, sub_d, name);
+                dir_close(sub_d);
                 sys_free(entries_buf);
                 return inode_nr;
             } else if (cur_entry.f_type == FT_REGULAR) {
