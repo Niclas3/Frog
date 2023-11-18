@@ -66,8 +66,6 @@ int mouse_decode(struct mouse_raw_data *mdata, uint_8 code){
  * Interrupt handler for PS/2 mouse
  **/
 void inthandler2C(void){
-    _io_out8(PIC1_OCW2, PIC_EOI_IRQ12); // tell slave  IRQ12 is finish
-    _io_out8(PIC0_OCW2, PIC_EOI_IRQ2); // tell master IRQ2 is finish
 
     char code = _io_in8(PORT_KEYDATE) ;
 //TODO: Need upgrade ioqueue to general type, it need heap stack memory 
