@@ -169,28 +169,28 @@ static bool mount_partition(struct list_head *ele, int arg)
     ASSERT(sb->s_magic == 0x2023b07a);
     mounted_part.sb = sb;
     mounted_part.my_disk = part->my_disk;
-    /* mounted_part.start_lba = part->start_lba; */
-    /* mounted_part.sec_cnt = part->sec_cnt; */
+    mounted_part.start_lba = part->start_lba;
+    mounted_part.sec_cnt = part->sec_cnt;
 
     // 1.create zone  bitmap
     uint_8 *zbm_bits = sys_malloc(sb->s_zmap_sz * SECTOR_SIZE);
     if (!zbm_bits) {
         PAINC("Not enough memory");
     }
-    ide_read(part->my_disk, sb->s_zmap_lba, zbm_bits, sb->s_zmap_sz);
-    init_bitmap(&mounted_part.zone_bitmap);
+    mounted_part.zone_bitmap.map_bytes_length = sb->s_zmap_sz * SECTOR_SIZE;
     mounted_part.zone_bitmap.bits = zbm_bits;
-    mounted_part.zone_bitmap.map_bytes_length = sb->s_zmap_lba * SECTOR_SIZE;
+    init_bitmap(&mounted_part.zone_bitmap);
+    ide_read(part->my_disk, sb->s_zmap_lba, zbm_bits, sb->s_zmap_sz);
 
     // 2.create inode bitmap
     uint_8 *ibm_bits = sys_malloc(sb->s_imap_sz * SECTOR_SIZE);
     if (!ibm_bits) {
         PAINC("Not enough memory");
     }
-    ide_read(part->my_disk, sb->s_imap_lba, ibm_bits, sb->s_imap_sz);
-    init_bitmap(&mounted_part.inode_bitmap);
-    mounted_part.inode_bitmap.bits = ibm_bits;
     mounted_part.inode_bitmap.map_bytes_length = sb->s_imap_sz * SECTOR_SIZE;
+    mounted_part.inode_bitmap.bits = ibm_bits;
+    init_bitmap(&mounted_part.inode_bitmap);
+    ide_read(part->my_disk, sb->s_imap_lba, ibm_bits, sb->s_imap_sz);
 
     // init open inode
 
@@ -321,7 +321,8 @@ int_32 path_depth(char *path)
 }
 
 /**
- * Search file from directory and return inode number
+ * Search file which name is `name` from directory and return inode number
+ *
  *
  * @param this_dir search at this dir
  * @param name searched file name
