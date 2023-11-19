@@ -53,7 +53,7 @@ static void locale_inode(struct partition *part,
  *
  * @return return Comments write here
  *****************************************************************************/
-static void flush_inode(struct partition *part,
+void flush_inode(struct partition *part,
                         struct inode *inode,
                         void *io_buf)
 {
@@ -181,7 +181,7 @@ void inode_close(struct inode *inode)
  * @param new_inode returned inode
  * @return void
  *****************************************************************************/
-void inode_new(uint_32 inode_nr, struct inode *new_inode)
+void new_inode(uint_32 inode_nr, struct inode *new_inode)
 {
     new_inode->i_num = inode_nr;
     new_inode->i_size = 0;

@@ -55,6 +55,9 @@ struct inode {
 
 struct inode *inode_open(struct partition *part, uint_32 inode_nr);
 void inode_close(struct inode *inode);
-void inode_new(uint_32 inode_nr, struct inode* new_inode);
+void new_inode(uint_32 inode_nr, struct inode* new_inode);
+void flush_inode(struct partition *part,
+                        struct inode *inode,
+                        void *io_buf);
 
 #endif
