@@ -2,6 +2,7 @@
 #define __FS_FILE_H
 #include <ostype.h>
 struct partition;
+struct dir;
 struct file{
     // offset of this file 
     uint_32 fd_pos;
@@ -30,4 +31,9 @@ uint_32 zone_bitmap_alloc(struct partition *part);
 void flush_bitmap(struct partition *part,
                   enum bitmap_type b_type,
                   int_32 bit_idx);
+
+int_32 file_create(struct partition *part,
+                   struct dir *parent_d,
+                   char *name,
+                   uint_32 flag);
 #endif

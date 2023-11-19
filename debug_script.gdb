@@ -30,10 +30,14 @@ b UkiMain
 # b fs.c:64
 # b fs.c:222
 # b fs.c: 159
-# b bootpack.c:98
-b bootpack.c:100
+b bootpack.c:98
+# b inode_bitmap_alloc
+b file.c:218
+b install_thread_fd
+# b init_bitmap
+# b bootpack.c:93
 # b dir.c:156
-b path_depth
+# b path_depth
 
 # b inode.c:140
 # b fs.c:67

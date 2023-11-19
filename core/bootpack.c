@@ -95,7 +95,7 @@ void UkiMain(void)
     ide_init();
 
     fs_init();
-    /* int_32 fd = file_create(&mounted_part, &root_dir, "test.txt", O_CREAT); */
+    int_32 fd = file_create(&mounted_part, &root_dir, "test.txt", O_CREAT);
 
     /* uint_32 depth = path_depth("/home/zm/Development/C/test"); */
     /* uint_32 depth2 = path_depth("/home/zm/Development/C/test/"); */
