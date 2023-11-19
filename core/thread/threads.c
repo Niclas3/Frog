@@ -72,11 +72,11 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
     thread->fd_table[0] = 0;
     thread->fd_table[1] = 1;
     thread->fd_table[2] = 2;
-    uint_8 fd_idx = MAX_FILES_OPEN_PER_PROC-3;
-    while(fd_idx){
+    uint_8 fd_idx = 3;// MAX_FILES_OPEN_PER_PROC-3;
+    while(fd_idx < MAX_FILES_OPEN_PER_PROC){
         // -1 represents available file description
         thread->fd_table[fd_idx] = -1;
-        fd_idx--;
+        fd_idx++;
     }
 
     thread->tid = allocate_tid();
