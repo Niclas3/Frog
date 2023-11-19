@@ -12,6 +12,7 @@ struct dir root_dir;  // global variable for root directory
 
 /**
  * open root directory
+ * only open one time.
  *
  * Load root inode to memory
  *
@@ -22,7 +23,9 @@ void open_root_dir(struct partition *part)
 {
     root_dir.inode = inode_open(part, 0);
     root_dir.dir_pos = 0;  // number 1 directory of all directory
+    memset(root_dir.dir_buf, 0, sizeof(root_dir.dir_buf));
 }
+
 
 /**
  * Search dir_entry (file or directory or ...) by name at given directory
