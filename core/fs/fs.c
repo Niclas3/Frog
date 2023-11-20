@@ -560,6 +560,10 @@ int_32 sys_open(const char *pathname, uint_8 flags)
         fd = file_create(&mounted_part, next_dir, last_name, flags);
         dir_close(next_dir);
         break;
+    default:
+        /*when flags is O_RDWR, O_RDONLY, O_WRONLY */
+        fd = file_open(&mounted_part, file_inode, flags);
+        break;
     }
 
     return fd;
