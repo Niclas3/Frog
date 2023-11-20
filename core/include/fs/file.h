@@ -38,4 +38,5 @@ int_32 file_create(struct partition *part,
                    uint_32 flag);
 
 int_32 file_open(struct partition *part, uint_32 inode_nr, uint_8 flags);
+int_32 file_close(struct file *file);
 #endif

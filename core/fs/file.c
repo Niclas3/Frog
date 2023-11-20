@@ -272,3 +272,20 @@ int_32 file_open(struct partition *part, uint_32 inode_nr, uint_8 flags)
     }
     return install_thread_fd(gidx);
 }
+
+/**
+ * close a file
+ *
+ * @param file 
+ * @return -1 when failed
+ *          0 when success
+ *****************************************************************************/
+int_32 file_close(struct file *file){
+    if(file == NULL) {
+        return -1;
+    }
+    file->fd_inode->i_lock = false;
+    inode_close(file->fd_inode);
+    file->fd_inode = NULL;
+    return 0;
+}
