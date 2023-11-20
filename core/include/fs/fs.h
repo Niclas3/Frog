@@ -33,8 +33,7 @@ enum exec_mode{
 };
 
 void fs_init(void);
-int_32 path_depth(char *path);
-int_32 search_file(struct partition *part,
-                          struct dir *this_dir,
-                          const char *name);
+int_32 path_depth(const char *path);
+
+int_32 sys_open(const char* pathname, uint_8 flags);
 #endif

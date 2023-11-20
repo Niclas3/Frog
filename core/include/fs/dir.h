@@ -7,6 +7,7 @@
 #define MAX_FILE_NAME_LEN 16
 
 struct partition;
+extern struct dir root_dir;  // global variable for root directory
 
 struct dir {
     struct inode *inode;

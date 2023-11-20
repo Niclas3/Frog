@@ -30,10 +30,15 @@ b UkiMain
 # b fs.c:64
 # b fs.c:222
 # b fs.c: 159
-b bootpack.c:98
+b bootpack.c:103
 # b inode_bitmap_alloc
 b file.c:218
-b install_thread_fd
+b fs.c:525
+b sys_open
+b path_dirs
+# b search_file
+# b path_peel
+# b install_thread_fd
 # b init_bitmap
 # b bootpack.c:93
 # b dir.c:156

@@ -230,7 +230,7 @@ void fs_init(void)
                 memset(buf, 0, SECTOR_SIZE);
 
                 // super block at 2nd sector of partition
-                ide_read(hd, part.start_lba+1, buf, 1);
+                ide_read(hd, part.start_lba + 1, buf, 1);
                 struct super_block *sb = (struct super_block *) buf;
                 if (sb->s_magic == 0x2023B07A) {
                     continue;
@@ -299,6 +299,7 @@ static char *path_peel(char *path, char *last_name)
     return path;
 }
 
+
 /**
  * path_depth
  * e.g path: `/home/tom/Desktop/city.img`
@@ -307,7 +308,7 @@ static char *path_peel(char *path, char *last_name)
  * @param path a path
  * @return path depth number
  *****************************************************************************/
-int_32 path_depth(char *path)
+int_32 path_depth(const char *path)
 {
     if (strlen(path) == 0)
         return 0;
@@ -326,6 +327,49 @@ int_32 path_depth(char *path)
 }
 
 /**
+ * Break a path into all level directories without root directory aka ("/")
+ *
+ * e.g  path : "/zm/Development/C/playground/code/test.txt",
+ * e.g  path1: "/zm/Development/C/playground/code/test/",
+ *  dirs: {
+ *          "zm/",
+ *          "Development/",
+ *          "C/",
+ *          "playground/",
+ *          "code/"
+ *        }
+ * @param path absolute path
+ * @param dirs write dir into this address sys_malloc() outside
+ * @return 0 when success
+ *         -1 when failed
+ *****************************************************************************/
+static int_32 path_dirs(const char *path, char *dirs)
+{
+    int_32 len = strlen(path);
+    char *tmp_path = sys_malloc(len);
+    if (!tmp_path) {
+        // TODO:
+        // kprint("Not enough memory at path_dir()");
+        return -1;
+    }
+    char *next_slot = dirs;
+    memcpy(tmp_path, path, len);
+
+    while (strcmp("/", tmp_path)) {
+        char last[MAX_FILE_NAME_LEN] = {0};
+        tmp_path = path_peel(tmp_path, last);
+        int_32 len = strlen(last);
+        if (last[len - 1] == '/') {
+            memcpy(next_slot, last, len);
+            next_slot += MAX_FILE_NAME_LEN;
+        }
+    }
+
+    sys_free(tmp_path);
+    return 0;
+}
+
+/**
  * Search file which name is `name` from directory and return inode number
  *
  *
@@ -334,6 +378,69 @@ int_32 path_depth(char *path)
  * @param name searched file name
  * @return target inode
  *         if failed return -1
+ *****************************************************************************/
+static int_32 search_file_recur(struct partition *part,
+                                struct dir *this_dir,
+                                const char *name)
+{
+    // Read this_dir->inode->i_zones[] for all dir_entry and dig into directory
+    // at this_dir
+    // 1. read p_dir from disk by p_dir.inode
+    uint_32 all_zones[140] = {0};
+    // First 12 i_zones[] elements is direct address of data (aka dir_entry)
+    for (int i = 0; i < 12; i++) {
+        all_zones[i] = this_dir->inode->i_zones[i];
+    }
+    // the 13th i_zones[] is a in-direct table which size is 512 bytes
+    if (this_dir->inode->i_zones[12]) {
+        uint_32 *buf = (uint_32 *) sys_malloc(512);
+        ide_read(part->my_disk, this_dir->inode->i_zones[12], buf, 1);
+        for (int i = 0; i < 512 / 4; i++) {
+            all_zones[12 + i] = buf[i];
+        }
+        sys_free(buf);
+    }
+
+    struct dir_entry *entries_buf = sys_malloc(512);
+    for (int zones_idx = 0; zones_idx < 140; zones_idx++) {
+        ide_read(part->my_disk, all_zones[zones_idx], entries_buf, 1);
+        for (int entry_idx = 0; entry_idx < (512 / sizeof(struct dir_entry));
+             entry_idx++) {
+            struct dir_entry cur_entry = entries_buf[entry_idx];
+            // Skip directory '.' and '..'
+            if (strcmp(cur_entry.filename, ".") == 0 ||
+                strcmp(cur_entry.filename, "..") == 0) {
+                continue;
+            }
+            if (cur_entry.i_no == 0 && cur_entry.f_type == FT_UNKOWN) {
+                sys_free(entries_buf);
+                return -1;
+            }
+            if (cur_entry.f_type == FT_DIRECTORY) {
+                struct dir *next_d =
+                    dir_open(part, entries_buf[entry_idx].i_no);
+                int_32 inode_nr = search_file_recur(part, next_d, name);
+                dir_close(next_d);
+                sys_free(entries_buf);
+                return inode_nr;
+            } else if (cur_entry.f_type == FT_REGULAR) {
+                if (strcmp(cur_entry.filename, name) == 0) {
+                    sys_free(entries_buf);
+                    return cur_entry.i_no;
+                }
+            }
+        }
+    }
+
+    sys_free(entries_buf);
+    return -1;
+}
+
+/**
+ * find file or directory in parent directory
+ *
+ * @param part partition
+ * @return inode
  *****************************************************************************/
 static int_32 search_file(struct partition *part,
                           struct dir *this_dir,
@@ -372,17 +479,9 @@ static int_32 search_file(struct partition *part,
                 sys_free(entries_buf);
                 return -1;
             }
-            if (cur_entry.f_type == FT_DIRECTORY) {
-                struct dir *sub_d = dir_open(part, entries_buf[entry_idx].i_no);
-                int_32 inode_nr = search_file(part, sub_d, name);
-                dir_close(sub_d);
+            if (strcmp(cur_entry.filename, name) == 0) {
                 sys_free(entries_buf);
-                return inode_nr;
-            } else if (cur_entry.f_type == FT_REGULAR) {
-                if (strcmp(cur_entry.filename, name) == 0) {
-                    sys_free(entries_buf);
-                    return cur_entry.i_no;
-                }
+                return cur_entry.i_no;
             }
         }
     }
@@ -390,15 +489,6 @@ static int_32 search_file(struct partition *part,
     sys_free(entries_buf);
     return -1;
 }
-
-/* static int_32 find_file(struct partition *part, char *pathname) { */
-/*     char *path = sys_malloc(strlen(pathname)); */
-/*     char last_name[MAX_FILE_NAME_LEN]; */
-/*     strcmp(pathname, path); */
-/*     char *p_dir_path = path_peel(path, last_name); */
-/*     #<{(| search_file_at_pdir(part, parent_dir, last_name); |)}># */
-/*     return -1; */
-/* } */
 
 /**
  * system fs api
@@ -411,19 +501,66 @@ static int_32 search_file(struct partition *part,
  *****************************************************************************/
 int_32 sys_open(const char *pathname, uint_8 flags)
 {
+    int_32 fd = -1;
     // 1. test path
+    // 2.test if this file is exist at `pathname` at struct dir_entry
     if ('/' == pathname[strlen(pathname) - 1]) {
         return -1;
     }
     char *path = sys_malloc(strlen(pathname));
     char last_name[MAX_FILE_NAME_LEN];
     memcpy(path, pathname, strlen(pathname));
+    path_peel(path, last_name);
 
-    char *p_dir_path = path_peel(path, last_name);
-    int_32 inode_nr = search_file(&mounted_part, &root_dir, last_name);
-    // 2.test if this file is exist at `pathname` at struct dir_entry
+    struct dir *next_dir = &root_dir;
+    char cur_name[MAX_FILE_NAME_LEN] = {0};
+
+    int_32 depth = path_depth(pathname);
+    char *dirs_path = sys_malloc(MAX_FILE_NAME_LEN * depth);
+    // Open file not at root directory directly
+    if (depth > 1) {
+        if (path_dirs(pathname, dirs_path)) {
+            return -1;
+        };
+
+        // 2. test all directories
+        //  -2 is skip '/' root directory and last file;
+        for (int_32 idx = (depth - 2) * MAX_FILE_NAME_LEN; idx >= 0;
+             idx -= MAX_FILE_NAME_LEN) {
+            memcpy(cur_name, dirs_path + idx, MAX_FILE_NAME_LEN);
+            int_32 d_inode = search_file(&mounted_part, next_dir, cur_name);
+            if (d_inode == -1) {
+                // TODO:
+                // kprint("file not find.");
+                dir_close(next_dir);
+                return -1;
+            }
+            dir_close(next_dir);  // dir_close() does not close root directory
+            next_dir = dir_open(&mounted_part, d_inode);
+            memset(cur_name, 0, MAX_FILE_NAME_LEN);
+        }
+        sys_free(dirs_path);
+    }
+    int_32 file_inode = search_file(&mounted_part, next_dir, last_name);
+    if ((file_inode == -1) && !(flags & O_CREAT)) {
+        // TODO:
+        // kprint("File not found and want to read file.");
+        dir_close(next_dir);
+        return -1;
+    } else if ((file_inode != -1) &&
+               (flags & O_CREAT)) {  // find and create a file
+        // TODO:
+        // kprint("File found and want to create same name file.");
+        dir_close(next_dir);
+        return -1;
+    }
     // 3.if it is exist, test if it is directory return -1
+    switch (flags & O_CREAT) {
+    case O_CREAT:
+        fd = file_create(&mounted_part, next_dir, last_name, flags);
+        dir_close(next_dir);
+        break;
+    }
 
-
-    return -1;
+    return fd;
 }

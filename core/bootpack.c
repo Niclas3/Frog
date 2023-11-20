@@ -69,6 +69,11 @@ void UkiMain(void)
                      .leds = 0,
                      .vmode = 0,
                      .reserve = 0};
+
+    lock_init(&main_lock);
+    init_ioqueue(&keyboard_queue);
+    init_ioqueue(&mouse_queue);
+
     init_idt_gdt_tss();
 
     mem_init();  // mem_init must early that thread_init beause thread_init need
@@ -85,9 +90,6 @@ void UkiMain(void)
 
     init_PIT8253();
 
-    lock_init(&main_lock);
-    init_ioqueue(&keyboard_queue);
-    init_ioqueue(&mouse_queue);
 
     init_palette();
     draw_backgrond(info.vram, info.scrnx, info.scrny);
@@ -95,7 +97,31 @@ void UkiMain(void)
     ide_init();
 
     fs_init();
-    int_32 fd = file_create(&mounted_part, &root_dir, "test.txt", O_CREAT);
+    /* int_32 fd = file_create(&mounted_part, &root_dir, "test.txt", O_CREAT); */
+
+    /* int_32 fd1 = sys_open("/test.txt", O_CREAT); */
+    int_32 fd2 = sys_open("/test1.txt", O_CREAT);
+    /* int_32 fd2 = sys_open("/zm/test.txt", O_CREAT); */
+    /* int_32 fd2 = sys_open( */
+    /*         "/zm/Development/C/playground/code/test.txt", */
+    /*         O_CREAT); */
+
+    /* char *table = { */
+    /*     "/", */
+    /*     "/zm/", */
+    /*     "/zm/Development/", */
+    /*     "/zm/Development/C/", */
+    /*     "/zm/Development/C/playground/", */
+    /*     "/zm/Development/C/playground/code/" */
+    /* }; */
+    /* { */
+    /*  "code/", */
+    /*  "playground/",  */
+    /*  "C/",  */
+    /*  "Development/",  */
+    /*  "zm/",  */
+    /* } */
+
 
     /* uint_32 depth = path_depth("/home/zm/Development/C/test"); */
     /* uint_32 depth2 = path_depth("/home/zm/Development/C/test/"); */
