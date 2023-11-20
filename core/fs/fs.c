@@ -1,4 +1,5 @@
 #include <fs/dir.h>
+#include <fs/fcntl.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
 #include <fs/super_block.h>
@@ -227,6 +228,9 @@ void fs_init(void)
                     part = hd->logic_partition[idx];
                 }
                 memset(buf, 0, SECTOR_SIZE);
+
+                /* // super block at 2nd sector of partition */
+                /* ide_read(hd, part.start_lba+1, buf, 1); */
                 ide_read(hd, part.start_lba, buf, 1);
                 struct super_block *sb = (struct super_block *) buf;
                 if (sb->s_magic == 0x2023B07A) {
@@ -289,7 +293,9 @@ static char *path_peel(char *path, char *last_name)
     }
     uint_32 res_len = last_slash - path + 1;  // +1 for over '/'
     uint_32 name_len = path_len - res_len;
+
     memcpy(last_name, path + res_len, name_len);
+    last_name[name_len] = '\0';
     path[res_len] = '\0';
     return path;
 }
@@ -324,14 +330,15 @@ int_32 path_depth(char *path)
  * Search file which name is `name` from directory and return inode number
  *
  *
+ * @param part mounted partition
  * @param this_dir search at this dir
  * @param name searched file name
  * @return target inode
  *         if failed return -1
  *****************************************************************************/
-int_32 search_file(struct partition *part,
-                   struct dir *this_dir,
-                   const char *name)
+static int_32 search_file(struct partition *part,
+                          struct dir *this_dir,
+                          const char *name)
 {
     // Read this_dir->inode->i_zones[] for all dir_entry and dig into directory
     // at this_dir
@@ -382,5 +389,42 @@ int_32 search_file(struct partition *part,
     }
 
     sys_free(entries_buf);
+    return -1;
+}
+
+/* static int_32 find_file(struct partition *part, char *pathname) { */
+/*     char *path = sys_malloc(strlen(pathname)); */
+/*     char last_name[MAX_FILE_NAME_LEN]; */
+/*     strcmp(pathname, path); */
+/*     char *p_dir_path = path_peel(path, last_name); */
+/*     #<{(| search_file_at_pdir(part, parent_dir, last_name); |)}># */
+/*     return -1; */
+/* } */
+
+/**
+ * system fs api
+ * sys_open
+ *
+ * @param pathname path of file (it must be a file but directory)
+ * @param flags flags for choosing method which is defined at fs/fcntl.h
+ * @return file descriptor if success
+ *         return -1 when failed
+ *****************************************************************************/
+int_32 sys_open(const char *pathname, uint_8 flags)
+{
+    // 1. test path
+    if ('/' == pathname[strlen(pathname) - 1]) {
+        return -1;
+    }
+    char *path = sys_malloc(strlen(pathname));
+    char last_name[MAX_FILE_NAME_LEN];
+    memcpy(path, pathname, strlen(pathname));
+
+    char *p_dir_path = path_peel(path, last_name);
+    int_32 inode_nr = search_file(&mounted_part, &root_dir, last_name);
+    // 2.test if this file is exist at `pathname` at struct dir_entry
+    // 3.if it is exist, test if it is directory return -1
+
+
     return -1;
 }
