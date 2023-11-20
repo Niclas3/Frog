@@ -229,9 +229,8 @@ void fs_init(void)
                 }
                 memset(buf, 0, SECTOR_SIZE);
 
-                /* // super block at 2nd sector of partition */
-                /* ide_read(hd, part.start_lba+1, buf, 1); */
-                ide_read(hd, part.start_lba, buf, 1);
+                // super block at 2nd sector of partition
+                ide_read(hd, part.start_lba+1, buf, 1);
                 struct super_block *sb = (struct super_block *) buf;
                 if (sb->s_magic == 0x2023B07A) {
                     continue;
