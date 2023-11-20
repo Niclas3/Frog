@@ -9,6 +9,7 @@
 #include <math.h>
 #include <string.h>
 #include <sys/memory.h>
+#include <sys/threads.h>
 
 #include <debug.h>
 
@@ -567,4 +568,30 @@ int_32 sys_open(const char *pathname, uint_8 flags)
     }
 
     return fd;
+}
+
+/**
+ * close file
+ *
+ * @param param write here param Comments write here
+ * @return return Comments write here
+ *****************************************************************************/
+static uint_32 fd_local2global(uint_32 local_fd)
+{
+    TCB_t *cur = running_thread();
+    int_32 g_fd = cur->fd_table[local_fd];
+    ASSERT(g_fd >= 0 && g_fd < MAX_FILE_OPEN);
+    return g_fd;
+}
+
+int_32 sys_close(int_32 fd)
+{
+    // fd = 0, 1, 2 is reserved for stdin, stdout, stderr
+    int_32 ret = -1;
+    if (fd > 2) {
+        uint_32 g_fd = fd_local2global(fd);
+        ret = file_close(&g_file_table[g_fd]);
+        running_thread()->fd_table[fd] = -1;
+    }
+    return ret;
 }
