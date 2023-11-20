@@ -1,14 +1,15 @@
+#include <debug.h>
 #include <fs/file.h>
 #include <string.h>
+#include <sys/int.h>
 #include <sys/threads.h>
-#include <debug.h>
 
 #include <device/ide.h>
 #include <fs/super_block.h>
 
+#include <fs/dir.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
-#include <fs/dir.h>
 
 #include <fs/fcntl.h>
 
@@ -153,12 +154,12 @@ int_32 file_create(struct partition *part,
 {
     uint_8 rollback_step = 0;
     char *buf = sys_malloc(1024);
-    if(!buf){
+    if (!buf) {
         //  kprint("Not enough memory for io buf");
         return -1;
     }
 
- //1. Need new inode aka create a inode (inode_open())
+    // 1. Need new inode aka create a inode (inode_open())
     uint_32 inode_nr = inode_bitmap_alloc(part);
     if (inode_nr == -1) {
         // TODO:
@@ -167,7 +168,7 @@ int_32 file_create(struct partition *part,
     }
     ASSERT(inode_nr != -1);
     struct inode *new_f_inode = sys_malloc(sizeof(struct inode));
-    if(!new_f_inode){
+    if (!new_f_inode) {
         // TODO:
         //  kprint("Not enough memory for inode .");
         // Recover! Need recover inode bitmap set
@@ -175,16 +176,16 @@ int_32 file_create(struct partition *part,
         goto roll_back;
     }
     new_inode(inode_nr, new_f_inode);
- //2. new dir_entry 
+    // 2. new dir_entry
     struct dir_entry new_entry;
     new_dir_entry(name, inode_nr, FT_REGULAR, &new_entry);
- //3.get file slot form global file_table
+    // 3.get file slot form global file_table
     uint_32 fd_idx = occupy_file_table_slot();
-    if(fd_idx == -1){
+    if (fd_idx == -1) {
         // TODO:
         //  kprint("Not enough slot at file table.");
         // Recover! Need recover inode bitmap set
-        //        ! free new_f_inode 
+        //        ! free new_f_inode
         rollback_step = 2;
         goto roll_back;
     }
@@ -194,44 +195,80 @@ int_32 file_create(struct partition *part,
     g_file_table[fd_idx].fd_inode = new_f_inode;
     g_file_table[fd_idx].fd_inode->i_lock = false;
 
- //4. flush dir_entry to parents directory 
-    if(flush_dir_entry(part, parent_d, &new_entry, buf)) {
+    // 4. flush dir_entry to parents directory
+    if (flush_dir_entry(part, parent_d, &new_entry, buf)) {
         // TODO:
         //  kprint("Failed at flush directory entry");
         rollback_step = 3;
         // Recover! Need recover inode bitmap set
-        //        ! free new_f_inode 
-        //        ! clear g_file_table[fd_idx] 
+        //        ! free new_f_inode
+        //        ! clear g_file_table[fd_idx]
         goto roll_back;
-    } 
- //5. flush parent inode
- // flush_dir_entry will change parent directory inode size
-    memset(buf, 0, 1024); // 1024 for 2 sectors
+    }
+    // 5. flush parent inode
+    //  flush_dir_entry will change parent directory inode size
+    memset(buf, 0, 1024);  // 1024 for 2 sectors
     flush_inode(part, parent_d->inode, buf);
- //6. flush new inode 
-    memset(buf, 0, 1024); // 1024 for 2 sectors
+    // 6. flush new inode
+    memset(buf, 0, 1024);  // 1024 for 2 sectors
     flush_inode(part, new_f_inode, buf);
 
- //7. flush inode bitmap and zones bitmap
+    // 7. flush inode bitmap and zones bitmap
     flush_bitmap(part, INODE_BITMAP, inode_nr);
 
- //8. add new inode to open_inodes
+    // 8. add new inode to open_inodes
     list_add(&new_f_inode->inode_tag, &part->open_inodes);
 
     sys_free(buf);
- //9. install new file file descriptor to current thread.
+    // 9. install new file file descriptor to current thread.
     return install_thread_fd(fd_idx);
 
 roll_back:
-    switch(rollback_step){
-        case 3:
-            memset(&g_file_table[fd_idx], 0, sizeof(struct file));
-        case 2:
-            sys_free(new_f_inode);
-        case 1:
-            set_value_bitmap(&part->inode_bitmap, inode_nr, 0);
-            break;
+    switch (rollback_step) {
+    case 3:
+        memset(&g_file_table[fd_idx], 0, sizeof(struct file));
+    case 2:
+        sys_free(new_f_inode);
+    case 1:
+        set_value_bitmap(&part->inode_bitmap, inode_nr, 0);
+        break;
     }
     sys_free(buf);
     return -1;
+}
+
+/**
+ * open a file when it is already created
+ *
+ * @param inode_nr inode number
+ * @param flags file flags
+ * @return a file descriptor number
+ *         return -1 when failed
+ *****************************************************************************/
+int_32 file_open(struct partition *part, uint_32 inode_nr, uint_8 flags)
+{
+    // 1. get slot from global file table
+    int_32 gidx = occupy_file_table_slot();
+    if(gidx == -1) {
+        //TODO:
+        //kprint("Not enough global file table slots. when open file");
+        return -1;
+    }
+    g_file_table[gidx].fd_inode = inode_open(part, inode_nr);
+    g_file_table[gidx].fd_pos = 0;
+    g_file_table[gidx].fd_flag = flags;
+    bool *write_lock = (bool *)&g_file_table[gidx].fd_inode->i_lock;
+    if(flags & O_WRONLY || flags & O_RDWR) {
+        enum intr_status old_status = intr_disable();
+        if(!(*write_lock)){
+            *write_lock = true;
+            intr_set_status(old_status);
+        } else {
+            intr_set_status(old_status);
+            //TODO:
+            //kprint("file can not be write now!");
+            return -1;
+        }
+    }
+    return install_thread_fd(gidx);
 }
