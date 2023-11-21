@@ -236,9 +236,9 @@ LABEL_SEG_CODE32:
     lgdt [gdt_ptr]
 
 ;;==============================================================================
-;; load kernel.elf to 0x90000
+;; load kernel.elf to 0x90000 ~ 0xA4000 80kb
 ;;==============================================================================
-    KERNELBIN_START equ 0x90000
+    KERNELBIN_START equ 0x95000
     KERNEL_START    equ 0xc0080000
 
 ;; eax = LBA sector number
@@ -285,7 +285,7 @@ LABEL_SEG_CODE32:
     ;     uint32_t      p_align;           //   28 bytes    ,4 bytes
     ; } Elf32_Phdr;
     HEADER_NAME_TEXT   equ 0x0000000b
-    ELF_BASE           equ 0x90000
+    ELF_BASE           equ 0x95000
     E_PHOFF_OFFSET     equ 28   ; 4 bytes
     E_PHENTSIZE_OFFSET equ 42   ; 2 bytes
     E_PHNUM_OFFSET     equ 44   ; 2 bytes
@@ -322,11 +322,11 @@ LABEL_SEG_CODE32:
 ;;==============================================================================
     ;Load font.img
     ; load font start at FONT_START
-    FONT_START equ 0x90000
+    FONT_START equ 0x96000
 ;; eax = LBA sector number
 ;; ebx  = base address 
 ;; ecx  = read-in sector number
-    mov eax, 150           ; according to makefile `mount` seek option
+    mov eax, 173           ; according to makefile `mount` seek option
     mov ebx, FONT_START
     mov ecx, 8            ; all size = 4K  = 8 * 512
     call SELECTOR_CODE:read_hard_disk_32
