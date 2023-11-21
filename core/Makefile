@@ -128,7 +128,7 @@ move_symbol:
 
 all: mk_dir build move
 
-debug: mk_dir build_symbol move_symbol
+debug: mk_dir build_symbol build move
 
 clean:
 	rm -rf *.o
