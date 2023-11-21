@@ -246,9 +246,10 @@ LABEL_SEG_CODE32:
 ;; ecx  = read-in sector number
     mov eax, 13
     mov ebx, KERNELBIN_START
-    ; mov ecx, 30 ; for 15kb
-    ; mov ecx, 40 ; for 20kb
-    mov ecx, 128 ; for 64kb
+    ; mov ecx, 30  ; for 15kb
+    ; mov ecx, 40  ; for 20kb
+    ; mov ecx, 128 ; for 64kb
+    mov ecx, 160 ; for 80kb
     call SELECTOR_CODE:read_hard_disk_32
 ;;==============================================================================
 ;; Break down kernel from 0x90000 ~ ? to 0x80000

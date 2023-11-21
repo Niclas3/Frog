@@ -46,8 +46,8 @@ newhd80img:
 #C:10 H:2 S:18
 mount: bootloader loader.img core.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
-	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core 23k (blank is 64k)
-	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=150 conv=notrunc #font.img for now size 4k
+	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core 66k (blank is 80k)
+	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=173 conv=notrunc #font.img for now size 4k
 	# sudo mount -o loop $(DISK) /mnt/floppy 
 	# sudo cp loader.img /mnt/floppy -v
 	# sudo cp core.img /mnt/floppy -v
@@ -56,8 +56,8 @@ mount: bootloader loader.img core.img font
 
 mount_debug: bootloader loader.img core_symbol.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
-	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core 23k (blank is 64k)
-	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=150 conv=notrunc #font.img for now size 4k
+	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 66k (blank is 80k)
+	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=173 conv=notrunc #font.img for now size 4k
 umount:
 	sudo umount /mnt/floppy
 
