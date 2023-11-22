@@ -8,3 +8,4 @@ build/
 *.bmp
 *.lock
 compile_commands.json
+tags
