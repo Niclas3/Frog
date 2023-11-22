@@ -601,4 +601,43 @@ int_32 sys_close(int_32 fd)
     return ret;
 }
 
+/**
+ * system write
+ *
+ * write a buffer to a file descriptor
+ *
+ * @param fd file descriptor
+ * @param buf buffer
+ * @param count buffer count
+ * @return -1 if failed
+ *****************************************************************************/
+int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
+{
+    if (fd < 0) {
+        // TODO
+        // kprint("sys_write: fd error");
+        return -1;
+    }
+    if (fd == FD_STDOUT_NO) {
+        char tmp[1024] = {0};
+        memcpy(tmp, buf, count);
+        //TODO:
+        //put string to 0xb0000 address
+        //put_str(tmp);
+        return count;
+    }
+    uint_32 g_fd = fd_local2global(fd);
+    struct file *wr_file = &g_file_table[g_fd];
 
+    if(wr_file->fd_flag & O_WRONLY ||
+       wr_file->fd_flag & O_RDWR) {
+        uint_32 bytes_written = file_write(&mounted_part, wr_file, buf, count);
+        return bytes_written;
+    } else {
+        //TODO:
+        //put string 
+        //put_str("sys_write: not allowed to write file without flag O_RDWR or
+        //_WRONLY\n");
+        return -1;
+    }
+}

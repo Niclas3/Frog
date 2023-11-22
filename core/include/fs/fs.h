@@ -37,4 +37,5 @@ int_32 path_depth(const char *path);
 
 int_32 sys_open(const char* pathname, uint_8 flags);
 int_32 sys_close(int_32 fd);
+int_32 sys_write(int_32 fd, const void *buf, uint_32 count);
 #endif
