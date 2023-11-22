@@ -5,7 +5,6 @@
 typedef struct thread_control_block TCB_t;
 typedef struct kwaak_msg message;
 
-uint_32 sys_write(char* str);
 uint_32 sys_getpid(void);
 
 uint_32 sys_sendrec(uint_32 func,
