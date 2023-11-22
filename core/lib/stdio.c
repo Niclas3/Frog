@@ -1,21 +1,23 @@
+#include <oslib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <oslib.h>
+#include <sys/syscall.h>
 
-uint_32 vsprintf(char *str, const char *fmt, va_list ap){
+uint_32 vsprintf(char *str, const char *fmt, va_list ap)
+{
     char *s;
     int d;
     char c;
     char *res = str;
     bool seen_mark = false;
     while (*fmt) {
-        if(*fmt == '%' && !seen_mark){
+        if (*fmt == '%' && !seen_mark) {
             seen_mark = true;
             fmt++;
             continue;
         }
-        if(seen_mark){
+        if (seen_mark) {
             switch (*fmt) {
             case 's':
                 s = va_arg(ap, char *);
@@ -25,8 +27,10 @@ uint_32 vsprintf(char *str, const char *fmt, va_list ap){
                 break;
             case 'd':
                 d = va_arg(ap, int);
-/* The number 2,147,483,647 (or hexadecimal 7FFFFFFF16) is the maximum positive value for a 32-bit signed binary integer in computing. */
-// so i choose 10 to tmp string
+                /* The number 2,147,483,647 (or hexadecimal 7FFFFFFF16) is the
+                 * maximum positive value for a 32-bit signed binary integer in
+                 * computing. */
+                // so i choose 10 to tmp string
                 char tmp[10];
                 int tlen = itoa(d, tmp, 10);
                 strcpy(res, tmp);
@@ -68,3 +72,12 @@ uint_32 sprintf(char *str, const char *fmt, ...)
     return len;
 }
 
+uint_32 printf(char *str, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    char buf[1024] = {0};
+    vsprintf(buf, fmt, args);
+    va_end(args);
+    return write(1,buf,strlen(buf));
+}
