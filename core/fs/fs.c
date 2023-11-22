@@ -17,7 +17,9 @@
 extern struct ide_channel channels[2];  // 2 different channels
 extern uint_8 channel_cnt;
 extern struct list_head partition_list;  // partition list
+// global variable define file.c
 extern struct file g_file_table[MAX_FILE_OPEN];
+extern struct lock g_ft_lock;
 
 struct partition mounted_part;  // the partition what we want to mount.
 
@@ -212,6 +214,8 @@ void fs_init(void)
     if (!buf) {
         PAINC("Not enough memory.");
     }
+    // init global file table lock
+    lock_init(&g_ft_lock);
 
     while (channel_no < channel_cnt) {
         dev_no = 0;
@@ -574,7 +578,8 @@ int_32 sys_open(const char *pathname, uint_8 flags)
  * close file
  *
  * @param param write here param Comments write here
- * @return return Comments write here
+ * @return -1 failed
+ *          0 success
  *****************************************************************************/
 static uint_32 fd_local2global(uint_32 local_fd)
 {
@@ -595,3 +600,5 @@ int_32 sys_close(int_32 fd)
     }
     return ret;
 }
+
+

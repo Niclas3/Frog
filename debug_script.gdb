@@ -1,6 +1,6 @@
 target remote localhost:1234
 
-file core_symbol.img
+file core/build/core_symbol.img
 
 # b bootpack.c:114
 # b systask.c:12
@@ -30,12 +30,27 @@ b UkiMain
 # b fs.c:64
 # b fs.c:222
 # b fs.c: 159
-b bootpack.c:103
-# b inode_bitmap_alloc
-b file.c:218
-b fs.c:525
+b bootpack.c:101
+b bootpack.c:115
+b file.c:258
 b sys_open
-b path_dirs
+b func
+# b locale_inode
+b file_write
+# b file.c:256
+# b file.c:268
+# b file.c:271
+# b file.c:269
+# b file.c:275
+# b ide_read
+# b file_write
+# b fs.c:374
+# b u_fung
+# b inode_bitmap_alloc
+# b file.c:218
+# b fs.c:525
+# b sys_open
+# b path_dirs
 # b search_file
 # b path_peel
 # b install_thread_fd

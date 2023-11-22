@@ -97,44 +97,8 @@ void UkiMain(void)
     ide_init();
 
     fs_init();
-    /* int_32 fd = file_create(&mounted_part, &root_dir, "test.txt", O_CREAT); */
-
-    /* int_32 fd1 = sys_open("/test.txt", O_CREAT); */
-    int_32 fd2 = sys_open("/test1.txt", O_CREAT);
-    /* int_32 fd2 = sys_open("/zm/test.txt", O_CREAT); */
-    /* int_32 fd2 = sys_open( */
-    /*         "/zm/Development/C/playground/code/test.txt", */
-    /*         O_CREAT); */
-
-    /* char *table = { */
-    /*     "/", */
-    /*     "/zm/", */
-    /*     "/zm/Development/", */
-    /*     "/zm/Development/C/", */
-    /*     "/zm/Development/C/playground/", */
-    /*     "/zm/Development/C/playground/code/" */
-    /* }; */
-    /* { */
-    /*  "code/", */
-    /*  "playground/",  */
-    /*  "C/",  */
-    /*  "Development/",  */
-    /*  "zm/",  */
-    /* } */
 
 
-    /* uint_32 depth = path_depth("/home/zm/Development/C/test"); */
-    /* uint_32 depth2 = path_depth("/home/zm/Development/C/test/"); */
-    /* uint_32 depth1 = path_depth("/"); */
-    /* int_32 is_exist = search_file(&mounted_part, &root_dir, "test"); */
-
-    /* open_root_dir(&mounted_part); */
-    /* struct dir_entry *first_entry = sys_malloc(sizeof(struct dir_entry)); */
-    /* new_dir_entry("test_dir", 1, first_entry); */
-    /*  */
-    /* uint_32* io_buf = sys_malloc(512); */
-    /* uint_32 status = flush_dir_entry(&mounted_part, &root_dir, first_entry,
-     * io_buf); */
 
     int pysize = 16;
     int pxsize = 16;
@@ -145,11 +109,11 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
-    TCB_t *keyboard_c =
-        thread_start("keyboard_reader", 10, keyboard_consumer, 3);
-    TCB_t *mouse_c = thread_start("mouse1", 10, mouse_consumer, 3);
-    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa",31, func, 4); */
-    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3); */
+    /* TCB_t *keyboard_c = */
+    /*     thread_start("keyboard_reader", 10, keyboard_consumer, 3); */
+    /* TCB_t *mouse_c = thread_start("mouse1", 10, mouse_consumer, 3); */
+    /* TCB_t *t  = thread_start("aaaaaaaaaaaaaaa", 3, func, 4); */
+    TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb",10, funcb, 3);
 
     // System process at ring1
     /* process_execute_ring1(task_sys, "TASK_SYS");  // pid 2 */
@@ -165,6 +129,7 @@ void UkiMain(void)
     char *mcursor = sys_malloc(256);
     draw_cursor8(mcursor, COL8_848484);
     putblock8_8((char *) info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
+    sys_free(mcursor);
     for (;;) {
         __asm__ volatile("sti;hlt;");
     }
@@ -215,26 +180,55 @@ void keyboard_consumer(int a)
 
 void func(int a)
 {
-    uint_32 pid = getpid();
-    while (1) {
-        lock_fetch(&main_lock);
-        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid);
-        lock_release(&main_lock);
+    /* while (1) { */
+    int_32 fd2 = sys_open("/test1.txt", O_RDWR);
+    if (fd2 == -1) {
+        fd2 = sys_open("/test1.txt", O_CREAT);
     }
+    if(fd2 != -1){
+        TCB_t *cur = running_thread();
+        struct file f2 = g_file_table[cur->fd_table[fd2]];
+        const char *data = "2.hello_test1.txt at func by thread A\n";
+        int_32 count = file_write(&mounted_part, &f2, data, strlen(data));
+        sys_close(fd2);
+    } else{
+        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, fd2);
+    }
+    /* } */
+    /* uint_32 pid = getpid(); */
+    /* while (1) { */
+    /*     lock_fetch(&main_lock); */
+    /*     draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid); */
+    /*     lock_release(&main_lock); */
+    /* } */
 }
 
 void funcb(int a)
 {
+    int_32 fd2 = sys_open("/test1.txt", O_RDWR);
+    if (fd2 == -1) {
+        fd2 = sys_open("/test1.txt", O_CREAT);
+    }
     TCB_t *cur = running_thread();
-    /* while(1){ */
-    lock_fetch(&main_lock);
-    draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid);
-    draw_info((uint_8 *) 0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T");
-    draw_info((uint_8 *) 0xc00a0000, 320, COL8_FF00FF, 100, 0, "H");
-    lock_release(&main_lock);
-    /* } */
-    while (1)
-        ;
+    struct file f2 = g_file_table[cur->fd_table[fd2]];
+    /* const char *data = "1.hello_test1.txt at funcb by thread B\n"; */
+    /* int_32 count = file_write(&mounted_part, &f2, data, strlen(data)); */
+    /* const char *data510 = "{by thread B dnugczhymbkfrbxtkojvvqihtwlnghlemrpsrietbahovvpqvnkzgmpujzgbkqgaughzuyadktnafsxufpsghvyoamcysjslvvfxcfmjouylyimpyyvckiuwqafzaysjrmrankhwtrhyjcfsgqvlnwgydphupsgjwcsymauzxoudcklnjvehizokwjbjemdnktbeiotcfdpllqgtejckagdsmiqkhpzvqlxmwztsdndwvazeemwrtlkevuewchuamsegxdfkycdmzdkcoyyltrtgsqplomhihsfmuyomnkpgutuhlwvlaaisybhdmqgqhevhwbctguligwxhnjjkznknhamgetsrapbjmuxjwnmcpknjiljjkwockaefrgmkcvelrqrsfzzlbzjmvtsyegcfbftoflowsrlvikjrmapoiagrfefoziflylwuikvzwtnskobifbhhwqkjpgrcyeuyvcygvmaaortdvvxfrouyglhm}"; */
+    /* int_32 count = file_write(&mounted_part, &f2, data510, strlen(data510)); */
+    const char *data6k = "{pkpstnhqioaewsrjqqkyhyktijxeusllvjsacpcdmwxfbrwfwciakufftquxtymlbuliiprakhqbuyrfcyxjfbgufepgjcqyaginmovsbhrhhpvjjglbzefaplsixzshhtjzvrlcyvbptrpvmnktiafeplelvmypmhjsvwghuazrxrxwlpynwwqbayionzzdewxllaxqszwznrpjkfdwngstswlwxgwefguikzetxrtaomafkzvimqgvinicgrukufkmocsbbydjiwworfbzbszeggwebmrynrkbharojhlbfonhhmiiwjkzdhjqtpiborehfwombmsytwhezlzxsptzgpknzoepccqdgmomdswoplouaoycquxwqsnzobafcamxmygupoojtjjtsufcjnznjgsoaetqmplzyamrndxuikhuydcdcmdtodbkuxutkbwzamkkgbujuixiumsxtvkwaobstzkygzgfqpbkocfomwbemnmiyjfglnxbxxkzpzhuzatlruoxqzkifwcybkztstswyzakgyfiyxqkykgeskzfgagabxusrmtthszijxrghnoumzrdirtgbcstcletxbvduqxvelqwshdsxweotdiypexytirzqylxgzdntgxfjpfewtsxnihcbhzemncuzjuhdmylrbaurnnafdypopombapkqaouvadjiyzkwgdexfubzrgmdjwgxixlasnaiqrexqpnmijzjxilmjimkryxrxuradumjtpmnaserznpzuuohnbgxfoadhgiwyhbxqzremrtsgnuzovmnoakaibfdhzvumqgdwzqledpsbohjqtuuqkncexoyccrtcgkrrcqotybploatjvsrwvlgllukyfugdisjnnsafvacbuiyanhuthalokhsxizvicdcxeactshuxszqryotiwejqchzbxxmmodvfblcuzmfjuyyhcathdaqypmoqbjxmzwtoqqgjeeanqoyghmisuhpxvbahilzumwjannlpkkrylvahmpqgbxtjwkmcgqecfaxeffmflllorlpxoctenvklktlbgbaiwdmpzfwrjagnuuuasyizmwjsburfldtkovaehtsmumteqdmdcjqbdjhznxephleezzxnqcjjcjdzownutrkbhnqxnmzlwwnfguqwwierlzmtgwimhvivsrcxxosmqiesnjxlpeauqxtyvlzmuhntylxrdgcqxmsocbtubhfvklvfzzotczwbzizqyzhletlsnlaccwqsyfedmspfdddoeiagkuqpgzmfxquungedxvwkhdhftjxvenvrgbxnseijhitvuxmdbwxaswvuyzjjbnxtyiqcrnnwyhftstvvjqogrphzuyzqzufywphdrzvvlecnljcvwcdwknuzolpybkwqgzmrpfksaawuqshylcdrkhdcddgmagebegvjerwnqzolalhjajkxfbnijlsnlsfibfrwcyxvlxluamgxsvsvpzejbxgizlikqecdsfnuuabuyxgmnhdcnryavukwihfvghijlxqeecyqjufrhdlnbwbknvctkzlqlvhdpvyshrevymbiuvfkqqeedmgkdgcllnxhrjvpvtfnoaakgavowefkhossezmmmzepstenhmbjjbjwooqptzlfrcrxswdyzuyktpmkatoqwxeqiweakfvycyypgkwopseqkcumctkixnabjbhgctogoehwkfptkqyavhottexzjsgkwjfjtalkuskpgjkhtjizidbparpmztwwkgakmxrpncfyqgdbjcehtcnvsmsjjynhnetelmupmnlbxuhsxzqvtvvivoqkvjpzjtgjnllxdsfjxebfyjoubfljhrqirzlmtdnxwcnfgisecbbbnntfksuvnikeitlnrxbbsaztepnswbmvgzbxmzzrisqprxoltyrfpoofvxpbitlqncdaglbdqnchvlctvbpwnujhbltzeqtlndzbntvogabzasiatprxbhpvvxxohetqztixthjqgkycpntpkhpkpstnhqioaewsrjqqkyhyktijxeusllvjsacpcdmwxfbrwfwciakufftquxtymlbuliiprakhqbuyrfcyxjfbgufepgjcqyaginmovsbhrhhpvjjglbzefaplsixzshhtjzvrlcyvbptrpvmnktiafeplelvmypmhjsvwghuazrxrxwlpynwwqbayionzzdewxllaxqszwznrpjkfdwngstswlwxgwefguikzetxrtaomafkzvimqgvinicgrukufkmocsbbydjiwworfbzbszeggwebmrynrkbharojhlbfonhhmiiwjkzdhjqtpiborehfwombmsytwhezlzxsptzgpknzoepccqdgmomdswoplouaoycquxwqsnzobafcamxmygupoojtjjtsufcjnznjgsoaetqmplzyamrndxuikhuydcdcmdtodbkuxutkbwzamkkgbujuixiumsxtvkwaobstzkygzgfqpbkocfomwbemnmiyjfglnxbxxkzpzhuzatlruoxqzkifwcybkztstswyzakgyfiyxqkykgeskzfgagabxusrmtthszijxrghnoumzrdirtgbcstcletxbvduqxvelqwshdsxweotdiypexytirzqylxgzdntgxfjpfewtsxnihcbhzemncuzjuhdmylrbaurnnafdypopombapkqaouvadjiyzkwgdexfubzrgmdjwgxixlasnaiqrexqpnmijzjxilmjimkryxrxuradumjtpmnaserznpzuuohnbgxfoadhgiwyhbxqzremrtsgnuzovmnoakaibfdhzvumqgdwzqledpsbohjqtuuqkncexoyccrtcgkrrcqotybploatjvsrwvlgllukyfugdisjnnsafvacbuiyanhuthalokhsxizvicdcxeactshuxszqryotiwejqchzbxxmmodvfblcuzmfjuyyhcathdaqypmoqbjxmzwtoqqgjeeanqoyghmisuhpxvbahilzumwjannlpkkrylvahmpqgbxtjwkmcgqecfaxeffmflllorlpxoctenvklktlbgbaiwdmpzfwrjagnuuuasyizmwjsburfldtkovaehtsmumteqdmdcjqbdjhznxephleezzxnqcjjcjdzownutrkbhnqxnmzlwwnfguqwwierlzmtgwimhvivsrcxxosmqiesnjxlpeauqxtyvlzmuhntylxrdgcqxmsocbtubhfvklvfzzotczwbzizqyzhletlsnlaccwqsyfedmspfdddoeiagkuqpgzmfxquungedxvwkhdhftjxvenvrgbxnseijhitvuxmdbwxaswvuyzjjbnxtyiqcrnnwyhftstvvjqogrphzuyzqzufywphdrzvvlecnljcvwcdwknuzolpybkwqgzmrpfksaawuqshylcdrkhdcddgmagebegvjerwnqzolalhjajkxfbnijlsnlsfibfrwcyxvlxluamgxsvsvpzejbxgizlikqecdsfnuuabuyxgmnhdcnryavukwihfvghijlxqeecyqjufrhdlnbwbknvctkzlqlvhdpvyshrevymbiuvfkqqeedmgkdgcllnxhrjvpvtfnoaakgavowefkhossezmmmzepstenhmbjjbjwooqptzlfrcrxswdyzuyktpmkatoqwxeqiweakfvycyypgkwopseqkcumctkixnabjbhgctogoehwkfptkqyavhottexzjsgkwjfjtalkuskpgjkhtjizidbparpmztwwkgakmxrpncfyqgdbjcehtcnvsmsjjynhnetelmupmnlbxuhsxzqvtvvivoqkvjpzjtgjnllxdsfjxebfyjoubfljhrqirzlmtdnxwcnfgisecbbbnntfksuvnikeitlnrxbbsaztepnswbmvgzbxmzzrisqprxoltyrfpoofvxpbitlqncdaglbdqnchvlctvbpwnujhbltzeqtlndzbntvogabzasiatprxbhpvvxxohetqztixthjqgkycpntpkhpkpstnhqioaewsrjqqkyhyktijxeusllvjsacpcdmwxfbrwfwciakufftquxtymlbuliiprakhqbuyrfcyxjfbgufepgjcqyaginmovsbhrhhpvjjglbzefaplsixzshhtjzvrlcyvbptrpvmnktiafeplelvmypmhjsvwghuazrxrxwlpynwwqbayionzzdewxllaxqszwznrpjkfdwngstswlwxgwefguikzetxrtaomafkzvimqgvinicgrukufkmocsbbydjiwworfbzbszeggwebmrynrkbharojhlbfonhhmiiwjkzdhjqtpiborehfwombmsytwhezlzxsptzgpknzoepccqdgmomdswoplouaoycquxwqsnzobafcamxmygupoojtjjtsufcjnznjgsoaetqmplzyamrndxuikhuydcdcmdtodbkuxutkbwzamkkgbujuixiumsxtvkwaobstzkygzgfqpbkocfomwbemnmiyjfglnxbxxkzpzhuzatlruoxqzkifwcybkztstswyzakgyfiyxqkykgeskzfgagabxusrmtthszijxrghnoumzrdirtgbcstcletxbvduqxvelqwshdsxweotdiypexytirzqylxgzdntgxfjpfewtsxnihcbhzemncuzjuhdmylrbaurnnafdypopombapkqaouvadjiyzkwgdexfubzrgmdjwgxixlasnaiqrexqpnmijzjxilmjimkryxrxuradumjtpmnaserznpzuuohnbgxfoadhgiwyhbxqzremrtsgnuzovmnoakaibfdhzvumqgdwzqledpsbohjqtuuqkncexoyccrtcgkrrcqotybploatjvsrwvlgllukyfugdisjnnsafvacbuiyanhuthalokhsxizvicdcxeactshuxszqryotiwejqchzbxxmmodvfblcuzmfjuyyhcathdaqypmoqbjxmzwtoqqgjeeanqoyghmisuhpxvbahilzumwjannlpkkrylvahmpqgbxtjwkmcgqecfaxeffmflllorlpxoctenvklktlbgbaiwdmpzfwrjagnuuuasyizmwjsburfldtkovaehtsmumteqdmdcjqbdjhznxephleezzxnqcjjcjdzownutrkbhnqxnmzlwwnfguqwwierlzmtgwimhvivsrcxxosmqiesnjxlpeauqxtyvlzmuhntylxrdgcqxmsocbtubhfvklvfzzotczwbzizqyzhletlsnlaccwqsyfedmspfdddoeiagkuqpgzmfxquungedxvwkhdhftjxvenvrgbxnseijhitvuxmdbwxaswvuyzjjbnxtyiqcrnnwyhftstvvjqogrphzuyzqzufywphdrzvvlecnljcvwcdwknuzolpybkwqgzmrpfksaawuqshylcdrkhdcddgmagebegvjerwnqzolalhjajkxfbnijlsnlsfibfrwcyxvlxluamgxsvsvpzejbxgizlikqecdsfnuuabuyxgmnhdcnryavukwihfvghijlxqeecyqjufrhdlnbwbknvctkzlqlvhdpvyshrevymbiuvfkqqeedmgkdgcllnxhrjvpvtfnoaakgavowefkhossezmmmzepstenhmbjjbjwooqptzlfrcrxswdyzuyktpmkatoqwxeqiweakfvycyypgkwopseqkcumctkixnabjbhgctogoehwkfptkqyavhottexzjsgkwjfjtalkuskpgjkhtjizidbparpmztwwkgakmxrpncfyqgdbjcehtcnvsmsjjynhnetelmupmnlbxuhsxzqvtvvivoqkvjpzjtgjnllxdsfjxebfyjoubfljhrqirzlmtdnxwcnfgisecbbbnntfksuvnikeitlnrxbbsaztepnswbmvgzbxmzzrisqprxoltyrfpoofvxpbitlqncdaglbdqnchvlctvbpwnujhbltzeqtlndzbntvogabzasiatprxbhpvvxxohetqztixthjqgkycpntp}";
+    int_32 count = file_write(&mounted_part, &f2, data6k, strlen(data6k));
+    sys_close(fd2);
+
+    /* TCB_t *cur = running_thread(); */
+    /* #<{(| while(1){ |)}># */
+    /* lock_fetch(&main_lock); */
+    /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid); */
+    /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T"); */
+    /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_FF00FF, 100, 0, "H"); */
+    /* lock_release(&main_lock); */
+    /* #<{(| } |)}># */
+    /* while (1) */
+    /*     ; */
 }
 //------------------------------------------------------------------------------
 // process function
@@ -302,8 +296,4 @@ void u_fune(int a)
     }
 }
 
-void u_fung(int a)
-{
-    /* struct inode *inode = inode_open(&mounted_part, 0); */
-    /* inode_close(inode); */
-}
+void u_fung(int a) {}
