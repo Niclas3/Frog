@@ -11,9 +11,9 @@ struct file{
 };
 
 enum std_fd{
-    stdin_no,  // 0
-    stdout_no, // 1
-    stderr_no  // 2
+    FD_STDIN_NO,  // 0
+    FD_STDOUT_NO, // 1
+    FD_STDERR_NO  // 2
 };
 
 enum bitmap_type {
