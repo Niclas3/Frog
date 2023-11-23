@@ -316,7 +316,7 @@ int_32 file_write(struct partition *part,
                   uint_32 count)
 {
     // 1. test count + inode->i_size > ZONE_SIZE * 140
-    if ((file->fd_inode->i_size + count) > (ZONE_SIZE * 140)) {
+    if ((file->fd_inode->i_size + count) > MAX_FILE_SIZE) {
         // TODO:
         // kprint("write file error.");
         return -1;
@@ -384,7 +384,8 @@ int_32 file_write(struct partition *part,
     // Fill the Rest zone
     if (rest_sz != 0) {
         // 1. Read this zone first
-        uint_32 zone_lba = f_inode->i_zones[zone_idx - 1];
+        /* uint_32 zone_lba = f_inode->i_zones[zone_idx - 1]; */
+        uint_32 zone_lba = all_zones[zone_idx - 1];
         ide_read(part->my_disk, zone_lba, io_buf, 1);
         // rest_sz = SIZEOF(io_buf);
         uint_8 *r_cursor = &io_buf[rest_sz];
@@ -433,6 +434,11 @@ int_32 file_write(struct partition *part,
                              zone_lba - part->sb->s_data_start_lba);
             }
             uint_32 *table = (uint_32 *) sys_malloc(ZONE_SIZE);
+            if (!table) {
+                // TODO:
+                // kprint("No enough zone count when write a file");
+                return -1;
+            }
             ide_read(part->my_disk, f_inode->i_zones[12], table, 1);
             table[zone_idx - 12 + i] = zone_lba;
             ide_write(part->my_disk, f_inode->i_zones[12], table, 1);
@@ -472,3 +478,4 @@ int_32 file_write(struct partition *part,
     sys_free(io_buf);
     return bytes_written;
 }
+
