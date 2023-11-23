@@ -479,3 +479,86 @@ int_32 file_write(struct partition *part,
     return bytes_written;
 }
 
+/**
+ * read file to buffer
+ *
+ * read()  attempts  to  read up to count bytes from file
+ * descriptor fd into the buffer starting at buf.
+ *
+ * On files that support seeking, the read operation com‐
+ * mences  at the file offset, and the file offset is in‐
+ * cremented by the number of bytes read.   If  the  file
+ * offset  is  at  or  past the end of file, no bytes are
+ * read, and read() returns zero.
+ *
+ * If count is zero, read() may  detect  the  errors  de‐
+ * scribed  below.   In  the absence of any errors, or if
+ * read() does not check for  errors,  a  read()  with  a
+ * count of 0 returns zero and has no other effects.
+ *
+ * According   to  POSIX.1,  if  count  is  greater  than
+ * SSIZE_MAX, the result is  implementation-defined;  see
+ * NOTES for the upper limit on Linux.
+ *
+ * @param part mounted partition
+ * @param file target file
+ * @param buf  buffer contain data
+ * @param count reading size
+ *
+ * @return if success return bytes counts
+ *         if failed return -1
+ *****************************************************************************/
+int_32 file_read(struct partition *part,
+                 struct file *file,
+                 void *buf,
+                 uint_32 count)
+{
+    uint_8 *io_buf = sys_malloc(ZONE_SIZE);
+    if (!io_buf) {
+        // TODO
+        // kprint("Not enough memory when file_read()");
+        return -1;
+    }
+
+    // test file->fd_pos at the end
+    // read all file
+    uint_32 file_pos = file->fd_pos;
+    uint_32 f_left_sz = file->fd_inode->i_size - file->fd_pos;
+    if (file_pos == file->fd_inode->i_size + 1) {
+        // TODO
+        // kprint("EOF");
+        return -1;
+    }
+
+    // 2. Read file range
+    // Read data from file_pos, and read data is rd_len
+    uint_32 rd_len = MIN(f_left_sz, count);
+
+    // 3. Covert file_pos to r_lba
+    uint_32 rd_zone_idx = DIV_ROUND_UP(file_pos, ZONE_SIZE);
+    uint_32 rd_zone_offset = file_pos % ZONE_SIZE;
+    uint_32 r_lba;
+
+    // read from direct table
+    if (rd_zone_idx < 12) {
+        r_lba = file->fd_inode->i_zones[rd_zone_idx];
+    } else {  // read from in-direct table
+        uint_32 *table = (uint_32 *) sys_malloc(ZONE_SIZE);
+        if (!table) {
+            // TODO:
+            // kprint("No enough memory when read file.\n");
+            return -1;
+        }
+        ide_read(part->my_disk, file->fd_inode->i_zones[12], table, 1);
+        r_lba = table[rd_zone_idx - 12];
+        sys_free(table);
+    }
+    ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);
+
+    memmove(buf, &io_buf[rd_zone_offset], rd_len);
+    file->fd_pos += rd_len;
+
+    sys_free(io_buf);
+
+    return 0;
+}

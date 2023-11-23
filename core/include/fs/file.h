@@ -45,4 +45,9 @@ int_32 file_write(struct partition *part,
                   struct file *file,
                   const void *buf,
                   uint_32 count);
+
+int_32 file_read(struct partition *part,
+                 struct file *file,
+                 void *buf,
+                 uint_32 count);
 #endif
