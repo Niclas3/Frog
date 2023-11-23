@@ -1,6 +1,6 @@
 #include <const.h>  // for PG_SIZE
-#include <math.h>   // for DIV_ROUND_UP
 #include <debug.h>
+#include <math.h>  // for DIV_ROUND_UP
 #include <panic.h>
 #include <string.h>
 #include <sys/int.h>
@@ -55,10 +55,10 @@ struct _virtual_addr kernel_viraddr;
 #define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
 
 void free_addr_bitmap(struct bitmap *map,
-                             uint_32 addr_start,
-                             uint_32 addr,
-                             uint_32 pos,
-                             uint_32 pg_cnt);
+                      uint_32 addr_start,
+                      uint_32 addr,
+                      uint_32 pos,
+                      uint_32 pg_cnt);
 static uint_32 virtual_addr_to_physical_addr(void *v_addr);
 void free_vaddress(pool_type poolt, uint_32 vaddress, uint_32 pg_cnt);
 
@@ -232,7 +232,7 @@ void *sys_malloc(uint_32 size)
             lock_release(&mem_pool->lock);
             return NULL;
         }
-    } else {  // require memory less than 1024B
+    } else {  // require memory equal and less than 1024B
         uint_8 desc_idx;
         for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
             if (size <= descs[desc_idx].block_size) {
@@ -318,10 +318,10 @@ void sys_free(void *ptr)
 }
 
 void free_addr_bitmap(struct bitmap *map,
-                             uint_32 addr_start,
-                             uint_32 addr,
-                             uint_32 pos,
-                             uint_32 pg_cnt)
+                      uint_32 addr_start,
+                      uint_32 addr,
+                      uint_32 pos,
+                      uint_32 pg_cnt)
 {
     if (addr < addr_start)
         panic("free bad phy address");
@@ -499,11 +499,11 @@ static void remove_page(void *v_addr)
     uint_32 *pte = pte_ptr(vaddress);
     if (*pde & 0x00000001) {      // test pde if exist
         if (*pte & 0x00000001) {  // test pde if exist or not
-            *pte &= 0x11111110;    // PG_P_CLI;
-        } else {  // pte is not exists
+            *pte &= 0x11111110;   // PG_P_CLI;
+        } else {                  // pte is not exists
             panic("Free twice");
             // Still make pde is unexist
-            *pte &= 0x11111110;             //PG_P_CLI;
+            *pte &= 0x11111110;  // PG_P_CLI;
         }
         __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory");
     }
