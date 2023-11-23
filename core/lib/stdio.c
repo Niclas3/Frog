@@ -22,25 +22,27 @@ uint_32 vsprintf(char *str, const char *fmt, va_list ap)
             case 's':
                 s = va_arg(ap, char *);
                 int len = strlen(s);
-                strcpy(res, s);
+                strncpy(res, s, len);
                 res += len;
                 break;
             case 'd':
+                // TODO: add feature
+                // /^\.[0-9]*d$/gm
                 d = va_arg(ap, int);
                 /* The number 2,147,483,647 (or hexadecimal 7FFFFFFF16) is the
                  * maximum positive value for a 32-bit signed binary integer in
                  * computing. */
                 // so i choose 10 to tmp string
-                char tmp[10];
+                char tmp[10] = {0};
                 int tlen = itoa(d, tmp, 10);
-                strcpy(res, tmp);
+                strncpy(res, tmp, tlen);
                 res += tlen;
                 break;
             case 'x':
                 d = va_arg(ap, int);
-                char xtmp[10];
+                char xtmp[10] = {0};
                 int xlen = itoa(d, xtmp, 16);
-                strcpy(res, xtmp);
+                strncpy(res, xtmp, xlen);
                 res += xlen;
                 break;
             case 'c':
@@ -79,5 +81,5 @@ uint_32 printf(char *str, const char *fmt, ...)
     char buf[1024] = {0};
     vsprintf(buf, fmt, args);
     va_end(args);
-    return write(1,buf,strlen(buf));
+    return write(1, buf, strlen(buf));
 }
