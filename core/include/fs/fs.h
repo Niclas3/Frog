@@ -12,7 +12,7 @@
 //sector size is 512 bytes
 #define SECTOR_SIZE 512
 #define ZONE_SIZE SECTOR_SIZE
-#define SECTOR_PER_ZONE ZONE_SIZE / SECTOR_SIZE
+#define SECTOR_PER_ZONE 1 //ZONE_SIZE / SECTOR_SIZE
 #define MAX_ZONE_COUNT 140
 #define MAX_FILE_SIZE ZONE_SIZE * MAX_ZONE_COUNT
 
@@ -41,5 +41,5 @@ int_32 path_depth(const char *path);
 int_32 sys_open(const char* pathname, uint_8 flags);
 int_32 sys_close(int_32 fd);
 int_32 sys_write(int_32 fd, const void *buf, uint_32 count);
-int_32 sys_read(int_32 fd, const void *buf, uint_32 count);
+int_32 sys_read(int_32 fd, void *buf, uint_32 count);
 #endif
