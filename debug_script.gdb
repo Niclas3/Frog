@@ -30,13 +30,30 @@ b UkiMain
 # b fs.c:64
 # b fs.c:222
 # b fs.c: 159
-b bootpack.c:101
-b bootpack.c:115
-b file.c:258
-b sys_open
-b func
+# b bootpack.c:101
+# b bootpack.c:115
+# b file.c:258
+# b sys_open
+# b func
 # b locale_inode
-b file_write
+# b bootpack.c:127
+# b bootpack.c:240
+#-------------------------
+# b bootpack.c:150
+# b bootpack.c:157 if i == 12
+# b bootpack.c:151
+b func
+b bootpack.c: 256
+b bootpack.c:241
+# b file_write
+# b file_read
+# b file.c:435
+# b file.c:324
+#-------------------------
+# b 122
+# b memory.c:238 if desc_idx == 5
+#-------------------------
+# b file_write
 # b file.c:256
 # b file.c:268
 # b file.c:271
