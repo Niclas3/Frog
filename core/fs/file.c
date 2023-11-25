@@ -513,7 +513,7 @@ int_32 file_read(struct partition *part,
                  void *buf,
                  uint_32 count)
 {
-    uint_8 *io_buf = sys_malloc(ZONE_SIZE);
+    uint_8 *io_buf = sys_malloc(ZONE_SIZE * SECTOR_PER_ZONE);
     if (!io_buf) {
         // TODO
         // kprint("Not enough memory when file_read()");
@@ -527,10 +527,11 @@ int_32 file_read(struct partition *part,
     if (file_pos == file->fd_inode->i_size + 1) {
         // TODO
         // kprint("EOF");
+        sys_free(io_buf);
         return -1;
     }
 
-    // 2. Read file range
+    // 2.This time Read file range
     // Read data from file_pos, and read data is rd_len
     uint_32 rd_len = MIN(f_left_sz, count);
 
@@ -547,18 +548,37 @@ int_32 file_read(struct partition *part,
         if (!table) {
             // TODO:
             // kprint("No enough memory when read file.\n");
+            sys_free(io_buf);
             return -1;
         }
         ide_read(part->my_disk, file->fd_inode->i_zones[12], table, 1);
         r_lba = table[rd_zone_idx - 12];
         sys_free(table);
     }
-    ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);
 
-    memmove(buf, &io_buf[rd_zone_offset], rd_len);
-    file->fd_pos += rd_len;
-
-    sys_free(io_buf);
-
-    return 0;
+    if (rd_len < ZONE_SIZE) {
+        ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);
+        memcpy(buf, &io_buf[rd_zone_offset], rd_len);
+        file->fd_pos += rd_len;
+        buf+=rd_len;
+        sys_free(io_buf);
+        return rd_len;
+    } else {
+        uint_32 rd_count = DIV_ROUND_UP(rd_len, ZONE_SIZE);
+        uint_32 rd_count_offset = rd_len % ZONE_SIZE;
+        for (int i = 0; i < rd_count; i++) {
+            ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);
+            if ((i == (rd_count - 1)) && rd_count_offset != 0) {
+                memcpy(buf, io_buf, rd_count_offset);
+                file->fd_pos += rd_count_offset;
+                buf+=rd_count_offset;
+            } else {
+                memcpy(buf, io_buf, ZONE_SIZE);
+                file->fd_pos += ZONE_SIZE;
+                buf+=ZONE_SIZE;
+            }
+        }
+        sys_free(io_buf);
+        return rd_len;
+    }
 }
