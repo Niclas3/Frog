@@ -1,3 +1,4 @@
+# pkill bochs &&
 make clean-all && 
 make newimg && 
 make mount_debug && 

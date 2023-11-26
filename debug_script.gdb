@@ -42,9 +42,16 @@ b UkiMain
 # b bootpack.c:150
 # b bootpack.c:157 if i == 12
 # b bootpack.c:151
-b func
-b bootpack.c: 256
-b bootpack.c:241
+
+# b func
+# b bootpack.c: 256
+# b bootpack.c:241
+
+# b 147 if i == 99
+# b 147 if i == 23
+
+# b mouse_consumer
+# b keyboard_consumer
 # b file_write
 # b file_read
 # b file.c:435

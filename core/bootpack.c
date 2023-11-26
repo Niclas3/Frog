@@ -110,15 +110,8 @@ void UkiMain(void)
     TCB_t *keyboard_c =
         thread_start("keyboard_reader", 10, keyboard_consumer, 3);
     TCB_t *mouse_c = thread_start("mouse1", 10, mouse_consumer, 3);
-    TCB_t *t = thread_start("aaaaaaaaaaaaaaa", 3, func, 4);
+    /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
-
-    /* for(int i = 0; i < 20; i++){ */
-    /*     char* buf_test = sys_malloc(512); */
-    /*     sys_free(buf_test); */
-    /* } */
-    /* char* buf_test = sys_malloc(512); */
-    /* sys_free(buf_test); */
 
     int_32 fd2 = sys_open("/test1.txt", O_RDWR);
     if (fd2 == -1) {
@@ -136,22 +129,24 @@ void UkiMain(void)
         "kebjfahfabdaaajefdhjgchgcicjehgcceeekbeiaaahbffibbegihgbccdcbehdbiee"
         "agghbfkgfbcdgfkjijij";
 
-    char *data506 =
+    char *data504 =
         "gfbiccaebdcefcjkbahgjihefejkchkdaebfiekbjibbdkihdfgbaddfeghfhhafaeke"
         "gagajejfjccgiiiccbefbefkhfjceaajaaabgkidkgdbdfcfieickjehddkkbeefghedhk"
         "fjbjdjafaaikdibidibhecgijhcikagbfgdhkabkhjifghdegdhgjfjcaaaecieecafhdk"
         "agkbjgfecigkikhigjcgeeikihagkkacdakkdiijbfccdccdchkcfiefgddbidbkckihge"
         "bjbicccecchadffbdaeaidkcdhaabdbiiahfcfgkcekcacjhjbgahfcfiahijcgiahijff"
-        "ebafehjkgibhhekfcaacakeaaacabejkkjckhdehebjkcgidfidgggkhchkficbbekdefb"
+        "ebafehjkgibhhekfcaacakeaaacabejkckhdehebjkcgidfidgggkhchkficbbekdefb"
         "kebjfahfabdaaajefdhjgchgcicjehgcceeekbeiaaahbffibbegihgbccdcbehdbiee"
         "agghbfkgfbcdgfkjijij";
 
     uint_8 *data512 = sys_malloc(512);
-    for (int i = 0; i < 22; i++) {
-        if (i >= 10) {
-            sprintf(data512, "{%d%s%d}", i, data506, i);
-        } else {
-            sprintf(data512, "{%d%s%d}", i, data508, i);
+    for (int i = 0; i < 140; i++) {
+        if (i < 10) {
+            sprintf(data512, "{00%d%s00%d}", i, data504, i);
+        } else if (i >= 10 && i < 100) {
+            sprintf(data512, "{0%d%s0%d}", i, data504, i);
+        } else if (i >= 100) {
+            sprintf(data512, "{%d%s%d}", i, data504, i);
         }
         file_write(&mounted_part, &f2, data512, strlen(data512));
         memset(data512, 0, 512);
@@ -197,7 +192,7 @@ void mouse_consumer(int a)
             x += 20;
         }
         lock_release(&main_lock);
-        _io_stihlt();
+        __asm__ volatile("sti;hlt;");
     }
 }
 
@@ -220,34 +215,36 @@ void keyboard_consumer(int a)
             xpos += 8;
         }
         lock_release(&main_lock);
-        _io_stihlt();
+        __asm__ volatile("sti;hlt;");
     }
 }
 
 void func(int a)
 {
+
     // Read from file
-    int_32 fd2 = sys_open("/test1.txt", O_RDONLY);
-    if (fd2 == -1) {
-        while(1);
-        /* fd2 = sys_open("/test1.txt", O_CREAT); */
-    }
-    TCB_t *cur = running_thread();
-    struct file f2 = g_file_table[cur->fd_table[fd2]];
-
-    uint_32 buf_len = 3000;
-    char *buf = sys_malloc(buf_len);
-    file_read(&mounted_part, &f2, buf, buf_len);
-
-    sys_free(buf);
-    sys_close(fd2);
-//--------------------------------------------------------------------------
-/* uint_32 pid = getpid(); */
-/* while (1) { */
-/*     lock_fetch(&main_lock); */
-/*     draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid); */
-/*     lock_release(&main_lock); */
-/* } */
+    /* int_32 fd2 = sys_open("/test1.txt", O_RDONLY); */
+    /* if (fd2 == -1) { */
+    /*     while (1) */
+    /*         ; */
+    /*     #<{(| fd2 = sys_open("/test1.txt", O_CREAT); |)}># */
+    /* } */
+    /* TCB_t *cur = running_thread(); */
+    /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
+    /*  */
+    /* uint_32 buf_len = 3000; */
+    /* char *buf = sys_malloc(buf_len); */
+    /* file_read(&mounted_part, &f2, buf, buf_len); */
+    /*  */
+    /* sys_free(buf); */
+    /* sys_close(fd2); */
+    //--------------------------------------------------------------------------
+    /* uint_32 pid = getpid(); */
+    /* while (1) { */
+    /*     lock_fetch(&main_lock); */
+    /*     draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid); */
+    /*     lock_release(&main_lock); */
+    /* } */
 }
 
 
