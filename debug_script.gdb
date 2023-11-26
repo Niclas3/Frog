@@ -46,7 +46,7 @@ b UkiMain
 # b func
 # b bootpack.c: 256
 # b bootpack.c:241
-
+b 139
 # b 147 if i == 99
 # b 147 if i == 23
 
