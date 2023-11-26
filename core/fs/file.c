@@ -315,9 +315,9 @@ int_32 file_write(struct partition *part,
                   const void *buf,
                   uint_32 write_len)
 {
-    //Init file position 
-    //if file position is 0, init it with file size
-    if(!file->fd_pos){
+    // Init file position
+    // if file position is 0, init it with file size
+    if (!file->fd_pos) {
         file->fd_pos = file->fd_inode->i_size;
     }
     uint_32 count = write_len;
@@ -359,11 +359,10 @@ int_32 file_write(struct partition *part,
         sys_free(buf);
     }
 
+    // zone_idx works like file position, always find next empty slot of zones
     int zone_idx;
     for (zone_idx = 0; all_zones[zone_idx] && zone_idx < 140; zone_idx++)
         ;
-    /* uint_32 rest_sz = f_inode->i_size > 0 ? f_inode->i_size % ZONE_SIZE : 0;
-     */
     uint_32 rest_sz = f_inode->i_size % ZONE_SIZE;
 
     // Ready to be written block of data is chunk after filling the rest zone
@@ -526,6 +525,12 @@ int_32 file_read(struct partition *part,
         // kprint("Not enough memory when file_read()");
         return -1;
     }
+    ASSERT(file->fd_pos >= 0 && file->fd_pos <= file->fd_inode->i_size);
+    if (file->fd_pos < 0 || file->fd_pos > file->fd_inode->i_size) {
+        // TODO
+        // kprint("Wrong file position.");
+        return -1;
+    }
 
     // test file->fd_pos at the end
     // read all file
@@ -542,32 +547,34 @@ int_32 file_read(struct partition *part,
     // Read data from file_pos, and read data is rd_len
     uint_32 rd_len = MIN(f_left_sz, count);
 
+    // Find first accessible i_zones[i]
+    // 1. read all i_zones;
+    uint_32 all_zones[140] = {0};
+    // First 12 i_zones[] elements is direct address of data (aka dir_entry)
+    for (int i = 0; i < 12 && file->fd_inode->i_zones[i]; i++) {
+        all_zones[i] = file->fd_inode->i_zones[i];
+    }
+    // the 13th i_zones[] is a in-direct table which size is ZONE_SIZE bytes
+    if (file->fd_inode->i_zones[12]) {
+        uint_32 *buf = (uint_32 *) sys_malloc(ZONE_SIZE);
+        ide_read(part->my_disk, file->fd_inode->i_zones[12], buf, 1);
+        for (int i = 0; i < ZONE_SIZE / 4; i++) {
+            all_zones[12 + i] = buf[i];
+        }
+        sys_free(buf);
+    }
+
     // 3. Covert file_pos to r_lba
     uint_32 rd_zone_idx = DIV_ROUND_UP(file_pos, ZONE_SIZE);
     uint_32 rd_zone_offset = file_pos % ZONE_SIZE;
-    uint_32 r_lba;
-
-    // read from direct table
-    if (rd_zone_idx < 12) {
-        r_lba = file->fd_inode->i_zones[rd_zone_idx];
-    } else {  // read from in-direct table
-        uint_32 *table = (uint_32 *) sys_malloc(ZONE_SIZE);
-        if (!table) {
-            // TODO:
-            // kprint("No enough memory when read file.\n");
-            sys_free(io_buf);
-            return -1;
-        }
-        ide_read(part->my_disk, file->fd_inode->i_zones[12], table, 1);
-        r_lba = table[rd_zone_idx - 12];
-        sys_free(table);
-    }
+    uint_32 r_lba = (rd_zone_idx < 12) ? all_zones[rd_zone_idx]
+                                       : all_zones[rd_zone_idx - 12];
 
     if (rd_len < ZONE_SIZE) {
         ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);
         memcpy(buf, &io_buf[rd_zone_offset], rd_len);
         file->fd_pos += rd_len;
-        buf+=rd_len;
+        buf += rd_len;
         sys_free(io_buf);
         return rd_len;
     } else {
@@ -578,12 +585,14 @@ int_32 file_read(struct partition *part,
             if ((i == (rd_count - 1)) && rd_count_offset != 0) {
                 memcpy(buf, io_buf, rd_count_offset);
                 file->fd_pos += rd_count_offset;
-                buf+=rd_count_offset;
+                buf += rd_count_offset;
             } else {
                 memcpy(buf, io_buf, ZONE_SIZE);
                 file->fd_pos += ZONE_SIZE;
-                buf+=ZONE_SIZE;
+                buf += ZONE_SIZE;
             }
+            r_lba = (rd_zone_idx < 12) ? all_zones[rd_zone_idx + i]
+                                       : all_zones[rd_zone_idx - 12 + i];
         }
         sys_free(io_buf);
         return rd_len;
