@@ -9,7 +9,8 @@ void panic_print(char* filename,
         int line, 
         const char* func,
         const char* condition){
-    _io_cli();
+    /* _io_cli(); */
+    __asm__ volatile("cli;");
 
     int x = 0;
     int y = 0;
@@ -29,5 +30,7 @@ void panic_print(char* filename,
     memset(tmp_str,0, 50);
     sprintf(tmp_str,"case: %s", condition);
     draw_info(0xc00a0000,320,COL8_FF0000,x ,y, tmp_str);
-    while(1);
+    while(1){
+        __asm__ volatile("hlt;");
+    };
 }
