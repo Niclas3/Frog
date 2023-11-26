@@ -299,6 +299,71 @@ int_32 file_close(struct file *file)
     return 0;
 }
 
+static int_32 rewrite_zone(struct partition *part,
+                           struct file *file,
+                           uint_32 chunk_rest,
+                           uint_32 zone_lba,
+                           bool is_last_turn,
+                           uint_8 **w_cursor,
+                           uint_32 *bytes_written)
+{
+    // If there is a rest chunk and this ture is the last turn
+    if (chunk_rest > 0 && is_last_turn) {
+        // data length == chunk_rest
+        char *rd_io_buf = sys_malloc(512);
+        if (!rd_io_buf) {
+            return -1;
+        }
+        ide_read(part->my_disk, zone_lba, rd_io_buf, 1);
+        memcpy(rd_io_buf, *w_cursor, chunk_rest);
+        ide_write(part->my_disk, zone_lba, rd_io_buf, 1);
+        file->fd_pos += chunk_rest;
+        *bytes_written += chunk_rest;
+        *w_cursor += chunk_rest;
+        sys_free(rd_io_buf);
+    } else {  // ZONE_SIZE for 1 sector / 1 zone
+        ide_write(part->my_disk, zone_lba, w_cursor, 1);
+        /* f_inode->i_size += ZONE_SIZE; */
+        file->fd_pos += ZONE_SIZE;
+        *bytes_written += ZONE_SIZE;
+        *w_cursor += ZONE_SIZE;
+    }
+    return 0;
+}
+
+static int_32 write_zone(struct partition *part,
+                         struct file *file,
+                         uint_32 chunk_rest,
+                         uint_32 zone_lba,
+                         bool is_last_turn,
+                         uint_8 **w_cursor,
+                         uint_32 *bytes_written)
+{
+    // If there is a rest chunk and this ture is the last turn
+    if (chunk_rest > 0 && is_last_turn) {
+        // data length == chunk_rest
+        uint_8 *tmp = sys_malloc(512);
+        if (!tmp) {
+            // TODO:
+            // kprint("No enough memory when write a file");
+            return -1;
+        }
+        memcpy(tmp, *w_cursor, chunk_rest);
+        ide_write(part->my_disk, zone_lba, tmp, 1);
+        file->fd_pos += chunk_rest;
+        *bytes_written += chunk_rest;
+        *w_cursor += chunk_rest;
+        sys_free(tmp);
+    } else {  // ZONE_SIZE for 1 sector / 1 zone
+        ide_write(part->my_disk, zone_lba, w_cursor, 1);
+        /* f_inode->i_size += ZONE_SIZE; */
+        file->fd_pos += ZONE_SIZE;
+        *bytes_written += ZONE_SIZE;
+        *w_cursor += ZONE_SIZE;
+    }
+    return 0;
+}
+
 /**
  * write buffer to file
  *
@@ -322,11 +387,10 @@ int_32 file_write(struct partition *part,
     }
     uint_32 count = write_len;
     // 1. test count + inode->i_size > ZONE_SIZE * 140
-    if ((file->fd_inode->i_size + count) > MAX_FILE_SIZE) {
+    if ((file->fd_pos + count) > MAX_FILE_SIZE) {
         // TODO:
         // kprint("write file error.");
-        uint_32 file_left_sz = MAX_FILE_SIZE - file->fd_inode->i_size;
-        count = file_left_sz;
+        count = MAX_FILE_SIZE - file->fd_pos;
     }
     uint_8 *io_buf = sys_malloc(1024);
     if (!io_buf) {
@@ -361,9 +425,15 @@ int_32 file_write(struct partition *part,
 
     // zone_idx works like file position, always find next empty slot of zones
     int zone_idx;
-    for (zone_idx = 0; all_zones[zone_idx] && zone_idx < 140; zone_idx++)
-        ;
-    uint_32 rest_sz = f_inode->i_size % ZONE_SIZE;
+    uint_32 rest_sz;
+    if (file->fd_pos == 0) {
+        for (zone_idx = 0; all_zones[zone_idx] && zone_idx < 140; zone_idx++)
+            ;
+        rest_sz = f_inode->i_size % ZONE_SIZE;
+    } else {
+        zone_idx = DIV_ROUND_UP(file->fd_pos, ZONE_SIZE);
+        rest_sz = file->fd_pos % ZONE_SIZE;
+    }
 
     // Ready to be written block of data is chunk after filling the rest zone
     // how many zones this time need
@@ -401,7 +471,7 @@ int_32 file_write(struct partition *part,
         w_cursor += len;
         ide_write(part->my_disk, zone_lba, io_buf, 1);
 
-        f_inode->i_size += need_filled_sz;
+        /* f_inode->i_size += need_filled_sz; */
         file->fd_pos += need_filled_sz;
         bytes_written += need_filled_sz;
     }
@@ -411,73 +481,71 @@ int_32 file_write(struct partition *part,
     // maybe I should write file zone by zone.
     // set to f_inode->i_zones[zone_idx] = zone_lba;
     for (int i = 0; i < chunk_cnt; i++) {
-        uint_32 zone_lba = zone_bitmap_alloc(part);
-        if (zone_lba == -1) {
-            // TODO:
-            // kprint("No enough zone count when write a file");
-            sys_free(io_buf);
-            return -1;
-        }
-        flush_bitmap(part, ZONE_BITMAP, zone_lba - part->sb->s_data_start_lba);
-        // direct table
-        if (zone_idx + i < 12) {
-            f_inode->i_zones[zone_idx + i] = zone_lba;
-        } else {  // in-direct table
-            // Read in-direct table
-            if (zone_idx + i == 12) {
-                // in-direct table address
-                f_inode->i_zones[zone_idx + i] = zone_lba;
-                // the zone_lba was taken to be save indirect table
-                // we need a new zone_lba for saving data.
-                zone_lba = zone_bitmap_alloc(part);
-                if (zone_lba == -1) {
-                    // TODO:
-                    // kprint("No enough zone count when write a file");
-                    sys_free(io_buf);
-                    return -1;
-                }
-                flush_bitmap(part, ZONE_BITMAP,
-                             zone_lba - part->sb->s_data_start_lba);
-            }
-            uint_32 *table = (uint_32 *) sys_malloc(ZONE_SIZE);
-            if (!table) {
+        uint_32 zone_lba;
+        if (!all_zones[zone_idx + i]) {
+            // should alloc new zone lba
+            zone_lba = zone_bitmap_alloc(part);
+            if (zone_lba == -1) {
                 // TODO:
                 // kprint("No enough zone count when write a file");
-                return -1;
-            }
-            ide_read(part->my_disk, f_inode->i_zones[12], table, 1);
-            table[zone_idx - 12 + i] = zone_lba;
-            ide_write(part->my_disk, f_inode->i_zones[12], table, 1);
-            sys_free(table);
-        }
-        // write a zone buffer to this zone_lba
-        ASSERT(w_cursor - (uint_8 *) buf < count);
-        // If there is a rest chunk and this ture is the last turn
-        if (chunk_rest > 0 && (i == (chunk_cnt - 1))) {
-            // data length == chunk_rest
-            uint_8 *tmp = sys_malloc(512);
-            if (!tmp) {
-                // TODO:
-                // kprint("No enough memory when write a file");
                 sys_free(io_buf);
                 return -1;
             }
-            memcpy(tmp, w_cursor, chunk_rest);
-            ide_write(part->my_disk, zone_lba, tmp, 1);
-            f_inode->i_size += chunk_rest;
-            file->fd_pos += chunk_rest;
-            bytes_written += chunk_rest;
-            w_cursor += chunk_rest;
-
-            sys_free(tmp);
-        } else {  // ZONE_SIZE for 1 sector / 1 zone
-            ide_write(part->my_disk, zone_lba, w_cursor, 1);
-            f_inode->i_size += ZONE_SIZE;
-            file->fd_pos += ZONE_SIZE;
-            bytes_written += ZONE_SIZE;
-            w_cursor += ZONE_SIZE;
+            flush_bitmap(part, ZONE_BITMAP,
+                         zone_lba - part->sb->s_data_start_lba);
+            // direct table
+            if (zone_idx + i < 12) {
+                f_inode->i_zones[zone_idx + i] = zone_lba;
+            } else {  // in-direct table
+                // Read in-direct table
+                if (zone_idx + i == 12) {
+                    // in-direct table address
+                    f_inode->i_zones[zone_idx + i] = zone_lba;
+                    // the zone_lba was taken to be save indirect table
+                    // we need a new zone_lba for saving data.
+                    zone_lba = zone_bitmap_alloc(part);
+                    if (zone_lba == -1) {
+                        // TODO:
+                        // kprint("No enough zone count when write a file");
+                        sys_free(io_buf);
+                        return -1;
+                    }
+                    flush_bitmap(part, ZONE_BITMAP,
+                                 zone_lba - part->sb->s_data_start_lba);
+                }
+                uint_32 *table = (uint_32 *) sys_malloc(ZONE_SIZE);
+                if (!table) {
+                    // TODO:
+                    // kprint("No enough zone count when write a file");
+                    return -1;
+                }
+                ide_read(part->my_disk, f_inode->i_zones[12], table, 1);
+                table[zone_idx - 12 + i] = zone_lba;
+                ide_write(part->my_disk, f_inode->i_zones[12], table, 1);
+                sys_free(table);
+            }
+            // if zone has data already aka (it has a zone_lba aka
+            // all_zones[zone_idx] != 0) write a zone buffer to this zone_lba
+            ASSERT(w_cursor - (uint_8 *) buf < count);
+            // If there is a rest chunk and this ture is the last turn
+            bool is_last_turn = (i == (chunk_cnt - 1));
+            int_32 ret = write_zone(part, file, chunk_rest, zone_lba,
+                                    is_last_turn, &w_cursor, &bytes_written);
+            if (ret == -1)
+                return -1;
+        } else {
+            zone_lba = all_zones[zone_idx + i];
+            ASSERT(w_cursor - (uint_8 *) buf < count);
+            bool is_last_turn = (i == (chunk_cnt - 1));
+            int_32 ret = rewrite_zone(part, file, chunk_rest, zone_lba,
+                                      is_last_turn, &w_cursor, &bytes_written);
+            if (ret == -1)
+                return -1;
+            // If there is a rest chunk and this ture is the last turn
         }
     }
+    // Calculate i_size
+    f_inode->i_size = MAX(file->fd_pos, f_inode->i_size);
 
     memset(io_buf, 0, 1024);
     flush_inode(part, f_inode, io_buf);
