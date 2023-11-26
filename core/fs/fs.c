@@ -669,3 +669,33 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
     file_read(&mounted_part, f, buf, count);
     return 0;
 }
+
+int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence)
+{
+    if (fd < 0) {
+        // TODO:
+        // kprint("sys_lseek: fd error");
+        return -1;
+    }
+    ASSERT(whence > 0 && whence < 4);
+    uint_32 g_fd = fd_local2global(fd);
+    struct file *f = &g_file_table[g_fd];
+    int_32 new_pos = 0;
+    int_32 file_size = (int_32) f->fd_inode->i_size;
+    if (whence == SEEK_SET) {
+        new_pos = offset;
+    } else if (whence == SEEK_CUR) {
+        new_pos = (int_32) f->fd_pos + offset;
+    } else if (whence == SEEK_END) {
+        new_pos = file_size + 1 + offset;
+    } else {
+        // TODO:
+        // kprint("sys_lseek: whence error");
+        return -1;
+    }
+    if (new_pos < 0 || new_pos > file_size) {
+        return -1;
+    }
+    f->fd_pos = new_pos;
+    return f->fd_pos;
+}

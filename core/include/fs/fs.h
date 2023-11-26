@@ -35,6 +35,12 @@ enum exec_mode{
     EM_DIR_MAKR     // for directory rm limit mark
 };
 
+enum whence{
+    SEEK_SET=1,
+    SEEK_CUR,
+    SEEK_END
+};
+
 void fs_init(void);
 int_32 path_depth(const char *path);
 
@@ -42,4 +48,5 @@ int_32 sys_open(const char* pathname, uint_8 flags);
 int_32 sys_close(int_32 fd);
 int_32 sys_write(int_32 fd, const void *buf, uint_32 count);
 int_32 sys_read(int_32 fd, void *buf, uint_32 count);
+int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence);
 #endif

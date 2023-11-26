@@ -5,7 +5,7 @@ struct partition;
 struct dir;
 struct file{
     // offset of this file 
-    uint_32 fd_pos;
+    uint_32 fd_pos; // next available byte
     uint_32 fd_flag;
     struct inode* fd_inode;
 };

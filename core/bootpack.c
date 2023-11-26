@@ -109,50 +109,25 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
-    TCB_t *keyboard_c =
-        thread_start("keyboard_reader", 10, keyboard_consumer, 3);
-    TCB_t *mouse_c = thread_start("mouse1", 10, mouse_consumer, 3);
-    /* TCB_t *t = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
-    /* TCB_t *t1 = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
+    TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
+    TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
+    /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
+    TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3);
     /* TCB_t *readt1 = thread_start("dick reader", 10, funcc, 3); */
 
-    int_32 fd2 = sys_open("/test1.txt", O_RDWR);
-    if (fd2 == -1) {
-        fd2 = sys_open("/test1.txt", O_CREAT);
-    }
-    TCB_t *cur = running_thread();
-    struct file f2 = g_file_table[cur->fd_table[fd2]];
-    char *data508 =
-        "gfbiccageebdcefcjkbahgjihefejkchkdaebfiekbjibbdkihdfgbaddfeghfhhafaeke"
-        "gagajejfjccgiiiccbefbefkhfjceaajaaabgkidkgdbdfcfieickjehddkkbeefghedhk"
-        "fjbjdjafaaikdibidibhecgijhcikagbfgdhkabkhjifghdegdhgjfjcaaaecieecafhdk"
-        "agkbjgfecigkikhigjcgeeikihagkkacdakkdiijbfccdccdchkcfiefgddbidbkckihge"
-        "ebafehjkgibhhekfcaacakeaaacabejkkjckhdehebjkcgidfidgggkhchkficbbekdefb"
-        "kebjfahfabdaaajefdhjgchgcicjehgcceeekbeiaaahbffibbegihgbccdcbehdbiee";
-    uint_8 *data = sys_malloc(512);
-
-    for (int i = 0; i < 140 + 20 + 4 + 1 + 1 + 1; i++) {
-        sprintf(data, "{00%d%s00%d}", i, data508, i);
-        file_write(&mounted_part, &f2, data, strlen(data));
-        memset(data, 0, 512);
-    }
-    memset(data, 0, 512);
-    sys_close(fd2);
-    int_32 fd3 = sys_open("/test1.txt", O_RDWR);
-
-    char *datalast =
-        "130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 "
-        "147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 "
-        "164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 "
-        "181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 "
-        "215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 ";
-    int len = strlen(datalast);
-    sprintf(data, "{00%d%s00%d}", 99, datalast, 99);
-    int lena = sys_write(fd3, datalast, strlen(datalast));
-    /* int lena = file_write(&mounted_part, &f3, datalast, strlen(datalast)); */
-
-    sys_free(data);
-    sys_close(fd2);
+    /* int_32 fd2 = sys_open("/test1.txt", O_RDONLY); */
+    /* if (fd2 == -1) { */
+    /*     PAINC("cannot find file"); */
+    /* } */
+    /* TCB_t *cur = running_thread(); */
+    /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
+    /*  */
+    /* uint_32 buf_len = 7168; */
+    /* char *buf = sys_malloc(buf_len); */
+    /* file_read(&mounted_part, &f2, buf, buf_len); */
+    /*  */
+    /* sys_free(buf); */
+    /* sys_close(fd2); */
 
     // System process at ring1
     /* process_execute_ring1(task_sys, "TASK_SYS");  // pid 2 */
@@ -227,12 +202,15 @@ void func(int a)
             ;
         /* fd2 = sys_open("/test1.txt", O_CREAT); */
     }
-    TCB_t *cur = running_thread();
-    struct file f2 = g_file_table[cur->fd_table[fd2]];
-
-    uint_32 buf_len = 3000;
+    /* TCB_t *cur = running_thread(); */
+    /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
+    /*  */
+    /* f2.fd_pos = 512; */
+    uint_32 buf_len = 512;
     char *buf = sys_malloc(buf_len);
-    file_read(&mounted_part, &f2, buf, buf_len);
+    /* file_read(&mounted_part, &f2, buf, buf_len); */
+    /* file_read(&mounted_part, &f2, buf, buf_len); */
+    sys_read(fd2, buf, buf_len);
 
     sys_free(buf);
     sys_close(fd2);
@@ -248,59 +226,29 @@ void func(int a)
 
 void funcb(int a)
 {
-    /* int_32 fd2 = sys_open("/test1.txt", O_RDWR); */
-    /* if (fd2 == -1) { */
-    /*     fd2 = sys_open("/test1.txt", O_CREAT); */
-    /* } */
+    int_32 fd2 = sys_open("/test1.txt", O_RDWR);
+    if (fd2 == -1) {
+        fd2 = sys_open("/test1.txt", O_CREAT);
+        sys_close(fd2);
+    }
+    /* fd2 = sys_open("/test1.txt", O_RDWR); */
+
     /* TCB_t *cur = running_thread(); */
     /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
-    /* char *data508 = */
-    /*     "gfbiccageebdcefcjkbahgjihefejkchkdaebfiekbjibbdkihdfgbaddfeghfhhafaeke"
-     */
-    /*     "gagajejfjccgiiiccbefbefkhfjceaajaaabgkidkgdbdfcfieickjehddkkbeefghedhk"
-     */
-    /*     "fjbjdjafaaikdibidibhecgijhcikagbfgdhkabkhjifghdegdhgjfjcaaaecieecafhdk"
-     */
-    /*     "agkbjgfecigkikhigjcgeeikihagkkacdakkdiijbfccdccdchkcfiefgddbidbkckihge"
-     */
-    /*     "bjbicccecchadffbdaeaidkcdhaabdbiiahfcfgkcekcacjhjbgahfcfiahijcgiahijff"
-     */
-    /*     "ebafehjkgibhhekfcaacakeaaacabejkkjckhdehebjkcgidfidgggkhchkficbbekdefb"
-     */
-    /*     "kebjfahfabdaaajefdhjgchgcicjehgcceeekbeiaaahbffibbegihgbccdcbehdbiee"
-     */
-    /*     "agghbfkgfbcdgfkjijij"; */
-    /*  */
-    /* char *data506 = */
-    /*     "gfbiccaebdcefcjkbahgjihefejkchkdaebfiekbjibbdkihdfgbaddfeghfhhafaeke"
-     */
-    /*     "gagajejfjccgiiiccbefbefkhfjceaajaaabgkidkgdbdfcfieickjehddkkbeefghedhk"
-     */
-    /*     "fjbjdjafaaikdibidibhecgijhcikagbfgdhkabkhjifghdegdhgjfjcaaaecieecafhdk"
-     */
-    /*     "agkbjgfecigkikhigjcgeeikihagkkacdakkdiijbfccdccdchkcfiefgddbidbkckihge"
-     */
-    /*     "bjbicccecchadffbdaeaidkcdhaabdbiiahfcfgkcekcacjhjbgahfcfiahijcgiahijff"
-     */
-    /*     "ebafehjkgibhhekfcaacakeaaacabejkkjckhdehebjkcgidfidgggkhchkficbbekdefb"
-     */
-    /*     "kebjfahfabdaaajefdhjgchgcicjehgcceeekbeiaaahbffibbegihgbccdcbehdbiee"
-     */
-    /*     "agghbfkgfbcdgfkjijij"; */
-    /*  */
-    /* char *data512 = sys_malloc(512); */
-    /* for (int i = 0; i < 22; i++) { */
-    /*     if (i >= 10) { */
-    /*         sprintf(data512, "{%d%s%d}", i, data506, i); */
-    /*     } else { */
-    /*         sprintf(data512, "{%d%s%d}", i, data508, i); */
-    /*     } */
-    /*     file_write(&mounted_part, &f2, data512, strlen(data512)); */
-    /*     memset(data512, 0, 512); */
+    /* f2.fd_pos = 2048; */
+    /* for (int i = 0; i < 10; i++) { */
+    /*     char buf[10] = {0}; */
+    /*     sprintf(buf, "%c", 67); */
+    /*     file_write(&mounted_part, &f2, buf, strlen(buf)); */
     /* } */
-    /*  */
-    /* sys_free(data512); */
-    /* sys_close(fd2); */
+    sys_lseek(fd2, -1, SEEK_END);
+    sys_write(fd2, "Z", 1);
+    /* for (int i = 0; i < 65535; i++) { */
+    /*     char buf[10] = {0}; */
+    /*     sprintf(buf, "%d",i ); */
+    /*     sys_write(fd2, buf, strlen(buf)); */
+    /* } */
+    sys_close(fd2);
 
     /* TCB_t *cur = running_thread(); */
     /* #<{(| while(1){ |)}># */
