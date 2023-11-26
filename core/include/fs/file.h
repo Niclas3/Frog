@@ -41,10 +41,11 @@ int_32 file_open(struct partition *part, uint_32 inode_nr, uint_8 flags);
 int_32 file_close(struct file *file);
 
 
+
 int_32 file_write(struct partition *part,
                   struct file *file,
                   const void *buf,
-                  uint_32 count);
+                  uint_32 write_len);
 
 int_32 file_read(struct partition *part,
                  struct file *file,

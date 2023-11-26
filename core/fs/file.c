@@ -305,7 +305,7 @@ int_32 file_close(struct file *file)
  * @param part mounted partition
  * @param file target file
  * @param buf  buffer contain data
- * @param count writing size
+ * @param len writing size
  *
  * @return if success return bytes counts
  *         if failed return -1
@@ -313,13 +313,20 @@ int_32 file_close(struct file *file)
 int_32 file_write(struct partition *part,
                   struct file *file,
                   const void *buf,
-                  uint_32 count)
+                  uint_32 write_len)
 {
+    //Init file position 
+    //if file position is 0, init it with file size
+    if(!file->fd_pos){
+        file->fd_pos = file->fd_inode->i_size;
+    }
+    uint_32 count = write_len;
     // 1. test count + inode->i_size > ZONE_SIZE * 140
     if ((file->fd_inode->i_size + count) > MAX_FILE_SIZE) {
         // TODO:
         // kprint("write file error.");
-        return -1;
+        uint_32 file_left_sz = MAX_FILE_SIZE - file->fd_inode->i_size;
+        count = file_left_sz;
     }
     uint_8 *io_buf = sys_malloc(1024);
     if (!io_buf) {
@@ -353,7 +360,7 @@ int_32 file_write(struct partition *part,
     }
 
     int zone_idx;
-    for (zone_idx = 0; all_zones[zone_idx]; zone_idx++)
+    for (zone_idx = 0; all_zones[zone_idx] && zone_idx < 140; zone_idx++)
         ;
     /* uint_32 rest_sz = f_inode->i_size > 0 ? f_inode->i_size % ZONE_SIZE : 0;
      */
