@@ -26,6 +26,7 @@
 #include <sys/semaphore.h>
 #include <sys/syscall.h>
 #include <sys/threads.h>
+#include <panic.h>
 
 #include <fs/dir.h>
 #include <fs/file.h>

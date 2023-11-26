@@ -8,7 +8,6 @@
 #include <sys/int.h>
 #include <sys/sched.h>
 
-#include <asm/bootpack.h>
 #include <io.h>
 // test
 #include <sys/graphic.h>
