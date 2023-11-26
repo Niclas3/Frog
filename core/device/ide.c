@@ -136,7 +136,7 @@ static void select_disk(struct disk *hd)
     if (hd->dev_no == 1) {
         reg_device |= BIT_DEV_DEV;
     }
-    _io_out8(reg_dev(hd->my_channel), reg_device);
+    outb(reg_dev(hd->my_channel), reg_device);
 }
 
 static void select_sector(struct disk *hd, uint_32 lba, uint_8 sec_cnt)
@@ -144,18 +144,18 @@ static void select_sector(struct disk *hd, uint_32 lba, uint_8 sec_cnt)
     ASSERT(lba <= max_lba);
     struct ide_channel *channel = hd->my_channel;
     // if sec_cnt == 0 then write in 256 sectors
-    _io_out8(reg_sect_cnt(channel), sec_cnt);
+    outb(reg_sect_cnt(channel), sec_cnt);
 
     // Set LBA28 address
     // lower lba
-    _io_out8(reg_lba_l(channel), lba);
+    outb(reg_lba_l(channel), lba);
     // lba address 8~15bits
-    _io_out8(reg_lba_m(channel), lba >> 8);
+    outb(reg_lba_m(channel), lba >> 8);
     // lba address 16~23bits
-    _io_out8(reg_lba_h(channel), lba >> 16);
+    outb(reg_lba_h(channel), lba >> 16);
 
     // lba 24~27bits write into device 0 ~ 3bits
-    _io_out8(reg_dev(channel), BIT_DEV_MBS | BIT_DEV_LBA |
+    outb(reg_dev(channel), BIT_DEV_MBS | BIT_DEV_LBA |
                                    (hd->dev_no == 1 ? BIT_DEV_DEV : 0) |
                                    lba >> 24);
 }
@@ -163,7 +163,7 @@ static void select_sector(struct disk *hd, uint_32 lba, uint_8 sec_cnt)
 static void cmd_out(struct ide_channel *channel, uint_8 cmd)
 {
     channel->expecting_intr = true;
-    _io_out8(reg_cmd(channel), cmd);
+    outb(reg_cmd(channel), cmd);
 }
 
 static void read_from_sector(struct disk *hd, void *buf, uint_8 sec_cnt)
