@@ -670,6 +670,17 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
     return 0;
 }
 
+/**
+ * sys_lseek
+ *
+ * set a file position
+ *
+ * @param fd file descriptor
+ * @param offset new offset
+ * @param whence base offset for seek
+ * @return file position if success
+ *         -1 if failed 
+ *****************************************************************************/
 int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence)
 {
     if (fd < 0) {
@@ -693,7 +704,7 @@ int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence)
         // kprint("sys_lseek: whence error");
         return -1;
     }
-    if (new_pos < 0 || new_pos > file_size ) {
+    if (new_pos < 0 || new_pos > file_size) {
         return -1;
     }
     f->fd_pos = new_pos;
