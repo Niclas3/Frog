@@ -637,19 +637,7 @@ int_32 file_read(struct partition *part,
     // Find first accessible i_zones[i]
     // 1. read all i_zones;
     uint_32 all_zones[MAX_ZONE_COUNT] = {0};
-    // First 12 i_zones[] elements is direct address of data (aka dir_entry)
-    for (int i = 0; i < 12 && file->fd_inode->i_zones[i]; i++) {
-        all_zones[i] = file->fd_inode->i_zones[i];
-    }
-    // the 13th i_zones[] is a in-direct table which size is ZONE_SIZE bytes
-    if (file->fd_inode->i_zones[12]) {
-        uint_32 *buf = (uint_32 *) sys_malloc(ZONE_SIZE);
-        ide_read(part->my_disk, file->fd_inode->i_zones[12], buf, 1);
-        for (int i = 0; i < ZONE_SIZE / 4; i++) {
-            all_zones[12 + i] = buf[i];
-        }
-        sys_free(buf);
-    }
+    inode_all_zones(part, file->fd_inode, all_zones);
 
     // 3. Covert file_pos to r_lba
     /* uint_32 rd_zone_idx = DIV_ROUND_UP(file_pos, ZONE_SIZE); */
