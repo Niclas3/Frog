@@ -380,17 +380,20 @@ int_32 file_write(struct partition *part,
                   const void *buf,
                   uint_32 write_len)
 {
-    // Init file position
-    // if file position is 0, init it with file size
-    if (!file->fd_pos) {
-        file->fd_pos = file->fd_inode->i_size;
+    if (!(file->fd_pos < EOF && file->fd_pos >= 0)) {
+        return -1;
     }
     uint_32 count = write_len;
     // 1. test count + inode->i_size > ZONE_SIZE * 140
     if ((file->fd_pos + count) > MAX_FILE_SIZE) {
         // TODO:
         // kprint("write file error.");
-        count = MAX_FILE_SIZE - file->fd_pos;
+        // EOF
+        if (file->fd_pos < EOF && file->fd_pos >= 0) {
+            count = MAX_FILE_SIZE - file->fd_pos;
+        } else {
+            return -1;
+        }
     }
     uint_8 *io_buf = sys_malloc(1024);
     if (!io_buf) {
@@ -408,7 +411,7 @@ int_32 file_write(struct partition *part,
     struct inode *f_inode = file->fd_inode;
     // Find first accessible i_zones[i]
     // 1. read all i_zones;
-    uint_32 all_zones[140] = {0};
+    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
     // First 12 i_zones[] elements is direct address of data (aka dir_entry)
     for (int i = 0; i < 12 && f_inode->i_zones[i]; i++) {
         all_zones[i] = f_inode->i_zones[i];
@@ -423,16 +426,18 @@ int_32 file_write(struct partition *part,
         sys_free(buf);
     }
 
-    // zone_idx works like file position, always find next empty slot of zones
-    int zone_idx;
-    uint_32 rest_sz;
-    if (file->fd_pos == 0) {
-        for (zone_idx = 0; all_zones[zone_idx] && zone_idx < 140; zone_idx++)
+    // When we can alloc zone_lba
+    // 1. if file position == file size and all_zones[zone_idx] == 0
+    int zone_idx = DIV_ROUND_UP(file->fd_pos, ZONE_SIZE);
+    uint_32 rest_sz = file->fd_pos % ZONE_SIZE;
+    bool need_new_zone_lba = (file->fd_pos == file->fd_inode->i_size);
+    if (need_new_zone_lba && !all_zones[zone_idx]) {
+        // zone_idx works like file position, always find next empty slot of
+        // zones
+        // 140 is max zones count
+        for (zone_idx = 0; all_zones[zone_idx] && zone_idx < MAX_ZONE_COUNT; zone_idx++)
             ;
         rest_sz = f_inode->i_size % ZONE_SIZE;
-    } else {
-        zone_idx = DIV_ROUND_UP(file->fd_pos, ZONE_SIZE);
-        rest_sz = file->fd_pos % ZONE_SIZE;
     }
 
     // Ready to be written block of data is chunk after filling the rest zone
@@ -617,7 +622,7 @@ int_32 file_read(struct partition *part,
 
     // Find first accessible i_zones[i]
     // 1. read all i_zones;
-    uint_32 all_zones[140] = {0};
+    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
     // First 12 i_zones[] elements is direct address of data (aka dir_entry)
     for (int i = 0; i < 12 && file->fd_inode->i_zones[i]; i++) {
         all_zones[i] = file->fd_inode->i_zones[i];
