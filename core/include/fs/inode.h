@@ -59,5 +59,6 @@ void new_inode(uint_32 inode_nr, struct inode* new_inode);
 void flush_inode(struct partition *part,
                         struct inode *inode,
                         void *io_buf);
+void inode_release(struct partition *part, uint_32 inode_nr);
 
 #endif

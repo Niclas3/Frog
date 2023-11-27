@@ -229,28 +229,31 @@ void funcb(int a)
     int_32 fd2 = sys_open("/test1.txt", O_RDWR);
     if (fd2 == -1) {
         fd2 = sys_open("/test1.txt", O_CREAT);
-        sys_close(fd2);
+        /* sys_close(fd2); */
     }
     /* fd2 = sys_open("/test1.txt", O_RDWR); */
 
-    /* TCB_t *cur = running_thread(); */
-    /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
-    /* f2.fd_pos = 2048; */
-    /* for (int i = 0; i < 10; i++) { */
-    /*     char buf[10] = {0}; */
-    /*     sprintf(buf, "%c", 67); */
-    /*     file_write(&mounted_part, &f2, buf, strlen(buf)); */
-    /* } */
-    sys_lseek(fd2, -2, SEEK_END);
+    TCB_t *cur = running_thread();
+    struct file f2 = g_file_table[cur->fd_table[fd2]];
+    for (int i = 0; i < 999999; i++) {
+        int ret = 0;
+        char buf[10] = {'Z',0};
+        /* sprintf(buf, "%c", "A"); */
+        ret = sys_write(fd2, buf, strlen(buf));
+        if (ret == 0) break;
+        /* file_write(&mounted_part, &f2, buf, strlen(buf)); */
+    }
+
     /* sys_lseek(fd2, -2, SEEK_END); */
-    char *buf = sys_malloc(512);
+    /* sys_lseek(fd2, -2, SEEK_END); */
+    /* char *buf = sys_malloc(512); */
     /* sys_lseek(fd2, 1, SEEK_SET); */
     /* sys_read(fd2, buf, 12); */
     /* sys_write(fd2, "R", 1); */
-    sys_lseek(fd2, -1, SEEK_END);
-    sys_read(fd2, buf, 12);
-    sys_lseek(fd2, -71680, SEEK_END);
-    sys_read(fd2, buf, 12);
+    /* sys_lseek(fd2, -1, SEEK_END); */
+    /* sys_read(fd2, buf, 12); */
+    /* sys_lseek(fd2, -71680, SEEK_END); */
+    /* sys_read(fd2, buf, 12); */
     /* sys_write(fd2, "Q", 1); */
     /* for (int i = 0; i < 65535; i++) { */
     /*     char buf[10] = {0}; */

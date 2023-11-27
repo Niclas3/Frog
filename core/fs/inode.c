@@ -1,4 +1,5 @@
 #include <device/ide.h>
+#include <fs/file.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
 
@@ -53,9 +54,7 @@ static void locale_inode(struct partition *part,
  *
  * @return return Comments write here
  *****************************************************************************/
-void flush_inode(struct partition *part,
-                        struct inode *inode,
-                        void *io_buf)
+void flush_inode(struct partition *part, struct inode *inode, void *io_buf)
 {
     // flush buffer must be set
     if (io_buf == NULL) {
@@ -139,7 +138,7 @@ struct inode *inode_open(struct partition *part, uint_32 inode_nr)
 
         uint_8 *buf = sys_malloc(read_sz * SECTOR_SIZE);
         ide_read(part->my_disk, pos.start_lba, buf, read_sz);
-        memcpy(target, buf+pos.offset, sizeof(struct inode));
+        memcpy(target, buf + pos.offset, sizeof(struct inode));
         target->i_nlinks += 1;
 
         list_add(&target->inode_tag, &part->open_inodes);
@@ -190,4 +189,89 @@ void new_inode(uint_32 inode_nr, struct inode *new_inode)
     for (int i = 0; i < 12; i++) {
         new_inode->i_zones[i] = 0;
     }
+}
+
+/**
+ * delete inode
+ *
+ * help function
+ *
+ *****************************************************************************/
+static void inode_delete(struct partition *part, uint_32 inode_no, void *io_buf)
+{
+    // Recycle inode_bitmap
+    struct iposition inode_pos;
+    locale_inode(part, inode_no, &inode_pos);
+    char *inode_buf = io_buf;
+
+    if (inode_pos.is_crossed) {
+        ide_read(part->my_disk, inode_pos.start_lba, inode_buf, 2);
+        memset(inode_buf + inode_pos.offset, 0, sizeof(struct inode));
+        ide_write(part->my_disk, inode_pos.start_lba, inode_buf, 2);
+    } else {
+        ide_read(part->my_disk, inode_pos.start_lba, inode_buf, 1);
+        memset(inode_buf + inode_pos.offset, 0, sizeof(struct inode));
+        ide_write(part->my_disk, inode_pos.start_lba, inode_buf, 1);
+    }
+}
+
+static void inode_all_zones(struct partition *part,
+                            struct inode *inode,
+                            uint_32 *all_zones)
+{
+    // Find first accessible i_zones[i]
+    // 1. read all i_zones;
+    // First 12 i_zones[] elements is direct address of data (aka dir_entry)
+    for (int i = 0; i < 12 && inode->i_zones[i]; i++) {
+        all_zones[i] = inode->i_zones[i];
+    }
+    // the 13th i_zones[] is a in-direct table which size is ZONE_SIZE bytes
+    if (inode->i_zones[12]) {
+        ide_read(part->my_disk, inode->i_zones[12], all_zones + 12, 1);
+    }
+}
+
+/*  * When we delete inode, we should recycle some resources */
+/*  * 1. inode bitmap of this inode */
+/*  * 2. inode table bit of this inode */
+/*  * 3. inode zones include i_zones[0~11] and indirect table *i_zones[12] */
+/*  * 4. zone bitmap */
+void inode_release(struct partition *part, uint_32 inode_nr)
+{
+    struct inode *inode_need_del = inode_open(part, inode_nr);
+    uint_32 zone_bitmap_idx;
+    // Find first accessible i_zones[i]
+    // 1. read all i_zones;
+    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
+    inode_all_zones(part, inode_need_del, all_zones);
+    uint_32 zones_cnt = sizeof(all_zones) / 4;
+    // Recycle i_zones[12]
+    zone_bitmap_idx = inode_need_del->i_zones[12] - part->sb->s_data_start_lba;
+    ASSERT(zone_bitmap_idx > 0);
+    set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
+    flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
+
+    // Recycle zones
+    uint_32 zone_idx = 0;
+    while (zone_idx < zones_cnt) {
+        if (all_zones[zone_idx]) {
+            zone_bitmap_idx = 0;
+            zone_bitmap_idx = all_zones[zone_idx] - part->sb->s_data_start_lba;
+            ASSERT(zone_bitmap_idx > 0);
+            set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
+            flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
+        }
+        zone_idx++;
+    }
+
+    // recycle inode space
+    set_value_bitmap(&part->inode_bitmap, inode_nr, 0);
+    flush_bitmap(part, INODE_BITMAP, zone_bitmap_idx);
+
+    // delete inode  for test-----------------
+    void *io_buf = sys_malloc(1024);
+    inode_delete(part, inode_nr, io_buf);
+    sys_free(io_buf);
+    //-------------------------------
+    inode_close(inode_need_del);
 }

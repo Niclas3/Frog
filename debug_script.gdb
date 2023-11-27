@@ -49,9 +49,8 @@ b UkiMain
 # b funcb
 # b 147 if i == 99
 # b 147 if i == 23
-b file.c:621
-b 247
-b file_read
+# b file.c:621
+b 243 if ret == 0
 
 # b mouse_consumer
 # b keyboard_consumer
