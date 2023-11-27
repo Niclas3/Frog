@@ -50,7 +50,10 @@ b UkiMain
 # b 147 if i == 99
 # b 147 if i == 23
 # b file.c:621
-b 243 if ret == 0
+b delete_dir_entry
+b dir.c:388
+b bootpack.c:236 if ret == 0
+b inode_release
 
 # b mouse_consumer
 # b keyboard_consumer
