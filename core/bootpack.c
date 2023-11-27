@@ -116,13 +116,14 @@ void UkiMain(void)
     /* TCB_t *readt1 = thread_start("dick reader", 10, funcc, 3); */
 
     /* funcb(1); */
-    int_32 fd = sys_open("/test1.txt", O_RDWR);
-    TCB_t *cur = running_thread();
-    struct file f2 = g_file_table[cur->fd_table[fd]];
-    char* io_buf = sys_malloc(1024);
-    inode_release(&mounted_part, f2.fd_inode->i_num);
-    /* delete_dir_entry(&mounted_part, &root_dir, f2.fd_inode->i_num,io_buf); */
-    sys_free(io_buf);
+    /* int_32 fd = sys_open("/test1.txt", O_RDWR); */
+    /* TCB_t *cur = running_thread(); */
+    /* struct file f2 = g_file_table[cur->fd_table[fd]]; */
+    /* char* io_buf = sys_malloc(1024); */
+    /* inode_release(&mounted_part, f2.fd_inode->i_num); */
+    /* #<{(| delete_dir_entry(&mounted_part, &root_dir, f2.fd_inode->i_num,io_buf); |)}># */
+    /* sys_free(io_buf); */
+    search_file_with_pathname(&mounted_part,"/zm/Development/C/playground/code/test/");
 
     // System process at ring1
     /* process_execute_ring1(task_sys, "TASK_SYS");  // pid 2 */

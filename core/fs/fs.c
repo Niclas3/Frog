@@ -364,6 +364,7 @@ static int_32 path_dirs(const char *path, char *dirs)
         char last[MAX_FILE_NAME_LEN] = {0};
         tmp_path = path_peel(tmp_path, last);
         int_32 len = strlen(last);
+        // Only take directory
         if (last[len - 1] == '/') {
             memcpy(next_slot, last, len);
             next_slot += MAX_FILE_NAME_LEN;
@@ -445,7 +446,8 @@ static int_32 search_file_recur(struct partition *part,
  * find file or directory in parent directory
  *
  * @param part partition
- * @return inode
+ * @return inode if success
+ *          -1 if failed
  *****************************************************************************/
 static int_32 search_file(struct partition *part,
                           struct dir *this_dir,
@@ -493,6 +495,72 @@ static int_32 search_file(struct partition *part,
 
     sys_free(entries_buf);
     return -1;
+}
+
+/**
+ * find file or directory by a absolute path
+ *
+ * @param part partition
+ * @param pathname path in absolute form
+ * @param pdir file or dir is at this parent directory
+ * @return inode number
+ *****************************************************************************/
+// /home/zm/Development/test.c
+// /home/zm/Development/
+static int_32 search_file_with_pathname(struct partition *part,
+                                 const char *pathname,
+                                 struct dir *pdir)
+{
+    bool is_file = false;
+    if (pathname[strlen(pathname) - 1] != '/') {
+        is_file = true;
+    }
+    char last_name[MAX_FILE_NAME_LEN];
+    char *tmp_path = sys_malloc(strlen(pathname));
+    if (!tmp_path) {
+        // TODO:
+        // kprint("Not enough memory at path_dir()");
+        return -1;
+    }
+    memcpy(tmp_path, pathname, strlen(pathname));
+    path_peel(tmp_path, last_name);
+    sys_free(tmp_path);
+
+    struct dir *prev_d = NULL;
+    struct dir *d = &root_dir;
+    int_32 depth = path_depth(pathname);
+    char *dirs_path = sys_malloc(MAX_FILE_NAME_LEN * depth);
+    path_dirs(pathname, dirs_path);
+
+    int_32 dirs_cnt;
+    for (dirs_cnt = 0;
+         (dirs_path[dirs_cnt]) && dirs_cnt < depth * MAX_FILE_NAME_LEN;
+         dirs_cnt += MAX_FILE_NAME_LEN)
+        ;
+    dirs_cnt /= MAX_FILE_NAME_LEN;
+    // 2. test all directories
+    //  -1 is skip '/' root directory and last file;
+    for (int_32 idx = (dirs_cnt - 1) * MAX_FILE_NAME_LEN; idx >= 0;
+         idx -= MAX_FILE_NAME_LEN) {
+        char *dir_name = &dirs_path[idx];
+        int_32 d_inode_nr = search_file(part, d, dir_name);
+        if (d_inode_nr != -1) {
+            prev_d = d;
+            d = dir_open(part, d_inode_nr);
+        } else {
+            return -1;
+        }
+        // when the last turn of this dirs
+        if (idx == 0 && !is_file) {
+            memcpy(pdir, prev_d, sizeof(struct dir));
+            return d_inode_nr;
+        }
+    }
+    sys_free(dirs_path);
+    // this time d is the innerest directory
+    int_32 file_inode_nr = search_file(part, d, last_name);
+    memcpy(pdir, d, sizeof(struct dir));
+    return file_inode_nr;
 }
 
 /**
@@ -679,7 +747,7 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
  * @param offset new offset
  * @param whence base offset for seek
  * @return file position if success
- *         -1 if failed 
+ *         -1 if failed
  *****************************************************************************/
 int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence)
 {
@@ -709,4 +777,77 @@ int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence)
     }
     f->fd_pos = new_pos;
     return f->fd_pos;
+}
+/**
+ *ONLY delete file NOT DIRECTORY!
+ *
+ *  unlink()  deletes a name from the filesystem.  If that name
+ *  was the last link to a file and no processes have the  file
+ *  open,  the  file  is  deleted and the space it was using is
+ *  made available for reuse.
+ *
+ *  If the name was the last link to a file but  any  processes
+ *  still have the file open, the file will remain in existence
+ *  until the last file descriptor referring to it is closed.
+ *  If the name referred to a symbolic link, the  link  is  re‐
+ *  moved.
+ *
+ *  If the name referred to a socket, FIFO, or device, the name
+ *  for it is removed but processes which have the object  open
+ *  may continue to use it.
+ *
+ * @param pathname path
+ * @return On success, zero is returned.  On error,  -1  is  returned,
+ *         and errno is set appropriately.(no we don't have this now)
+ *****************************************************************************/
+int_32 sys_unlink(const char *pathname)
+{
+    /* struct inode_unlink = sea */
+    // 1. If that name was the last link to a file and no processes have the
+    // file open,  the  file  is  deleted and the space it was using is made
+    // available for reuse.
+    char *io_buf = sys_malloc(1024);
+    if (!io_buf) {
+        return -1;
+    }
+    struct partition *part = &mounted_part;
+    struct dir *pdir = sys_malloc(sizeof(struct dir));
+    if (!pdir) {
+        sys_free(io_buf);
+        return -1;
+    }
+    int_32 inode_nr = search_file_with_pathname(part, pathname, pdir);
+    if (inode_nr == -1) {
+        sys_free(pdir);
+        sys_free(io_buf);
+        return -1;
+    }
+    struct inode *unlinked_inode = inode_open(part, inode_nr);
+    uint_32 file_idx = 0;
+    while (file_idx < MAX_FILE_OPEN) {
+        if (g_file_table[file_idx].fd_inode != NULL &&
+            inode_nr == g_file_table[file_idx].fd_inode->i_num) {
+            break;
+        }
+        file_idx++;
+    }
+    if (file_idx < MAX_FILE_OPEN) {
+        // TODO:
+        // kprint("some process is use this file.");
+        return -1;
+    }
+
+    if (unlinked_inode->i_nlinks == 0) {
+        delete_dir_entry(part, pdir, inode_nr, io_buf);
+        inode_release(part, inode_nr);
+        sys_free(io_buf);
+        return 0;
+    } else {
+        // TODO:
+        // kprint("some process is use this file.");
+        unlinked_inode->i_nlinks -= 1;
+        flush_inode(part, unlinked_inode, io_buf);
+        sys_free(io_buf);
+        return -1;
+    }
 }

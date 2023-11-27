@@ -54,6 +54,7 @@ b delete_dir_entry
 b dir.c:388
 b bootpack.c:236 if ret == 0
 b inode_release
+b search_file_with_pathname
 
 # b mouse_consumer
 # b keyboard_consumer
