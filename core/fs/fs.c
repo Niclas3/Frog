@@ -687,13 +687,13 @@ int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence)
     } else if (whence == SEEK_CUR) {
         new_pos = (int_32) f->fd_pos + offset;
     } else if (whence == SEEK_END) {
-        new_pos = file_size + 1 + offset;
+        new_pos = file_size + 1 + (offset - 1);
     } else {
         // TODO:
         // kprint("sys_lseek: whence error");
         return -1;
     }
-    if (new_pos < 0 || new_pos > file_size + 1) {
+    if (new_pos < 0 || new_pos > file_size ) {
         return -1;
     }
     f->fd_pos = new_pos;
