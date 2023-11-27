@@ -10,6 +10,21 @@
 
 struct dir root_dir;  // global variable for root directory
 
+static void inode_all_zones(struct partition *part,
+                            struct inode *inode,
+                            uint_32 *all_zones)
+{
+    // Find first accessible i_zones[i]
+    // 1. read all i_zones;
+    // First 12 i_zones[] elements is direct address of data (aka dir_entry)
+    for (int i = 0; i < 12 && inode->i_zones[i]; i++) {
+        all_zones[i] = inode->i_zones[i];
+    }
+    // the 13th i_zones[] is a in-direct table which size is ZONE_SIZE bytes
+    if (inode->i_zones[12]) {
+        ide_read(part->my_disk, inode->i_zones[12], all_zones + 12, 1);
+    }
+}
 /**
  * open root directory
  * only open one time.
@@ -33,6 +48,7 @@ void open_root_dir(struct partition *part)
  * @param part a mounted partition
  * @param name entry name
  * @param d in what directory
+ * @param target_entry if find copy to this pointer
  * @return return 0 when success
  *         return !0 when failed
  *****************************************************************************/
@@ -96,6 +112,60 @@ int_32 search_dir_entry(struct partition *part,
     sys_free(all_zones);
     return -1;
 }
+
+/**
+ * Search dir_entry (file or directory or ...) by name at given directory
+ *
+ * @param part a mounted partition
+ * @param inode_nr inode number
+ * @param d in what directory
+ * @param target_entry if find copy to this pointer
+ * @return return target lba when success
+ *         return !0 when failed
+ *****************************************************************************/
+int_32 search_dir_entry_by_inodenr(struct partition *part,
+                                   uint_32 inode_nr,
+                                   struct dir *d,
+                                   struct dir_entry *target_entry)
+{
+    // name                          i_zones_entry             size in bytes
+    // 12 direct access i_zones[] -> 12 addresses           -> 12 * 4 = 48 bytes
+    // 1  1-layer access          -> 512 / 4 = 128 addresses-> 512 bytes
+    // 140
+    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
+    inode_all_zones(part, d->inode, all_zones);
+
+    // there are 140 lba address
+    // Go through all lba address sector by sector. 1 sector has
+    // 512/sizeof(struct dir_entry) dir_entries. Testing all dir_entries find
+    // entry name equals given name.
+    uint_8 *buf = sys_malloc(512);
+    for (int i = 0; i < MAX_ZONE_COUNT; i++) {
+        uint_32 d_entry_lba = all_zones[i];
+        uint_32 zone_link = 0;  // it shows how many entry in this zone.
+        memset(buf, 0, 512);
+        ide_read(part->my_disk, d_entry_lba, buf, 1);
+        struct dir_entry *entries = (struct dir_entry *) buf;
+        for (int entry_idx = 0; entry_idx < (512 / sizeof(struct dir_entry));
+             entry_idx++) {
+            struct dir_entry entry = *(entries + entry_idx);
+            // if entry is not . or ..
+            if (strcmp(entry.filename, ".") || strcmp(entry.filename, "..")) {
+                zone_link++;
+            }
+            if (entry.i_no == inode_nr) {
+                memcpy(target_entry, &entry, sizeof(struct dir_entry));
+                sys_free(all_zones);
+                return d_entry_lba;
+            } else {
+                break;
+            }
+        }
+    }
+    sys_free(buf);
+    sys_free(all_zones);
+    return -1;
+}
 /**
  * open directory
  *
@@ -106,7 +176,7 @@ struct dir *dir_open(struct partition *part, uint_32 inode_nr)
 {
     struct dir *d = (struct dir *) sys_malloc(sizeof(struct dir));
     d->inode = inode_open(part, inode_nr);
-    d->dir_pos = 0;  // ????
+    d->dir_pos = 0;  // for lseek
     return d;
 }
 
@@ -246,4 +316,98 @@ int_32 flush_dir_entry(struct partition *part,
     }
 
     return -1;
+}
+
+/**
+ * Delete dir entry from parent directory
+ *
+ * @param part mounted partition
+ * @param pdir deleted entry from this parent directory
+ * @param inode_nr deleted entry's inode number
+ * @param io_buf io buffer
+ * @return
+ *****************************************************************************/
+void delete_dir_entry(struct partition *part,
+                      struct dir *pdir,
+                      uint_32 inode_nr,
+                      void *io_buf)
+{
+    struct dir_entry *target_entry = {0};
+    // name                          i_zones_entry             size in bytes
+    // 12 direct access i_zones[] -> 12 addresses           -> 12 * 4 = 48 bytes
+    // 1  1-layer access          -> 512 / 4 = 128 addresses-> 512 bytes
+    // 140
+    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
+    inode_all_zones(part, pdir->inode, all_zones);
+
+    // there are 140 lba address
+    // Go through all lba address sector by sector. 1 sector has
+    // 512/sizeof(struct dir_entry) dir_entries. Testing all dir_entries find
+    // entry name equals given name.
+    uint_8 *buf = io_buf;
+    int zone_idx;
+    struct dir_entry *found_entry = NULL;
+    for (zone_idx = 0; zone_idx < MAX_ZONE_COUNT; zone_idx++) {
+        uint_32 d_entry_lba = all_zones[zone_idx];
+        uint_32 zone_link = 0;  // it shows how many entry in this zone.
+        memset(buf, 0, 512);
+        ide_read(part->my_disk, d_entry_lba, buf, 1);
+        struct dir_entry *entries = (struct dir_entry *) buf;
+        for (int entry_idx = 0; entry_idx < (512 / sizeof(struct dir_entry));
+             entry_idx++) {
+            struct dir_entry entry = *(entries + entry_idx);
+            // if entry is not . or ..
+            if (strcmp(entry.filename, ".") && strcmp(entry.filename, "..")) {
+                zone_link++;
+            }
+            if (entry.i_no == inode_nr) {
+                memcpy(target_entry, &entry, sizeof(struct dir_entry));
+                found_entry = entries + entry_idx;
+            }
+        }
+        if (!found_entry) {
+            continue;
+        }
+        // when find target
+        if (found_entry && zone_link == 0) {
+            uint_32 zone_bitmap_idx =
+                all_zones[zone_idx] - part->sb->s_data_start_lba;
+            set_value_bitmap(&part->zone_bitmap, ZONE_BITMAP, 0);
+            flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
+            if (zone_idx < 12) {
+                pdir->inode->i_zones[zone_idx] = 0;
+            } else {
+                uint_32 indirect_zones_cnt = 0;
+                uint_32 indirect_zones_idx = 12;
+                for (; indirect_zones_idx < MAX_ZONE_COUNT;
+                     indirect_zones_idx++) {
+                    if (all_zones[indirect_zones_idx]) {
+                        indirect_zones_cnt++;
+                    }
+                }
+                ASSERT(indirect_zones_cnt >= 1);
+                // If has other zones in indirect table then not recycle
+                // indirect table
+                if (indirect_zones_cnt > 1) {
+                    all_zones[zone_idx] = 0;
+                    ide_write(part->my_disk, pdir->inode->i_zones[12],
+                              all_zones + 12, 1);
+                } else {  // if only has one (include current entry) then
+                          // recycle all indirect table
+                    zone_bitmap_idx =
+                        pdir->inode->i_zones[12] - part->sb->s_data_start_lba;
+                    set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
+                    flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
+                    pdir->inode->i_zones[12] = 0;
+                }
+            }
+        } else if (found_entry) {
+            memset(found_entry, 0, sizeof(struct dir_entry));
+            ide_write(part->my_disk, all_zones[zone_idx], entries, 1);
+        }
+        // flush parent directory inode
+        pdir->inode->i_size -= sizeof(struct dir_entry);
+        memset(io_buf, 0, 512 * 2);
+        flush_inode(part, pdir->inode, io_buf);
+    }
 }

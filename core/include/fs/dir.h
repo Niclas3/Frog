@@ -39,4 +39,9 @@ int_32 flush_dir_entry(struct partition *part,
                        struct dir *p_dir,
                        struct dir_entry *new_entry,
                        void *io_buf);
+
+void delete_dir_entry(struct partition *part,
+                      struct dir *pdir,
+                      uint_32 inode_nr,
+                      void *io_buf);
 #endif
