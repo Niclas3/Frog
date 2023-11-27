@@ -192,7 +192,7 @@ void new_inode(uint_32 inode_nr, struct inode *new_inode)
 }
 
 /**
- * delete inode
+ * delete inode at inode table
  *
  * help function
  *
@@ -242,27 +242,25 @@ void inode_release(struct partition *part, uint_32 inode_nr)
     uint_32 zone_bitmap_idx;
     // Find first accessible i_zones[i]
     // 1. read all i_zones;
-    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
+    uint_32 all_zones[MAX_ZONE_COUNT + 1] = {0};
     inode_all_zones(part, inode_need_del, all_zones);
     // Start recycle
-    uint_32 zones_cnt = sizeof(all_zones) / 4;
-    // Recycle i_zones[12]
-    zone_bitmap_idx = inode_need_del->i_zones[12] - part->sb->s_data_start_lba;
-    ASSERT(zone_bitmap_idx > 0);
-    set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
-    flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
-
     // Recycle zones
-    uint_32 zone_idx = 0;
-    while (zone_idx < zones_cnt) {
-        if (all_zones[zone_idx]) {
-            zone_bitmap_idx = 0;
-            zone_bitmap_idx = all_zones[zone_idx] - part->sb->s_data_start_lba;
-            ASSERT(zone_bitmap_idx > 0);
-            set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
-            flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
-        }
-        zone_idx++;
+    for (uint_32 zone_idx = 0;
+         all_zones[zone_idx] && zone_idx < MAX_ZONE_COUNT + 1; zone_idx++) {
+        zone_bitmap_idx = 0;
+        zone_bitmap_idx = all_zones[zone_idx] - part->sb->s_data_start_lba;
+        ASSERT(zone_bitmap_idx > 0);
+        set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
+        flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
+    };
+    // Recycle i_zones[12]
+    if (inode_need_del->i_zones[12]) {
+        zone_bitmap_idx =
+            inode_need_del->i_zones[12] - part->sb->s_data_start_lba;
+        ASSERT(zone_bitmap_idx > 0);
+        set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
+        flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
     }
 
     // recycle inode space
