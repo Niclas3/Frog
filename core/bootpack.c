@@ -241,8 +241,9 @@ void funcb(int a)
     /*     sprintf(buf, "%c", 67); */
     /*     file_write(&mounted_part, &f2, buf, strlen(buf)); */
     /* } */
-    sys_lseek(fd2, -1, SEEK_END);
-    sys_write(fd2, "Z", 1);
+    /* sys_lseek(fd2, -1, SEEK_END); */
+    sys_lseek(fd2, 0, SEEK_CUR);
+    sys_write(fd2, "V", 1);
     /* for (int i = 0; i < 65535; i++) { */
     /*     char buf[10] = {0}; */
     /*     sprintf(buf, "%d",i ); */
