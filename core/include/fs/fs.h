@@ -15,7 +15,7 @@
 #define SECTOR_PER_ZONE 1  // ZONE_SIZE / SECTOR_SIZE
 #define MAX_ZONE_COUNT 140
 #define MAX_FILE_SIZE ZONE_SIZE *MAX_ZONE_COUNT
-#define EOF MAX_FILE_SIZE + 1
+#define EOF(file) (file)->fd_inode->i_size + 1
 
 struct dir;
 

@@ -241,9 +241,17 @@ void funcb(int a)
     /*     sprintf(buf, "%c", 67); */
     /*     file_write(&mounted_part, &f2, buf, strlen(buf)); */
     /* } */
-    /* sys_lseek(fd2, -1, SEEK_END); */
-    sys_lseek(fd2, 0, SEEK_CUR);
-    sys_write(fd2, "V", 1);
+    sys_lseek(fd2, -2, SEEK_END);
+    /* sys_lseek(fd2, -2, SEEK_END); */
+    char *buf = sys_malloc(512);
+    /* sys_lseek(fd2, 1, SEEK_SET); */
+    /* sys_read(fd2, buf, 12); */
+    /* sys_write(fd2, "R", 1); */
+    sys_lseek(fd2, -1, SEEK_END);
+    sys_read(fd2, buf, 12);
+    sys_lseek(fd2, -71680, SEEK_END);
+    sys_read(fd2, buf, 12);
+    /* sys_write(fd2, "Q", 1); */
     /* for (int i = 0; i < 65535; i++) { */
     /*     char buf[10] = {0}; */
     /*     sprintf(buf, "%d",i ); */

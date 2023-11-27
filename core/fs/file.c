@@ -380,7 +380,7 @@ int_32 file_write(struct partition *part,
                   const void *buf,
                   uint_32 write_len)
 {
-    if (!(file->fd_pos < EOF && file->fd_pos >= 0)) {
+    if (!(file->fd_pos < (MAX_FILE_SIZE + 1) && file->fd_pos >= 0)) {
         return -1;
     }
     uint_32 count = write_len;
@@ -389,7 +389,7 @@ int_32 file_write(struct partition *part,
         // TODO:
         // kprint("write file error.");
         // EOF
-        if (file->fd_pos < EOF && file->fd_pos >= 0) {
+        if (file->fd_pos < (MAX_FILE_SIZE + 1) && file->fd_pos >= 0) {
             count = MAX_FILE_SIZE - file->fd_pos;
         } else {
             return -1;
@@ -435,7 +435,8 @@ int_32 file_write(struct partition *part,
         // zone_idx works like file position, always find next empty slot of
         // zones
         // 140 is max zones count
-        for (zone_idx = 0; all_zones[zone_idx] && zone_idx < MAX_ZONE_COUNT; zone_idx++)
+        for (zone_idx = 0; all_zones[zone_idx] && zone_idx < MAX_ZONE_COUNT;
+             zone_idx++)
             ;
         rest_sz = f_inode->i_size % ZONE_SIZE;
     }
@@ -598,23 +599,20 @@ int_32 file_read(struct partition *part,
         // kprint("Not enough memory when file_read()");
         return -1;
     }
-    ASSERT(file->fd_pos >= 0 && file->fd_pos <= file->fd_inode->i_size);
-    if (file->fd_pos < 0 || file->fd_pos > file->fd_inode->i_size) {
+    ASSERT(file->fd_pos >= 0 && file->fd_pos <= EOF(file));
+    if (file->fd_pos < 0 || file->fd_pos > EOF(file)) {
         // TODO
         // kprint("Wrong file position.");
+        sys_free(io_buf);
         return -1;
     }
-
+    if(file->fd_pos >= EOF(file)){
+        return 0;
+    }
     // test file->fd_pos at the end
     // read all file
     uint_32 file_pos = file->fd_pos;
     uint_32 f_left_sz = file->fd_inode->i_size - file->fd_pos;
-    if (file_pos == file->fd_inode->i_size + 1) {
-        // TODO
-        // kprint("EOF");
-        sys_free(io_buf);
-        return -1;
-    }
 
     // 2.This time Read file range
     // Read data from file_pos, and read data is rd_len
@@ -638,10 +636,16 @@ int_32 file_read(struct partition *part,
     }
 
     // 3. Covert file_pos to r_lba
-    uint_32 rd_zone_idx = DIV_ROUND_UP(file_pos, ZONE_SIZE);
+    /* uint_32 rd_zone_idx = DIV_ROUND_UP(file_pos, ZONE_SIZE); */
+    uint_32 rd_zone_idx = file_pos / ZONE_SIZE;
+    if(rd_zone_idx >= 140) {
+        //TODO
+        //kprint("error sys_read");
+        sys_free(io_buf);
+        return -1;
+    }
     uint_32 rd_zone_offset = file_pos % ZONE_SIZE;
-    uint_32 r_lba = (rd_zone_idx < 12) ? all_zones[rd_zone_idx]
-                                       : all_zones[rd_zone_idx - 12];
+    uint_32 r_lba = all_zones[rd_zone_idx];
 
     if (rd_len < ZONE_SIZE) {
         ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);

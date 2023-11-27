@@ -47,9 +47,11 @@ b UkiMain
 # b bootpack.c: 256
 # b bootpack.c:241
 # b funcb
-b 243
 # b 147 if i == 99
 # b 147 if i == 23
+b file.c:621
+b 247
+b file_read
 
 # b mouse_consumer
 # b keyboard_consumer
