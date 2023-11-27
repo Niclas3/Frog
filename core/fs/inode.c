@@ -244,6 +244,7 @@ void inode_release(struct partition *part, uint_32 inode_nr)
     // 1. read all i_zones;
     uint_32 all_zones[MAX_ZONE_COUNT] = {0};
     inode_all_zones(part, inode_need_del, all_zones);
+    // Start recycle
     uint_32 zones_cnt = sizeof(all_zones) / 4;
     // Recycle i_zones[12]
     zone_bitmap_idx = inode_need_del->i_zones[12] - part->sb->s_data_start_lba;
