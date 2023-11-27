@@ -364,6 +364,22 @@ static int_32 write_zone(struct partition *part,
     return 0;
 }
 
+static void inode_all_zones(struct partition *part,
+                            struct inode *inode,
+                            uint_32 *all_zones)
+{
+    // Find first accessible i_zones[i]
+    // 1. read all i_zones;
+    // First 12 i_zones[] elements is direct address of data (aka dir_entry)
+    for (int i = 0; i < 12 && inode->i_zones[i]; i++) {
+        all_zones[i] = inode->i_zones[i];
+    }
+    // the 13th i_zones[] is a in-direct table which size is ZONE_SIZE bytes
+    if (inode->i_zones[12]) {
+        ide_read(part->my_disk, inode->i_zones[12], all_zones + 12, 1);
+    }
+}
+
 /**
  * write buffer to file
  *
@@ -472,7 +488,7 @@ int_32 file_write(struct partition *part,
         // rest_sz = SIZEOF(io_buf);
         uint_8 *r_cursor = &io_buf[rest_sz];
         uint_32 len = need_filled_sz;
-        ASSERT(w_cursor - (uint_8 *) buf < count);
+        ASSERT(w_cursor - (uint_8 *) buf <= count);
         memcpy(r_cursor, w_cursor, len);
         w_cursor += len;
         ide_write(part->my_disk, zone_lba, io_buf, 1);
@@ -532,7 +548,7 @@ int_32 file_write(struct partition *part,
             }
             // if zone has data already aka (it has a zone_lba aka
             // all_zones[zone_idx] != 0) write a zone buffer to this zone_lba
-            ASSERT(w_cursor - (uint_8 *) buf < count);
+            ASSERT(w_cursor - (uint_8 *) buf <= count);
             // If there is a rest chunk and this ture is the last turn
             bool is_last_turn = (i == (chunk_cnt - 1));
             int_32 ret = write_zone(part, file, chunk_rest, zone_lba,
@@ -541,7 +557,7 @@ int_32 file_write(struct partition *part,
                 return -1;
         } else {
             zone_lba = all_zones[zone_idx + i];
-            ASSERT(w_cursor - (uint_8 *) buf < count);
+            ASSERT(w_cursor - (uint_8 *) buf <= count);
             bool is_last_turn = (i == (chunk_cnt - 1));
             int_32 ret = rewrite_zone(part, file, chunk_rest, zone_lba,
                                       is_last_turn, &w_cursor, &bytes_written);
@@ -606,7 +622,7 @@ int_32 file_read(struct partition *part,
         sys_free(io_buf);
         return -1;
     }
-    if(file->fd_pos >= EOF(file)){
+    if (file->fd_pos >= EOF(file)) {
         return 0;
     }
     // test file->fd_pos at the end
@@ -638,9 +654,9 @@ int_32 file_read(struct partition *part,
     // 3. Covert file_pos to r_lba
     /* uint_32 rd_zone_idx = DIV_ROUND_UP(file_pos, ZONE_SIZE); */
     uint_32 rd_zone_idx = file_pos / ZONE_SIZE;
-    if(rd_zone_idx >= 140) {
-        //TODO
-        //kprint("error sys_read");
+    if (rd_zone_idx >= 140) {
+        // TODO
+        // kprint("error sys_read");
         sys_free(io_buf);
         return -1;
     }
