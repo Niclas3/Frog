@@ -43,7 +43,7 @@ struct inode {
     uint_32 i_atime;          // last access time
     uint_32 i_ctime;          // inode self modified time
     uint_16 i_dev;            // device number of inode
-    uint_16 i_count;          // linked count of inode, 0 presents free
+    uint_16 i_count;          // open count of inode, 0 presents no one open it
     uint_8  i_lock;           // inode lock mark for write lock
     uint_8  i_dirt;           // inode dirty mark
     uint_8  i_pipe;           // inode is pipe 
