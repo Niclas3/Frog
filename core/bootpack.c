@@ -112,9 +112,10 @@ void UkiMain(void)
     TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
     TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
-    /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
+    TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3);
     /* TCB_t *readt1 = thread_start("dick reader", 10, funcc, 3); */
 
+    /* sys_unlink("/test1.txt"); */
     /* funcb(1); */
     /* int_32 fd = sys_open("/test1.txt", O_RDWR); */
     /* TCB_t *cur = running_thread(); */
@@ -123,7 +124,6 @@ void UkiMain(void)
     /* inode_release(&mounted_part, f2.fd_inode->i_num); */
     /* #<{(| delete_dir_entry(&mounted_part, &root_dir, f2.fd_inode->i_num,io_buf); |)}># */
     /* sys_free(io_buf); */
-    search_file_with_pathname(&mounted_part,"/zm/Development/C/playground/code/test/");
 
     // System process at ring1
     /* process_execute_ring1(task_sys, "TASK_SYS");  // pid 2 */
@@ -230,7 +230,7 @@ void funcb(int a)
     }
 
     TCB_t *cur = running_thread();
-    char buf[512] = {'X'};
+    char buf[512] = {'V'};
     struct file f2 = g_file_table[cur->fd_table[fd2]];
     for (int i = 0; i < 140; i++) {
         int ret = 0;

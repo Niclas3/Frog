@@ -508,8 +508,8 @@ static int_32 search_file(struct partition *part,
 // /home/zm/Development/test.c
 // /home/zm/Development/
 static int_32 search_file_with_pathname(struct partition *part,
-                                 const char *pathname,
-                                 struct dir *pdir)
+                                        const char *pathname,
+                                        struct dir *pdir)
 {
     bool is_file = false;
     if (pathname[strlen(pathname) - 1] != '/') {
@@ -538,29 +538,43 @@ static int_32 search_file_with_pathname(struct partition *part,
          dirs_cnt += MAX_FILE_NAME_LEN)
         ;
     dirs_cnt /= MAX_FILE_NAME_LEN;
-    // 2. test all directories
-    //  -1 is skip '/' root directory and last file;
-    for (int_32 idx = (dirs_cnt - 1) * MAX_FILE_NAME_LEN; idx >= 0;
-         idx -= MAX_FILE_NAME_LEN) {
-        char *dir_name = &dirs_path[idx];
-        int_32 d_inode_nr = search_file(part, d, dir_name);
-        if (d_inode_nr != -1) {
-            prev_d = d;
-            d = dir_open(part, d_inode_nr);
+    dirs_cnt = !dirs_cnt ? 1 : dirs_cnt;
+    // file at root directory
+    if (dirs_cnt == 1) {
+        int_32 f_inode = search_file(part, d, last_name);
+        if (f_inode != -1) {
+            sys_free(dirs_path);
+            memcpy(pdir, d, sizeof(struct dir));
+            return f_inode;
         } else {
+            sys_free(dirs_path);
             return -1;
         }
-        // when the last turn of this dirs
-        if (idx == 0 && !is_file) {
-            memcpy(pdir, prev_d, sizeof(struct dir));
-            return d_inode_nr;
+    } else {
+        // 2. test all directories
+        //  -1 is skip '/' root directory and last file;
+        for (int_32 idx = (dirs_cnt - 1) * MAX_FILE_NAME_LEN; idx >= 0;
+             idx -= MAX_FILE_NAME_LEN) {
+            char *dir_name = &dirs_path[idx];
+            int_32 d_inode_nr = search_file(part, d, dir_name);
+            if (d_inode_nr != -1) {
+                prev_d = d;
+                d = dir_open(part, d_inode_nr);
+            } else {
+                return -1;
+            }
+            // when the last turn of this dirs
+            if (idx == 0 && !is_file) {
+                memcpy(pdir, prev_d, sizeof(struct dir));
+                return d_inode_nr;
+            }
         }
+        sys_free(dirs_path);
+        // this time d is the innerest directory
+        int_32 file_inode_nr = search_file(part, d, last_name);
+        memcpy(pdir, d, sizeof(struct dir));
+        return file_inode_nr;
     }
-    sys_free(dirs_path);
-    // this time d is the innerest directory
-    int_32 file_inode_nr = search_file(part, d, last_name);
-    memcpy(pdir, d, sizeof(struct dir));
-    return file_inode_nr;
 }
 
 /**
