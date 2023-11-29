@@ -186,7 +186,7 @@ void new_inode(uint_32 inode_nr, struct inode *new_inode)
     new_inode->i_size = 0;
     new_inode->i_count= 0;
     new_inode->i_lock = false;
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < 13; i++) {
         new_inode->i_zones[i] = 0;
     }
 }
