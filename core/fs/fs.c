@@ -937,9 +937,9 @@ int_32 sys_mkdir(const char *pathname)
         }
         pdir = dir_open(part, pdir_inode_nr);
     }
-    if(search_file(part, pdir, last_name) != -1){
-        //TODO:
-        //kprint("sys_mkdir: current directory exists.")
+    if (search_file(part, pdir, last_name) != -1) {
+        // TODO:
+        // kprint("sys_mkdir: current directory exists.")
         rollback_step = 4;
         goto rollback;
     }
@@ -1026,4 +1026,30 @@ rollback:
         sys_free(io_buf);
     }
     return -1;
+}
+/**
+ * The opendir() function opens a directory stream corresponding to the
+ *directory name, and returns a pointer to the directory stream.  The stream is
+ *positioned at the first entry in the directory.
+ *
+ * @param name directory name
+ * @return struct dir pointer
+ *****************************************************************************/
+struct dir *sys_opendir(const char *name)
+{
+    // 1. if name is / return root directory
+    struct partition *part = &mounted_part;
+    if (strlen(name) == 1 && name[0] == '/') {
+        return &root_dir;
+    }
+    struct dir pdir;
+    struct dir *dir = sys_malloc(sizeof(struct dir));
+    int_32 cur_d_inode_nr = search_file_with_pathname(part, name, &pdir);
+    if (cur_d_inode_nr == -1) {
+        sys_free(dir);
+        return NULL;
+    }
+    dir_close(&pdir);
+    dir = dir_open(part, cur_d_inode_nr);
+    return dir;
 }
