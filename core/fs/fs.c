@@ -283,8 +283,10 @@ static char *path_peel(char *path, char *last_name)
 {
     if (strlen(path) == 0)
         return NULL;
-    if (strlen(path) == 1 && !strcmp("/", path))
+    if (strlen(path) == 1 && !strcmp("/", path)) {
+        memset(last_name, 0, MAX_FILE_NAME_LEN);
         return path;
+    }
     // 1. test if path is valid path
     uint_32 path_len = strlen(path);
     char *cursor = path;
@@ -832,7 +834,7 @@ int_32 sys_unlink(const char *pathname)
     }
     int_32 inode_nr = search_file_with_pathname(part, pathname, pdir);
     if (inode_nr == -1) {
-        sys_free(pdir);
+        dir_close(pdir);
         sys_free(io_buf);
         return -1;
     }
@@ -848,12 +850,14 @@ int_32 sys_unlink(const char *pathname)
     if (file_idx < MAX_FILE_OPEN) {
         // TODO:
         // kprint("some process is use this file.");
+        dir_close(pdir);
         return -1;
     }
 
     if (unlinked_inode->i_nlinks == 0) {
         delete_dir_entry(part, pdir, inode_nr, io_buf);
         inode_release(part, inode_nr);
+        dir_close(pdir);
         sys_free(io_buf);
         return 0;
     } else {
@@ -861,7 +865,165 @@ int_32 sys_unlink(const char *pathname)
         // kprint("some process is use this file.");
         unlinked_inode->i_nlinks -= 1;
         flush_inode(part, unlinked_inode, io_buf);
+        dir_close(pdir);
         sys_free(io_buf);
         return -1;
     }
+}
+/**
+ *  mkdir() attempts to create a directory named pathname.
+ *
+ *  The argument mode specifies the mode for the  new  di‐
+ *  rectory   (see  inode(7)).   It  is  modified  by  the
+ *  process's umask in the usual way: in the absence of  a
+ *  default  ACL,  the  mode  of  the created directory is
+ *  (mode & ~umask & 0777).  Whether other mode  bits  are
+ *  honored for the created directory depends on the oper‐
+ *  ating system.  For Linux, see NOTES below.
+ *
+ *  The newly created directory will be owned by  the  ef‐
+ *  fective user ID of the process.  If the directory con‐
+ *  taining the file has the set-group-ID bit set,  or  if
+ *  the  filesystem  is  mounted  with BSD group semantics
+ *  (mount -o bsdgroups or, synonymously mount -o  grpid),
+ *  the  new  directory  will  inherit the group ownership
+ *  from its parent; otherwise it will be owned by the ef‐
+ *  fective group ID of the process.
+ *
+ *  If  the parent directory has the set-group-ID bit set,
+ *  then so will the newly created directory.
+ *
+ * @param pathname  for now just support absolute path
+ * @param mode file type only for now
+ * @return mkdir() return zero on success,
+ *         or -1 if an  error occurred
+ *         (in which case, errno is set appropriately).
+ *****************************************************************************/
+int_32 sys_mkdir(const char *pathname)
+{
+    int_32 rollback_step = -1;
+    struct partition *part = &mounted_part;
+
+    uint_8 *io_buf = sys_malloc(1024);
+    if (!io_buf) {
+        // TODO:
+        // kprint("sys_mkdir: not enough memory for io_buf");
+        return -1;
+    }
+    struct dir ppdir;
+    char last_name[MAX_FILE_NAME_LEN] = {0};
+    char *tmp_path = sys_malloc(strlen(pathname));
+    if (!tmp_path) {
+        // TODO:
+        // kprint("sys_mkdir: not enough memory.");
+        rollback_step = 5;
+        goto rollback;
+    }
+    memcpy(tmp_path, pathname, strlen(pathname));
+    char *parent_path = path_peel(tmp_path, last_name);
+
+    // 1. test path name is available
+    int_32 pdir_inode_nr;
+    struct dir *pdir;
+    if (strlen(parent_path) == 1 && parent_path[0] == '/') {
+        pdir = &root_dir;
+    } else {
+        pdir_inode_nr = search_file_with_pathname(part, parent_path, &ppdir);
+        if (pdir_inode_nr == -1) {
+            // TODO:
+            // kprint("sys_mkdir: parent dir not find.");
+            rollback_step = 4;
+            goto rollback;
+        }
+        pdir = dir_open(part, pdir_inode_nr);
+    }
+    if(search_file(part, pdir, last_name) != -1){
+        //TODO:
+        //kprint("sys_mkdir: current directory exists.")
+        rollback_step = 4;
+        goto rollback;
+    }
+
+
+    // alloc new directory
+    struct inode new_dir_inode;
+    int_32 new_dir_inode_nr = inode_bitmap_alloc(part);
+    if (new_dir_inode_nr == -1) {
+        // TODO:
+        // kprint("sys_mkdir: not enough inode in inode table");
+        rollback_step = 3;
+        goto rollback;
+    }
+    new_inode(new_dir_inode_nr, &new_dir_inode);
+
+    uint_32 zone_bitmap_idx = 0;
+    int_32 zone_lba = -1;
+    zone_lba = zone_bitmap_alloc(part);
+    if (zone_lba == -1) {
+        // TODO:
+        // kprint("sys_mkdir: not enough zone.");
+        rollback_step = 2;
+        goto rollback;
+    }
+
+    new_dir_inode.i_zones[0] = zone_lba;
+    zone_bitmap_idx = zone_lba - part->sb->s_data_start_lba;
+    ASSERT(zone_bitmap_idx != 0);
+    flush_bitmap(part, ZONE_BITMAP, zone_bitmap_idx);
+
+    memset(io_buf, 0, SECTOR_SIZE * 2);
+    struct dir_entry *inner_dir_entry = (struct dir_entry *) io_buf;
+    memcpy(inner_dir_entry->filename, ".", 1);
+    inner_dir_entry->i_no = new_dir_inode_nr;
+    inner_dir_entry->f_type = FT_DIRECTORY;
+    inner_dir_entry++;
+    memcpy(inner_dir_entry->filename, "..", 2);
+    inner_dir_entry->i_no = pdir->inode->i_num;
+    inner_dir_entry->f_type = FT_DIRECTORY;
+    ide_write(part->my_disk, new_dir_inode.i_zones[0], io_buf, 1);
+
+    new_dir_inode.i_size = 2 * sizeof(struct dir_entry);
+
+    struct dir_entry cur_dir_entry;
+    memset(&cur_dir_entry, 0, sizeof(struct dir_entry));
+    new_dir_entry(last_name, new_dir_inode_nr, FT_DIRECTORY, &cur_dir_entry);
+
+    memset(io_buf, 0, SECTOR_SIZE * 2);
+    if (flush_dir_entry(part, pdir, &cur_dir_entry, io_buf)) {
+        // TODO:
+        // kprint("sys_mkdir: failed at sync dir entry to disk");
+        rollback_step = 1;
+        goto rollback;
+    }
+    // flush parent directory to disk
+    memset(io_buf, 0, SECTOR_SIZE * 2);
+    flush_inode(part, pdir->inode, io_buf);
+
+    // flush current directory to disk
+    memset(io_buf, 0, SECTOR_SIZE * 2);
+    flush_inode(part, &new_dir_inode, io_buf);
+
+    // flush inode tabla to disk
+    flush_bitmap(part, INODE_BITMAP, new_dir_inode_nr);
+
+    dir_close(pdir);
+    sys_free(io_buf);
+    return 0;
+rollback:
+    switch (rollback_step) {
+    case 1:
+        // recycle zone form zone bitmap
+        set_value_bitmap(&part->zone_bitmap, zone_bitmap_idx, 0);
+    case 2:
+        // recycle inode number form inode table bitmap
+        set_value_bitmap(&part->inode_bitmap, new_dir_inode_nr, 0);
+    case 3:
+        // close parent directory of this directory
+        dir_close(pdir);
+    case 4:
+        sys_free(tmp_path);
+    case 5:
+        sys_free(io_buf);
+    }
+    return -1;
 }

@@ -50,12 +50,9 @@ b UkiMain
 # b 147 if i == 99
 # b 147 if i == 23
 # b file.c:621
-b delete_dir_entry
-b dir.c:388
-b bootpack.c:236 if ret == 0
-b inode_release
-b search_file_with_pathname
-
+b 117
+# b sys_mkdir
+# b flush_dir_entry
 # b mouse_consumer
 # b keyboard_consumer
 # b file_write

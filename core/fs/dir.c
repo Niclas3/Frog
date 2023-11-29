@@ -302,7 +302,7 @@ int_32 flush_dir_entry(struct partition *part,
             for (entry_idx = 0; entry_idx < (512 / sizeof(struct dir_entry));
                  entry_idx++) {
                 if ((strlen(entries_buf[entry_idx].filename) == 0) &&
-                    entries_buf[entry_idx].i_no == 0) {
+                    entries_buf[entry_idx].f_type == FT_UNKOWN) {
                     // Find accessible entry index at entry_idx
                     memcpy(&entries_buf[entry_idx], new_entry,
                            sizeof(struct dir_entry));

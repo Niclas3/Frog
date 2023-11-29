@@ -112,8 +112,13 @@ void UkiMain(void)
     TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
     TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
-    TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3);
+    /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
     /* TCB_t *readt1 = thread_start("dick reader", 10, funcc, 3); */
+    sys_mkdir("/home/");
+    sys_mkdir("/home/niclas/");
+    sys_mkdir("/home/niclas/Desktop/");
+    /* sys_mkdir("/home/niclas/Desktop/test/"); */
+
 
     /* sys_unlink("/test1.txt"); */
     /* funcb(1); */
