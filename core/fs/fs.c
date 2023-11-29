@@ -1053,3 +1053,22 @@ struct dir *sys_opendir(const char *name)
     dir = dir_open(part, cur_d_inode_nr);
     return dir;
 }
+/**
+ *  The  closedir()  function closes the directory stream associated with
+ *  dirp.  A successful call to closedir()  also  closes  the  underlying
+ *  file  descriptor associated with dirp.  The directory stream descrip‐
+ *  tor dirp is not available after this call.
+ *
+ * @param param write here param Comments write here
+ * @return The closedir() function returns 0 on success.  On error,  -1  is  re‐
+ *         turned, and errno is set appropriately.
+ *****************************************************************************/
+int_32 sys_closedir(struct dir *dirp)
+{
+    int_32 ret = -1;
+    if (dirp != NULL) {
+        dir_close(dirp);
+        ret = 0;
+    }
+    return ret;
+}
