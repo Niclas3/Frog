@@ -1296,9 +1296,58 @@ int_32 sys_chdir(const char *pathname)
             running_thread()->cwd_inode_nr = inode_nr;
             ret = 0;
         } else {
-            //TODO:
-            //kprint("sys_chdir: this is regular file or other");
+            // TODO:
+            // kprint("sys_chdir: this is regular file or other");
         }
+    }
+    return ret;
+}
+/**
+ *
+ * These  functions  return information about a file, in the buffer pointed to
+ *by statbuf.  No permissions are required on the file itself, but—in the  case
+ *of stat(),  fstatat(), and lstat()—execute (search) permission is required on
+ *all of the directories in pathname that lead to the file.
+ *
+ * @param pathname absolute pathname
+ * @param statbuf return a stat to this pointer
+ * @return on success zero is returned
+ *         on failed -1 is returned
+ *****************************************************************************/
+int_32 sys_stat(const char *pathname, struct stat *statbuf)
+{
+    struct partition *part = &mounted_part;
+    struct dir pdir = {0};
+    // if pathname is root pathname
+    if (!strcmp(pathname, "/") || !strcmp(pathname, "/.") ||
+        !strcmp(pathname, "/..")) {
+        statbuf->st_ino = 0;
+        statbuf->st_size = root_dir.inode->i_size;
+        statbuf->st_nlink = root_dir.inode->i_nlinks;
+        int_32 idx;
+        for (idx = 0; root_dir.inode->i_zones[idx] && idx < MAX_ZONE_COUNT;
+             idx++)
+            ;
+        statbuf->st_blocks = idx + 1;
+        return 0;
+    }
+    int_32 ret = -1;
+    int_32 inode_nr = search_file_with_pathname(part, pathname, &pdir);
+    if (inode_nr != -1) {
+        struct inode *inode = inode_open(part, inode_nr);
+        statbuf->st_ino = inode_nr;
+        statbuf->st_size = inode->i_size;
+        statbuf->st_nlink = inode->i_nlinks;
+        int_32 idx;
+        for (idx = 0; inode->i_zones[idx] && idx < MAX_ZONE_COUNT;
+             idx++)
+            ;
+        statbuf->st_blocks = idx + 1;
+        ret = 0;
+    } else {
+        //TODO:
+        //kprint("sys_stat:%s path not found", pathname);
+
     }
     return ret;
 }

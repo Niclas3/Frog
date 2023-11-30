@@ -38,6 +38,28 @@ enum exec_mode {
 
 enum whence { SEEK_SET = 1, SEEK_CUR, SEEK_END };
 
+// Copy from linux
+struct stat {
+    // dev_t st_dev;         /* ID of device containing file */
+    int_32 st_ino;         /* Inode number */
+    int_16 st_mode;       /* File type and mode */
+    int_8  st_nlink;     /* Number of hard links */
+    // uid_t st_uid;         /* User ID of owner */
+    // gid_t st_gid;         /* Group ID of owner */
+    // dev_t st_rdev;        /* Device ID (if special file) */
+    int_32 st_size;        /* Total size, in bytes */
+    // blksize_t st_blksize; /* Block size for filesystem I/O */
+    int_32 st_blocks;   /* Number of 512B blocks allocated */
+
+    // struct timespec st_atim; /* Time of last access */
+    // struct timespec st_mtim; /* Time of last modification */
+    // struct timespec st_ctim; /* Time of last status change */
+
+// #define st_atime st_atim.tv_sec /* Backward compatibility */
+// #define st_mtime st_mtim.tv_sec
+// #define st_ctime st_ctim.tv_sec
+};
+
 void fs_init(void);
 int_32 path_depth(const char *path);
 
@@ -55,4 +77,5 @@ void sys_rewinddir(struct dir *dirp);
 int_32 sys_rmdir(const char *pathname);
 char *sys_getcwd(char *buf, int_32 size);
 int_32 sys_chdir(const char *pathname);
+int_32 sys_stat(const char *pathname, struct stat *statbuf);
 #endif
