@@ -1324,6 +1324,7 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
         statbuf->st_ino = 0;
         statbuf->st_size = root_dir.inode->i_size;
         statbuf->st_nlink = root_dir.inode->i_nlinks;
+        statbuf->st_mode = root_dir.inode->i_mode;
         int_32 idx;
         for (idx = 0; root_dir.inode->i_zones[idx] && idx < MAX_ZONE_COUNT;
              idx++)
@@ -1338,6 +1339,7 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
         statbuf->st_ino = inode_nr;
         statbuf->st_size = inode->i_size;
         statbuf->st_nlink = inode->i_nlinks;
+        statbuf->st_mode = inode->i_mode;
         int_32 idx;
         for (idx = 0; inode->i_zones[idx] && idx < MAX_ZONE_COUNT;
              idx++)
