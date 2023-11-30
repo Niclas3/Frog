@@ -11,8 +11,8 @@ extern struct dir root_dir;  // global variable for root directory
 
 struct dir {
     struct inode *inode;
-    uint_32 dir_pos;
-    uint_8 dir_buf[512];  // for dir_entry in this dir
+    uint_32 dir_pos;      // store current directory when use read_dir
+    uint_8 dir_buf[512];  // dir_entry store current cursor dir entry 
 };
 
 struct dir_entry {
@@ -44,4 +44,5 @@ void delete_dir_entry(struct partition *part,
                       struct dir *pdir,
                       uint_32 inode_nr,
                       void *io_buf);
+struct dir_entry *read_dir(struct dir *dirp);
 #endif

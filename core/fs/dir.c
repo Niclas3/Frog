@@ -411,3 +411,54 @@ void delete_dir_entry(struct partition *part,
         flush_inode(part, pdir->inode, io_buf);
     }
 }
+
+/**
+ * The readdir() function returns a pointer to a dirent structure represent‐
+ * ing the next directory entry in the directory stream pointed to by  dirp.
+ * It  returns NULL on reaching the end of the directory stream or if an er‐
+ * ror occurred.
+ *
+ * @param dirp directory
+ * @return a table about dir entries
+ *****************************************************************************/
+struct dir_entry *read_dir(struct dir *dirp)
+{
+    // All directory entries store in i_zones. all size is
+    // (MAX_ZONE_COUNT * ZONE_SIZE) aka (140 * 512)
+    // read parent directory i_zones
+    struct partition *part = &mounted_part;
+    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
+    uint_8 *buf = sys_malloc(ZONE_SIZE);
+    if (!buf) {
+        return NULL;
+    }
+    inode_all_zones(part, dirp->inode, all_zones);
+    // directory position things
+    // One zone can hold 512 / sizeof(struct dir_entry) directory entries
+    // pdir->dir_pos = size_of_de * number;
+    int_32 enties_cnt_per_zone = ZONE_SIZE / sizeof(struct dir_entry);
+    int_32 zone_idx = 0;
+    int_32 entry_idx = 0;
+    zone_idx = (dirp->dir_pos / sizeof(struct dir_entry)) / enties_cnt_per_zone;
+    entry_idx = (dirp->dir_pos/ sizeof(struct dir_entry))% enties_cnt_per_zone;
+
+
+    for (; all_zones[zone_idx] && zone_idx < MAX_ZONE_COUNT;
+         zone_idx++) {
+        ide_read(part->my_disk, all_zones[zone_idx], buf, 1);
+        struct dir_entry *dire_buf = (struct dir_entry *) buf;
+        for (; entry_idx < 512 / sizeof(struct dir_entry);
+             entry_idx++) {
+            struct dir_entry *entry = &dire_buf[entry_idx];
+            if (entry->i_no == 0 && strlen(entry->filename) == 0) {
+                break;
+            }
+            memcpy(dirp->dir_buf, entry, sizeof(struct dir_entry));
+            dirp->dir_pos += sizeof(struct dir_entry);
+            sys_free(buf);
+            return (struct dir_entry *) dirp->dir_buf;
+        }
+    }
+    sys_free(buf);
+    return NULL;
+}
