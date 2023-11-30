@@ -468,7 +468,7 @@ struct dir_entry *read_dir(struct dir *dirp)
  * if this directory dont have . and ..
  *
  *****************************************************************************/
-static bool dir_is_empty(struct dir *dirp)
+bool dir_is_empty(struct dir *dirp)
 {
     return (dirp->inode->i_size == (sizeof(struct dir_entry)) * 2);
 }
@@ -476,7 +476,8 @@ static bool dir_is_empty(struct dir *dirp)
  * dir_remove() deletes a directory, which must be empty.
  *
  * @param param write here param Comments write here
- * @return return Comments write here
+ * @return  on success return 0
+ *          on failed  return -1
  *****************************************************************************/
 int_32 dir_remove(struct partition *part,
                   struct dir *parent_dir,

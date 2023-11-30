@@ -1089,11 +1089,39 @@ struct dir_entry *sys_readdir(struct dir *dirp)
     return read_dir(dirp);
 }
 /**
- *  The  rewinddir()  function resets the position of the directory stream dirp to
- *  the beginning of the directory.
+ *  The  rewinddir()  function resets the position of the directory stream dirp
+ *to the beginning of the directory.
  *
  *****************************************************************************/
 void sys_rewinddir(struct dir *dirp)
 {
     dirp->dir_pos = 0;
+}
+/**
+ * rmdir() deletes a directory, which must be empty.
+ *
+ * /home/niclas/Desktop/
+ * @param pathname  absolute path
+ * @return on success zero is returned
+ *         on error, -1 is returned
+ *****************************************************************************/
+int_32 sys_rmdir(const char *pathname)
+{
+    struct partition *part = &mounted_part;
+    struct dir parent_dir;
+    int_32 target_dir_inode =
+        search_file_with_pathname(part, pathname, &parent_dir);
+    if (target_dir_inode == -1) {
+        // TODO:
+        // kprint("Can not find directory.");
+        return -1;
+    }
+    struct dir *target_dir = dir_open(part, target_dir_inode);
+    if (dir_is_empty(&parent_dir)) {
+        return dir_remove(part, &parent_dir, target_dir);
+    } else {
+        //TODO:
+        //kprint("sys_rmdir: target directory is not empty.")
+        return -1;
+    }
 }

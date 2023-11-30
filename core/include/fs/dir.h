@@ -46,6 +46,7 @@ void delete_dir_entry(struct partition *part,
                       void *io_buf);
 struct dir_entry *read_dir(struct dir *dirp);
 
+bool dir_is_empty(struct dir *dirp);
 int_32 dir_remove(struct partition *part,
                   struct dir *parent_dir,
                   struct dir *child_dir);
