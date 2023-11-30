@@ -1120,8 +1120,26 @@ int_32 sys_rmdir(const char *pathname)
     if (dir_is_empty(&parent_dir)) {
         return dir_remove(part, &parent_dir, target_dir);
     } else {
-        //TODO:
-        //kprint("sys_rmdir: target directory is not empty.")
+        // TODO:
+        // kprint("sys_rmdir: target directory is not empty.")
         return -1;
     }
+}
+
+static uint_32 get_parent_dir_inode_nr(uint_32 childdir_inode_nr, void *io_buf)
+{
+    struct partition *part = &mounted_part;
+    struct inode *childdir_inode = inode_open(part, childdir_inode_nr);
+    if (!childdir_inode) {
+        // TODO:
+        // kprint("child inode cannot open.");
+        return -1;
+    }
+    uint_32 zone_lba = childdir_inode->i_zones[0];
+    ASSERT(zone_lba >= part->sb->s_data_start_lba);
+    inode_close(childdir_inode);
+    ide_read(part->my_disk, zone_lba, io_buf, 1);
+    struct dir_entry *dentry = (struct dir_entry *) io_buf;
+    ASSERT(dentry[1].i_no < 4096 && dentry[1].f_type == FT_DIRECTORY);
+    return dentry[1].i_no;
 }
