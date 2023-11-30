@@ -49,7 +49,7 @@ struct stat {
     // dev_t st_rdev;        /* Device ID (if special file) */
     int_32 st_size;        /* Total size, in bytes */
     // blksize_t st_blksize; /* Block size for filesystem I/O */
-    int_32 st_blocks;   /* Number of 512B blocks allocated */
+    int_32 st_zones;   /* Number of 512B blocks allocated */
 
     // struct timespec st_atim; /* Time of last access */
     // struct timespec st_mtim; /* Time of last modification */

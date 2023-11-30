@@ -1328,7 +1328,7 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
         for (idx = 0; root_dir.inode->i_zones[idx] && idx < MAX_ZONE_COUNT;
              idx++)
             ;
-        statbuf->st_blocks = idx + 1;
+        statbuf->st_zones = idx;
         return 0;
     }
     int_32 ret = -1;
@@ -1342,7 +1342,7 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
         for (idx = 0; inode->i_zones[idx] && idx < MAX_ZONE_COUNT;
              idx++)
             ;
-        statbuf->st_blocks = idx + 1;
+        statbuf->st_zones = idx + 1;
         ret = 0;
     } else {
         //TODO:

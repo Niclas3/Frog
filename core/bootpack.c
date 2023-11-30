@@ -129,7 +129,7 @@ void UkiMain(void)
 
     struct dir *pdir = NULL;
     struct dir_entry *dir_e = NULL;
-    pdir = sys_opendir("/dev/");
+    pdir = sys_opendir("/");
     if (pdir) {
         int_32 y = 0;
         while (dir_e = read_dir(pdir)) {
@@ -139,6 +139,9 @@ void UkiMain(void)
             y+= 16;
         }
     }
+    struct stat statbuf={0};
+    sys_stat("/", &statbuf);
+    /* sys_stat("/dev/", &statbuf); */
 
     /* sys_unlink("/test1.txt"); */
     /* funcb(1); */
