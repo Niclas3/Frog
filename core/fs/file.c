@@ -179,6 +179,8 @@ int_32 file_create(struct partition *part,
         goto roll_back;
     }
     new_inode(inode_nr, new_f_inode);
+
+    new_f_inode->i_mode = FT_REGULAR << 11;
     // 2. new dir_entry
     struct dir_entry new_entry;
     new_dir_entry(name, inode_nr, FT_REGULAR, &new_entry);

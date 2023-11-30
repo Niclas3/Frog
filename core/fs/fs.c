@@ -982,6 +982,7 @@ int_32 sys_mkdir(const char *pathname)
         goto rollback;
     }
 
+    new_dir_inode.i_mode = FT_DIRECTORY << 11;
     new_dir_inode.i_zones[0] = zone_lba;
     zone_bitmap_idx = zone_lba - part->sb->s_data_start_lba;
     ASSERT(zone_bitmap_idx != 0);
@@ -1266,11 +1267,38 @@ char *sys_getcwd(char *buf, int_32 size)
     }
     ASSERT(strlen(absolute_path_tmp) <= size);
     char *last_slash;
-    while((last_slash = strrchr(absolute_path_tmp, '/'))){
+    while ((last_slash = strrchr(absolute_path_tmp, '/'))) {
         uint_16 len = strlen(buf);
-        strcpy(buf+len, last_slash);
+        strcpy(buf + len, last_slash);
         *last_slash = 0;
     }
     sys_free(io_buf);
     return 0;
+}
+
+/**
+ *
+ * chdir()  changes the current working directory of the calling process to the
+ * directory specified in path.
+ *
+ * @param path absolute path
+ * @return 0 or -1
+ *****************************************************************************/
+int_32 sys_chdir(const char *pathname)
+{
+    struct partition *part = &mounted_part;
+    int_32 ret = -1;
+    struct dir pdir = {0};
+    int_32 inode_nr = search_file_with_pathname(part, pathname, &pdir);
+    if (inode_nr != -1) {
+        struct inode *target_inode = inode_open(part, inode_nr);
+        if (((target_inode->i_mode >> 11) & 0x0000000f) == FT_DIRECTORY) {
+            running_thread()->cwd_inode_nr = inode_nr;
+            ret = 0;
+        } else {
+            //TODO:
+            //kprint("sys_chdir: this is regular file or other");
+        }
+    }
+    return ret;
 }
