@@ -111,14 +111,34 @@ void UkiMain(void)
 
     TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
     TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
+
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
     /* TCB_t *readt1 = thread_start("dick reader", 10, funcc, 3); */
     /* sys_mkdir("/home/"); */
+    /* sys_mkdir("/usr/"); */
+    /* sys_mkdir("/bin/"); */
+    /* sys_mkdir("/etc/"); */
+    /* sys_mkdir("/dev/"); */
+    /* sys_mkdir("/mnt/"); */
+    /* sys_mkdir("/tmp/"); */
+    /* sys_mkdir("/root/"); */
     /* sys_mkdir("/home/niclas/"); */
     /* sys_mkdir("/home/niclas/Desktop/"); */
     /* sys_mkdir("/home/niclas/Desktop/test/"); */
 
+    struct dir *pdir = NULL;
+    struct dir_entry *dir_e = NULL;
+    pdir = sys_opendir("/dev/");
+    if (pdir) {
+        int_32 y = 0;
+        while (dir_e = read_dir(pdir)) {
+            char s[MAX_FILE_NAME_LEN] = {0};
+            sprintf(s, "%s", dir_e->filename);
+            draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, s);
+            y+= 16;
+        }
+    }
 
     /* sys_unlink("/test1.txt"); */
     /* funcb(1); */
@@ -127,7 +147,8 @@ void UkiMain(void)
     /* struct file f2 = g_file_table[cur->fd_table[fd]]; */
     /* char* io_buf = sys_malloc(1024); */
     /* inode_release(&mounted_part, f2.fd_inode->i_num); */
-    /* #<{(| delete_dir_entry(&mounted_part, &root_dir, f2.fd_inode->i_num,io_buf); |)}># */
+    /* #<{(| delete_dir_entry(&mounted_part, &root_dir,
+     * f2.fd_inode->i_num,io_buf); |)}># */
     /* sys_free(io_buf); */
 
     // System process at ring1

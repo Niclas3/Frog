@@ -69,7 +69,7 @@ void flush_inode(struct partition *part, struct inode *inode, void *io_buf)
     struct inode target_inode = {0};
     memcpy(&target_inode, inode, sizeof(struct inode));
     // remove those when flush into disk
-    target_inode.i_count= 0;
+    target_inode.i_count = 0;
     target_inode.i_lock = false;
     target_inode.inode_tag.prev = target_inode.inode_tag.next = NULL;
 
@@ -139,7 +139,7 @@ struct inode *inode_open(struct partition *part, uint_32 inode_nr)
         uint_8 *buf = sys_malloc(read_sz * SECTOR_SIZE);
         ide_read(part->my_disk, pos.start_lba, buf, read_sz);
         memcpy(target, buf + pos.offset, sizeof(struct inode));
-        target->i_count+= 1;
+        target->i_count += 1;
 
         list_add(&target->inode_tag, &part->open_inodes);
         sys_free(buf);
@@ -159,7 +159,7 @@ struct inode *inode_open(struct partition *part, uint_32 inode_nr)
 void inode_close(struct inode *inode)
 {
     enum intr_status old_status = intr_disable();
-    if (--inode->i_count== 0) {
+    if (--inode->i_count == 0) {
         list_del_init(&inode->inode_tag);
         // free kernel memory
         TCB_t *cur = running_thread();
@@ -184,7 +184,7 @@ void new_inode(uint_32 inode_nr, struct inode *new_inode)
 {
     new_inode->i_num = inode_nr;
     new_inode->i_size = 0;
-    new_inode->i_count= 0;
+    new_inode->i_count = 0;
     new_inode->i_lock = false;
     for (int i = 0; i < 13; i++) {
         new_inode->i_zones[i] = 0;
@@ -216,8 +216,8 @@ static void inode_delete(struct partition *part, uint_32 inode_no, void *io_buf)
 }
 
 static void inode_all_zones(struct partition *part,
-                            struct inode *inode,
-                            uint_32 *all_zones)
+                     struct inode *inode,
+                     uint_32 *all_zones)
 {
     // Find first accessible i_zones[i]
     // 1. read all i_zones;

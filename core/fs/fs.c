@@ -1032,7 +1032,7 @@ rollback:
  *directory name, and returns a pointer to the directory stream.  The stream is
  *positioned at the first entry in the directory.
  *
- * @param name directory name
+ * @param name directory name e.g name must end with `/`
  * @return struct dir pointer
  *****************************************************************************/
 struct dir *sys_opendir(const char *name)
@@ -1049,7 +1049,8 @@ struct dir *sys_opendir(const char *name)
         sys_free(dir);
         return NULL;
     }
-    dir_close(&pdir);
+    /* dir_close(&pdir); 
+     * need recycle memory i use stack memory. it can be free when function out*/
     dir = dir_open(part, cur_d_inode_nr);
     return dir;
 }
