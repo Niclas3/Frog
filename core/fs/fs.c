@@ -1075,8 +1075,25 @@ int_32 sys_closedir(struct dir *dirp)
     return ret;
 }
 
+/*
+ * The readdir() function returns a pointer to a dirent structure represent‐
+ * ing the next directory entry in the directory stream pointed to by  dirp.
+ * It  returns NULL on reaching the end of the directory stream or if an er‐
+ * ror occurred.
+ *
+ * @param dirp directory
+ * @return a table about dir entries*/
 struct dir_entry *sys_readdir(struct dir *dirp)
 {
     ASSERT(dirp != NULL);
     return read_dir(dirp);
+}
+/**
+ *  The  rewinddir()  function resets the position of the directory stream dirp to
+ *  the beginning of the directory.
+ *
+ *****************************************************************************/
+void sys_rewinddir(struct dir *dirp)
+{
+    dirp->dir_pos = 0;
 }
