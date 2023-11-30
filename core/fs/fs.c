@@ -1049,8 +1049,9 @@ struct dir *sys_opendir(const char *name)
         sys_free(dir);
         return NULL;
     }
-    /* dir_close(&pdir); 
-     * need recycle memory i use stack memory. it can be free when function out*/
+    /* dir_close(&pdir);
+     * need recycle memory i use stack memory. it can be free when function
+     * out*/
     dir = dir_open(part, cur_d_inode_nr);
     return dir;
 }
@@ -1072,4 +1073,10 @@ int_32 sys_closedir(struct dir *dirp)
         ret = 0;
     }
     return ret;
+}
+
+struct dir_entry *sys_readdir(struct dir *dirp)
+{
+    ASSERT(dirp != NULL);
+    return read_dir(dirp);
 }
