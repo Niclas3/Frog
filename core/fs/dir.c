@@ -440,15 +440,14 @@ struct dir_entry *read_dir(struct dir *dirp)
     int_32 zone_idx = 0;
     int_32 entry_idx = 0;
     zone_idx = (dirp->dir_pos / sizeof(struct dir_entry)) / enties_cnt_per_zone;
-    entry_idx = (dirp->dir_pos/ sizeof(struct dir_entry))% enties_cnt_per_zone;
+    entry_idx =
+        (dirp->dir_pos / sizeof(struct dir_entry)) % enties_cnt_per_zone;
 
 
-    for (; all_zones[zone_idx] && zone_idx < MAX_ZONE_COUNT;
-         zone_idx++) {
+    for (; all_zones[zone_idx] && zone_idx < MAX_ZONE_COUNT; zone_idx++) {
         ide_read(part->my_disk, all_zones[zone_idx], buf, 1);
         struct dir_entry *dire_buf = (struct dir_entry *) buf;
-        for (; entry_idx < 512 / sizeof(struct dir_entry);
-             entry_idx++) {
+        for (; entry_idx < 512 / sizeof(struct dir_entry); entry_idx++) {
             struct dir_entry *entry = &dire_buf[entry_idx];
             if (entry->i_no == 0 && strlen(entry->filename) == 0) {
                 break;
@@ -461,4 +460,42 @@ struct dir_entry *read_dir(struct dir *dirp)
     }
     sys_free(buf);
     return NULL;
+}
+
+/**
+ * test directory if is empty.
+ *
+ * if this directory dont have . and ..
+ *
+ *****************************************************************************/
+static bool dir_is_empty(struct dir *dirp)
+{
+    return (dirp->inode->i_size == (sizeof(struct dir_entry)) * 2);
+}
+/**
+ * dir_remove() deletes a directory, which must be empty.
+ *
+ * @param param write here param Comments write here
+ * @return return Comments write here
+ *****************************************************************************/
+int_32 dir_remove(struct partition *part,
+                  struct dir *parent_dir,
+                  struct dir *child_dir)
+{
+    struct inode *child_dir_inode = child_dir->inode;
+    int_32 zone_idx = 1;
+    // only i_zones[0] has data
+    for (; zone_idx < 13; zone_idx++) {
+        ASSERT(child_dir_inode->i_zones[zone_idx] == 0);
+    }
+    void *io_buf = sys_malloc(SECTOR_SIZE * 2);
+    if (!io_buf) {
+        // TODO:
+        // kprint("dir_remove: not enough memory");
+        return -1;
+    }
+    delete_dir_entry(part, parent_dir, child_dir_inode->i_num, io_buf);
+    inode_release(part, child_dir_inode->i_num);
+    sys_free(io_buf);
+    return 0;
 }

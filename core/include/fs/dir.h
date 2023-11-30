@@ -45,4 +45,8 @@ void delete_dir_entry(struct partition *part,
                       uint_32 inode_nr,
                       void *io_buf);
 struct dir_entry *read_dir(struct dir *dirp);
+
+int_32 dir_remove(struct partition *part,
+                  struct dir *parent_dir,
+                  struct dir *child_dir);
 #endif
