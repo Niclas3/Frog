@@ -23,6 +23,22 @@ extern struct lock g_ft_lock;
 
 struct partition mounted_part;  // the partition what we want to mount.
 
+
+static void inode_all_zones(struct partition *part,
+                            struct inode *inode,
+                            uint_32 *all_zones)
+{
+    // find first accessible i_zones[i]
+    // 1. read all i_zones;
+    // first 12 i_zones[] elements is direct address of data (aka dir_entry)
+    for (int i = 0; i < 12 && inode->i_zones[i]; i++) {
+        all_zones[i] = inode->i_zones[i];
+    }
+    // the 13th i_zones[] is a in-direct table which size is zone_size bytes
+    if (inode->i_zones[12]) {
+        ide_read(part->my_disk, inode->i_zones[12], all_zones + 12, 1);
+    }
+}
 /**
  * In this file, we will create file system at some partition.
  * 1. Creating super block
@@ -1126,9 +1142,10 @@ int_32 sys_rmdir(const char *pathname)
     }
 }
 
-static uint_32 get_parent_dir_inode_nr(uint_32 childdir_inode_nr, void *io_buf)
+static uint_32 get_parent_dir_inode_nr(struct partition *part,
+                                       uint_32 childdir_inode_nr,
+                                       void *io_buf)
 {
-    struct partition *part = &mounted_part;
     struct inode *childdir_inode = inode_open(part, childdir_inode_nr);
     if (!childdir_inode) {
         // TODO:
@@ -1142,4 +1159,48 @@ static uint_32 get_parent_dir_inode_nr(uint_32 childdir_inode_nr, void *io_buf)
     struct dir_entry *dentry = (struct dir_entry *) io_buf;
     ASSERT(dentry[1].i_no < 4096 && dentry[1].f_type == FT_DIRECTORY);
     return dentry[1].i_no;
+}
+
+/**
+ * get child directory name from parent inode number
+ *
+ * @param parent_inode_nr inode number of parent
+ * @param child_inode_nr inode number of child
+ * @param path store name to the path
+ * @return on success return 0
+ *         on failed return -1
+ *****************************************************************************/
+static int_32 get_child_dir_name(struct partition *part,
+                                 uint_32 parent_inode_nr,
+                                 uint_32 child_inode_nr,
+                                 char *path,
+                                 void *io_buf)
+{
+    struct inode *parent_inode = inode_open(part, parent_inode_nr);
+    if (!parent_inode) {
+        // TODO:
+        // kprint("can not open parent inode");
+        return -1;
+    }
+    uint_32 all_zones[MAX_ZONE_COUNT] = {0};
+    inode_all_zones(part, parent_inode, all_zones);
+    inode_close(parent_inode);
+
+    struct dir_entry *d_entries = (struct dir_entry *) io_buf;
+    uint_32 zone_idx = 0;
+    for (; zone_idx < MAX_ZONE_COUNT; zone_idx++) {
+        if (all_zones[zone_idx]) {
+            ide_read(part->my_disk, all_zones[zone_idx], io_buf, 1);
+            for (int_32 entry_idx = 0;
+                 entry_idx < (512 / sizeof(struct dir_entry)); entry_idx++) {
+                struct dir_entry entry = d_entries[entry_idx];
+                if(entry.i_no == child_inode_nr){
+                    strcat(path, "/");
+                    strcat(path, entry.filename);
+                    return 0;
+                }
+            }
+        }
+    }
+    return -1;
 }
