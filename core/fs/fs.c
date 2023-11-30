@@ -1194,7 +1194,7 @@ static int_32 get_child_dir_name(struct partition *part,
             for (int_32 entry_idx = 0;
                  entry_idx < (512 / sizeof(struct dir_entry)); entry_idx++) {
                 struct dir_entry entry = d_entries[entry_idx];
-                if(entry.i_no == child_inode_nr){
+                if (entry.i_no == child_inode_nr) {
                     strcat(path, "/");
                     strcat(path, entry.filename);
                     return 0;
@@ -1203,4 +1203,74 @@ static int_32 get_child_dir_name(struct partition *part,
         }
     }
     return -1;
+}
+
+/**
+ * These  functions  return a null-terminated string containing an absolute
+ *path‐ name that is the current working directory of the calling process.  The
+ *path‐ name is returned as the function result and via the argument buf, if
+ *present.
+ *
+ * The  getcwd()  function copies an absolute pathname of the current working
+ *di‐ rectory to the array pointed to by buf, which is of length size.
+ *
+ * If the length of the absolute pathname of the current working  directory, in‐
+ * cluding  the  terminating null byte, exceeds size bytes, NULL is returned,
+ *and errno is set to ERANGE; an application should check for this error, and
+ *allo‐ cate a larger buffer if necessary.
+ *
+ * @param param write here param Comments write here
+ * @return
+ *  On  success, these functions return a pointer to a string containing the
+ *path‐ name of the current working directory.  In the case of  getcwd()  and
+ *getwd() this is the same value as buf.
+ *
+ *  On  failure, these functions return NULL, and errno is set to indicate the
+ *er‐ ror.  The contents of the array pointed to by buf are undefined on error.
+ *****************************************************************************/
+char *sys_getcwd(char *buf, int_32 size)
+{
+    struct partition *part = &mounted_part;
+    ASSERT(buf != NULL);
+    void *io_buf = sys_malloc(SECTOR_SIZE);
+    if (!io_buf) {
+        // TODO:
+        // kprint("sys_getcwd: not enough memory for io_buf.");
+        return NULL;
+    }
+
+    TCB_t *cur = running_thread();
+    int_32 cwd_inode_nr = cur->cwd_inode_nr;
+    if (cwd_inode_nr == 0) {
+        buf[0] = '/';
+        buf[1] = 0;
+        return buf;
+    }
+    char absolute_path_tmp[1024] = {0};
+    int_32 parent_inode_nr = 0;
+    while ((cwd_inode_nr)) {
+        parent_inode_nr = get_parent_dir_inode_nr(part, cwd_inode_nr, io_buf);
+        if (parent_inode_nr == -1) {
+            // TODO:
+            // kprint("sys_getcwd: can not find parent dir.");
+            return NULL;
+        }
+        memset(io_buf, 0, SECTOR_SIZE);
+        memset(buf, 0, size);
+        if (get_child_dir_name(part, parent_inode_nr, cwd_inode_nr,
+                               absolute_path_tmp, io_buf) == -1) {
+            sys_free(io_buf);
+            return NULL;
+        }
+        cwd_inode_nr = parent_inode_nr;
+    }
+    ASSERT(strlen(absolute_path_tmp) <= size);
+    char *last_slash;
+    while((last_slash = strrchr(absolute_path_tmp, '/'))){
+        uint_16 len = strlen(buf);
+        strcpy(buf+len, last_slash);
+        *last_slash = 0;
+    }
+    sys_free(io_buf);
+    return 0;
 }

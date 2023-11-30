@@ -53,4 +53,5 @@ int_32 sys_closedir(struct dir *dirp);
 struct dir_entry *sys_readdir(struct dir *dirp);
 void sys_rewinddir(struct dir *dirp);
 int_32 sys_rmdir(const char *pathname);
+char *sys_getcwd(char *buf, int_32 size);
 #endif

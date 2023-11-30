@@ -6,8 +6,8 @@
 #include <sys/process.h>
 #include <sys/threads.h>
 
-#include <protect.h>
 #include <debug.h>
+#include <protect.h>
 
 extern void inthandler20(void);
 
@@ -65,15 +65,15 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
 {
     // Set all 0 for thread memory
     memset(thread, 0, sizeof(*thread));
-    // Set default stdio 
+    // Set default stdio
     // fd stdio input  0
     // fd stdio output 1
     // fd stdio error  2
     thread->fd_table[0] = 0;
     thread->fd_table[1] = 1;
     thread->fd_table[2] = 2;
-    uint_8 fd_idx = 3;// MAX_FILES_OPEN_PER_PROC-3;
-    while(fd_idx < MAX_FILES_OPEN_PER_PROC){
+    uint_8 fd_idx = 3;  // MAX_FILES_OPEN_PER_PROC-3;
+    while (fd_idx < MAX_FILES_OPEN_PER_PROC) {
         // -1 represents available file description
         thread->fd_table[fd_idx] = -1;
         fd_idx++;
@@ -91,6 +91,7 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
     thread->ticks = priority;
     thread->elapsed_ticks = 0;
     thread->pgdir = NULL;
+    thread->cwd_inode_nr = 0;  // current working directory to root_dir default
 
     thread->stack_magic = 0x19900921;
 }

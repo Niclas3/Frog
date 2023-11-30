@@ -92,6 +92,7 @@ typedef struct thread_control_block {
     struct mem_block_desc u_block_descs[DESC_CNT];// block descriptor from allocate memory 
     //File things
     int_32 fd_table[MAX_FILES_OPEN_PER_PROC];     // file description of each thread
+    uint_32 cwd_inode_nr;                         // current thread working directory inode number
     //IPC things
     message p_message;                           // pointer to message 
     pid_t p_recvfrom;     // if process want to receive message, but no process to sent things. this contain who this process wants to receive.
