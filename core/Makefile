@@ -120,6 +120,10 @@ build: $(BUILD_DIR)/core
 
 build_symbol: $(BUILD_DIR)/core_symbol
 
+export_symbol: $(BUILD_DIR)/core_symbol
+	@nm $(BUILD_DIR)/core_symbol.img > $(BUILD_DIR)/Symbols.map
+	@objdump -s -d $(BUILD_DIR)/core_symbol.img > $(BUILD_DIR)/Symbols_details.map
+
 move:
 	cp $(BUILD_DIR)/core.img ../
 
