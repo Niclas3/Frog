@@ -1,26 +1,14 @@
 /*
  *  core/lib/string.c
  *
- *  (C) 2023 min zhou
+ *  (C) 2023 min zhou copy from linux
  */
 
 #include <string.h>
 
-extern char *strerror(int errno);
+char *strerror(int errno);
 
-/*
- * This string-include defines all string functions as inline
- * functions. Use gcc. It also assumes ds=es=data space, this should be
- * normal. Most of the string-functions are rather heavily hand-optimized,
- * see especially strtok,strstr,str[c]spn. They should work, but are not
- * very easy to understand. Everything is done entirely within the register
- * set, making the functions fast and clean. String instructions have been
- * used through-out, making for "slightly" unclear code :-)
- *
- *		(C) 1991 Linus Torvalds
- */
-
-extern inline char *strcpy(char *dest, const char *src)
+char *strcpy(char *dest, const char *src)
 {
     __asm__(
         "cld\n"
@@ -33,7 +21,7 @@ extern inline char *strcpy(char *dest, const char *src)
     return dest;
 }
 
-extern inline char *strncpy(char *dest, const char *src, int count)
+char *strncpy(char *dest, const char *src, int count)
 {
     __asm__(
         "cld\n"
@@ -51,7 +39,7 @@ extern inline char *strncpy(char *dest, const char *src, int count)
     return dest;
 }
 
-extern inline char *strcat(char *dest, const char *src)
+char *strcat(char *dest, const char *src)
 {
     __asm__(
         "cld\n\t"
@@ -66,7 +54,7 @@ extern inline char *strcat(char *dest, const char *src)
     return dest;
 }
 
-extern inline char *strncat(char *dest, const char *src, int count)
+char *strncat(char *dest, const char *src, int count)
 {
     __asm__(
         "cld\n\t"
@@ -95,7 +83,7 @@ extern inline char *strncat(char *dest, const char *src, int count)
  *         • a negative value if s1 is less than s2;
  *         • a positive value if s1 is greater than s2.
  *****************************************************************************/
-extern inline int strcmp(const char *cs, const char *ct)
+int strcmp(const char *cs, const char *ct)
 {
     register int __res __asm__("ax");
     __asm__(
@@ -126,7 +114,7 @@ extern inline int strcmp(const char *cs, const char *ct)
  *         • a negative value if s1 is less than s2;
  *         • a positive value if s1 is greater than s2.
  *****************************************************************************/
-extern inline int strncmp(const char *cs, const char *ct, int count)
+int strncmp(const char *cs, const char *ct, int count)
 {
     register int __res __asm__("ax");
     __asm__(
@@ -149,7 +137,7 @@ extern inline int strncmp(const char *cs, const char *ct, int count)
     return __res;
 }
 
-extern inline char *strchr(const char *s, char c)
+char *strchr(const char *s, char c)
 {
     register char *__res __asm__("ax");
     __asm__(
@@ -168,7 +156,7 @@ extern inline char *strchr(const char *s, char c)
     return __res;
 }
 
-extern inline char *strrchr(const char *s, char c)
+char *strrchr(const char *s, char c)
 {
     register char *__res __asm__("dx");
     __asm__(
@@ -186,7 +174,7 @@ extern inline char *strrchr(const char *s, char c)
     return __res;
 }
 
-extern inline int strspn(const char *cs, const char *ct)
+int strspn(const char *cs, const char *ct)
 {
     register char *__res __asm__("si");
     __asm__(
@@ -212,7 +200,7 @@ extern inline int strspn(const char *cs, const char *ct)
     return __res - cs;
 }
 
-extern inline int strcspn(const char *cs, const char *ct)
+int strcspn(const char *cs, const char *ct)
 {
     register char *__res __asm__("si");
     __asm__(
@@ -238,7 +226,7 @@ extern inline int strcspn(const char *cs, const char *ct)
     return __res - cs;
 }
 
-extern inline char *strpbrk(const char *cs, const char *ct)
+char *strpbrk(const char *cs, const char *ct)
 {
     register char *__res __asm__("si");
     __asm__(
@@ -267,7 +255,7 @@ extern inline char *strpbrk(const char *cs, const char *ct)
     return __res;
 }
 
-extern inline char *strstr(const char *cs, const char *ct)
+char *strstr(const char *cs, const char *ct)
 {
     register char *__res __asm__("ax");
     __asm__(
@@ -296,7 +284,7 @@ extern inline char *strstr(const char *cs, const char *ct)
     return __res;
 }
 
-extern inline int strlen(const char *s)
+int strlen(const char *s)
 {
     register int __res __asm__("cx");
     __asm__(
@@ -310,68 +298,68 @@ extern inline int strlen(const char *s)
     return __res;
 }
 
-// extern char * ___strtok;
-//
-// extern inline char * strtok(char * s,const char * ct)
-// {
-// register char * __res __asm__("si");
-// __asm__("testl %1,%1\n\t"
-// 	"jne 1f\n\t"
-// 	"testl %0,%0\n\t"
-// 	"je 8f\n\t"
-// 	"movl %0,%1\n"
-// 	"1:\txorl %0,%0\n\t"
-// 	"movl $-1,%%ecx\n\t"
-// 	"xorl %%eax,%%eax\n\t"
-// 	"cld\n\t"
-// 	"movl %4,%%edi\n\t"
-// 	"repne\n\t"
-// 	"scasb\n\t"
-// 	"notl %%ecx\n\t"
-// 	"decl %%ecx\n\t"
-// 	"je 7f\n\t"			/* empty delimeter-string */
-// 	"movl %%ecx,%%edx\n"
-// 	"2:\tlodsb\n\t"
-// 	"testb %%al,%%al\n\t"
-// 	"je 7f\n\t"
-// 	"movl %4,%%edi\n\t"
-// 	"movl %%edx,%%ecx\n\t"
-// 	"repne\n\t"
-// 	"scasb\n\t"
-// 	"je 2b\n\t"
-// 	"decl %1\n\t"
-// 	"cmpb $0,(%1)\n\t"
-// 	"je 7f\n\t"
-// 	"movl %1,%0\n"
-// 	"3:\tlodsb\n\t"
-// 	"testb %%al,%%al\n\t"
-// 	"je 5f\n\t"
-// 	"movl %4,%%edi\n\t"
-// 	"movl %%edx,%%ecx\n\t"
-// 	"repne\n\t"
-// 	"scasb\n\t"
-// 	"jne 3b\n\t"
-// 	"decl %1\n\t"
-// 	"cmpb $0,(%1)\n\t"
-// 	"je 5f\n\t"
-// 	"movb $0,(%1)\n\t"
-// 	"incl %1\n\t"
-// 	"jmp 6f\n"
-// 	"5:\txorl %1,%1\n"
-// 	"6:\tcmpb $0,(%0)\n\t"
-// 	"jne 7f\n\t"
-// 	"xorl %0,%0\n"
-// 	"7:\ttestl %0,%0\n\t"
-// 	"jne 8f\n\t"
-// 	"movl %0,%1\n"
-// 	"8:"
-// 	:"=b" (__res),"=S" (___strtok)
-// 	:"0" (___strtok),"1" (s),"g" (ct)
-// 	:"ax","cx","dx","di");
-// return __res;
-// }
+char * ___strtok;
 
-extern inline void *memcpy(void *dest, const void *src, int n)
+char * strtok(char * s,const char * ct)
+{
+register char * __res __asm__("si");
+__asm__("testl %1,%1\n\t"
+	"jne 1f\n\t"
+	"testl %0,%0\n\t"
+	"je 8f\n\t"
+	"movl %0,%1\n"
+	"1:\txorl %0,%0\n\t"
+	"movl $-1,%%ecx\n\t"
+	"xorl %%eax,%%eax\n\t"
+	"cld\n\t"
+	"movl %4,%%edi\n\t"
+	"repne\n\t"
+	"scasb\n\t"
+	"notl %%ecx\n\t"
+	"decl %%ecx\n\t"
+	"je 7f\n\t"			/* empty delimeter-string */
+	"movl %%ecx,%%edx\n"
+	"2:\tlodsb\n\t"
+	"testb %%al,%%al\n\t"
+	"je 7f\n\t"
+	"movl %4,%%edi\n\t"
+	"movl %%edx,%%ecx\n\t"
+	"repne\n\t"
+	"scasb\n\t"
+	"je 2b\n\t"
+	"decl %1\n\t"
+	"cmpb $0,(%1)\n\t"
+	"je 7f\n\t"
+	"movl %1,%0\n"
+	"3:\tlodsb\n\t"
+	"testb %%al,%%al\n\t"
+	"je 5f\n\t"
+	"movl %4,%%edi\n\t"
+	"movl %%edx,%%ecx\n\t"
+	"repne\n\t"
+	"scasb\n\t"
+	"jne 3b\n\t"
+	"decl %1\n\t"
+	"cmpb $0,(%1)\n\t"
+	"je 5f\n\t"
+	"movb $0,(%1)\n\t"
+	"incl %1\n\t"
+	"jmp 6f\n"
+	"5:\txorl %1,%1\n"
+	"6:\tcmpb $0,(%0)\n\t"
+	"jne 7f\n\t"
+	"xorl %0,%0\n"
+	"7:\ttestl %0,%0\n\t"
+	"jne 8f\n\t"
+	"movl %0,%1\n"
+	"8:"
+	:"=b" (__res),"=S" (___strtok)
+	:"0" (___strtok),"1" (s),"g" (ct)
+	:"ax","cx","dx","di");
+return __res;
+}
+
+void *memcpy(void *dest, const void *src, int n)
 {
     __asm__(
         "cld\n\t"
@@ -381,7 +369,7 @@ extern inline void *memcpy(void *dest, const void *src, int n)
     return dest;
 }
 
-extern inline void *memmove(void *dest, const void *src, int n)
+void *memmove(void *dest, const void *src, int n)
 {
     if (dest < src)
         __asm__(
@@ -398,7 +386,7 @@ extern inline void *memmove(void *dest, const void *src, int n)
     return dest;
 }
 
-extern inline int memcmp(const void *cs, const void *ct, int count)
+int memcmp(const void *cs, const void *ct, int count)
 {
     register int __res __asm__("ax");
     __asm__(
@@ -415,7 +403,7 @@ extern inline int memcmp(const void *cs, const void *ct, int count)
     return __res;
 }
 
-extern inline void *memchr(const void *cs, char c, int count)
+void *memchr(const void *cs, char c, int count)
 {
     register void *__res __asm__("di");
     if (!count)
@@ -432,7 +420,7 @@ extern inline void *memchr(const void *cs, char c, int count)
     return __res;
 }
 
-extern inline void *memset(void *s, char c, int count)
+void *memset(void *s, char c, int count)
 {
     __asm__(
         "cld\n\t"
