@@ -68,6 +68,21 @@ load_core: core.img
 bootloader: $(BOOTER)
 	dd if=$< of=$(DISK) bs=512 count=360 conv=notrunc
 
+# Launch OS through qemu 
+# NOTE: Remove driftfix=slew if not needed
+# NOTE: -enable-kvm makes RTC and disk accesses slow for me, but can be better accuracy
+run:
+	qemu-system-i386 \
+	-S -s \
+	-monitor stdio \
+	-m 128M \
+	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
+	-rtc base=localtime,clock=host,driftfix=slew \
+	-audiodev id=alsa,driver=alsa \
+	-machine pcspk-audiodev=alsa
+	#-enable-kvm \
+
+
 # Tools ###################################################### 
 # Generate font
 font :
