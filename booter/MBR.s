@@ -1,22 +1,14 @@
 org 0x7c00
 %include "boot.inc"
-; mov eax, 2  ;; LOADER_START_SECTOR
-; mov bx, LOADER_BASE_ADDR
-; ; mov cx, 10
-; mov cx, 2
-; ; call ide_identify
-; call read_hard_disk_16
-; jmp LOADER_BASE_ADDR
-
 
 xor ax, ax             ; Ensure data & extra segments are 0 to start, can help
 mov es, ax             ; with booting on hardware
-mov ds, ax     
-;; Read in the boot block and the superblock to memory for 2nd stage bootloader
+mov ds, ax
+;; Read 
 mov al, 15          ; 8 - 1 for boot block - bootsector & 8 for super block
 mov bl, al
 dec bl              ; BX = # of sectors to read - 1
-mov di, 0xC400       ; Read sectors to this address, 7C00h-8C00h = boot block, 8C00h-9C00h = superblock
+mov di, 0xC400       ; Read sectors to this address
 
 mov dx, 1F6h        ; Head / drive port, flags
 mov al, 0xE0        ; 0b0111 0000, bits: 0-3 = LBA bits 24-27, 4 = drive, 5 = always set, 6 = set for LBA, 7 = always set
