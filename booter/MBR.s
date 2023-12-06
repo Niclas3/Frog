@@ -40,7 +40,6 @@ call load_sector_loop
 jmp LOADER_BASE_ADDR
 
 ide_identify:
-    xchg bx, bx
     mov dx, 0x1f6 ; device register port
     mov eax, 0x0f
     out dx, al
@@ -69,69 +68,6 @@ ide_identify:
 
 ;------------------------------------------------------------
 ; Read n sector from hard disk 
-read_hard_disk_16:
-;------------------------------------------------------------
-;; eax = LBA sector number
-;; bx  = base address 
-;; cx  = read-in sector number
-    mov esi, eax
-    mov di, cx
-;;Read disk
-;;No1: Set sector count for reading
-    mov dx, 0x1f2
-    mov al, cl
-    out dx, al
-    mov eax, esi
-
-;;No2: Load LBA address
-;   LBA 7~0 to 0x1f3
-    mov dx, 0x1f3
-    out dx,al
-
-;LBA 15~8 to 0x1f4
-    mov cl, 8
-    shr eax, cl
-    mov dx, 0x1f4
-    out dx, al
-
-;LBA 23~16 to 0x1f5
-    shr eax, cl
-    mov dx, 0x1f5
-    out dx, al
-
-    shr eax, cl
-    and al, 0x0f
-    or  al, 0xe0
-    mov dx, 0x1f6
-    out dx, al
-
-;;No3 read 
-    mov dx, 0x1f7
-    mov al, 0x20
-    out dx, al
-
-;;No4 test disk status
-.not_ready:
-    nop
-    in al, dx
-    test al, 8
-    ; and al, 0x88
-    ; cmp al, 0x08
-    jnz .not_ready
-
-;;No5: read data from 0x1f0     
-    mov ax, di
-    mov dx, 256
-    mul dx
-    mov cx, ax
-    mov dx, 0x1f0
-.go_on_read:
-    in ax, dx
-    mov [bx], ax
-    add bx, 2
-    loop .go_on_read
-    ret
-
 ;; di : address to read into.
 ;; 
 ;; Poll status port after reading 1 sector
@@ -143,7 +79,7 @@ load_sector_loop:
     mov cx, 256         ; # of words to read for 1 sector
     mov dx, 1F0h        ; Data port, reading 
     rep insw            ; Read bytes from DX port # into DI, CX # of times
-    
+
     ;; 400ns delay - Read alternate status register
     mov dx, 3F6h
     in al, dx
