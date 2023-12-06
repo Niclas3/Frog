@@ -1,15 +1,16 @@
 %include "boot.inc"
-section loader vstart=LOADER_BASE_ADDR ;0xc400
+; section loader vstart=LOADER_BASE_ADDR ;0xc400
 org 0xc400
-LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
 jmp loader_start
 
+LOADER_STACK_TOP  equ  LOADER_BASE_ADDR
+
 section .gstack
-align 32
+align 8
 GLOBAL_STACK:
-    times 512 db 0
-; GLOBAL_STACK_TOP equ $ - GLOBAL_STACK -1
+    times 256 db 0
 GLOBAL_STACK_TOP equ $
+
 
 ;; memory descriptor
 ;; GDT 8 bytes
@@ -123,30 +124,51 @@ idt_ptr  dw IDT_LIMIT
 ;;--------------------------------------------------------
 section .s16
 [bits 16]
-loadermsg db 'loader in real.'
-          db 0
+loadermsg: db 'loader in real.'
+           db 0
+.len equ ($-loadermsg)
 mov byte [VMODE],8
 mov word [SCRNX],320
 mov word [SCRNY],200
 mov dword [VRAM],0x000a0000
 
+print_string:
+    mov ah, 0eh
+    .ps_loop:
+        lodsb
+        int 10h
+    loop .ps_loop
+    ret
+
 loader_start:
+
+    ; mov al,0x03
+    ; mov ah,0x00
+    ; int 0x10
+    mov si, loadermsg
+    mov cx, loadermsg.len
+    call print_string
+    mov ah, 0x0e
+    mov al, 'z'
+    int 0x10
+
+
 ;-----------------------------------------------------------
 ;  print message 
 ;-----------------------------------------------------------
-print_begin:
-    mov ax, loadermsg
-    mov si, ax
-_print_begin:
-    mov al,[si]
-    add si,1
-    cmp al,0
-    je rst_b_scr
-
-    mov ah, 0x0e
-    mov bx, 15
-    int 10h
-    jmp _print_begin
+; print_begin:
+;     mov ax, loadermsg
+;     mov si, ax
+; _print_begin:
+;     mov al,[si]
+;     add si,1
+;     cmp al,0
+;     je rst_b_scr
+;
+;     mov ah, 0x0e
+;     mov bx, 15
+;     int 10h
+;     jmp _print_begin
 ;-----------------------------------------------------------
 
 ;----------------------------------------------------
@@ -241,16 +263,27 @@ LABEL_SEG_CODE32:
     KERNELBIN_START equ 0x95000
     KERNEL_START    equ 0xc0080000
 
-;; eax = LBA sector number
-;; ebx  = base address 
-;; ecx  = read-in sector number
-    mov eax, 13
-    mov ebx, KERNELBIN_START
-    ; mov ecx, 30  ; for 15kb
-    ; mov ecx, 40  ; for 20kb
-    ; mov ecx, 128 ; for 64kb
-    mov ecx, 160 ; for 80kb
-    call SELECTOR_CODE:read_hard_disk_32
+; eax = LBA sector number
+; ebx  = base address 
+; ecx  = read-in sector number
+    ; mov eax, 13
+    ; mov ebx, KERNELBIN_START
+    ; ; mov ecx, 30  ; for 15kb
+    ; ; mov ecx, 40  ; for 20kb
+    ; ; mov ecx, 128 ; for 64kb
+    ; mov ecx, 160 ; for 80kb
+    ; call SELECTOR_CODE:read_hard_disk_32
+
+    ; Read n sector from hard disk 
+    ; ebp+4 ---> count read-in sector number
+    ; ebp+8 ---> base address
+    ; ebp+12---> LBA sector number
+    push 160
+    push KERNELBIN_START
+    push 13
+    call SELECTOR_CODE:read_hard_disk_qemu
+    add esp, 12   ; Clean up the stack after the function call
+
 ;;==============================================================================
 ;; Break down kernel from 0x90000 ~ ? to 0x80000
 ;;==============================================================================
@@ -323,13 +356,23 @@ LABEL_SEG_CODE32:
     ;Load font.img
     ; load font start at FONT_START
     FONT_START equ 0x96000
-;; eax = LBA sector number
-;; ebx  = base address 
-;; ecx  = read-in sector number
-    mov eax, 173           ; according to makefile `mount` seek option
-    mov ebx, FONT_START
-    mov ecx, 8            ; all size = 4K  = 8 * 512
-    call SELECTOR_CODE:read_hard_disk_32
+; ;; eax = LBA sector number
+; ;; ebx  = base address 
+; ;; ecx  = read-in sector number
+;     mov eax, 173           ; according to makefile `mount` seek option
+;     mov ebx, FONT_START
+;     mov ecx, 8            ; all size = 4K  = 8 * 512
+;     call SELECTOR_CODE:read_hard_disk_32
+
+    ; Read n sector from hard disk 
+    ; ebp+4 ---> count read-in sector number
+    ; ebp+8 ---> base address
+    ; ebp+12---> LBA sector number
+    push 8
+    push FONT_START
+    push 173
+    call SELECTOR_CODE:read_hard_disk_qemu
+    add esp, 12   ; Clean up the stack after the function call
 
 ;;-----------------------------------------------------------------------------
     ; mov esp, 0x80000  ;set kernel stack
@@ -478,6 +521,77 @@ setpage:
     add edx, 4096 ; 4096b=0x1000=4b*1024 size of one page
     inc esi
     loop .c_pte
+    ret
+
+;===============================================================================
+; void read_hard_disk_qemu (LBA_sector_number, base_address, count_sector)
+; Read n sector from hard disk 
+;; ebp+8  ---> LBA sector number
+;; ebp+12 ---> base address
+;; ebp+16 ---> count read-in sector number
+;===============================================================================
+read_hard_disk_qemu:
+    mov ebp, esp
+    ;; Read
+    mov edi, [ebp+12]         ; Read sectors to this address
+    mov ebx, [ebp+16]         ; count of sectors to read 
+
+    mov dx, 1F6h        ; Head / drive port, flags
+    mov al, 0xE0        ; 0b0111 0000,
+                        ; bits: 0-3 = LBA bits 24-27, 
+                        ;         4 = drive, 
+                        ;         5 = always set, 
+                        ;         6 = set for LBA, 
+                        ;         7 = always set
+    out dx, al
+
+;;  set sector count for reading
+    mov dx, 1F2h        ; Sector count port
+    mov al, [ebp+16]         ; of sectors to read
+    out dx, al
+
+    inc dx              ; 1F3h, sector # port / LBA low
+    mov eax, [ebp+8]     ; LBA 1, bits 0-7 of LBA
+    out dx, al
+
+    inc dx              ; 1F4h, Cylinder low / LBA mid
+    mov cl, 8
+    shr eax, cl
+    out dx, al
+
+    inc dx              ; 1F5h, Cylinder high / LBA high
+    shr eax, cl         ; bits 16-23 of LBA
+    out dx, al
+
+    inc dx
+    inc dx              ; 1F7h, Command port
+    mov al, 20h         ; Read with retry
+    out dx, al
+
+    load_sector_loop:
+        in al, dx           ; Status register (reading port 1F7h)
+        and al, 0x88
+        cmp al, 0x08          ; Sector buffer requires servicing 
+        jnz load_sector_loop ; Keep trying until sector buffer is ready
+
+        mov cx, 256         ; 2bytes 1 time. of words to read for 1 sector
+        mov dx, 1F0h        ; Data port, reading 
+        rep insw            ; Read bytes from EDX port # into DI, CX # of times
+
+        ;; 400ns delay - Read alternate status register
+        mov dx, 3F6h
+        in al, dx
+        in al, dx
+        in al, dx
+        in al, dx
+
+        dec bl
+        cmp bl, 0           ; Sector # to still read
+        je .return
+
+        mov dx, 1F7h
+        jmp load_sector_loop
+    .return:
     ret
 
 ;===============================================================================
