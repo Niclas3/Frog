@@ -127,6 +127,9 @@ section .s16
 loadermsg: db 'loader in real.'
            db 0
 .len equ ($-loadermsg)
+loaderGUImsg: db 'loader with GUI.'
+         db 0
+.len equ ($-loaderGUImsg)
 
 print_string:
     mov ah, 0eh
@@ -210,7 +213,18 @@ switch_screen_mode:
     jmp keystatus
 
 scr_320:
-    jmp keystatus
+    ; mov ax, 0E0Ah       ; Print newline
+    ; int 10h
+    ; mov al, 0Dh
+    ; int 10h
+    ; mov si, loaderGUImsg
+    ; mov cx, loaderGUImsg.len
+    ; call print_string
+    ; xor ax, ax
+    ; int 16h
+    ; cmp al, 'y'
+    jne keystatus
+
     mov al,0x13
     mov ah,0x00
     int 0x10
