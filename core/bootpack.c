@@ -8,6 +8,7 @@
 
 #include <hid/keyboard.h>
 #include <hid/ps2mouse.h>
+#include <device/tty.h>
 
 #include <const.h>
 #include <debug.h>
@@ -35,6 +36,7 @@
 #include <string.h>
 #include <sys/fstask.h>
 #include <sys/systask.h>
+#include <print.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -93,11 +95,11 @@ void UkiMain(void)
     init_PIT8253();
 
 
-    init_palette();
+    /* init_palette(); */
     draw_backgrond(info.vram, info.scrnx, info.scrny);
 
+    tty_init();
     ide_init();
-
     fs_init();
 
     int pysize = 16;
@@ -111,10 +113,18 @@ void UkiMain(void)
 
     TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
     TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
+    draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test");
+    cls_screen();
+    char readbuf[10] = {0};
+    sys_write(1, readbuf, 10);
+    while (!readbuf[9]){
+        sys_read(0, readbuf, 10);
+    }
+    sys_write(1, readbuf, 10);
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
-    /* TCB_t *readt1 = thread_start("dick reader", 10, funcc, 3); */
+    /* TCB_t *readt1 = thread_start("disk reader", 10, funcc, 3); */
     /* sys_mkdir("/home/"); */
     /* sys_mkdir("/usr/"); */
     /* sys_mkdir("/bin/"); */
@@ -127,20 +137,21 @@ void UkiMain(void)
     /* sys_mkdir("/home/niclas/Desktop/"); */
     /* sys_mkdir("/home/niclas/Desktop/test/"); */
 
-    struct dir *pdir = NULL;
-    struct dir_entry *dir_e = NULL;
-    pdir = sys_opendir("/");
-    if (pdir) {
-        int_32 y = 0;
-        while (dir_e = read_dir(pdir)) {
-            char s[MAX_FILE_NAME_LEN] = {0};
-            sprintf(s, "%s", dir_e->filename);
-            draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, s);
-            y+= 16;
-        }
-    }
-    struct stat statbuf={0};
-    sys_stat("/", &statbuf);
+    /* struct dir *pdir = NULL; */
+    /* struct dir_entry *dir_e = NULL; */
+    /* pdir = sys_opendir("/"); */
+    /* if (pdir) { */
+    /*     #<{(| int_32 y = 0; |)}># */
+    /*     while (dir_e = read_dir(pdir)) { */
+    /*         char s[MAX_FILE_NAME_LEN] = {0}; */
+    /*         sprintf(s, "%s\n", dir_e->filename); */
+    /*         put_str(s); */
+    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, s); |)}># */
+    /*         #<{(| y+= 16; |)}># */
+    /*     } */
+    /* } */
+    /* struct stat statbuf={0}; */
+    /* sys_stat("/", &statbuf); */
     /* sys_stat("/dev/", &statbuf); */
 
     /* sys_unlink("/test1.txt"); */
@@ -221,31 +232,31 @@ void keyboard_consumer(int a)
 void func(int a)
 {
     // Read from file
-    int_32 fd2 = sys_open("/test1.txt", O_RDONLY);
-    if (fd2 == -1) {
-        while (1)
-            ;
-        /* fd2 = sys_open("/test1.txt", O_CREAT); */
-    }
-    /* TCB_t *cur = running_thread(); */
-    /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
-    /*  */
-    /* f2.fd_pos = 512; */
-    uint_32 buf_len = 512;
-    char *buf = sys_malloc(buf_len);
-    /* file_read(&mounted_part, &f2, buf, buf_len); */
-    /* file_read(&mounted_part, &f2, buf, buf_len); */
-    sys_read(fd2, buf, buf_len);
-
-    sys_free(buf);
-    sys_close(fd2);
-    //--------------------------------------------------------------------------
-    /* uint_32 pid = getpid(); */
-    /* while (1) { */
-    /*     lock_fetch(&main_lock); */
-    /*     draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid); */
-    /*     lock_release(&main_lock); */
+    /* int_32 fd2 = sys_open("/test1.txt", O_RDONLY); */
+    /* if (fd2 == -1) { */
+    /*     while (1) */
+    /*         ; */
+    /*     #<{(| fd2 = sys_open("/test1.txt", O_CREAT); |)}># */
     /* } */
+    /* #<{(| TCB_t *cur = running_thread(); |)}># */
+    /* #<{(| struct file f2 = g_file_table[cur->fd_table[fd2]]; |)}># */
+    /* #<{(|  |)}># */
+    /* #<{(| f2.fd_pos = 512; |)}># */
+    /* uint_32 buf_len = 512; */
+    /* char *buf = sys_malloc(buf_len); */
+    /* #<{(| file_read(&mounted_part, &f2, buf, buf_len); |)}># */
+    /* #<{(| file_read(&mounted_part, &f2, buf, buf_len); |)}># */
+    /* sys_read(fd2, buf, buf_len); */
+    /*  */
+    /* sys_free(buf); */
+    /* sys_close(fd2); */
+    //--------------------------------------------------------------------------
+    uint_32 pid = getpid();
+    while (1) {
+        lock_fetch(&main_lock);
+        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid);
+        lock_release(&main_lock);
+    }
 }
 
 
