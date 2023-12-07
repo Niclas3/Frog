@@ -70,6 +70,7 @@ bootloader: $(BOOTER)
 
 # Launch OS through qemu 
 # NOTE: Remove driftfix=slew if not needed
+# -rtc base=localtime,clock=host,driftfix=slew \
 # NOTE: -enable-kvm makes RTC and disk accesses slow for me, but can be better accuracy
 run:
 	qemu-system-i386 \
@@ -77,7 +78,8 @@ run:
 	-monitor stdio \
 	-m 128M \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	-rtc base=localtime,clock=host,driftfix=slew \
+	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
+	-rtc base=localtime,clock=host \
 	-audiodev id=alsa,driver=alsa \
 	-machine pcspk-audiodev=alsa
 	#-enable-kvm \
