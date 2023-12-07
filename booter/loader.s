@@ -170,7 +170,6 @@ loader_start:
 ; VBE setting
 ;----------------------------------------------------
 ;; test if support VBE 
-xchg bx, bx
 mov ax, 0x9000
 mov es, ax
 mov di, 0
@@ -211,13 +210,14 @@ switch_screen_mode:
     jmp keystatus
 
 scr_320:
+    jmp keystatus
     mov al,0x13
     mov ah,0x00
     int 0x10
-    mov byte [VMODE],8
-    mov word [SCRNX],320
-    mov word [SCRNY],200
-    mov dword [VRAM],0x000a0000
+    ; mov byte [VMODE],8
+    ; mov word [SCRNX],320
+    ; mov word [SCRNY],200
+    ; mov dword [VRAM],0x000a0000
 
 keystatus:
     nop
@@ -302,8 +302,9 @@ LABEL_SEG_CODE32:
 
 ;;==============================================================================
 ;; load kernel.elf to 0x90000 ~ 0xA4000 80kb
+;;       change to    0x10000 ~ 0x9fc00 575kb
 ;;==============================================================================
-    KERNELBIN_START equ 0x95000
+    KERNELBIN_START equ 0x10000
     KERNEL_START    equ 0xc0080000
 
 ; eax = LBA sector number
@@ -326,6 +327,7 @@ LABEL_SEG_CODE32:
     push 13
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12   ; Clean up the stack after the function call
+    ; xchg bx, bx
 
 ;;==============================================================================
 ;; Break down kernel from 0x90000 ~ ? to 0x80000
@@ -361,7 +363,7 @@ LABEL_SEG_CODE32:
     ;     uint32_t      p_align;           //   28 bytes    ,4 bytes
     ; } Elf32_Phdr;
     HEADER_NAME_TEXT   equ 0x0000000b
-    ELF_BASE           equ 0x95000
+    ELF_BASE           equ KERNELBIN_START
     E_PHOFF_OFFSET     equ 28   ; 4 bytes
     E_PHENTSIZE_OFFSET equ 42   ; 2 bytes
     E_PHNUM_OFFSET     equ 44   ; 2 bytes
@@ -396,9 +398,10 @@ LABEL_SEG_CODE32:
     call load_program
     add esp, 12   ; Clean up the stack after the function call
 ;;==============================================================================
+    ; xchg bx, bx
     ;Load font.img
     ; load font start at FONT_START
-    FONT_START equ 0x96000
+    FONT_START equ 0x0d400
 ; ;; eax = LBA sector number
 ; ;; ebx  = base address 
 ; ;; ecx  = read-in sector number
@@ -420,6 +423,7 @@ LABEL_SEG_CODE32:
 ;;-----------------------------------------------------------------------------
     ; mov esp, 0x80000  ;set kernel stack
     mov esp, 0xc009f000  ;set kernel stack
+
     jmp dword SELECTOR_CODE: KERNEL_START
 
 ;===============================================================================
