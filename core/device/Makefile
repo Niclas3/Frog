@@ -12,10 +12,14 @@ keyboard.o: keyboard.c
 # ide.o: ide.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
-# device.o: keyboard.o ps2mouse.o ide.o
+tty.o: tty.c
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+
+# device.o: keyboard.o ps2mouse.o ide.o tty.o
 # 	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
 
-device.o: keyboard.o
+
+device.o: keyboard.o tty.o
 	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
 
 clean:
