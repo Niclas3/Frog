@@ -127,10 +127,6 @@ section .s16
 loadermsg: db 'loader in real.'
            db 0
 .len equ ($-loadermsg)
-mov byte [VMODE],8
-mov word [SCRNX],320
-mov word [SCRNY],200
-mov dword [VRAM],0x000a0000
 
 print_string:
     mov ah, 0eh
@@ -152,7 +148,6 @@ loader_start:
     mov al, 'z'
     int 0x10
 
-
 ;-----------------------------------------------------------
 ;  print message 
 ;-----------------------------------------------------------
@@ -172,12 +167,60 @@ loader_start:
 ;-----------------------------------------------------------
 
 ;----------------------------------------------------
-; Reset black screen
+; VBE setting
 ;----------------------------------------------------
-rst_b_scr:
+;; test if support VBE 
+xchg bx, bx
+mov ax, 0x9000
+mov es, ax
+mov di, 0
+mov ax, 0x4f00
+int 0x10
+cmp ax, 0x004f
+jne scr_320
+;; test VBE version is over 2.0
+mov ax, [es:di+4]
+cmp ax, 0x0200
+jb scr_320 ;if(ax < 0x200) goto scr_320
+VBEMODE  equ 0x105
+mov cx, VBEMODE
+mov ax, 0x4f101
+int 0x10
+cmp ax, 0x004f
+jne scr_320
+;; test VBE color mode
+cmp byte [es:di+0x19], 8
+jne scr_320
+cmp byte [es:di+0x1b], 4
+jne scr_320
+mov ax, [es:di+0x00]
+and ax, 0x0080
+jz scr_320
+
+switch_screen_mode:
+    mov bx, VBEMODE + 0x4000
+    mov ax,0x4f02
+    int 0x10
+    mov byte [VMODE], 8
+    mov ax, [es:di+0x12]
+    mov [SCRNX], ax
+    mov ax, [es:di+0x14]
+    mov [SCRNY], ax
+    mov eax, [es:di+0x28]
+    mov [VRAM], eax
+    jmp keystatus
+
+scr_320:
     mov al,0x13
     mov ah,0x00
     int 0x10
+    mov byte [VMODE],8
+    mov word [SCRNX],320
+    mov word [SCRNY],200
+    mov dword [VRAM],0x000a0000
+
+keystatus:
+    nop
 ;----------------------------------------------------
 
 ;----------------------------------------------------
