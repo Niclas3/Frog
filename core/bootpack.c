@@ -6,9 +6,9 @@
 #include <sys/pic.h>
 #include <sys/syscall-init.h>
 
+#include <device/tty.h>
 #include <hid/keyboard.h>
 #include <hid/ps2mouse.h>
-#include <device/tty.h>
 
 #include <const.h>
 #include <debug.h>
@@ -33,10 +33,10 @@
 #include <fs/file.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
+#include <print.h>
 #include <string.h>
 #include <sys/fstask.h>
 #include <sys/systask.h>
-#include <print.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -111,16 +111,19 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
-    TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
-    TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
+    /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
+     */
+    /* TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3); */
     draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test");
     cls_screen();
-    char readbuf[10] = {0};
-    sys_write(1, readbuf, 10);
-    while (!readbuf[9]){
-        sys_read(0, readbuf, 10);
+    char readbuf[1] = {0};
+    int_32 stdin_ = 0;
+    int_32 stdout_ = 1;
+    /* sys_write(1, readbuf, 10); */
+    while(1){
+        sys_read(stdin_, readbuf, 1);
+        sys_write(stdout_, readbuf, 1);
     }
-    sys_write(1, readbuf, 10);
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
@@ -146,7 +149,8 @@ void UkiMain(void)
     /*         char s[MAX_FILE_NAME_LEN] = {0}; */
     /*         sprintf(s, "%s\n", dir_e->filename); */
     /*         put_str(s); */
-    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, s); |)}># */
+    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y,
+     * s); |)}># */
     /*         #<{(| y+= 16; |)}># */
     /*     } */
     /* } */
