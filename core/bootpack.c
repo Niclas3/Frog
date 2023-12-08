@@ -6,7 +6,7 @@
 #include <sys/pic.h>
 #include <sys/syscall-init.h>
 
-#include <device/tty.h>
+#include <device/console.h>
 #include <hid/keyboard.h>
 #include <hid/ps2mouse.h>
 
@@ -98,7 +98,7 @@ void UkiMain(void)
     /* init_palette(); */
     draw_backgrond(info.vram, info.scrnx, info.scrny);
 
-    tty_init();
+    console_init();
     ide_init();
     fs_init();
 

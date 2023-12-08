@@ -11,7 +11,7 @@
 #include <sys/memory.h>
 #include <sys/threads.h>
 
-#include <device/tty.h>
+#include <device/console.h>
 #include <ioqueue.h>
 
 #include <debug.h>
@@ -727,10 +727,7 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
     if (fd == FD_STDOUT_NO) {
         char tmp[1024] = {0};
         memcpy(tmp, buf, count);
-        // TODO:
-        // put string to 0xb0000 address
-        // put_str(tmp);
-        tty_put_str(tmp);
+        console_put_str(tmp);
         return count;
     }
     uint_32 g_fd = fd_local2global(fd);
