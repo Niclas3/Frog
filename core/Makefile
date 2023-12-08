@@ -9,7 +9,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
          $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
 	 $(BUILD_DIR)/usr.o $(BUILD_DIR)/systask.o $(BUILD_DIR)/syscall-init.o \
-	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o $(BUILD_DIR)/list.o $(BUILD_DIR)/bitmap.o\
+	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o $(BUILD_DIR)/list.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/ioqueue.o \
 	 $(BUILD_DIR)/ipc.o \
 	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o\
 	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
@@ -51,6 +51,9 @@ $(BUILD_DIR)/list.o:
 
 $(BUILD_DIR)/bitmap.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find lib -type f -name "bitmap.c")
+
+$(BUILD_DIR)/ioqueue.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find lib -type f -name "ioqueue.c")
 
 $(BUILD_DIR)/device.o:
 	cd ./device && $(MAKE) device.o

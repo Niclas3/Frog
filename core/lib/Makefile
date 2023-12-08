@@ -3,7 +3,7 @@
 include ../../Makefile.os_rules
 INCLUDE = ../include
 # OUT_FILE= bitmap.o debug.o ioqueue.o list.o oslib.o stdio.o string.o print.o
-OUT_FILE= ioqueue.o oslib.o stdio.o string.o print.o
+OUT_FILE= oslib.o stdio.o string.o print.o
 
 # bitmap.o: bitmap.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
@@ -11,8 +11,8 @@ OUT_FILE= ioqueue.o oslib.o stdio.o string.o print.o
 # debug.o: debug.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
-ioqueue.o: ioqueue.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+# ioqueue.o: ioqueue.c
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 # list.o: list.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
