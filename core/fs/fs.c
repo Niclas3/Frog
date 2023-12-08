@@ -12,8 +12,12 @@
 #include <sys/threads.h>
 
 #include <device/tty.h>
+#include <ioqueue.h>
 
 #include <debug.h>
+
+// keyboard queue for reading from stdin
+extern CircleQueue keyboard_queue;
 
 // global variable define at ide.c
 extern struct ide_channel channels[2];  // 2 different channels
@@ -761,16 +765,31 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
         // kprint("sys_write: fd error");
         return -1;
     }
+    int_32 res = -1;
     if (fd == FD_STDIN_NO) {
-        // TODO:
-        // put string to 0xb0000 address
-        // put_str(tmp);
-        /* return count; */
+        struct queue_data qdata = {0};
+        char *buffer = buf;
+        uint_32 bytes_read = 0;
+        while (bytes_read < count) {
+            char data = ioqueue_get_data(&qdata, &keyboard_queue);
+            if (qdata.data != 0) {
+                char code = qdata.data;
+                *buffer = code;
+            }
+            bytes_read++;
+            buffer++;
+        }
+        res = (bytes_read == 0 ? -1 : (int_32) bytes_read);
+    } else if (fd== FD_STDERR_NO || fd == FD_STDOUT_NO){
+        //TODO:
+        //kprint("\n");
+        return -1;
+    } else {
+        uint_32 g_fd = fd_local2global(fd);
+        struct file *f = &g_file_table[g_fd];
+        res = file_read(&mounted_part, f, buf, count);
     }
-    uint_32 g_fd = fd_local2global(fd);
-    struct file *f = &g_file_table[g_fd];
-    file_read(&mounted_part, f, buf, count);
-    return 0;
+    return res;
 }
 
 /**
@@ -1344,15 +1363,13 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
         statbuf->st_nlink = inode->i_nlinks;
         statbuf->st_mode = inode->i_mode;
         int_32 idx;
-        for (idx = 0; inode->i_zones[idx] && idx < MAX_ZONE_COUNT;
-             idx++)
+        for (idx = 0; inode->i_zones[idx] && idx < MAX_ZONE_COUNT; idx++)
             ;
         statbuf->st_zones = idx + 1;
         ret = 0;
     } else {
-        //TODO:
-        //kprint("sys_stat:%s path not found", pathname);
-
+        // TODO:
+        // kprint("sys_stat:%s path not found", pathname);
     }
     return ret;
 }
