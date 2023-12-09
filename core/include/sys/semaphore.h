@@ -6,7 +6,7 @@
 typedef struct thread_control_block TCB_t;
 
 struct semaphore {
-    uint_32 value;
+    volatile uint_32 value;
     struct list_head waiting_queue;
 };
 
