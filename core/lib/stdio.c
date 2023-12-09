@@ -74,7 +74,7 @@ uint_32 sprintf(char *str, const char *fmt, ...)
     return len;
 }
 
-uint_32 printf(char *str, const char *fmt, ...)
+uint_32 printf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);

@@ -3,7 +3,7 @@
 #include <ostype.h>
 
 uint_32 sprintf(char* str, const char *fmt, ...);
-uint_32 printf(char *str, const char *fmt, ...);
+uint_32 printf(const char *fmt, ...);
 
 
 #endif
