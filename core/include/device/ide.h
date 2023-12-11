@@ -135,7 +135,13 @@ void identify_disk(struct disk* hd);
 // read sec_cnt sector from ide to buf
 void ide_read(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt);
 
+void ide_read_ext(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt);
+
+void ide_read_DMA(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt);
+
 void ide_write(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt);
+
+void ide_write_ext(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt);
 
 void scan_partitions(struct disk *hd);
 
