@@ -37,6 +37,7 @@
 #include <string.h>
 #include <sys/fstask.h>
 #include <sys/systask.h>
+#include <sys/spinlock.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -60,6 +61,10 @@ extern struct ide_channel channels[2];   // 2 different channels
 extern struct partition mounted_part;    // the partition what we want to mount.
 extern struct file g_file_table[];
 extern struct dir root_dir;  // root directory
+
+spin_lock_t spin_lock = {0};
+int_32 stdin_ = 0;
+int_32 stdout_ = 1;
 
 // UkiMain must at top of file
 void UkiMain(void)
@@ -111,20 +116,31 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
+    char *buf = sys_malloc(512);
+    while(1){
+        struct disk test_disk = channels[0].devices[1];
+        memset(buf, 0, 512);
+        ide_read(&test_disk, 0x802, buf, 2);
+        sys_write(stdout_, buf, 512);
+        buf = "write_test";
+        ide_write(&test_disk, 0x802, buf, 2);
+        memset(buf, 0, 512);
+        ide_read(&test_disk, 0x802, buf, 2);
+        sys_write(stdout_, buf, 512);
+    }
+
     /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
      */
     /* TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3); */
-    draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test");
+    /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
     cls_screen();
-    char readbuf[1] = {0};
-    int_32 stdin_ = 0;
-    int_32 stdout_ = 1;
+    
+    /* char readbuf[1] = {0}; */
     /* sys_write(1, readbuf, 10); */
-    while(1){
-        sys_read(stdin_, readbuf, 1);
-        sys_write(stdout_, readbuf, 1);
-    }
-
+    /* while(1){ */
+    /*     sys_read(stdin_, readbuf, 1); */
+    /*     sys_write(stdout_, readbuf, 1); */
+    /* } */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
     /* TCB_t *readt1 = thread_start("disk reader", 10, funcc, 3); */
@@ -149,8 +165,7 @@ void UkiMain(void)
     /*         char s[MAX_FILE_NAME_LEN] = {0}; */
     /*         sprintf(s, "%s\n", dir_e->filename); */
     /*         put_str(s); */
-    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y,
-     * s); |)}># */
+    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, s); |)}># */
     /*         #<{(| y+= 16; |)}># */
     /*     } */
     /* } */
@@ -235,6 +250,14 @@ void keyboard_consumer(int a)
 
 void func(int a)
 {
+    while(1){
+        char readbuf[1]= "x";
+        spin_lock(spin_lock);
+
+        sys_write(stdout_, readbuf, 1);
+
+        spin_unlock(spin_lock);
+    }
     // Read from file
     /* int_32 fd2 = sys_open("/test1.txt", O_RDONLY); */
     /* if (fd2 == -1) { */
@@ -255,35 +278,44 @@ void func(int a)
     /* sys_free(buf); */
     /* sys_close(fd2); */
     //--------------------------------------------------------------------------
-    uint_32 pid = getpid();
-    while (1) {
-        lock_fetch(&main_lock);
-        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid);
-        lock_release(&main_lock);
-    }
+    /* uint_32 pid = getpid(); */
+    /* while (1) { */
+    /*     lock_fetch(&main_lock); */
+    /*     draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid); */
+    /*     lock_release(&main_lock); */
+    /* } */
 }
 
 
 void funcb(int a)
 {
-    int_32 fd2 = sys_open("/test1.txt", O_RDWR);
-    if (fd2 == -1) {
-        fd2 = sys_open("/test1.txt", O_CREAT);
-        sys_close(fd2);
-        fd2 = sys_open("/test1.txt", O_RDWR);
-    }
 
-    TCB_t *cur = running_thread();
-    char buf[512] = {'V'};
-    struct file f2 = g_file_table[cur->fd_table[fd2]];
-    for (int i = 0; i < 140; i++) {
-        int ret = 0;
-        /* sprintf(buf, "%c", "A"); */
-        ret = sys_write(fd2, buf, strlen(buf));
-        if (ret == 0)
-            break;
-        /* file_write(&mounted_part, &f2, buf, strlen(buf)); */
+    while(1){
+        char readbuf[2]= "y";
+        spin_lock(spin_lock);
+
+        sys_write(stdout_, readbuf, 1);
+
+        spin_unlock(spin_lock);
     }
+    /* int_32 fd2 = sys_open("/test1.txt", O_RDWR); */
+    /* if (fd2 == -1) { */
+    /*     fd2 = sys_open("/test1.txt", O_CREAT); */
+    /*     sys_close(fd2); */
+    /*     fd2 = sys_open("/test1.txt", O_RDWR); */
+    /* } */
+    /*  */
+    /* TCB_t *cur = running_thread(); */
+    /* char buf[512] = {'V'}; */
+    /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
+    /* for (int i = 0; i < 140; i++) { */
+    /*     int ret = 0; */
+    /*     #<{(| sprintf(buf, "%c", "A"); |)}># */
+    /*     ret = sys_write(fd2, buf, strlen(buf)); */
+    /*     if (ret == 0) */
+    /*         break; */
+    /*     #<{(| file_write(&mounted_part, &f2, buf, strlen(buf)); |)}># */
+    /* } */
 
     /* sys_lseek(fd2, -2, SEEK_END); */
     /* sys_lseek(fd2, -2, SEEK_END); */
@@ -301,7 +333,7 @@ void funcb(int a)
     /*     sprintf(buf, "%d",i ); */
     /*     sys_write(fd2, buf, strlen(buf)); */
     /* } */
-    sys_close(fd2);
+    /* sys_close(fd2); */
 
     /* TCB_t *cur = running_thread(); */
     /* #<{(| while(1){ |)}># */

@@ -12,10 +12,12 @@ file core/build/core_symbol.img
 # b u_funf
 
 b UkiMain
-b 116
-b keyboard_consumer
-b ioqueue_get_data
-b ioqueue_put_data
+# b 116
+# b keyboard_consumer
+# b ioqueue_get_data
+# b ioqueue_put_data
+b bootpack.c:281
+b bootpack.c:241
 # b identify_disk
 # b bootpack.c:99
 # b bootpack.c:99

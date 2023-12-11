@@ -9,7 +9,12 @@ tui en
 # b *0xce57
 # b *0xd082
 b *0xc0080000
-b 131
+# b fs_init
+# b intr_hd_handler
+# b ide.c:486
+b bootpack.c:120
+# b fs.c:248
+# b fs.c:216
 # b intr_hd_handler
 # b mount_partition
 # b scan_partitions
