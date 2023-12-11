@@ -271,9 +271,8 @@ void fs_init(void)
     }
     sys_free(buf);
 
-    // mount partition
+    // mount partition sdb1 to mounted_part
     char default_p[8] = "sdb1";
-    int len = list_length(&partition_list);
     if (!list_is_empty(&partition_list)) {
         list_walker(&partition_list, mount_partition, (int) default_p);
     }
