@@ -1,7 +1,7 @@
 org 0x7c00
 %include "boot.inc"
 
-push 13                  ; number of sectors to read for 6.5k
+push 11                  ; number of sectors to read for 6.5k
 push LOADER_BASE_ADDR    ; target memory address
 push 2                   ; read start lba address
 call read_hard_disk_qemu_bit16
