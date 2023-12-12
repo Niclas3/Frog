@@ -1,11 +1,15 @@
 #include <const.h>  // for PG_SIZE
 #include <debug.h>
-#include <math.h>  // for DIV_ROUND_UP
+#include <global.h>  // MMAP_INFO_POINTER
+#include <math.h>    // for DIV_ROUND_UP
 #include <panic.h>
 #include <string.h>
 #include <sys/int.h>
 #include <sys/memory.h>
 #include <sys/threads.h>
+
+// for kernel test
+#include <kernel_print.h>
 
 // Assume that core.o is 70kb aka 0x11800
 // and start at 0x80000
@@ -164,7 +168,30 @@ static void mem_pool_init(uint_32 all_mem)
 
 void mem_init()
 {
+    struct memory_map_descriptor *mmap_desc =
+        *((struct memory_map_descriptor **) MMAP_INFO_POINTER);
+    uint_32 *mmap_desc_cnt = *((uint_32 **) MMAP_INFO_COUNT_POINTER);
     uint_32 mem_bytes_total = 0x2000000;  // 32M //(*(uint_32 *) (0xb00));
+    // Memory map from BISO success
+    if (mmap_desc && mmap_desc_cnt) {
+        mem_bytes_total = 0;
+        kprint("\n");
+        kprint("baselow    basehight    lenghtlow    lenhight    type    \n");
+        for (int i = 0; i < *mmap_desc_cnt; i++) {
+            struct memory_map_descriptor mmp_desc = mmap_desc[i];
+            uint_32 base_low = mmp_desc.base_addr_low;
+            uint_32 base_high = mmp_desc.base_addr_high;
+            uint_32 length_low = mmp_desc.length_low;
+            uint_32 length_hight = mmp_desc.length_high;
+            ARDS_t type = mmp_desc.type;
+            kprint("%x         %x           %x           %x          %x\n",
+                   base_low, base_high, length_low, length_hight, type);
+            if (type == ARDS_address_range_memory) {
+                mem_bytes_total += mmp_desc.length_low;
+            }
+        }
+    }
+
     mem_pool_init(mem_bytes_total);
     block_desc_init(k_block_descs);
 }
