@@ -1,6 +1,9 @@
 #ifndef _STDARG_H
 #define _STDARG_H
 
+#ifndef NULL 
+#define NULL ((void *)0)
+#endif
 typedef char *va_list;
 
 /* Amount of space required in an argument list for an arg of type TYPE.

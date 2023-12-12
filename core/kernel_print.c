@@ -1,9 +1,7 @@
 #include <kernel_print.h>
-#include <oslib.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
-#include <sys/syscall.h>
+#include <print.h>
 
 uint_32 kprint(const char *fmt, ...)
 {
@@ -12,5 +10,6 @@ uint_32 kprint(const char *fmt, ...)
     char buf[1024] = {0};
     vsprintf(buf, fmt, args);
     va_end(args);
-    return write(1, buf, strlen(buf));
+    put_str(buf);
+    return 0;
 }
