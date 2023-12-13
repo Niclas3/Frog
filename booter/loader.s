@@ -249,7 +249,7 @@ mov di, vbe_info_block
 int 10h
 
 cmp ax, 4fh
-jne error; to error
+jne error               ; to error
 
 mov ax, word [vbe_info_block.video_mode_pointer]
 mov [offset], ax
@@ -311,21 +311,21 @@ mov si, [offset]
 error:
     mov ax, 0E46h	; Print 'F'
     int 10h
-    cli
-    hlt
+    jmp scr_320
 
 end_of_modes:
 scr_320:
-    ; mov ax, 0E0Ah       ; Print newline
-    ; int 10h
-    ; mov al, 0Dh
-    ; int 10h
-    ; mov si, loaderGUImsg
-    ; mov cx, loaderGUImsg.len
-    ; call print_string
-    ; xor ax, ax
-    ; int 16h
-    ; cmp al, 'y'
+    mov ax, 0E0Ah       ; Print newline
+    int 10h
+    mov al, 0Dh
+    int 10h
+    mov si, loaderGUImsg
+    mov cx, loaderGUImsg.len
+    call print_string
+    xor ax, ax
+    int 16h
+    cmp al, 'y'
+    jne set_boot_gfx_cga
 
     mov al,0x13
     mov ah,0x00
@@ -334,13 +334,18 @@ scr_320:
     mov dword [VBE_INFO_POINTER], 0
 
     jmp keystatus
-    ; mov byte [VMODE],8
-    ; mov word [SCRNX],320
-    ; mov word [SCRNY],200
-    ; mov dword [VRAM],0x000a0000
+
+    ;; set boot gfx mode to CGA
+set_boot_gfx_cga:
+    mov dword [VBE_MODE_INFO_POINTER],1
+    mov dword [VBE_INFO_POINTER],1
+    jmp keystatus
+
+;; VBE setting success
 end_of_VBE:
     mov dword [VBE_MODE_INFO_POINTER], mode_info_block
     mov dword [VBE_INFO_POINTER], vbe_info_block
+    jmp keystatus
 
 keystatus:
     nop

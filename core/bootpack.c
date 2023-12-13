@@ -45,6 +45,15 @@
 #include <sys/fstask.h>
 #include <sys/spinlock.h>
 #include <sys/systask.h>
+// test things
+typedef struct B_info {
+    char cyls;
+    char leds;
+    char vmode;
+    char reserve;
+    short scrnx, scrny;
+    unsigned char *vram;
+} BOOTINFO;
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -77,23 +86,6 @@ int_32 stdout_ = 1;
 void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
-
-    /* BOOTINFO info = {.vram = (unsigned char *) 0xc00a0000, */
-    /*                  .scrnx = 320, */
-    /*                  .scrny = 200, */
-    /*                  .cyls = 0, */
-    /*                  .leds = 0, */
-    /*                  .vmode = 0, */
-    /*                  .reserve = 0}; */
-    BOOTINFO info = {.vram = (unsigned char *) 0xc00a0000,
-                     .scrnx = 640,
-                     .scrny = 400,
-                     .cyls = 0,
-                     .leds = 0,
-                     .vmode = 0,
-                     .reserve = 0};
-
-
     lock_init(&main_lock);
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
@@ -118,85 +110,77 @@ void UkiMain(void)
     ide_init();
     fs_init();
 
-
-    // GUI code at bochs
-    /* init_palette(); */
-    /* draw_backgrond(info.vram, info.scrnx, info.scrny); */
-
     // init gfx memory at qemu
     // alloc 2d graphics memory
-    twoD_graphics_init();
+    BOOT_GFX_MODE_t boot_gfx_mode = boot_graphics_mode();
 
-    clear_screen(convert_color(LIGHT_GRAY));
-    draw_pixel(10, 10, convert_color(RED));
+    if (boot_gfx_mode == BOOT_VBE_MODE) {
+        twoD_graphics_init();
+        clear_screen(convert_color(LIGHT_GRAY));
+        draw_pixel(10, 10, convert_color(RED));
+    } else if (boot_gfx_mode == BOOT_VGA_MODE) {
+        // GUI code at bochs
+        /* init_palette(); */
+        /* BOOTINFO info = {.vram = (unsigned char *) 0xc00a0000, */
+        /*                  .scrnx = 320, */
+        /*                  .scrny = 200, */
+        /*                  .cyls = 0, */
+        /*                  .leds = 0, */
+        /*                  .vmode = 0, */
+        /*                  .reserve = 0}; */
+        /* int pysize = 16; */
+        /* int pxsize = 16; */
+        /* int bxsize = 16; */
+        /* int vxsize = info.scrnx; */
+        /* int py0 = 50; */
+        /* int px0 = 50; */
+        /* int mx = 70; */
+        /* int my = 50; */
+        /* draw_backgrond(info.vram, info.scrnx, info.scrny); */
+        draw_backgrond(0xc00a0000, 320, 200);
 
-    int pysize = 16;
-    int pxsize = 16;
-    int bxsize = 16;
-    int vxsize = info.scrnx;
-    int py0 = 50;
-    int px0 = 50;
-    int mx = 70;
-    int my = 50;
+        /* char *mcursor = sys_malloc(256); */
+        /* draw_cursor8(mcursor, COL8_848484); */
+        /* putblock8_8((char *) info.vram, info.scrnx, 16, 16, mx, my, mcursor,
+         * 16);
+         */
+        /* sys_free(mcursor); */
+    } else if (boot_gfx_mode == BOOT_CGA_MODE) {
+        cls_screen();
+
+        kprint("\ntest %d", 4);
+        printf("test %d", 4);
+
+        char readbuf[1] = {0};
+        sys_write(1, readbuf, 10);
+        while (1) {
+            sys_read(stdin_, readbuf, 1);
+            sys_write(stdout_, readbuf, 1);
+        }
+
+        /* struct dir *pdir = NULL; */
+        /* struct dir_entry *dir_e = NULL; */
+        /* pdir = sys_opendir("/"); */
+        /* if (pdir) { */
+        /*     #<{(| int_32 y = 0; |)}># */
+        /*     while (dir_e = read_dir(pdir)) { */
+        /*         char s[MAX_FILE_NAME_LEN] = {0}; */
+        /*         sprintf(s, "%s\n", dir_e->filename); */
+        /*         put_str(s); */
+        /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, */
+        /*          * s); |)}># */
+        /*         #<{(| y+= 16; |)}># */
+        /*     } */
+        /* } */
+    }
 
     /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
      */
     /* TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3); */
     /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
-    /* cls_screen(); */
-
-    /* kprint("\ntest %d", 4); */
-    /* printf("test %d",4); */
-
-    /* char readbuf[1] = {0}; */
-    /* sys_write(1, readbuf, 10); */
-    /* while(1){ */
-    /*     sys_read(stdin_, readbuf, 1); */
-    /*     sys_write(stdout_, readbuf, 1); */
-    /* } */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
     /* TCB_t *readt1 = thread_start("disk reader", 10, funcc, 3); */
-    /* sys_mkdir("/home/"); */
-    /* sys_mkdir("/usr/"); */
-    /* sys_mkdir("/bin/"); */
-    /* sys_mkdir("/etc/"); */
-    /* sys_mkdir("/dev/"); */
-    /* sys_mkdir("/mnt/"); */
-    /* sys_mkdir("/tmp/"); */
-    /* sys_mkdir("/root/"); */
-    /* sys_mkdir("/home/niclas/"); */
-    /* sys_mkdir("/home/niclas/Desktop/"); */
-    /* sys_mkdir("/home/niclas/Desktop/test/"); */
-
-    /* struct dir *pdir = NULL; */
-    /* struct dir_entry *dir_e = NULL; */
-    /* pdir = sys_opendir("/"); */
-    /* if (pdir) { */
-    /*     #<{(| int_32 y = 0; |)}># */
-    /*     while (dir_e = read_dir(pdir)) { */
-    /*         char s[MAX_FILE_NAME_LEN] = {0}; */
-    /*         sprintf(s, "%s\n", dir_e->filename); */
-    /*         put_str(s); */
-    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y,
-     * s); |)}># */
-    /*         #<{(| y+= 16; |)}># */
-    /*     } */
-    /* } */
-    /* struct stat statbuf={0}; */
-    /* sys_stat("/", &statbuf); */
-    /* sys_stat("/dev/", &statbuf); */
-
-    /* sys_unlink("/test1.txt"); */
-    /* funcb(1); */
-    /* int_32 fd = sys_open("/test1.txt", O_RDWR); */
-    /* TCB_t *cur = running_thread(); */
-    /* struct file f2 = g_file_table[cur->fd_table[fd]]; */
-    /* char* io_buf = sys_malloc(1024); */
-    /* inode_release(&mounted_part, f2.fd_inode->i_num); */
-    /* #<{(| delete_dir_entry(&mounted_part, &root_dir,
-     * f2.fd_inode->i_num,io_buf); |)}># */
-    /* sys_free(io_buf); */
 
     // System process at ring1
     /* process_execute_ring1(task_sys, "TASK_SYS");  // pid 2 */
@@ -209,11 +193,6 @@ void UkiMain(void)
 
     /* process_execute(u_fung, "D");  */
 
-    /* char *mcursor = sys_malloc(256); */
-    /* draw_cursor8(mcursor, COL8_848484); */
-    /* putblock8_8((char *) info.vram, info.scrnx, 16, 16, mx, my, mcursor, 16);
-     */
-    /* sys_free(mcursor); */
     for (;;) {
         __asm__ volatile("sti;hlt;");
     }
