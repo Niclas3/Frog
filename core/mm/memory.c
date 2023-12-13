@@ -23,7 +23,7 @@
 #define MEM_BITMAP_BASE 0xc0009a00
 /* #define MEM_BITMAP_BASE 0x00009a00 */
 
-// 1 page dir table and 8 page table
+// 1 page dir table 
 #define PDT_COUNT 1
 #define PGT_COUNT 254 + 1 + 1
 
@@ -94,12 +94,12 @@ static void mem_pool_init(uint_32 all_mem)
     uint_32 page_table_size = PG_SIZE * (PDT_COUNT + PGT_COUNT);
     /*
      *  Page table start at 0x100000
-     *  used_mem = page_table_size + 1MB
+     *  used_mem = page_table_size + 1MB + 8M(graphic)
      *  1MB includes 0xa000 and 0xb800
      **/
     /* uint_32 used_mem = page_table_size + 0x100000;
-     * I put page table at 0x0
-     * 0x80000 ~ 0x92000    kernel code
+     * I put page table at 0x10_0000
+     * 0x80000 ~ 0x94000    kernel code
      * 0xa0000              vga
      * 0xb8000              text view
      * 0x100000             end of used memory
@@ -108,7 +108,7 @@ static void mem_pool_init(uint_32 all_mem)
      * */
     uint_32 used_mem = page_table_size + 0x100000;
     /*
-     *  all_mem for now is 32MB
+     *  all_mem for now is loading at loader.s use BIOS int.
      *  It must be calculate by loader.s before entering protected mode
      * */
     uint_32 free_mem = all_mem - used_mem;
@@ -162,7 +162,8 @@ static void mem_pool_init(uint_32 all_mem)
     kernel_viraddr.vaddr_bitmap.map_bytes_length = kbm_length;
     kernel_viraddr.vaddr_bitmap.bits =
         (void *) (MEM_BITMAP_BASE + kbm_length + ubm_length);
-    kernel_viraddr.vaddr_start = K_HEAP_START;
+    kernel_viraddr.vaddr_start = K_HEAP_START; // when kernel call sys_malloc()
+                                               // variable start address
     init_bitmap(&kernel_viraddr.vaddr_bitmap);
 }
 
