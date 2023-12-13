@@ -130,6 +130,90 @@ loadermsg: db 'loader in real.'
 loaderGUImsg: db 'loader with GUI.'
          db 0
 .len equ ($-loaderGUImsg)
+;; just for test
+vbe_info_block:		; 'Sector' 2
+	.vbe_signature: db 'VBE2'
+	.vbe_version: dw 0          ; Should be 0300h? BCD value
+	.oem_string_pointer: dd 0 
+	.capabilities: dd 0
+	.video_mode_pointer: dd 0
+	.total_memory: dw 0
+	.oem_software_rev: dw 0
+	.oem_vendor_name_pointer: dd 0
+	.oem_product_name_pointer: dd 0
+	.oem_product_revision_pointer: dd 0
+	.reserved: times 222 db 0
+	.oem_data: times 256 db 0
+
+mode_info_block:	; 'Sector' 3
+    ;; Mandatory info for all VBE revisions
+	.mode_attributes: dw 0
+	.window_a_attributes: db 0
+	.window_b_attributes: db 0
+	.window_granularity: dw 0
+	.window_size: dw 0
+	.window_a_segment: dw 0
+	.window_b_segment: dw 0
+	.window_function_pointer: dd 0
+	.bytes_per_scanline: dw 0
+
+    ;; Mandatory info for VBE 1.2 and above
+	.x_resolution: dw 0
+	.y_resolution: dw 0
+	.x_charsize: db 0
+	.y_charsize: db 0
+	.number_of_planes: db 0
+	.bits_per_pixel: db 0
+	.number_of_banks: db 0
+	.memory_model: db 0
+	.bank_size: db 0
+	.number_of_image_pages: db 0
+	.reserved1: db 1
+
+    ;; Direct color fields (required for direct/6 and YUV/7 memory models)
+	.red_mask_size: db 0
+	.red_field_position: db 0
+	.green_mask_size: db 0
+	.green_field_position: db 0
+	.blue_mask_size: db 0
+	.blue_field_position: db 0
+	.reserved_mask_size: db 0
+	.reserved_field_position: db 0
+	.direct_color_mode_info: db 0
+
+    ;; Mandatory info for VBE 2.0 and above
+	.physical_base_pointer: dd 0     ; Physical address for flat memory frame buffer
+	.reserved2: dd 0
+	.reserved3: dw 0
+
+    ;; Mandatory info for VBE 3.0 and above
+    .linear_bytes_per_scan_line: dw 0
+    .bank_number_of_image_pages: db 0
+    .linear_number_of_image_pages: db 0
+    .linear_red_mask_size: db 0
+    .linear_red_field_position: db 0
+    .linear_green_mask_size: db 0
+    .linear_green_field_position: db 0
+    .linear_blue_mask_size: db 0
+    .linear_blue_field_position: db 0
+    .linear_reserved_mask_size: db 0
+    .linear_reserved_field_position: db 0
+    .max_pixel_clock: dd 0
+
+    .reserved4: times 190 db 0      ; Remainder of mode info block
+;; VBE Variables
+width: dw 0
+height: dw 0
+bpp: db 0
+offset: dw 0
+t_segment: dw 0	; "segment" is keyword in fasm
+mode: dw 0
+
+; ;; entry of memory map
+; memmap: times 20 db 0
+; memmap: times 61 db 0
+memmap: times 256 db 0
+memmap_cnt: dd 0
 
 print_string:
     mov ah, 0eh
@@ -141,77 +225,96 @@ print_string:
 
 loader_start:
 
-    ; mov al,0x03
-    ; mov ah,0x00
-    ; int 0x10
     mov si, loadermsg
     mov cx, loadermsg.len
     call print_string
-    mov ah, 0x0e
-    mov al, 'z'
-    int 0x10
 
-;-----------------------------------------------------------
-;  print message 
-;-----------------------------------------------------------
-; print_begin:
-;     mov ax, loadermsg
-;     mov si, ax
-; _print_begin:
-;     mov al,[si]
-;     add si,1
-;     cmp al,0
-;     je rst_b_scr
-;
-;     mov ah, 0x0e
-;     mov bx, 15
-;     int 10h
-;     jmp _print_begin
-;-----------------------------------------------------------
-
+;skip the VBE setting
+; jmp scr_320
 ;----------------------------------------------------
 ; VBE setting
 ;----------------------------------------------------
-;; test if support VBE 
-mov ax, 0x9000
+;test config
+mov word [width], 1920      ; Take default values
+mov word [height], 1080
+mov byte [bpp], 32 
+
+set_up_vbe:
+xor ax, ax
 mov es, ax
-mov di, 0
-mov ax, 0x4f00
-int 0x10
-cmp ax, 0x004f
-jne scr_320
-;; test VBE version is over 2.0
-mov ax, [es:di+4]
-cmp ax, 0x0200
-jb scr_320 ;if(ax < 0x200) goto scr_320
-VBEMODE  equ 0x105
-mov cx, VBEMODE
-mov ax, 0x4f101
-int 0x10
-cmp ax, 0x004f
-jne scr_320
-;; test VBE color mode
-cmp byte [es:di+0x19], 8
-jne scr_320
-cmp byte [es:di+0x1b], 4
-jne scr_320
-mov ax, [es:di+0x00]
-and ax, 0x0080
-jz scr_320
 
-switch_screen_mode:
-    mov bx, VBEMODE + 0x4000
-    mov ax,0x4f02
-    int 0x10
-    mov byte [VMODE], 8
-    mov ax, [es:di+0x12]
-    mov [SCRNX], ax
-    mov ax, [es:di+0x14]
-    mov [SCRNY], ax
-    mov eax, [es:di+0x28]
-    mov [VRAM], eax
-    jmp keystatus
+; get VESA BIOS information
+mov ax, 4f00h
+mov di, vbe_info_block
+int 10h
 
+cmp ax, 4fh
+jne error; to error
+
+mov ax, word [vbe_info_block.video_mode_pointer]
+mov [offset], ax
+mov ax, word [vbe_info_block.video_mode_pointer+2]
+mov [t_segment], ax
+    
+mov fs, ax
+mov si, [offset]
+
+;; Get next VBE video mode
+.find_mode:
+    mov dx, [fs:si]
+    inc si
+    inc si
+    mov [offset], si
+    mov [mode], dx
+
+    cmp dx, word 0FFFFh	        ; at end of video mode list?
+    je end_of_modes
+
+    mov ax, 4F01h		        ; get vbe mode info
+    mov cx, [mode]
+    mov di, mode_info_block		; Mode info block mem address
+    int 10h
+
+    cmp ax, 4Fh
+    jne error
+
+    ;; Compare values with desired values
+    mov ax, [width]
+    cmp ax, [mode_info_block.x_resolution]
+    jne .next_mode
+
+    mov ax, [height]					
+    cmp ax, [mode_info_block.y_resolution]
+    jne .next_mode
+
+    mov al, [bpp]
+    cmp al, [mode_info_block.bits_per_pixel]
+    jne .next_mode
+
+    mov ax, 4F02h	; Set VBE mode
+    mov bx, [mode]
+    or bx, 4000h	; Enable linear frame buffer, bit 14
+    xor di, di
+    int 10h
+
+    cmp ax, 4Fh
+    jne error
+
+    jmp end_of_VBE
+
+.next_mode:
+    mov ax, [t_segment]
+    mov fs, ax
+    mov si, [offset]
+    jmp .find_mode
+
+error:
+    mov ax, 0E46h	; Print 'F'
+    int 10h
+    cli
+    hlt
+
+end_of_modes:
 scr_320:
     ; mov ax, 0E0Ah       ; Print newline
     ; int 10h
@@ -223,23 +326,61 @@ scr_320:
     ; xor ax, ax
     ; int 16h
     ; cmp al, 'y'
-    jne keystatus
 
     mov al,0x13
     mov ah,0x00
     int 0x10
+    mov dword [VBE_MODE_INFO_POINTER], 0
+    mov dword [VBE_INFO_POINTER], 0
+
+    jmp keystatus
     ; mov byte [VMODE],8
     ; mov word [SCRNX],320
     ; mov word [SCRNY],200
     ; mov dword [VRAM],0x000a0000
+end_of_VBE:
+    mov dword [VBE_MODE_INFO_POINTER], mode_info_block
+    mov dword [VBE_INFO_POINTER], vbe_info_block
 
 keystatus:
     nop
+
 ;----------------------------------------------------
+; Get physical memory map BIOS
+; total 24 bytes           ES:DI
+; number of total entries  BP
+;----------------------------------------------------
+detect_memory:
+        mov ebx, 0
+        mov di, memmap
+    .dm_loop
+        mov eax, 0xe820
+        mov ecx, 20          ; size of decs
+        mov edx, 0x0534D4150 ; 'SMAP'
+        int 15h
+        jc .error
+        add di, 20           ; next desc
+        inc dword [memmap_cnt]
+        cmp ebx, 0
+        jne .dm_loop
+        jmp .done
+    .error:
+        jmp save_memmap_error
+    .done:
+
+;----------------------------------------------------
+save_memmap:
+    mov dword [MMAP_INFO_POINTER], memmap
+    mov dword [MMAP_INFO_COUNT_POINTER], memmap_cnt
+    jmp enter_protect_mode
+save_memmap_error:
+    mov dword [MMAP_INFO_POINTER], 0
+    mov dword [MMAP_INFO_COUNT_POINTER], 0
 
 ;----------------------------------------------------
 ;                  A20 open
 ;----------------------------------------------------
+enter_protect_mode:
 in al, 0x92
 or al, 0000_0010b
 out 0x92, al
@@ -326,22 +467,22 @@ LABEL_SEG_CODE32:
 ; ecx  = read-in sector number
     ; mov eax, 13
     ; mov ebx, KERNELBIN_START
-    ; ; mov ecx, 30  ; for 15kb
-    ; ; mov ecx, 40  ; for 20kb
-    ; ; mov ecx, 128 ; for 64kb
-    ; mov ecx, 160 ; for 80kb
+    ; ; mov ecx, 30  ; for  15kb
+    ; ; mov ecx, 40  ; for  20kb
+    ; ; mov ecx, 128 ; for  64kb
+    ; ; mov ecx, 160 ; for  80kb
+    ; ; mov ecx, 240 ; for 120kb
     ; call SELECTOR_CODE:read_hard_disk_32
 
     ; Read n sector from hard disk 
     ; ebp+4 ---> count read-in sector number
     ; ebp+8 ---> base address
     ; ebp+12---> LBA sector number
-    push 160
+    push 240             ;; read sector number 
     push KERNELBIN_START
-    push 13
+    push 13              ;; start LBA address
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12   ; Clean up the stack after the function call
-    ; xchg bx, bx
 
 ;;==============================================================================
 ;; Break down kernel from 0x90000 ~ ? to 0x80000
@@ -412,14 +553,14 @@ LABEL_SEG_CODE32:
     call load_program
     add esp, 12   ; Clean up the stack after the function call
 ;;==============================================================================
-    ; xchg bx, bx
     ;Load font.img
     ; load font start at FONT_START
-    FONT_START equ 0x0d400
+    ; 0xd800 ~ 0xe800      4k
+    FONT_START equ 0x0d800
 ; ;; eax = LBA sector number
 ; ;; ebx  = base address 
 ; ;; ecx  = read-in sector number
-;     mov eax, 173           ; according to makefile `mount` seek option
+;     mov eax, 253           ; according to makefile `mount` seek option
 ;     mov ebx, FONT_START
 ;     mov ecx, 8            ; all size = 4K  = 8 * 512
 ;     call SELECTOR_CODE:read_hard_disk_32
@@ -430,7 +571,7 @@ LABEL_SEG_CODE32:
     ; ebp+12---> LBA sector number
     push 8
     push FONT_START
-    push 173
+    push 253
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12   ; Clean up the stack after the function call
 
@@ -481,13 +622,27 @@ setup_page:
 ;; First entry of page dir
 ;; 0010 1000
     or eax, PG_US_U | PG_RW_W | PG_P ; eax contains page address + attributes
+;; set 0x0 entry of page dir 
+;; no.1 dir entry of table 
+;; pt_address is PAGE_DIR_START+0x1000 aka the first page table address
+;  int_32 pde = pt_address | PG_US_U | PG_RW_W | PG_P;
+ 
     mov [PAGE_DIR_START+0x0], eax ; Set first pde about 4M physical memory
-;; Set 0xc00 entry of page dir 
+;; Set 0xc00 entry of page dir
 ;; No.768 dir entry of table
+;; 4kb * 1024 = 4M
+;; 0xc000_0000
+;; 0xc040_0000
 ;; 0xc00 upper for kernel as
 ;; table 0xc000_0000 ~ 0xffff_ffff all 1G size for kernel
 ;;       0x0000_0000 ~ 0xbfff_ffff all 3G size for user
     mov [PAGE_DIR_START+0xc00],eax
+;; Set 0xfd0 entry of page dir
+;; No.1012
+;; for GUI memory
+;; size is 0x007e9000
+; mov [PAGE_DIR_START+0xfd0], eax
+
 ;;The last entry point to it self
     sub eax, 0x1000
     mov [PAGE_DIR_START+4092], eax
@@ -515,45 +670,14 @@ PG_MSIZE_4M   equ 1024
     mov esi, 0
     mov edx, PG_US_U | PG_RW_W | PG_P
 .create_pte:
-    mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry
+    mov [ebx+esi*4], edx ; ebx: .pg0 address, 4: 4 bytes one entry
     add edx, 4096        ; 4096b=0x1000=4b*1024 size of one page
     inc esi
     loop .create_pte
 
-;;-------------------------------------------------------
-; Other 7 PDEs
-; 2nd page table address
-; int_32 pt_address = 0x2000;
-; int_32 pde = pt_address | PG_US_U | PG_RW_W | PG_P;
-;;-------------------------------------------------------
-;     mov eax, PAGE_DIR_START
-;     add eax, 0x2000
-;     or  eax, PG_US_U | PG_RW_W | PG_P
-;
-;     mov ebx, PAGE_DIR_START
-;     mov ecx, 7 ; 7 page tables represent for 7 * 4M
-;     mov esi, 1 ; the first page tables has already set
-; .create_pde:
-;     mov [ebx+esi*4], eax
-;     inc esi
-;     add eax, 0x1000
-;     loop .create_pde
-;;-----------------------------------------------------
-
-;Second page  .pg1
-;     mov ebx, PAGE_DIR_START
-;     add ebx, 0x2000
-;     mov ecx, 1024
-;     mov esi, 0
-;     mov edx, PG_US_U | PG_RW_W | PG_P
-; .create_pg1_pte:
-;     mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry
-;     add edx, 4096        ; 4096b=0x1000=4b*1024 size of one page
-;     inc esi
-;     loop .create_pg1_pte
-
+;; init page directory entries
     mov eax, PAGE_DIR_START
-    add eax, 0x2000
+    add eax, 0x2000                  ; .pg2 
     or  eax, PG_US_U | PG_RW_W | PG_P
     mov ebx, PAGE_DIR_START
     mov ecx, 254
@@ -564,18 +688,40 @@ PG_MSIZE_4M   equ 1024
     add eax, 0x1000 ;4096 = size page table
     loop .create_kernel_pde
 
+; ;; init graphic memory for test
+; GUI_FRAMEBUFFER_ADDR equ  PAGE_DIR_START+0x2000+0x1000 * 254 + 0x1000; target address
+; ;; frame buffer .pg
+; ;; 4M
+; ;; PAGE_DIR_START + 0x2000 + 0x1000 * (1012 - 769)
+;     push GUI_FRAMEBUFFER_ADDR
+;     push PAGE_DIR_START+0x2000+0x1000 * 243 ; target address
+;     push PG_MSIZE_4M
+;     call setpage
+;     add esp, 12
+; ;; frame buffer .pg2 
+; ;; 4M
+; ;; PAGE_DIR_START + 0x2000 + 0x1000 * (1013 - 769)
+;     push GUI_FRAMEBUFFER_ADDR + 0x400000
+;     push PAGE_DIR_START+0x2000+0x1000 * 244 ; target address
+;     push PG_MSIZE_4M
+;     call setpage
+;     add esp, 12
+
     ret
 
 ;===============================================================================
 ;void setpage(start_addr, count)
 ; ebp+4 --> count    e.g 1024
 ; ebp+8 --> start_addr e.g ebx
+; ebp+12 --> phyaddress start
 ;===============================================================================
-
 setpage:
+    mov ebp, esp
     mov ecx, [ebp+4]
     mov esi, 0
-    mov edx, PG_US_U | PG_RW_W | PG_P
+    mov edx, [ebp+12]
+    and edx, 0xfffff000
+    or  edx, PG_US_U | PG_RW_W | PG_P
 .c_pte:
     mov ebx, [ebp+8]
     mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry
