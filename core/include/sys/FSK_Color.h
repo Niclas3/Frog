@@ -1,5 +1,8 @@
 #ifndef __FSK_COLOR
 #define __FSK_COLOR
+
+// 32 bit ARGB colors
+// prefix stand for Frog SKin
 #define FSK_MAROON 0x00800000
 #define FSK_DARK_RED 0x008B0000
 #define FSK_BROWN 0x00A52A2A

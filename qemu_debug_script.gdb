@@ -13,8 +13,8 @@ b *0xc0080000
 # b intr_hd_handler
 # b ide.c:486
 # b bootpack.c:120
-b clear_screen
-b 127 
+# b clear_screen
+b 118
 # b mem_init
 # b malloc_page_with_vaddr
 # b fs.c:248
@@ -32,4 +32,4 @@ b 127
 # c
 # x/2048x 0xc400
 # x/i $eip
-
+dis b

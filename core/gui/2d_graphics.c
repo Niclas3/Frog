@@ -1,4 +1,5 @@
 #include <sys/2d_graphics.h>
+#include <sys/FSK_Color.h>
 
 #include <const.h>
 #include <global.h>

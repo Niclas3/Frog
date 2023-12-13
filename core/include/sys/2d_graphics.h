@@ -2,17 +2,6 @@
 
 #include <ostype.h>
 
-// 32 bit ARGB colors
-// prefix stand for Frog SKin
-#define FSK_BLACK      0x00000000 
-#define FSK_WHITE      0x00FFFFFF 
-#define FSK_DARK_GRAY  0x00222222
-#define FSK_LIGHT_GRAY 0x00DDDDDD
-#define FSK_RED        0x00FF0000 
-#define FSK_GREEN      0x0000FF00 
-#define FSK_BLUE       0x000000FF 
-#define FSK_YELLOW     0x00FFFF00 
-#define FSK_PURPLE     0x00FF00FF
 //VBE infomation 
 typedef struct vbe_info_structure {
 	char signature[4];	// must be "VESA" to indicate valid VBE support

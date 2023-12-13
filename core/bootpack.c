@@ -116,8 +116,10 @@ void UkiMain(void)
 
     if (boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
+        uint_32 screen_width = g_gfx_mode->x_resolution;
+        uint_32 screen_height = g_gfx_mode->y_resolution;
         clear_screen(convert_color(FSK_LIGHT_GRAY));
-        uint_32 black = convert_color(FSK_BLACK);
+        uint_32 black = convert_color(FSK_LIGHT_SALMON);
         Point a = {.X = 10, .Y = 20};
         Point b = {.X = 50, .Y = 100};
         draw_pixel(10, 10, convert_color(FSK_RED));
