@@ -1,51 +1,65 @@
 ;         Memory Mapping
-;      disk            memory
-;           ┌─────────┐0x7C00
-;     0x0000│  MBR.s  │
-;           ├─────────┤0x7E00
+;  fsize                memory
+;───────────┌─────────┐0x0000_7C00
+;     512b  │  MBR.s  │
+;───────────├─────────┤0x0000_7E00
+;           │         │
+;   7k      │ unused  │
+;           │         │
+;───────────├─────────┤0x0000_9A00 (mem_bitmap_base)
+;   10.5k   │         │            1.kernel_pool.bitmap
+;           │         │            2.user_pool.bitmap
+;           │         │            3.kernel_viraddr.bitmap
+;───────────├─────────┤0x0000_C400
+;           │loader.s │
+;    5k     │         │
+;───────────├─────────┤0x0000_D800
+;    4k     │font.img │
+;───────────├─────────┤0x0000_E800
+;    6k     │ unused  │
+;           │         │
+;───────────├─────────┤0x0001_0000
+;           │         │
+;  120k     │core.img │
+;           │zip      │
+;           │         │
+;───────────├─────────┤0x0002_E000
+;           │         │
+;  328k     │unused   │
+;           │         │
+;───────────├─────────┤0x0008_0000
+;           │ core    │
+;  128k     │ .start  │
 ;           │         │
 ;           │         │
-;           ├─────────┤
+;───────────├─────────┤0x000a_0000 (end assume)
 ;           │         │
-;           ├─────────┤
+; 384k      │unused   │
 ;           │         │
-;           │         │
-;           │         │
-;           ├─────────┤0xC400
-;           │ loader.s│
-;           │         │
+;───────────├─────────┤0x0010_0000
+;           │page     │
+; 2M        │table    │
 ;           │         │
 ;           │         │
-;           │         │
-;    4k     │         │
-;           │         │
-;           │         │
-;           │         │
-;           │         │
-;           │         │
-;           │         │
-;           ├─────────┤0x0_D400
-;           │font.img │
-;           ├─────────┤0x0_E400
-;           ├─────────┤0x1_0000
-;           │         │
-;           │ core.img│
-;           ├─────────┤0x1_2800
-;           │         │
-;           │         │
-;           │         │
-;           │         │
-;           │         │
-;           │         │
-;     0x6C40└─────────┘END for now
+;───────────├─────────┤0x0020_0000
+;           │GUI mem  │
+; 8M        │         │
+;───────────├─────────┤0x00a0_0000
+;
+
+
 LOADER_BASE_ADDR equ 0xc400
 LOADER_START_SECTOR equ 0x2
 ;;------------boot information-
 LEDS  equ  0x0ff1
 VMODE equ  0x0ff2
-SCRNX equ  0x0ff4
-SCRNY equ  0x0ff6
-VRAM  equ  0x0ff8
+
+MMAP_INFO_COUNT_POINTER equ 0x0ff4; 4 bytes
+MMAP_INFO_POINTER equ  0x0ff8     ; 4 bytes
+
+VBE_MODE_INFO_POINTER equ 0x0ffc  ; 4 bytes
+VBE_INFO_POINTER equ 0x1000        ; 4 bytes
+
 ;----GDT
 DESC_G_4K equ 1_000_0000_0000_0000_0000_0000b
 DESC_D_32 equ 1_000_0000_0000_0000_0000_000b
