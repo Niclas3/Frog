@@ -3,15 +3,16 @@
 #include <ostype.h>
 
 // 32 bit ARGB colors
-#define BLACK      0x00000000 
-#define WHITE      0x00FFFFFF 
-#define DARK_GRAY  0x00222222
-#define LIGHT_GRAY 0x00DDDDDD
-#define RED        0x00FF0000 
-#define GREEN      0x0000FF00 
-#define BLUE       0x000000FF 
-#define YELLOW     0x00FFFF00 
-#define PURPLE     0x00FF00FF
+// prefix stand for Frog SKin
+#define FSK_BLACK      0x00000000 
+#define FSK_WHITE      0x00FFFFFF 
+#define FSK_DARK_GRAY  0x00222222
+#define FSK_LIGHT_GRAY 0x00DDDDDD
+#define FSK_RED        0x00FF0000 
+#define FSK_GREEN      0x0000FF00 
+#define FSK_BLUE       0x000000FF 
+#define FSK_YELLOW     0x00FFFF00 
+#define FSK_PURPLE     0x00FF00FF
 //VBE infomation 
 typedef struct vbe_info_structure {
 	char signature[4];	// must be "VESA" to indicate valid VBE support
@@ -98,9 +99,15 @@ typedef enum {
 // global variable for 2d graphics 
 extern vbe_mode_info_t *g_gfx_mode;
 
+typedef struct{
+    uint_32 X;
+    uint_32 Y;
+} Point;
+
 BOOT_GFX_MODE_t boot_graphics_mode(void);
 void twoD_graphics_init(void);
 //for test
 void clear_screen(uint_32 color);
 void draw_pixel(uint_16 X, uint_16 Y, uint_32 color);
+void fill_rect_solid(Point top_left, Point bottom_right, uint_32 color);
 uint_32 convert_color(const uint_32 color);
