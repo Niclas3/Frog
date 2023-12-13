@@ -1,5 +1,5 @@
 # TODO list
-- [ ] support qemu
+- [x] support qemu
     - [x] ata-ida support
 
 - [ ] thread things
@@ -8,19 +8,26 @@
   - [ ] user process exec*()
   - [ ] user process kill()
 
-- [ ] PIC things
-    - [ ] pipe
-
-- [ ] ATA 
-    - [ ] support DMA
-  - [ ] impl identify disk function
-
 - [ ] GUI things
   - [x] VBE support at qemu
-  - [ ] windows
+  - [x] support 8 bits ascii fonts at VBE mode 
+  - [ ] support bdf foramt font at VBE mode
+  - [ ] support mouse (ps/2 mouse)
+  - [ ] GUI Components
+    - [ ] UIControler
+    - [ ] Label
+    - [ ] Buttons
+    - [ ] Windows
+    - [ ] Input_components
   - [ ] console over windows
   - [ ] openGL support
 
+- [ ] PIC things
+    - [ ] pipe
+
+- [ ] ATA
+    - [ ] support DMA
+  - [ ] impl identify disk function
 
 - [ ] etc
   - [ ] GDT & IDT layout
