@@ -46,8 +46,8 @@ newhd80img:
 #C:10 H:2 S:18
 mount: bootloader loader.img core.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
-	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc #core 66k (blank is 80k)
-	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=173 conv=notrunc #font.img for now size 4k
+	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 82k (blank is 120k)
+	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=253 conv=notrunc #font.img for now size 4k
 	# sudo mount -o loop $(DISK) /mnt/floppy 
 	# sudo cp loader.img /mnt/floppy -v
 	# sudo cp core.img /mnt/floppy -v
@@ -56,8 +56,8 @@ mount: bootloader loader.img core.img font
 
 mount_debug: bootloader loader.img core_symbol.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
-	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 66k (blank is 80k)
-	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=173 conv=notrunc #font.img for now size 4k
+	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 82k (blank is 120k)
+	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=253 conv=notrunc #font.img for now size 4k
 umount:
 	sudo umount /mnt/floppy
 
@@ -76,7 +76,7 @@ run:
 	qemu-system-i386 \
 	-S -s \
 	-monitor stdio \
-	-m 128M \
+	-m 128m \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
 	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
 	-rtc base=localtime,clock=host \

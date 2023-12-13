@@ -23,7 +23,8 @@
 // Start address of font hankaku, load at loader.s, size 4kb
 // #define FONT_HANKAKU 0x96000  
 // #define FONT_HANKAKU 0xc0096000  
-#define FONT_HANKAKU 0xc000d400  
+// #define FONT_HANKAKU 0xc000d400  
+#define FONT_HANKAKU 0xc000d800
 
 void boxfill8(unsigned char *vram,
               int xsize,
