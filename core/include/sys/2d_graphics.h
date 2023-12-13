@@ -88,9 +88,17 @@ typedef struct {
 
 } __attribute__ ((packed)) vbe_mode_info_t;
 
+typedef enum {
+    BOOT_VBE_MODE,
+    BOOT_VGA_MODE,
+    BOOT_CGA_MODE,
+    BOOT_UNKNOW
+} BOOT_GFX_MODE_t;
+
 // global variable for 2d graphics 
 extern vbe_mode_info_t *g_gfx_mode;
 
+BOOT_GFX_MODE_t boot_graphics_mode(void);
 void twoD_graphics_init(void);
 //for test
 void clear_screen(uint_32 color);

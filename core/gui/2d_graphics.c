@@ -7,6 +7,22 @@
 // globla VBE mode structure
 vbe_mode_info_t *g_gfx_mode;
 
+BOOT_GFX_MODE_t boot_graphics_mode(void)
+{
+    g_gfx_mode = *((vbe_mode_info_t **) VBE_MODE_INFO_POINTER);
+    vbe_info_t *vbe_info = *((struct vbe_info_structure **) VBE_INFO_POINTER);
+    if (g_gfx_mode == 0 && vbe_info == 0) {
+        return BOOT_VGA_MODE;
+    } else if ((uint_32) g_gfx_mode == 1 && (uint_32) vbe_info == 1) {
+        return BOOT_CGA_MODE;
+    } else if ((g_gfx_mode && (uint_32) g_gfx_mode != 1) ||
+               (vbe_info && (uint_32) vbe_info != 1)) {
+        return BOOT_VBE_MODE;
+    } else {
+        return BOOT_UNKNOW;
+    }
+}
+
 void twoD_graphics_init(void)
 {
     // alloc 2d graphics memory
