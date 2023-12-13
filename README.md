@@ -19,6 +19,8 @@
   - [x] VBE support at qemu
   - [ ] windows
   - [ ] console over windows
+  - [ ] openGL support
+
 
 - [ ] etc
   - [ ] GDT & IDT layout
