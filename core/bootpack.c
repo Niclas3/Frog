@@ -116,8 +116,12 @@ void UkiMain(void)
 
     if (boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
-        clear_screen(convert_color(LIGHT_GRAY));
-        draw_pixel(10, 10, convert_color(RED));
+        clear_screen(convert_color(FSK_LIGHT_GRAY));
+        uint_32 black = convert_color(FSK_BLACK);
+        Point a = {.X = 10, .Y = 20};
+        Point b = {.X = 50, .Y = 100};
+        draw_pixel(10, 10, convert_color(FSK_RED));
+        fill_rect_solid(a, b, black);
     } else if (boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
         /* init_palette(); */
@@ -128,23 +132,22 @@ void UkiMain(void)
         /*                  .leds = 0, */
         /*                  .vmode = 0, */
         /*                  .reserve = 0}; */
-        /* int pysize = 16; */
-        /* int pxsize = 16; */
-        /* int bxsize = 16; */
-        /* int vxsize = info.scrnx; */
-        /* int py0 = 50; */
-        /* int px0 = 50; */
-        /* int mx = 70; */
-        /* int my = 50; */
+        int pysize = 16;
+        int pxsize = 16;
+        int bxsize = 16;
+        int vxsize = 320;
+        int py0 = 50;
+        int px0 = 50;
+        int mx = 70;
+        int my = 50;
         /* draw_backgrond(info.vram, info.scrnx, info.scrny); */
         draw_backgrond(0xc00a0000, 320, 200);
 
-        /* char *mcursor = sys_malloc(256); */
-        /* draw_cursor8(mcursor, COL8_848484); */
-        /* putblock8_8((char *) info.vram, info.scrnx, 16, 16, mx, my, mcursor,
-         * 16);
-         */
-        /* sys_free(mcursor); */
+        char *mcursor = sys_malloc(256);
+        draw_cursor8(mcursor, COL8_848484);
+        putblock8_8((char *)0xc00a0000 , vxsize, 16, 16, mx, my, mcursor,
+                    16);
+        sys_free(mcursor);
     } else if (boot_gfx_mode == BOOT_CGA_MODE) {
         cls_screen();
 
@@ -167,7 +170,8 @@ void UkiMain(void)
         /*         char s[MAX_FILE_NAME_LEN] = {0}; */
         /*         sprintf(s, "%s\n", dir_e->filename); */
         /*         put_str(s); */
-        /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, */
+        /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240,
+         * y, */
         /*          * s); |)}># */
         /*         #<{(| y+= 16; |)}># */
         /*     } */
