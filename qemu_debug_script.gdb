@@ -12,7 +12,11 @@ b *0xc0080000
 # b fs_init
 # b intr_hd_handler
 # b ide.c:486
-b bootpack.c:120
+# b bootpack.c:120
+b clear_screen
+b 127 
+# b mem_init
+# b malloc_page_with_vaddr
 # b fs.c:248
 # b fs.c:216
 # b intr_hd_handler

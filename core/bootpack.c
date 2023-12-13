@@ -1,7 +1,10 @@
 #include <asm/bootpack.h>
 
 #include <sys/descriptor.h>
+
+#include <sys/2d_graphics.h>
 #include <sys/graphic.h>
+
 #include <sys/int.h>
 #include <sys/pic.h>
 #include <sys/syscall-init.h>
@@ -16,7 +19,11 @@
 #include <oslib.h>
 #include <protect.h>
 
+#include <kernel_print.h>
+#include <math.h>
+
 // test
+
 #include <device/ide.h>
 #include <ioqueue.h>
 #include <list.h>
@@ -36,8 +43,8 @@
 #include <print.h>
 #include <string.h>
 #include <sys/fstask.h>
-#include <sys/systask.h>
 #include <sys/spinlock.h>
+#include <sys/systask.h>
 
 extern CircleQueue keyboard_queue;
 extern CircleQueue mouse_queue;
@@ -71,13 +78,21 @@ void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
 
+    /* BOOTINFO info = {.vram = (unsigned char *) 0xc00a0000, */
+    /*                  .scrnx = 320, */
+    /*                  .scrny = 200, */
+    /*                  .cyls = 0, */
+    /*                  .leds = 0, */
+    /*                  .vmode = 0, */
+    /*                  .reserve = 0}; */
     BOOTINFO info = {.vram = (unsigned char *) 0xc00a0000,
-                     .scrnx = 320,
-                     .scrny = 200,
+                     .scrnx = 640,
+                     .scrny = 400,
                      .cyls = 0,
                      .leds = 0,
                      .vmode = 0,
                      .reserve = 0};
+
 
     lock_init(&main_lock);
     init_ioqueue(&keyboard_queue);
@@ -99,13 +114,21 @@ void UkiMain(void)
 
     init_PIT8253();
 
-
-    /* init_palette(); */
-    draw_backgrond(info.vram, info.scrnx, info.scrny);
-
     console_init();
     ide_init();
     fs_init();
+
+
+    // GUI code at bochs
+    /* init_palette(); */
+    /* draw_backgrond(info.vram, info.scrnx, info.scrny); */
+
+    // init gfx memory at qemu
+    // alloc 2d graphics memory
+    twoD_graphics_init();
+
+    clear_screen(convert_color(LIGHT_GRAY));
+    draw_pixel(10, 10, convert_color(RED));
 
     int pysize = 16;
     int pxsize = 16;
@@ -116,25 +139,15 @@ void UkiMain(void)
     int mx = 70;
     int my = 50;
 
-    char *buf = sys_malloc(512);
-    while(1){
-        struct disk test_disk = channels[0].devices[1];
-        memset(buf, 0, 512);
-        ide_read(&test_disk, 0x802, buf, 2);
-        sys_write(stdout_, buf, 512);
-        buf = "write_test";
-        ide_write(&test_disk, 0x802, buf, 2);
-        memset(buf, 0, 512);
-        ide_read(&test_disk, 0x802, buf, 2);
-        sys_write(stdout_, buf, 512);
-    }
-
     /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
      */
     /* TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3); */
     /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
-    cls_screen();
-    
+    /* cls_screen(); */
+
+    /* kprint("\ntest %d", 4); */
+    /* printf("test %d",4); */
+
     /* char readbuf[1] = {0}; */
     /* sys_write(1, readbuf, 10); */
     /* while(1){ */
@@ -165,7 +178,8 @@ void UkiMain(void)
     /*         char s[MAX_FILE_NAME_LEN] = {0}; */
     /*         sprintf(s, "%s\n", dir_e->filename); */
     /*         put_str(s); */
-    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, s); |)}># */
+    /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y,
+     * s); |)}># */
     /*         #<{(| y+= 16; |)}># */
     /*     } */
     /* } */
@@ -250,8 +264,8 @@ void keyboard_consumer(int a)
 
 void func(int a)
 {
-    while(1){
-        char readbuf[1]= "x";
+    while (1) {
+        char readbuf[1] = "x";
         spin_lock(spin_lock);
 
         sys_write(stdout_, readbuf, 1);
@@ -289,9 +303,8 @@ void func(int a)
 
 void funcb(int a)
 {
-
-    while(1){
-        char readbuf[2]= "y";
+    while (1) {
+        char readbuf[2] = "y";
         spin_lock(spin_lock);
 
         sys_write(stdout_, readbuf, 1);

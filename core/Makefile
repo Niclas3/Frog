@@ -4,7 +4,8 @@ include ../Makefile.os_rules
 C_FLAG += -g
 BUILD_DIR = ./build
 
-C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
+C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
+	 $(BUILD_DIR)/graphic.o $(BUILD_DIR)/2d_graphics.o \
 	 $(BUILD_DIR)/device.o $(BUILD_DIR)/ide.o $(BUILD_DIR)/ps2mouse.o \
          $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
@@ -12,9 +13,10 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o $(BUILD_DIR)/graphic.o \
 	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o $(BUILD_DIR)/list.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/ioqueue.o \
 	 $(BUILD_DIR)/ipc.o \
 	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o\
-	 $(BUILD_DIR)/memory.o $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
+	 $(BUILD_DIR)/memory.o \
+         $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o \
-         $(BUILD_DIR)/panic.o \
+         $(BUILD_DIR)/panic.o $(BUILD_DIR)/kernel_print.o \
 	 $(BUILD_DIR)/core.o
 
 $(BUILD_DIR)/switch.o:
@@ -34,6 +36,9 @@ $(BUILD_DIR)/process.o:
 
 $(BUILD_DIR)/panic.o: panic.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
+$(BUILD_DIR)/kernel_print.o: kernel_print.c
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
+
 $(BUILD_DIR)/memory.o: mm/memory.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 
@@ -102,8 +107,12 @@ $(BUILD_DIR)/tss.o:
 	
 $(BUILD_DIR)/destab.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find destab -type f -name "descriptor.c")
+
 $(BUILD_DIR)/graphic.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "*.c")
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "graphic.c")
+$(BUILD_DIR)/2d_graphics.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "2d_graphics.c")
+
 $(BUILD_DIR)/bootpack.o: bootpack.c
 	$(CC) $(C_FLAG) -I $(INCLUDE) -o $@ $<
 $(BUILD_DIR)/core.o: core.s
