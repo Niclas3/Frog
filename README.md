@@ -1,6 +1,6 @@
 # TODO list
 - [ ] support qemu
-    - [*] ata-ida support
+    - [x] ata-ida support
 
 - [ ] thread things
     - [ ] user process fork()
@@ -16,7 +16,7 @@
   - [ ] impl identify disk function
 
 - [ ] GUI things
-  - [*] VBE support at qemu
+  - [x] VBE support at qemu
   - [ ] windows
   - [ ] console over windows
 
