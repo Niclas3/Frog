@@ -12,5 +12,6 @@
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a < _b ? _a : _b; })
+#define ABS(x)  (((x)<0)?-(x):(x))
 
 #endif
