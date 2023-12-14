@@ -113,17 +113,32 @@ void UkiMain(void)
     // init gfx memory at qemu
     // alloc 2d graphics memory
     BOOT_GFX_MODE_t boot_gfx_mode = boot_graphics_mode();
+    TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
 
     if (boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
+        /* enable_mouse(); */
         uint_32 screen_width = g_gfx_mode->x_resolution;
         uint_32 screen_height = g_gfx_mode->y_resolution;
         clear_screen(convert_color(FSK_LIGHT_GRAY));
-        uint_32 black = convert_color(FSK_LIGHT_SALMON);
-        Point a = {.X = 10, .Y = 20};
-        Point b = {.X = 50, .Y = 100};
-        draw_pixel(10, 10, convert_color(FSK_RED));
-        fill_rect_solid(a, b, black);
+        uint_32 status_bar_color = convert_color(FSK_LIGHT_SLATE_GRAY);
+        uint_32 status_bar_Tcolor =
+            convert_color(FSK_LIGHT_SLATE_GRAY | 0xaa000000);
+        Point top_left = {.X = 0, .Y = 0};
+        Point down_right = {.X = screen_width, .Y = screen_height / 15};
+        fill_rect_solid(top_left, down_right, status_bar_color);
+        top_left.X = 0;
+        top_left.Y = 100;
+        down_right.Y = 400;
+        fill_rect_solid(top_left, down_right, status_bar_color);
+        /* draw_2d_gfx_asc_char(8, 20, 0, convert_color(FSK_LIGHT_PINK), 0x03);
+         */
+        /* draw_2d_gfx_asc_char(8, 20, 0, convert_color(FSK_LIGHT_PINK), '0');
+         */
+        /* char *test_str = "test print string"; */
+        /* draw_2d_gfx_string(8, 20, 0, convert_color(FSK_LIGHT_STEEL_BLUE), */
+        /*                    test_str, strlen(test_str)); */
+
     } else if (boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
         /* init_palette(); */
@@ -144,12 +159,13 @@ void UkiMain(void)
         int my = 50;
         /* draw_backgrond(info.vram, info.scrnx, info.scrny); */
         draw_backgrond(0xc00a0000, 320, 200);
+        draw_info((uint_8 *) 0xc00a0000, 320, COL8_848484, 20, 0, "test");
 
         char *mcursor = sys_malloc(256);
         draw_cursor8(mcursor, COL8_848484);
-        putblock8_8((char *)0xc00a0000 , vxsize, 16, 16, mx, my, mcursor,
-                    16);
+        putblock8_8((char *) 0xc00a0000, vxsize, 16, 16, mx, my, mcursor, 16);
         sys_free(mcursor);
+
     } else if (boot_gfx_mode == BOOT_CGA_MODE) {
         cls_screen();
 
@@ -172,9 +188,7 @@ void UkiMain(void)
         /*         char s[MAX_FILE_NAME_LEN] = {0}; */
         /*         sprintf(s, "%s\n", dir_e->filename); */
         /*         put_str(s); */
-        /*         #<{(| draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240,
-         * y, */
-        /*          * s); |)}># */
+        /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, y, s); */
         /*         #<{(| y+= 16; |)}># */
         /*     } */
         /* } */
@@ -182,7 +196,6 @@ void UkiMain(void)
 
     /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
      */
-    /* TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3); */
     /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
@@ -205,22 +218,32 @@ void UkiMain(void)
 }
 
 
-void mouse_consumer(int a)
+void mouse_consumer(int arg)
 {
-    int line = 0;
-    int x = 0;
+    uint_32 x_pos = 0;
+    uint_32 y_pos = 400;
+    uint_32 color1 = convert_color(FSK_ROSY_BROWN);
+    uint_32 color2 = convert_color(FSK_LIME);
+    bool sw = 0;
+
+    draw_2d_gfx_cursor(x_pos, y_pos);
+
     while (1) {
         struct queue_data qdata;
-        int error = ioqueue_get_data(&qdata, &mouse_queue);
-        lock_fetch(&main_lock);
-        if (!error) {
-            char code = qdata.data;
-            draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, x, 2 * 16, code);
-            line += 16;
-            x += 20;
+        int data = ioqueue_get_data(&qdata, &mouse_queue);
+        uint_32 hex_len;
+        if(sw == 0){
+            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color1, qdata.data);
+            sw=1;
+        } else {
+            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color2, qdata.data);
+            sw=0;
         }
-        lock_release(&main_lock);
-        __asm__ volatile("sti;hlt;");
+        x_pos += (hex_len * 8);
+        if (x_pos == 200) {
+            y_pos += 18;
+            x_pos = 0;
+        }
     }
 }
 
