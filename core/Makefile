@@ -6,7 +6,7 @@ BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/graphic.o $(BUILD_DIR)/2d_graphics.o \
-	 $(BUILD_DIR)/device.o $(BUILD_DIR)/ide.o $(BUILD_DIR)/ps2mouse.o \
+	 $(BUILD_DIR)/device.o $(BUILD_DIR)/ide.o $(BUILD_DIR)/ps2hid.o \
          $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
 	 $(BUILD_DIR)/usr.o $(BUILD_DIR)/systask.o $(BUILD_DIR)/syscall-init.o \
@@ -66,8 +66,10 @@ $(BUILD_DIR)/device.o:
 $(BUILD_DIR)/ide.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ide.c")
 
-$(BUILD_DIR)/ps2mouse.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ps2mouse.c")
+# $(BUILD_DIR)/ps2mouse.o:
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ps2mouse.c")
+$(BUILD_DIR)/ps2hid.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ps2hid.c")
 
 $(BUILD_DIR)/usr.o:
 	cd ./usr && $(MAKE) usr.o

@@ -6,7 +6,7 @@ INCLUDE = ../include
 keyboard.o: keyboard.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
-# ps2mouse.o: ps2mouse.c
+# ps2hid.o: ps2hid.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 # ide.o: ide.c
