@@ -11,13 +11,29 @@
 #define PS2_DISABLE_PORT1  0xAD
 #define PS2_ENABLE_PORT1   0xAE
 
+#define PS2_READ_CONFIG    0x20
+#define PS2_WRITE_CONFIG   0x60
+
 //Mouse
 #define MOUSE_WRITE      0xd4
 #define MOUSE_ENABLE     0xf4
+#define MOUSE_V_BIT        0x08
+
+#define MOUSE_SET_REMOTE   0xF0
+#define MOUSE_DEVICE_ID    0xF2
+#define MOUSE_SAMPLE_RATE  0xF3
+#define MOUSE_DATA_ON      0xF4
+#define MOUSE_DATA_OFF     0xF5
+#define MOUSE_SET_DEFAULTS 0xF6
+
+#define MOUSE_DEFAULT         0
+#define MOUSE_SCROLLWHEEL     1
+#define MOUSE_BUTTONS         2
 
 //keyboard
 #define KBD_WRITE      0x60
 #define KBDC_MODE             0x47
+#define KBD_SET_SCANCODE   0xF0
 //-----------------------------------------------
 // PS2 state
 //-----------------------------------------------
