@@ -1,6 +1,9 @@
 #ifndef PS2MOUSE_H
 #define PS2MOUSE_H
 
+#define MOUSE_WRITE      0xd4
+#define MOUSE_ENABLE     0xf4
+
 #define KEYCMD_SENDTO_MOUSE 0xd4
 #define MOUSECMD_ENABLE     0xf4
 

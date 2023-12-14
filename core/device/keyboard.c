@@ -17,7 +17,7 @@ void inthandler21(void);
 
 void wait_KBC_sendready(void){
     while(1){
-        if((_io_in8(PORT_KEYSTATE) & KEYSTA_SEND_NOTREADY) == 0){
+        if((_io_in8(PORT_KEYSTATE) & PS2_STR_SEND_NOTREADY) == 0){
             break;
         }
     }
@@ -44,7 +44,7 @@ void inthandler21(void){
     bool cap_lock_pressed = caps_lock_status;
 
     uint_16 scan_code =0x0;
-    while (_io_in8(PORT_KEYSTATE) & KEYSTA_OUTPUT_BUFFER_FULL){
+    while (_io_in8(PORT_KEYSTATE) & PS2_STR_OUTPUT_BUFFER_FULL){
         scan_code = _io_in8(PORT_KEYDATE); // get scan_code
     }
     if(scan_code == FLAG_EXT){ // scan_code == 0xe0

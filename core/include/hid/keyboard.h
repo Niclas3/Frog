@@ -24,13 +24,17 @@
 #define PORT_KEYCOMMD        0x0064 //write only
 #define KEYCMD_WRITE_MODE    0x60
 #define KBC_MODE             0x47
+//PS2 macro
+#define PS2_STATUS           0x64
+#define PS2_COMMAND          0x64
+#define PS2_DATA             0x60
 
 //-----------------------------------------------
 // Keyboard state
 //-----------------------------------------------
 // TODO: finish all keyboard state
-#define KEYSTA_OUTPUT_BUFFER_FULL 0x01
-#define KEYSTA_SEND_NOTREADY      0x02
+#define PS2_STR_OUTPUT_BUFFER_FULL 0x01
+#define PS2_STR_SEND_NOTREADY      0x02
 
 void wait_KBC_sendready(void);
 
