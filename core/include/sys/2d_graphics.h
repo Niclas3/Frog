@@ -114,4 +114,4 @@ void draw_2d_gfx_string(int font_size,
                         uint_32 str_len);
 uint_32 convert_color(const uint_32 color);
 //Components
-void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y);
+void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color);

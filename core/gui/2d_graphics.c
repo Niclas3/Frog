@@ -485,10 +485,14 @@ void clear_screen(uint_32 color)
     }
 }
 
-void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y)
+void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color)
 {
     Point topleft = {.X = pos_x, .Y = pos_y};
     Point downright = {.X = pos_x + 3, .Y = pos_y + 3};
-    uint_32 cursor_color = convert_color(FSK_DEEP_PINK);
-    fill_rect_solid(topleft, downright, cursor_color);
+    uint_32 defalut_cursor_color = convert_color(FSK_DEEP_PINK);
+    if (!color) {
+        fill_rect_solid(topleft, downright, *color);
+    } else {
+        fill_rect_solid(topleft, downright, defalut_cursor_color);
+    }
 }
