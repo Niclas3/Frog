@@ -15,7 +15,7 @@ CircleQueue mouse_queue;
 CircleQueue keyboard_queue;
 static boolean ctrl_status, shift_status, alt_status, caps_lock_status,
     ext_scancode;
-
+uint_32 mouse_mode = MOUSE_DEFAULT;
 struct mouse_data {
     int_32 x;
     int_32 y;
@@ -23,7 +23,7 @@ struct mouse_data {
 };
 
 struct mouse_raw_data {
-    uint_8 buf[3];
+    uint_8 buf[4];
     uint_8 stage;  // mouse decoding process
     struct mouse_data cooked_mdata;
 };
@@ -121,20 +121,24 @@ static uint_8 mouse_write(uint_8 data)
     return inb(PS2_DATA);
 }
 
-static void make_mouse_packet(struct mouse_raw_data *mdata){
+uint_32 test_point_x = 200;
+uint_32 test_point_y = 200;
+static void make_mouse_packet(struct mouse_raw_data *mdata)
+{
     mdata->stage = 0;
     // Collect enough data to make a packet
     mouse_device_packet_t packet;
+    uint_8 *mouse_byte = mdata->buf;
     packet.magic = MOUSE_MAGIC;
     int_32 delta_x = mdata->buf[1];
     int_32 delta_y = mdata->buf[2];
-    if( delta_x && mdata->buf[0] & (1 << 4)) {
+    if (delta_x && mdata->buf[0] & (1 << 4)) {
         delta_x = delta_x - 0x100;
     }
-    if(delta_y && mdata->buf[0] & (1 << 5)) {
+    if (delta_y && mdata->buf[0] & (1 << 5)) {
         delta_y = delta_y - 0x100;
     }
-    if(mdata->buf[0] & (1 << 6) || mdata->buf[0] & (1 << 7)) {
+    if (mdata->buf[0] & (1 << 6) || mdata->buf[0] & (1 << 7)) {
         delta_x = 0;
         delta_y = 0;
     }
@@ -142,36 +146,63 @@ static void make_mouse_packet(struct mouse_raw_data *mdata){
     packet.x_difference = delta_x;
     packet.y_difference = delta_y;
     packet.buttons = 0;
-    draw_2d_gfx_cursor(packet.y_difference, packet.x_difference);
 
+    if (mouse_byte[0] & 0x01) {
+        packet.buttons |= LEFT_CLICK;
+    }
+    if (mouse_byte[0] & 0x02) {
+        packet.buttons |= RIGHT_CLICK;
+    }
+    if (mouse_byte[0] & 0x04) {
+        packet.buttons |= MIDDLE_CLICK;
+    }
+
+    if (mouse_mode == MOUSE_SCROLLWHEEL && mouse_byte[3]) {
+        if ((int_8) mouse_byte[3] > 0) {
+            packet.buttons |= MOUSE_SCROLL_DOWN;
+        } else if ((int_8) mouse_byte[3] < 0) {
+            packet.buttons |= MOUSE_SCROLL_UP;
+        }
+    }
+    test_point_x += delta_x;
+    test_point_y += (-delta_y);
+    uint_32 color1 = convert_color(FSK_LIME_GREEN);
+    uint_32 *default_color = NULL;
+    if(packet.buttons == LEFT_CLICK){
+        draw_2d_gfx_cursor(test_point_x, test_point_y, &color1);
+    } else {
+        draw_2d_gfx_cursor(test_point_x, test_point_y, default_color);
+    }
 }
 
-static int mouse_decode(struct mouse_raw_data *mdata, uint_8 code)
+static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 code)
 {
-    if (mdata->stage == 0) {
-        if (code == 0xfa) {
-            mdata->stage = 1;
+    int_8 mouse_in = code;
+    uint_8 *mouse_byte = mdata->buf;
+    switch (mdata->stage) {
+    case 0:
+        mouse_byte[0] = mouse_in;
+        if (!(mouse_in & MOUSE_V_BIT))
+            break;
+        ++mdata->stage;
+        break;
+    case 1:
+        mouse_byte[1] = mouse_in;
+        ++mdata->stage;
+        break;
+    case 2:
+        mouse_byte[2] = mouse_in;
+        if (mouse_mode == MOUSE_SCROLLWHEEL || mouse_mode == MOUSE_BUTTONS) {
+            ++mdata->stage;
+            break;
         }
-        return 0;
-    } else if (mdata->stage == 1) {
-        if ((code & 0xc8) == 0x08) {
-            mdata->buf[0] = code;
-            mdata->stage = 2;
-        }
-        return 0;
-    } else if (mdata->stage == 2) {
-        mdata->buf[1] = code;
-        mdata->stage = 3;
-        return 0;
-    } else if (mdata->stage == 3) {
-        mdata->buf[2] = code;
-        mdata->stage = 1;
-        mdata->cooked_mdata.btn = mdata->buf[0] & 0x07;
-        mdata->cooked_mdata.x = mdata->buf[1];
-        mdata->cooked_mdata.y = mdata->buf[2];
-        return 1;
+        make_mouse_packet(mdata);
+        break;
+    case 3:
+        mouse_byte[3] = mouse_in;
+        make_mouse_packet(mdata);
+        break;
     }
-    return -1;
 }
 
 /* int 0x2C;
@@ -181,17 +212,7 @@ struct mouse_raw_data mrd = {0};
 void inthandler2C(void)
 {
     char code = inb(PS2_DATA);
-    int sucs = mouse_decode(&mrd, code);
-
-    if (sucs) {
-        struct queue_data qdata = {
-            .data = mrd.cooked_mdata.y,
-            /* .data = code */
-        };
-        draw_2d_gfx_cursor(mrd.cooked_mdata.x, mrd.cooked_mdata.y);
-
-        /* ioqueue_put_data(&qdata, &mouse_queue); */
-    }
+    ps2_mouse_handle(&mrd, code);
     return;
 }
 
@@ -207,9 +228,9 @@ void inthandler21(void)
     bool cap_lock_pressed = caps_lock_status;
 
     uint_16 scan_code = 0x0;
-    
+
     while (inb(PS2_STATUS) & PS2_STR_OUTPUT_BUFFER_FULL) {
-        scan_code = ps2_read_byte(); // get scan_code
+        scan_code = ps2_read_byte();  // get scan_code
     }
     if (scan_code == FLAG_EXT) {  // scan_code == 0xe0
         ext_scancode = true;

@@ -10,6 +10,7 @@ tui en
 # b *0xd082
 b *0xc0080000
 b 145
+# b make_mouse_packet
 # b inthandler2C
 # b ps2mouse.c: 84 if sucs == 1
 # b fs_init
