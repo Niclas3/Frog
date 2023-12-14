@@ -24,8 +24,8 @@
 - [ ] IN GUI things
   - [x] IU VBE support at qemu
   - [x] IU support 8 bits ascii fonts at VBE mode 
-  - [ ] IU support mouse (ps/2 mouse)
-  - [ ] IN support bdf foramt font at VBE mode
+  - [x] IU support mouse (ps/2 mouse)
+  - [ ] NN support bdf foramt font at VBE mode
   - [ ] IN GUI Components
     - [ ] IN UIControler
     - [ ] IN Label
@@ -39,8 +39,11 @@
     - [ ] NN support DMA
   - [ ] IN impl identify disk function
 
-- [ ] NN etc
+- [ ] NN Fundamental structures
+    - [ ] IU Check ioqueue.c which works at PS2 hid device
   - [ ] IN impl hashmap for configure file
+
+- [ ] NN etc
   - [ ] IN GDT & IDT layout
   - [ ] IN boot up at one disk but not 2 split disks
   - [ ] NN make every things as files
