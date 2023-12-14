@@ -9,6 +9,24 @@
 - [x] IU support qemu
     - [x] IU ata-ida support
 
+- [x] IN HID things
+  - [x] IU support mouse (ps/2 mouse)
+  - [x] NN Put kbd and mouse code to ps2device
+
+- [ ] IN GUI things
+  - [x] IU VBE support at qemu
+  - [x] IU support 8 bits ascii fonts at VBE mode 
+  - [ ] NN support bdf foramt font at VBE mode
+  - [ ] IN GUI Components
+    - [ ] IN UIControler
+    - [ ] IN Label
+    - [ ] IN Buttons
+    - [ ] IN Windows
+    - [ ] IN Input_components
+    - [ ] IN mouse GUI (ps/2 mouse)
+  - [ ] IN console over windows
+  - [ ] NN openGL support
+
 - [ ] IN thread things
     - [ ] IN user process fork()
   - [ ] IN user process wait()
@@ -17,23 +35,6 @@
 
 - [ ] IN PIC things
     - [ ] IN pipe
-
-- [ ] IN HID things
-  - [ ] NN Put kbd and mouse code to ps2device
-
-- [ ] IN GUI things
-  - [x] IU VBE support at qemu
-  - [x] IU support 8 bits ascii fonts at VBE mode 
-  - [x] IU support mouse (ps/2 mouse)
-  - [ ] NN support bdf foramt font at VBE mode
-  - [ ] IN GUI Components
-    - [ ] IN UIControler
-    - [ ] IN Label
-    - [ ] IN Buttons
-    - [ ] IN Windows
-    - [ ] IN Input_components
-  - [ ] IN console over windows
-  - [ ] NN openGL support
 
 - [ ] NN ATA
     - [ ] NN support DMA
