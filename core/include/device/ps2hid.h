@@ -14,9 +14,10 @@
 //Mouse
 #define MOUSE_WRITE      0xd4
 #define MOUSE_ENABLE     0xf4
+
 //keyboard
-
-
+#define KBD_WRITE      0x60
+#define KBDC_MODE             0x47
 //-----------------------------------------------
 // PS2 state
 //-----------------------------------------------
@@ -25,6 +26,8 @@
 #define PS2_STR_SEND_NOTREADY      0x02
 
 void ps2hid_init(void);
+
 void inthandler2C(void);
+void inthandler21(void);
 
 #endif

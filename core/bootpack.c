@@ -10,8 +10,7 @@
 #include <sys/syscall-init.h>
 
 #include <device/console.h>
-#include <hid/keyboard.h>
-#include <hid/ps2mouse.h>
+#include <device/ps2hid.h>
 
 #include <const.h>
 #include <debug.h>
@@ -101,8 +100,8 @@ void UkiMain(void)
     // Set 8295A and PIT_8253 and set IF=1
     init_8259A();
     _io_sti();
-    init_keyboard();
-    enable_mouse();
+
+    ps2hid_init();
 
     init_PIT8253();
 
@@ -226,7 +225,7 @@ void mouse_consumer(int arg)
     uint_32 color2 = convert_color(FSK_LIME);
     bool sw = 0;
 
-    draw_2d_gfx_cursor(x_pos, y_pos);
+    /* draw_2d_gfx_cursor(x_pos, y_pos); */
 
     while (1) {
         struct queue_data qdata;
