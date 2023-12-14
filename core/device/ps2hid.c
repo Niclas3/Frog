@@ -1,5 +1,6 @@
 #include <device/ps2hid.h>
 #include <hid/keymap.h>
+#include <hid/mouse.h>
 
 #include <io.h>
 #include <ioqueue.h>
@@ -118,6 +119,31 @@ static uint_8 mouse_write(uint_8 data)
     ps2_command_arg(MOUSE_WRITE, data);
     ps2_wait_output();
     return inb(PS2_DATA);
+}
+
+static void make_mouse_packet(struct mouse_raw_data *mdata){
+    mdata->stage = 0;
+    // Collect enough data to make a packet
+    mouse_device_packet_t packet;
+    packet.magic = MOUSE_MAGIC;
+    int_32 delta_x = mdata->buf[1];
+    int_32 delta_y = mdata->buf[2];
+    if( delta_x && mdata->buf[0] & (1 << 4)) {
+        delta_x = delta_x - 0x100;
+    }
+    if(delta_y && mdata->buf[0] & (1 << 5)) {
+        delta_y = delta_y - 0x100;
+    }
+    if(mdata->buf[0] & (1 << 6) || mdata->buf[0] & (1 << 7)) {
+        delta_x = 0;
+        delta_y = 0;
+    }
+
+    packet.x_difference = delta_x;
+    packet.y_difference = delta_y;
+    packet.buttons = 0;
+    draw_2d_gfx_cursor(packet.y_difference, packet.x_difference);
+
 }
 
 static int mouse_decode(struct mouse_raw_data *mdata, uint_8 code)
