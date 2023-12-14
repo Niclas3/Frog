@@ -105,6 +105,7 @@ void draw_pixel(uint_16 X, uint_16 Y, uint_32 color);
 void fill_rect_solid(Point top_left, Point bottom_right, uint_32 color);
 
 void draw_2d_gfx_asc_char(int font_size, int x, int y, uint_32 color, char num);
+uint_32 draw_2d_gfx_hex(int font_size, int x, int y, uint_32 color, int_32 num);
 void draw_2d_gfx_string(int font_size,
                         int x,
                         int y,
@@ -112,3 +113,5 @@ void draw_2d_gfx_string(int font_size,
                         char *str,
                         uint_32 str_len);
 uint_32 convert_color(const uint_32 color);
+//Components
+void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y);

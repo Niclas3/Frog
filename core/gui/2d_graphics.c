@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <global.h>
 #include <math.h>
+#include <oslib.h>
 #include <sys/memory.h>
 // globla VBE mode structure
 vbe_mode_info_t *g_gfx_mode;
@@ -106,6 +107,22 @@ void draw_2d_gfx_string(int font_size,
                              *(str + char_idx));
     }
 }
+
+/**
+ * draw a hex number
+ * return this number length
+ *
+ * @param param write here param Comments write here
+ * @return length of this number
+ *****************************************************************************/
+uint_32 draw_2d_gfx_hex(int font_size, int x, int y, uint_32 color, int_32 num)
+{
+    char num_str[20] = {0};
+    uint_32 len = itoa(num, num_str, 16);
+    draw_2d_gfx_string(font_size, x, y, color, num_str, len);
+    return len;
+}
+
 
 // Convert given 32bit 888ARGB color to set bpp value
 // 0x00RRGGBB
@@ -466,4 +483,12 @@ void clear_screen(uint_32 color)
 
         framebuffer += bytes_per_pixel;
     }
+}
+
+void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y)
+{
+    Point topleft = {.X = pos_x, .Y = pos_y};
+    Point downright = {.X = pos_x + 3, .Y = pos_y + 3};
+    uint_32 cursor_color = convert_color(FSK_DEEP_PINK);
+    fill_rect_solid(topleft, downright, cursor_color);
 }
