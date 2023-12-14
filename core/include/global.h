@@ -8,4 +8,6 @@
 #define MMAP_INFO_POINTER       0x0ff8
 #define MMAP_INFO_COUNT_POINTER 0x0ff4 //; 2 bytes
 
+#define FONT_HANKAKU 0xc000d800
+
 #endif
