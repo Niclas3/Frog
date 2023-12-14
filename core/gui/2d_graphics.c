@@ -1,6 +1,7 @@
 #include <sys/2d_graphics.h>
 
 #include <const.h>
+#include <debug.h>
 #include <global.h>
 #include <math.h>
 #include <sys/memory.h>
@@ -65,27 +66,45 @@ static void draw_2d_gfx_8bit_font(int font_size,
                                   uint_32 color,
                                   char *font)
 {
-    char d;
+    char font_part_8bit;  // each line font data
     for (int i = 0; i < 16; i++) {
         // go though all bits each line has 8 bits
-        d = font[i];
+        font_part_8bit = font[i];
         int_8 bit_idx = 0;
         while (bit_idx < 8) {
-            if (d & 0x01) {
+            if (font_part_8bit & 0x01) {
                 draw_pixel(x + (7 - bit_idx), (y + i), color);
             }
             bit_idx++;
-            d >>= 1;
+            font_part_8bit >>= 1;
         }
     }
     return;
 }
 
-void draw_2d_gfx_asc_char(int font_size, int x, int y, uint_32 color, char num)
+void draw_2d_gfx_asc_char(int font_size, int x, int y, uint_32 color, char c)
 {
-    /* char *hankaku = (char *) FONT_HANKAKU; */
-    char *hankaku = (char *) 0xc000d800;
-    draw_2d_gfx_8bit_font(font_size, x, y, color, hankaku + (num * 16));
+    ASSERT(font_size == 8 || font_size == 16 || font_size == 32);
+    char *font_8bits = (char *) FONT_HANKAKU;
+    if (font_size == 8) {  // font_width
+        draw_2d_gfx_8bit_font(font_size, x, y, color, font_8bits + (c * 16));
+    } else if (font_size == 16) {
+    } else if (font_size == 32) {
+    } else {  // use default font size
+    }
+}
+
+void draw_2d_gfx_string(int font_size,
+                        int x,
+                        int y,
+                        uint_32 color,
+                        char *str,
+                        uint_32 str_len)
+{
+    for (int_32 char_idx = 0; char_idx < str_len; char_idx++) {
+        draw_2d_gfx_asc_char(font_size, x + font_size * char_idx, y, color,
+                             *(str + char_idx));
+    }
 }
 
 // Convert given 32bit 888ARGB color to set bpp value

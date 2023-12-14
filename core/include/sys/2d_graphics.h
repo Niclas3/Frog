@@ -105,4 +105,10 @@ void draw_pixel(uint_16 X, uint_16 Y, uint_32 color);
 void fill_rect_solid(Point top_left, Point bottom_right, uint_32 color);
 
 void draw_2d_gfx_asc_char(int font_size, int x, int y, uint_32 color, char num);
+void draw_2d_gfx_string(int font_size,
+                        int x,
+                        int y,
+                        uint_32 color,
+                        char *str,
+                        uint_32 str_len);
 uint_32 convert_color(const uint_32 color);
