@@ -6,6 +6,7 @@
 
 #include <device/ide.h>
 #include <fs/file.h>
+#include <fs/pipe.h>
 #include <math.h>
 #include <string.h>
 #include <sys/memory.h>
@@ -686,22 +687,19 @@ int_32 sys_open(const char *pathname, uint_8 flags)
  * @return -1 failed
  *          0 success
  *****************************************************************************/
-static uint_32 fd_local2global(uint_32 local_fd)
-{
-    TCB_t *cur = running_thread();
-    int_32 g_fd = cur->fd_table[local_fd];
-    ASSERT(g_fd >= 0 && g_fd < MAX_FILE_OPEN);
-    return g_fd;
-}
-
 int_32 sys_close(int_32 fd)
 {
     // fd = 0, 1, 2 is reserved for stdin, stdout, stderr
     int_32 ret = -1;
     if (fd > 2) {
         uint_32 g_fd = fd_local2global(fd);
-        ret = file_close(&g_file_table[g_fd]);
-        running_thread()->fd_table[fd] = -1;
+        if (is_pipe(fd)) {
+            close_pipe(fd);
+            ret = 0;
+        } else {
+            ret = file_close(&g_file_table[g_fd]);
+            running_thread()->fd_table[fd] = -1;
+        }
     }
     return ret;
 }
@@ -718,29 +716,39 @@ int_32 sys_close(int_32 fd)
  *****************************************************************************/
 int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
 {
+    uint_32 bytes_written = 0;
     if (fd < 0) {
         // TODO
         // kprint("sys_write: fd error");
         return -1;
     }
     if (fd == FD_STDOUT_NO) {
-        char tmp[1024] = {0};
-        memcpy(tmp, buf, count);
-        console_put_str(tmp);
-        return count;
-    }
-    uint_32 g_fd = fd_local2global(fd);
-    struct file *wr_file = &g_file_table[g_fd];
-
-    if (wr_file->fd_flag & O_WRONLY || wr_file->fd_flag & O_RDWR) {
-        uint_32 bytes_written = file_write(&mounted_part, wr_file, buf, count);
+        if (is_pipe(fd)) {
+            bytes_written = write_pipe(fd, buf, count);
+            return bytes_written;
+        } else {
+            char tmp[1024] = {0};
+            memcpy(tmp, buf, count);
+            console_put_str(tmp);
+            return count;
+        }
+    } else if (is_pipe(fd)) {
+        bytes_written = write_pipe(fd, buf, count);
         return bytes_written;
     } else {
-        // TODO:
-        // put string
-        // put_str("sys_write: not allowed to write file without flag O_RDWR or
-        //_WRONLY\n");
-        return -1;
+        uint_32 g_fd = fd_local2global(fd);
+        struct file *wr_file = &g_file_table[g_fd];
+        if (wr_file->fd_flag & O_WRONLY || wr_file->fd_flag & O_RDWR) {
+            bytes_written = file_write(&mounted_part, wr_file, buf, count);
+            return bytes_written;
+        } else {
+            // TODO:
+            // put string
+            // put_str("sys_write: not allowed to write file without flag O_RDWR
+            // or
+            //_WRONLY\n");
+            return -1;
+        }
     }
 }
 
@@ -763,23 +771,23 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
     }
     int_32 res = -1;
     if (fd == FD_STDIN_NO) {
-        struct queue_data qdata = {0};
-        char *buffer = buf;
-        uint_32 bytes_read = 0;
-        while (bytes_read < count) {
-            char data = ioqueue_get_data(&qdata, &keyboard_queue);
-            if (qdata.data != 0) {
-                char code = qdata.data;
+        if (is_pipe(fd)) {
+            res = read_pipe(fd, buf, count);
+        } else {
+            char *buffer = buf;
+            uint_32 bytes_read = 0;
+            while (bytes_read < count) {
+                char code = ioqueue_get_data(&keyboard_queue);
                 *buffer = code;
+                bytes_read++;
+                buffer++;
             }
-            bytes_read++;
-            buffer++;
+            res = (bytes_read == 0 ? -1 : (int_32) bytes_read);
         }
-        res = (bytes_read == 0 ? -1 : (int_32) bytes_read);
-    } else if (fd== FD_STDERR_NO || fd == FD_STDOUT_NO){
-        //TODO:
-        //kprint("\n");
+    } else if (fd == FD_STDERR_NO) {
         return -1;
+    } else if(is_pipe(fd)){
+        res = read_pipe(fd, buf, count);
     } else {
         uint_32 g_fd = fd_local2global(fd);
         struct file *f = &g_file_table[g_fd];

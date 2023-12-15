@@ -20,6 +20,15 @@
 struct file g_file_table[MAX_FILE_OPEN];
 struct lock g_ft_lock;
 
+
+uint_32 fd_local2global(uint_32 local_fd)
+{
+    TCB_t *cur = running_thread();
+    int_32 g_fd = cur->fd_table[local_fd];
+    ASSERT(g_fd >= 0 && g_fd < MAX_FILE_OPEN);
+    return g_fd;
+}
+
 /**
  * Occupy a slot from g_file_table
  *

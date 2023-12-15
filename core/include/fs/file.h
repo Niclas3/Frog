@@ -25,6 +25,8 @@ enum bitmap_type {
                            //reopen )
 
 int_32 occupy_file_table_slot(void);
+uint_32 fd_local2global(uint_32 local_fd);
+
 int_32 install_thread_fd(int_32 g_fd_idx);
 int_32 inode_bitmap_alloc(struct partition *part);
 uint_32 zone_bitmap_alloc(struct partition *part);
