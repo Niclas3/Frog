@@ -44,6 +44,8 @@
 #include <sys/fstask.h>
 #include <sys/spinlock.h>
 #include <sys/systask.h>
+BOOT_GFX_MODE_t g_boot_gfx_mode;
+
 // test things
 typedef struct B_info {
     char cyls;
@@ -111,10 +113,10 @@ void UkiMain(void)
 
     // init gfx memory at qemu
     // alloc 2d graphics memory
-    BOOT_GFX_MODE_t boot_gfx_mode = boot_graphics_mode();
-    TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3);
+    g_boot_gfx_mode = boot_graphics_mode();
+    /* TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3); */
 
-    if (boot_gfx_mode == BOOT_VBE_MODE) {
+    if (g_boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
         /* enable_mouse(); */
         uint_32 screen_width = g_gfx_mode->x_resolution;
@@ -138,7 +140,7 @@ void UkiMain(void)
         /* draw_2d_gfx_string(8, 20, 0, convert_color(FSK_LIGHT_STEEL_BLUE), */
         /*                    test_str, strlen(test_str)); */
 
-    } else if (boot_gfx_mode == BOOT_VGA_MODE) {
+    } else if (g_boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
         /* init_palette(); */
         /* BOOTINFO info = {.vram = (unsigned char *) 0xc00a0000, */
@@ -156,6 +158,7 @@ void UkiMain(void)
         int px0 = 50;
         int mx = 70;
         int my = 50;
+
         /* draw_backgrond(info.vram, info.scrnx, info.scrny); */
         draw_backgrond(0xc00a0000, 320, 200);
         draw_info((uint_8 *) 0xc00a0000, 320, COL8_848484, 20, 0, "test");
@@ -165,11 +168,18 @@ void UkiMain(void)
         putblock8_8((char *) 0xc00a0000, vxsize, 16, 16, mx, my, mcursor, 16);
         sys_free(mcursor);
 
-    } else if (boot_gfx_mode == BOOT_CGA_MODE) {
-        cls_screen();
+    } else if (g_boot_gfx_mode == BOOT_CGA_MODE) {
+        /* cls_screen(); */
+        /* printf("error %d", b); */
 
-        kprint("\ntest %d", 4);
-        printf("test %d", 4);
+        /* printf( */
+        /*     "lalalalalalalalalalalalalalalalalalalalalalalalalalazzzzzzzzzzzzzz"
+         */
+        /*     "zzzzz"); */
+        printf(
+            "\nlalalalalalalalalalalalalalalalalalalalalalalalalalazzzzzzzzzzzz"
+            "zz"
+            "zzzzzmm");
 
         char readbuf[1] = {0};
         sys_write(1, readbuf, 10);
@@ -231,12 +241,12 @@ void mouse_consumer(int arg)
         struct queue_data qdata;
         int data = ioqueue_get_data(&qdata, &mouse_queue);
         uint_32 hex_len;
-        if(sw == 0){
+        if (sw == 0) {
             hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color1, qdata.data);
-            sw=1;
+            sw = 1;
         } else {
             hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color2, qdata.data);
-            sw=0;
+            sw = 0;
         }
         x_pos += (hex_len * 8);
         if (x_pos == 200) {
