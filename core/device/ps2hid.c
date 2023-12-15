@@ -2,6 +2,7 @@
 #include <hid/keymap.h>
 #include <hid/mouse.h>
 
+#include <fs/pipe.h>
 #include <io.h>
 #include <ioqueue.h>
 
@@ -13,19 +14,17 @@
 
 CircleQueue mouse_queue;
 CircleQueue keyboard_queue;
+
+int_32 g_kbd_pipe_fd[2];
+int_32 g_mouse_pipe_fd[2];
+
 static boolean ctrl_status, shift_status, alt_status, caps_lock_status,
-    ext_scancode;
+    meta_status, ext_scancode;
 uint_32 mouse_mode = MOUSE_DEFAULT;
-struct mouse_data {
-    int_32 x;
-    int_32 y;
-    int_32 btn;
-};
 
 struct mouse_raw_data {
     uint_8 buf[4];
     uint_8 stage;  // mouse decoding process
-    struct mouse_data cooked_mdata;
 };
 
 /**
@@ -164,15 +163,26 @@ static void make_mouse_packet(struct mouse_raw_data *mdata)
             packet.buttons |= MOUSE_SCROLL_UP;
         }
     }
-    test_point_x += delta_x;
-    test_point_y += (-delta_y);
-    uint_32 color1 = convert_color(FSK_LIME_GREEN);
-    uint_32 *default_color = NULL;
-    if(packet.buttons == LEFT_CLICK){
-        draw_2d_gfx_cursor(test_point_x, test_point_y, &color1);
-    } else {
-        draw_2d_gfx_cursor(test_point_x, test_point_y, default_color);
+    uint_32 packet_size = sizeof(packet);
+    char* byte_packet = (char*) &packet;
+    while(packet_size){
+        ioqueue_put_data(*byte_packet, &mouse_queue);
+        byte_packet++;
+        packet_size--;
     }
+
+    /* test_point_x += delta_x; */
+    /* test_point_y += (-delta_y); */
+    /* uint_32 color1 = convert_color(FSK_LIME_GREEN); */
+    /* uint_32 *default_color = NULL; */
+    /* if ((test_point_x > 1 && test_point_x < g_gfx_mode->x_resolution) && */
+    /*     (test_point_y > 0 && test_point_y < g_gfx_mode->y_resolution)) { */
+    /*     if (packet.buttons == LEFT_CLICK) { */
+    /*         draw_2d_gfx_cursor(test_point_x, test_point_y, &color1); */
+    /*     } else { */
+    /*         draw_2d_gfx_cursor(test_point_x, test_point_y, default_color); */
+    /*     } */
+    /* } */
 }
 
 static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 code)
@@ -226,6 +236,7 @@ void inthandler21(void)
     bool ctrl_pressed = ctrl_status;
     bool shift_pressed = shift_status;
     bool cap_lock_pressed = caps_lock_status;
+    bool meta_pressed = meta_status;
 
     uint_16 scan_code = 0x0;
 
@@ -255,7 +266,8 @@ void inthandler21(void)
         }
         return;
     } else if ((scan_code > 0x00 && scan_code < 0x3b) ||
-               (scan_code == MAKE_ALT_R || scan_code == MAKE_CTRL_R)) {
+               (scan_code == MAKE_ALT_R || scan_code == MAKE_CTRL_R) ||
+               (scan_code == MAKE_META_L || scan_code == MAKE_META_R)) {
         bool shift = false;
 
         /*   0x02 -> 1
@@ -288,11 +300,8 @@ void inthandler21(void)
         uint_8 index = (scan_code & 0x00ff);
         char key = keymap[index][shift];
         if (key) {
-            struct queue_data qdata = {
-                .data = key,
-            };
-            ioqueue_put_data(&qdata, &keyboard_queue);
-
+            ioqueue_put_data(key, &keyboard_queue);
+            /* write_pipe(g_kbd_pipe_fd[1], &key, 1); */
             return;
         }
 
@@ -304,6 +313,8 @@ void inthandler21(void)
             shift_status = true;
         } else if (scan_code == MAKE_CAP_LOCK) {
             caps_lock_status = true;
+        } else if (scan_code == MAKE_META_L || scan_code == MAKE_META_R) {
+            meta_status = true;
         }
 
     } else {
@@ -317,6 +328,13 @@ void inthandler21(void)
  */
 void ps2hid_init(void)
 {
+    init_ioqueue(&keyboard_queue);
+    init_ioqueue(&mouse_queue);
+
+    /* if (sys_pipe(g_kbd_pipe_fd) == -1 || sys_pipe(g_mouse_pipe_fd) == -1) { */
+    /*     PAINC("Can not make a kbd or mouse pipe file descriptor.\n"); */
+    /* } */
+
     // enable keyboard
     ps2_wait_input();
     outb(PS2_COMMAND, KBD_WRITE);
