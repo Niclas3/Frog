@@ -3,17 +3,6 @@
 
 #include <debug.h>
 
-
-struct queue_data *new_ioqueue_data(char data)
-{
-    // TODO: finished after we have malloc()
-    PAINC("DONT USE IT FUNCTION NOT FINISHED!!");
-    struct queue_data io_data = {
-        .data = data,
-    };
-    return &io_data;
-}
-
 void init_ioqueue(CircleQueue *queue)
 {
     lock_init(&queue->queue_lock);
@@ -32,6 +21,17 @@ uint_32 ioqueue_is_empty(CircleQueue *queue)
     return queue->producer_p == queue->consumor_p;
 }
 
+uint_32 ioqueue_length(CircleQueue *queue)
+{
+    uint_32 len = 0;
+    if (queue->consumor_p >= queue->producer_p) {
+        len = queue->consumor_p - queue->producer_p;
+    } else {
+        len = QUEUE_MAX - (queue->producer_p - queue->consumor_p);
+    }
+    return len;
+}
+
 static void ioqueue_wait(TCB_t **waiter)
 {
     ASSERT(*waiter == NULL && waiter != NULL);
@@ -45,20 +45,23 @@ static void wakeup(TCB_t **proc)
     *proc = NULL;
 }
 
-
-void ioqueue_put_data(struct queue_data *data, CircleQueue *queue)
+static uint_32 next_index(uint_32 current_index)
 {
-   /* ASSERT(intr_get_status() == INTR_OFF); */
+    return (current_index + 1) % QUEUE_MAX;
+}
+
+void ioqueue_put_data(char data, CircleQueue *queue)
+{
     // Test if queue is full or not
     if (ioqueue_is_full(queue)) {
-        /* PAINC("IO/Queue: put data from a full queue"); */
         lock_fetch(&queue->queue_lock);
         ioqueue_wait(&queue->producer);
         lock_release(&queue->queue_lock);
     }
     int p_idx = queue->producer_p;
-    queue->buf[p_idx] = data->data;  // copy data to queue
-    queue->producer_p++;  // producer_p pointer to next available pointer
+    queue->buf[p_idx] = data;  // copy data to queue
+    /* queue->producer_p++;  // producer_p pointer to next available pointer */
+    queue->producer_p = next_index(queue->producer_p);
     if (queue->consumor != NULL) {
         wakeup(&queue->consumor);
     }
@@ -67,20 +70,19 @@ void ioqueue_put_data(struct queue_data *data, CircleQueue *queue)
 // @return: int is a error code
 //          if 0 ok
 //          if !0 error
-char ioqueue_get_data(struct queue_data *data, CircleQueue *queue)
+char ioqueue_get_data(CircleQueue *queue)
 {
-   /* ASSERT(intr_get_status() == INTR_OFF); */
-    // Test if queue is empty or not
-    // ! Is there GC problem?
+    char data;
     if (ioqueue_is_empty(queue)) {
         lock_fetch(&queue->queue_lock);
         ioqueue_wait(&queue->consumor);
         lock_release(&queue->queue_lock);
     }
-    data->data = queue->buf[queue->consumor_p];
-    queue->consumor_p++;
-    if(queue->producer != NULL){
+    data = queue->buf[queue->consumor_p];
+    /* queue->consumor_p++; */
+    queue->consumor_p = next_index(queue->consumor_p);
+    if (queue->producer != NULL) {
         wakeup(&queue->producer);
     }
-    return queue->buf[queue->consumor_p];
+    return data;
 }

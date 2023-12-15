@@ -5,14 +5,14 @@
 #include <sys/semaphore.h>
 #include <sys/threads.h>
 
-#define QUEUE_MAX 64
+#define QUEUE_MAX 4000  // 1 page size is 4096
 typedef struct ioqueue{
     struct lock queue_lock;
-    char buf[QUEUE_MAX];
     TCB_t *producer;
     TCB_t *consumor;
     int producer_p;
     int consumor_p;
+    char buf[QUEUE_MAX];
 } CircleQueue;
 
 struct queue_data {
@@ -20,11 +20,12 @@ struct queue_data {
     struct list_head tag;
 };
 
-struct queue_data *new_ioqueue_data(char data);
 void init_ioqueue(CircleQueue *queue);
 
-void ioqueue_put_data(struct queue_data *data, CircleQueue *queue);
-char ioqueue_get_data(struct queue_data *data, CircleQueue *queue);
+void ioqueue_put_data(char data, CircleQueue *queue);
+char ioqueue_get_data(CircleQueue *queue);
+
+uint_32 ioqueue_length(CircleQueue *queue);
 
 // return !0 when queue is full
 uint_32 ioqueue_is_full(CircleQueue *queue);
