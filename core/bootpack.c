@@ -24,6 +24,7 @@
 // test
 
 #include <device/ide.h>
+#include <hid/mouse.h>
 #include <ioqueue.h>
 #include <list.h>
 #include <panic.h>
@@ -88,8 +89,6 @@ void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
     lock_init(&main_lock);
-    init_ioqueue(&keyboard_queue);
-    init_ioqueue(&mouse_queue);
 
     init_idt_gdt_tss();
 
@@ -103,13 +102,13 @@ void UkiMain(void)
     init_8259A();
     _io_sti();
 
-    ps2hid_init();
-
     init_PIT8253();
 
     console_init();
     ide_init();
     fs_init();
+
+    ps2hid_init();
 
     // init gfx memory at qemu
     // alloc 2d graphics memory
@@ -132,6 +131,40 @@ void UkiMain(void)
         top_left.Y = 100;
         down_right.Y = 400;
         fill_rect_solid(top_left, down_right, status_bar_color);
+            uint_32 test_point_x = 200;
+            uint_32 test_point_y = 200;
+        while (1) {
+            uint_32 packet_size = 16;
+            mouse_device_packet_t packet = {0};
+            char *cur = (char *) &packet;
+            while (packet_size) {
+                char c = ioqueue_get_data(&mouse_queue);
+                *cur = c;
+                cur++;
+                packet_size--;
+            }
+
+            if (packet.magic == MOUSE_MAGIC) {
+                uint_32 delta_x = packet.x_difference;
+                uint_32 delta_y = packet.y_difference;
+                test_point_x += delta_x;
+                test_point_y += (-delta_y);
+                uint_32 color1 = convert_color(FSK_LIME_GREEN);
+                uint_32 *default_color = NULL;
+                if ((test_point_x > 1 &&
+                     test_point_x < g_gfx_mode->x_resolution) &&
+                    (test_point_y > 0 &&
+                     test_point_y < g_gfx_mode->y_resolution)) {
+                    if (packet.buttons == LEFT_CLICK) {
+                        draw_2d_gfx_cursor(test_point_x, test_point_y, &color1);
+                    } else {
+                        draw_2d_gfx_cursor(test_point_x, test_point_y,
+                                           default_color);
+                    }
+                }
+            }
+        }
+
         /* draw_2d_gfx_asc_char(8, 20, 0, convert_color(FSK_LIGHT_PINK), 0x03);
          */
         /* draw_2d_gfx_asc_char(8, 20, 0, convert_color(FSK_LIGHT_PINK), '0');
@@ -172,17 +205,14 @@ void UkiMain(void)
         /* cls_screen(); */
         /* printf("error %d", b); */
 
-        /* printf( */
-        /*     "lalalalalalalalalalalalalalalalalalalalalalalalalalazzzzzzzzzzzzzz"
-         */
-        /*     "zzzzz"); */
-        printf(
-            "\nlalalalalalalalalalalalalalalalalalalalalalalalalalazzzzzzzzzzzz"
-            "zz"
-            "zzzzzmm");
+        /* printf("1234567890a"); */
+        char *str = sys_malloc(1024);
+        printf("test%d %s %x %c", 10, "zm", 15, 'z');
+        sprintf(str, "test%d %s %x %c", 10, "zm", 15, 'z');
+        sys_write(1, str, strlen(str));
+        sys_free(str);
 
         char readbuf[1] = {0};
-        sys_write(1, readbuf, 10);
         while (1) {
             sys_read(stdin_, readbuf, 1);
             sys_write(stdout_, readbuf, 1);
@@ -203,8 +233,7 @@ void UkiMain(void)
         /* } */
     }
 
-    /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
-     */
+    TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
     /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
@@ -238,14 +267,13 @@ void mouse_consumer(int arg)
     /* draw_2d_gfx_cursor(x_pos, y_pos); */
 
     while (1) {
-        struct queue_data qdata;
-        int data = ioqueue_get_data(&qdata, &mouse_queue);
+        int data = ioqueue_get_data(&mouse_queue);
         uint_32 hex_len;
         if (sw == 0) {
-            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color1, qdata.data);
+            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color1, data);
             sw = 1;
         } else {
-            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color2, qdata.data);
+            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color2, data);
             sw = 0;
         }
         x_pos += (hex_len * 8);
@@ -261,19 +289,14 @@ void keyboard_consumer(int a)
     int line = 0;
     int xpos = 0;
     for (;;) {
-        struct queue_data qdata = {0};
-        int error = ioqueue_get_data(&qdata, &keyboard_queue);
+        char code = ioqueue_get_data(&keyboard_queue);
         lock_fetch(&main_lock);
-        if (!error) {
-            char code = qdata.data;
-            if (xpos >= 300) {
-                line += 16;
-                xpos = 0;
-            }
-            put_asc_char((int_8 *) 0xc00a0000, 320, xpos, line, COL8_00FFFF,
-                         code);
-            xpos += 8;
+        if (xpos >= 300) {
+            line += 16;
+            xpos = 0;
         }
+        put_asc_char((int_8 *) 0xc00a0000, 320, xpos, line, COL8_00FFFF, code);
+        xpos += 8;
         lock_release(&main_lock);
         __asm__ volatile("sti;hlt;");
     }

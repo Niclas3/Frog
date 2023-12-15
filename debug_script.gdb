@@ -12,12 +12,16 @@ file core/build/core_symbol.img
 # b u_funf
 
 b UkiMain
+b sys_write
+# b 175
+# b print_to_buf
+# b stdio.c: 140
 # b 116
 # b keyboard_consumer
 # b ioqueue_get_data
 # b ioqueue_put_data
-b bootpack.c:281
-b bootpack.c:241
+# b bootpack.c:281
+# b bootpack.c:241
 # b identify_disk
 # b bootpack.c:99
 # b bootpack.c:99
@@ -56,7 +60,7 @@ b bootpack.c:241
 # b 147 if i == 99
 # b 147 if i == 23
 # b file.c:621
-b 117
+# b 117
 # b sys_mkdir
 # b flush_dir_entry
 # b mouse_consumer
