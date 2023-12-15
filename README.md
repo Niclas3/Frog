@@ -41,7 +41,7 @@
   - [ ] IN impl identify disk function
 
 - [ ] NN Fundamental structures
-    - [ ] IU Check ioqueue.c which works at PS2 hid device
+    - [ ] IU ioqueue.c support different type data struct which works at PS2 hid device
   - [ ] IN impl hashmap for configure file
 
 - [ ] NN etc
