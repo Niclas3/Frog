@@ -27,6 +27,8 @@
 #define MAKE_ALT_L	0x0038          /* Alternate key		*/
 #define MAKE_ALT_R	0xe038          /* Alternate key		*/
 #define MAKE_CAP_LOCK   0x003a          /* Alternate key		*/
+#define MAKE_META_L     0xe05B          /* meta button */
+#define MAKE_META_R     0xe05c          /* */
 
 #define BREAK_SHIFT_L	MAKE_SHIFT_L + FLAG_BREAK         /* Shift key			*/
 #define BREAK_SHIFT_R	MAKE_SHIFT_R + FLAG_BREAK           /* Shift key			*/
