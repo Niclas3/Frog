@@ -727,6 +727,8 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
             bytes_written = write_pipe(fd, buf, count);
             return bytes_written;
         } else {
+            //TODO:
+            //console_write() things
             char tmp[1024] = {0};
             memcpy(tmp, buf, count);
             console_put_str(tmp);
