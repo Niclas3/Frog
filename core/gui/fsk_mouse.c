@@ -1,14 +1,26 @@
 #include <gui/fsk_mouse.h>
 #include <hid/mouse.h>
-#include <sys/2d_graphics.h>
-#include <ostype.h>
 #include <ioqueue.h>
+#include <ostype.h>
+#include <sys/2d_graphics.h>
 
-#include <sys/threads.h>
 #include <sys/memory.h>
+#include <sys/threads.h>
 
 extern CircleQueue mouse_queue;
 
+static void read_packet_from_queue(CircleQueue *queue,
+                                   mouse_device_packet_t *packet)
+{
+    uint_32 packet_size = sizeof(mouse_device_packet_t);
+    char *cur = (char *) packet;
+    while (packet_size) {
+        char c = ioqueue_get_data(queue);
+        *cur = c;
+        cur++;
+        packet_size--;
+    }
+}
 
 static void mouse_event_handler(Point *pot)
 {
@@ -28,15 +40,8 @@ static void mouse_event_handler(Point *pot)
     uint_32 double_click_delay;
     uint_8 hold_left_click = false;
     while (1) {
-        uint_32 packet_size = 16;
         mouse_device_packet_t packet = {0};
-        char *cur = (char *) &packet;
-        while (packet_size) {
-            char c = ioqueue_get_data(&mouse_queue);
-            *cur = c;
-            cur++;
-            packet_size--;
-        }
+        read_packet_from_queue(&mouse_queue, &packet);
 
         if (packet.magic == MOUSE_MAGIC) {
             uint_32 delta_x = packet.x_difference;
@@ -62,7 +67,7 @@ static void mouse_event_handler(Point *pot)
                         draw_2d_gfx_asc_char(8, cursor_x, cursor_y, dccolor,
                                              0x03);
                         // testend
-                    } else if (hold_left_click){
+                    } else if (hold_left_click) {
                         // testcode
                         draw_2d_gfx_asc_char(8, cursor_x, cursor_y, dccolor,
                                              0x04);
@@ -89,7 +94,6 @@ static void mouse_event_handler(Point *pot)
                 }
             }
         }
-
         // count down double_click_delay
         // TODO:
         // replace it to CMOS time
@@ -99,7 +103,8 @@ static void mouse_event_handler(Point *pot)
     }
 }
 
-void create_fsk_mouse(uint_32 cursor_x, uint_32 cursor_y){
+void create_fsk_mouse(uint_32 cursor_x, uint_32 cursor_y)
+{
     Point *base_point = sys_malloc(sizeof(base_point));
     base_point->X = cursor_x;
     base_point->Y = cursor_y;
