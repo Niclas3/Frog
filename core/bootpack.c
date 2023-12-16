@@ -120,10 +120,10 @@ void UkiMain(void)
         /* enable_mouse(); */
         uint_32 screen_width = g_gfx_mode->x_resolution;
         uint_32 screen_height = g_gfx_mode->y_resolution;
-        clear_screen(convert_color(FSK_LIGHT_GRAY));
-        uint_32 status_bar_color = convert_color(FSK_LIGHT_SLATE_GRAY);
+        clear_screen(convert_argb(FSK_LIGHT_GRAY));
+        uint_32 status_bar_color = convert_argb(FSK_LIGHT_SLATE_GRAY);
         uint_32 status_bar_Tcolor =
-            convert_color(FSK_LIGHT_SLATE_GRAY | 0xaa000000);
+            convert_argb(FSK_LIGHT_SLATE_GRAY | 0xaa000000);
         Point top_left = {.X = 0, .Y = 0};
         Point down_right = {.X = screen_width, .Y = screen_height / 15};
         fill_rect_solid(top_left, down_right, status_bar_color);
@@ -131,8 +131,15 @@ void UkiMain(void)
         top_left.Y = 100;
         down_right.Y = 400;
         fill_rect_solid(top_left, down_right, status_bar_color);
-            uint_32 test_point_x = 200;
-            uint_32 test_point_y = 200;
+
+        uint_32 test_r_color = convert_argb(FSK_RED);   // 0x00FF0000
+        uint_32 test_b_color = convert_argb(FSK_BLUE);  // 0x000000FF
+        uint_32 test_g_color = convert_argb(FSK_LIME);  //  0x0000ff00
+        ASSERT(FSK_LIME == convert_bbp(test_g_color));
+                                                         
+        uint_32 test_point_x = 200;
+        uint_32 test_point_y = 200;
+        uint_32 org_color = fetch_color(test_point_x, test_point_y);
         while (1) {
             uint_32 packet_size = 16;
             mouse_device_packet_t packet = {0};
@@ -147,23 +154,32 @@ void UkiMain(void)
             if (packet.magic == MOUSE_MAGIC) {
                 uint_32 delta_x = packet.x_difference;
                 uint_32 delta_y = packet.y_difference;
+
+                //redraw prev pixel
+                draw_2d_gfx_cursor(test_point_x, test_point_y, &org_color);
+
+                //erase cursor
                 test_point_x += delta_x;
                 test_point_y += (-delta_y);
-                uint_32 color1 = convert_color(FSK_LIME_GREEN);
+
+                org_color = fetch_color(test_point_x, test_point_y);
+
+                uint_32 color1 = convert_argb(FSK_LIME_GREEN);
                 uint_32 *default_color = NULL;
+
                 if ((test_point_x > 1 &&
                      test_point_x < g_gfx_mode->x_resolution) &&
                     (test_point_y > 0 &&
                      test_point_y < g_gfx_mode->y_resolution)) {
                     if (packet.buttons == LEFT_CLICK) {
-                        draw_2d_gfx_cursor(test_point_x, test_point_y, &color1);
+                        draw_2d_gfx_cursor(test_point_x, test_point_y, default_color);
                     } else {
-                        draw_2d_gfx_cursor(test_point_x, test_point_y,
-                                           default_color);
+                        draw_2d_gfx_cursor(test_point_x, test_point_y, &color1);
                     }
                 }
             }
         }
+
 
         /* draw_2d_gfx_asc_char(8, 20, 0, convert_color(FSK_LIGHT_PINK), 0x03);
          */
@@ -260,8 +276,8 @@ void mouse_consumer(int arg)
 {
     uint_32 x_pos = 0;
     uint_32 y_pos = 400;
-    uint_32 color1 = convert_color(FSK_ROSY_BROWN);
-    uint_32 color2 = convert_color(FSK_LIME);
+    uint_32 color1 = convert_argb(FSK_ROSY_BROWN);
+    uint_32 color2 = convert_argb(FSK_LIME);
     bool sw = 0;
 
     /* draw_2d_gfx_cursor(x_pos, y_pos); */

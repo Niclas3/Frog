@@ -9,7 +9,7 @@ tui en
 # b *0xce57
 # b *0xd082
 b *0xc0080000
-b 145
+# b 158
 # b make_mouse_packet
 # b inthandler2C
 # b ps2mouse.c: 84 if sucs == 1
