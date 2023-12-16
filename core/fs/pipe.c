@@ -56,9 +56,16 @@ static int_32 destory_pipe(int_32 g_fd)
     return -1;
 }
 
-void open_pipe(int_32 fd)
+int_32 open_pipe(int_32 fd)
 {
-    return;
+    if (is_pipe(fd)) {
+        uint_32 g_fd = fd_local2global(fd);
+        struct file pipe = g_file_table[g_fd];
+        pipe.fd_pos++;
+        return 0;
+    }else {
+        return -1;
+    }
 }
 
 void close_pipe(int_32 fd)
@@ -83,7 +90,7 @@ uint_32 read_pipe(int_32 fd, void *buf, uint_32 count)
     return bytes_read;
 }
 
-uint_32 write_pipe(int_32 fd,const void *buf, uint_32 count)
+uint_32 write_pipe(int_32 fd, const void *buf, uint_32 count)
 {
     char *buffer = buf;
     uint_32 bytes_write = 0;

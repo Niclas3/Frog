@@ -165,6 +165,7 @@ uint_32 convert_color(const uint_32 color)
 
     return converted_color;
 }
+
 // Draw a single pixel
 void draw_pixel(uint_16 X, uint_16 Y, uint_32 color)
 {
@@ -468,7 +469,17 @@ void fill_circle_solid(Point center, uint_16 radius, uint_32 color)
 //    // Then redraw boundaries as the correct color
 //    draw_ellipse(center, radiusX, radiusY, color);
 //}
+uint_32 fetch_color(uint_32 X, uint_32 Y)
+{
+    uint_8 *framebuffer = (uint_8 *) g_gfx_mode->physical_base_pointer;
+    uint_8 bytes_per_pixel =
+        (g_gfx_mode->bits_per_pixel + 1) /
+        8;  // Get # of bytes per pixel, add 1 to fix 15bpp modes
 
+    framebuffer += (Y * g_gfx_mode->x_resolution + X) * bytes_per_pixel;
+
+    return *(uint_32 *)framebuffer;
+}
 void clear_screen(uint_32 color)
 {
     // Get 32bit pointer to framebuffer value in VBE mode info block,
@@ -487,10 +498,11 @@ void clear_screen(uint_32 color)
 
 void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color)
 {
+    Point size = {.X = 4, .Y = 4};
     Point topleft = {.X = pos_x, .Y = pos_y};
-    Point downright = {.X = pos_x + 3, .Y = pos_y + 3};
+    Point downright = {.X = pos_x + size.X, .Y = pos_y + size.Y};
     uint_32 defalut_cursor_color = convert_color(FSK_DEEP_PINK);
-    if (!color) {
+    if (color) {
         fill_rect_solid(topleft, downright, *color);
     } else {
         fill_rect_solid(topleft, downright, defalut_cursor_color);

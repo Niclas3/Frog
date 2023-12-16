@@ -6,7 +6,7 @@
 bool is_pipe(int_32 fd);
 int_32 sys_pipe(int_32 pipefd[2]);
 
-void open_pipe(int_32 fd);
+int_32 open_pipe(int_32 fd);
 void close_pipe(int_32 fd);
 
 uint_32 read_pipe(int_32 fd, void *buf, uint_32 count);
