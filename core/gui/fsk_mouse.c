@@ -26,6 +26,7 @@ static void mouse_event_handler(Point *pot)
     uint_32 *default_color = NULL;
     uint_8 double_left_click = 0;
     uint_32 double_click_delay;
+    uint_8 hold_left_click = false;
     while (1) {
         uint_32 packet_size = 16;
         mouse_device_packet_t packet = {0};
@@ -61,10 +62,16 @@ static void mouse_event_handler(Point *pot)
                         draw_2d_gfx_asc_char(8, cursor_x, cursor_y, dccolor,
                                              0x03);
                         // testend
+                    } else if (hold_left_click){
+                        // testcode
+                        draw_2d_gfx_asc_char(8, cursor_x, cursor_y, dccolor,
+                                             0x04);
+                        // testend
                     } else {
                         draw_2d_gfx_cursor(cursor_x, cursor_y, &lcolor);
                         double_left_click = 1;
                         double_click_delay = 3;
+                        hold_left_click = true;
 
                         // testcode
                         draw_2d_gfx_asc_char(8, testx, 0, lcolor,
@@ -75,8 +82,10 @@ static void mouse_event_handler(Point *pot)
                 } else if (packet.buttons == RIGHT_CLICK) {
                     draw_2d_gfx_cursor(cursor_x, cursor_y, &rcolor);
                     double_left_click = 0;
-                } else {  // default moving shape
+                    hold_left_click = false;
+                } else {  // moving with out button push
                     draw_2d_gfx_cursor(cursor_x, cursor_y, default_color);
+                    hold_left_click = false;
                 }
             }
         }
