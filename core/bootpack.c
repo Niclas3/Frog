@@ -164,7 +164,9 @@ void UkiMain(void)
 
                 org_color = fetch_color(test_point_x, test_point_y);
 
-                uint_32 color1 = convert_argb(FSK_LIME_GREEN);
+                uint_32 rcolor = convert_argb(FSK_LIME_GREEN);
+                uint_32 lcolor = convert_argb(FSK_ORANGE_RED);
+
                 uint_32 *default_color = NULL;
 
                 if ((test_point_x > 1 &&
@@ -172,9 +174,11 @@ void UkiMain(void)
                     (test_point_y > 0 &&
                      test_point_y < g_gfx_mode->y_resolution)) {
                     if (packet.buttons == LEFT_CLICK) {
-                        draw_2d_gfx_cursor(test_point_x, test_point_y, default_color);
+                        draw_2d_gfx_cursor(test_point_x, test_point_y, &lcolor);
+                    } else if(packet.buttons == RIGHT_CLICK){
+                        draw_2d_gfx_cursor(test_point_x, test_point_y, &rcolor);
                     } else {
-                        draw_2d_gfx_cursor(test_point_x, test_point_y, &color1);
+                        draw_2d_gfx_cursor(test_point_x, test_point_y, default_color);
                     }
                 }
             }

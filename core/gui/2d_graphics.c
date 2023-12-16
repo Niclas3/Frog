@@ -543,7 +543,7 @@ void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color)
     Point size = {.X = 4, .Y = 4};
     Point topleft = {.X = pos_x, .Y = pos_y};
     Point downright = {.X = pos_x + size.X, .Y = pos_y + size.Y};
-    uint_32 defalut_cursor_color = convert_argb(FSK_DEEP_PINK);
+    uint_32 defalut_cursor_color = convert_argb(FSK_SANDY_BROWN);
     if (color) {
         fill_rect_solid(topleft, downright, *color);
     } else {
