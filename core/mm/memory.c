@@ -543,7 +543,7 @@ static void remove_page(void *v_addr)
 // 3. put vaddress and paddress together using put_page(vaddr, paddr)
 void *malloc_page(enum mem_pool_type poolt, uint_32 pg_cnt)
 {
-    ASSERT(pg_cnt > 0 && pg_cnt < 3840);
+    ASSERT(pg_cnt > 0);
     void *vaddr_start = get_free_vaddress(poolt, pg_cnt);
     if (vaddr_start == NULL) {
         return NULL;
