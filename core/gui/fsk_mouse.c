@@ -4,7 +4,10 @@
 #include <ostype.h>
 #include <sys/2d_graphics.h>
 
+#include <fifo.h>
+#include <string.h>
 #include <sys/memory.h>
+#include <sys/sched.h>
 #include <sys/threads.h>
 
 extern CircleQueue mouse_queue;
@@ -30,6 +33,9 @@ static void mouse_event_handler(Point *pot)
     uint_32 cursor_x = pot->X;
     uint_32 cursor_y = pot->Y;
     sys_free(pot);
+
+    FIFO *timer_queue = {0};
+    char *buf = sys_malloc(2);
 
     uint_32 org_color = fetch_color(cursor_x, cursor_y);
     uint_32 rcolor = convert_argb(FSK_LIME_GREEN);
@@ -60,7 +66,11 @@ static void mouse_event_handler(Point *pot)
                 (cursor_y > 0 && cursor_y < g_gfx_mode->y_resolution)) {
                 if (packet.buttons == LEFT_CLICK) {
                     // Double click left
-                    if (double_left_click == 1 && double_click_delay > 0) {
+                    /* if (double_left_click == 1 && double_click_delay > 0) {
+                     */
+                    if (double_left_click == 1 &&
+                        fifo_rest(timer_queue) == 0) {
+                        fifo_get_data(timer_queue);
                         double_left_click = 0;
                         draw_2d_gfx_cursor(cursor_x, cursor_y, &dccolor);
                         // testcode
@@ -74,10 +84,13 @@ static void mouse_event_handler(Point *pot)
                         // testend
                     } else {
                         draw_2d_gfx_cursor(cursor_x, cursor_y, &lcolor);
-                        double_left_click = 1;
-                        double_click_delay = 3;
-                        hold_left_click = true;
 
+                        double_left_click = 1;
+                        uint_32 delay = 3500;
+                        init_fifo(timer_queue, 2, buf);
+                        set_timer(delay, timer_queue, '1');
+
+                        hold_left_click = true;
                         // testcode
                         draw_2d_gfx_asc_char(8, testx, 0, lcolor,
                                              packet.buttons);
@@ -93,12 +106,6 @@ static void mouse_event_handler(Point *pot)
                     hold_left_click = false;
                 }
             }
-        }
-        // count down double_click_delay
-        // TODO:
-        // replace it to CMOS time
-        if (double_click_delay > 0) {
-            double_click_delay--;
         }
     }
 }
