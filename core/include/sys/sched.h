@@ -1,6 +1,8 @@
 #ifndef __SYS_SCHED_H_
 #define __SYS_SCHED_H_
 #include <ostype.h>
+
+void init_timer_manager(void);
 /* int 0x20;
  * Interrupt handler for inner Clock
  **/

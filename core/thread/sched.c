@@ -4,21 +4,46 @@
 #include <sys/sched.h>
 #include <sys/threads.h>
 
+#include <ioqueue.h>
+#include <protect.h>
+#include <sys/int.h>
+
 #define mil_seconds_per_intr DIV_ROUND_UP(1000, IRQ0_FREQUENCY)
+
+struct TIME_MANAGER {
+    bool timeout;
+    CircleQueue queue;
+    uint_8 data;
+};
 
 /**
  * Total ticks count since open timer interrupt
  */
 uint_32 ticks = 0;
 
-
 extern void schedule(void);
+
+// test timer
+struct TIME_MANAGER g_timer_manager = {0};
+
+void init_timer_manager(void)
+{
+    // register timer interrupt handler
+    register_r0_intr_handler(INT_VECTOR_INNER_CLOCK, (Inthandle_t *)inthandler20);
+    init_ioqueue(&g_timer_manager.queue);
+    g_timer_manager.timeout = false;
+}
 
 /* int 0x20;
  * Interrupt handler for inner Clock
  **/
 void inthandler20(void)
 {
+    if (g_timer_manager.timeout == true) {
+        g_timer_manager.timeout = false;
+        ioqueue_put_data(g_timer_manager.data, &g_timer_manager.queue);
+    }
+
     TCB_t *cur_thread = running_thread();
     ASSERT(cur_thread->stack_magic == 0x19900921);
     cur_thread->elapsed_ticks++;
