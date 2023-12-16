@@ -15,10 +15,6 @@ typedef struct ioqueue{
     char buf[QUEUE_MAX];
 } CircleQueue;
 
-struct queue_data {
-    char   data;
-    struct list_head tag;
-};
 
 void init_ioqueue(CircleQueue *queue);
 
