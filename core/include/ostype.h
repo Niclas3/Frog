@@ -26,4 +26,8 @@ typedef struct {
     unsigned int value: 4;
 } half_byte;
 
+#ifndef NULL
+#define NULL ((void *) 0)
+#endif
+
 #endif
