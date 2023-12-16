@@ -65,44 +65,49 @@ static void mouse_event_handler(Point *pot)
             if ((cursor_x > 1 && cursor_x < g_gfx_mode->x_resolution) &&
                 (cursor_y > 0 && cursor_y < g_gfx_mode->y_resolution)) {
                 if (packet.buttons == LEFT_CLICK) {
-                    // Double click left
-                    /* if (double_left_click == 1 && double_click_delay > 0) {
-                     */
-                    if (double_left_click == 1 &&
-                        fifo_rest(timer_queue) == 0) {
+                    if (double_left_click == 1 && fifo_rest(timer_queue) == 0) {
                         fifo_get_data(timer_queue);
                         double_left_click = 0;
-                        draw_2d_gfx_cursor(cursor_x, cursor_y, &dccolor);
+
                         // testcode
+                        // Double left click event here
+                        draw_2d_gfx_cursor(cursor_x, cursor_y, &dccolor);
                         draw_2d_gfx_asc_char(8, cursor_x, cursor_y, dccolor,
                                              0x03);
                         // testend
                     } else if (hold_left_click) {
                         // testcode
+                        // hold left click event here
                         draw_2d_gfx_asc_char(8, cursor_x, cursor_y, dccolor,
                                              0x04);
                         // testend
                     } else {
-                        draw_2d_gfx_cursor(cursor_x, cursor_y, &lcolor);
-
                         double_left_click = 1;
                         uint_32 delay = 3500;
                         init_fifo(timer_queue, 2, buf);
                         set_timer(delay, timer_queue, '1');
-
                         hold_left_click = true;
+
                         // testcode
+                        // Single left click event here
+                        draw_2d_gfx_cursor(cursor_x, cursor_y, &lcolor);
                         draw_2d_gfx_asc_char(8, testx, 0, lcolor,
                                              packet.buttons);
                         testx += 16;
                         // testend
                     }
                 } else if (packet.buttons == RIGHT_CLICK) {
-                    draw_2d_gfx_cursor(cursor_x, cursor_y, &rcolor);
                     double_left_click = 0;
                     hold_left_click = false;
+                    // testcode
+                    // mouse right single click event here
+                    draw_2d_gfx_cursor(cursor_x, cursor_y, &rcolor);
+                    // testend
                 } else {  // moving with out button push
+                    // testcode
+                    // mouse move event here
                     draw_2d_gfx_cursor(cursor_x, cursor_y, default_color);
+                    // testend
                     hold_left_click = false;
                 }
             }
