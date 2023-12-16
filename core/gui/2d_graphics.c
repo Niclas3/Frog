@@ -126,7 +126,7 @@ uint_32 draw_2d_gfx_hex(int font_size, int x, int y, uint_32 color, int_32 num)
 
 // Convert given 32bit 888ARGB color to set bpp value
 // 0x00RRGGBB
-uint_32 convert_color(const uint_32 color)
+FSK_BBP_t convert_argb(const FSK_ARGB_t color)
 {
     uint_8 convert_r, convert_g, convert_b;
     uint_32 converted_color = 0;
@@ -162,6 +162,48 @@ uint_32 convert_color(const uint_32 color)
     converted_color = (convert_r << g_gfx_mode->linear_red_field_position) |
                       (convert_g << g_gfx_mode->linear_green_field_position) |
                       (convert_b << g_gfx_mode->linear_blue_field_position);
+
+    return converted_color;
+}
+
+// Convert given 32bit 888ARGB color to set bpp value
+// 0x00RRGGBB
+FSK_ARGB_t convert_bbp(const FSK_BBP_t bbpcolor)
+{
+    uint_8 convert_r, convert_g, convert_b;
+    uint_32 converted_color = 0;
+
+    // Get original color portions
+    const uint_8 orig_r = (bbpcolor >> g_gfx_mode->red_field_position) & 0xFF;
+    const uint_8 orig_g = (bbpcolor >> g_gfx_mode->green_field_position) & 0xFF;
+    const uint_8 orig_b = (bbpcolor >> g_gfx_mode->blue_field_position)& 0xFF;
+
+    if (g_gfx_mode->bits_per_pixel == 8) {
+        // 8bpp uses standard VGA 256 color pallette
+        // User can enter any 8bit value for color 0x00-0xFF
+        convert_r = 0;
+        convert_g = 0;
+        convert_b = orig_b;
+    } else {
+        // Assuming bpp is > 8 and <= 32
+        const uint_8 r_bits_to_shift = 8 - g_gfx_mode->linear_red_mask_size;
+        const uint_8 g_bits_to_shift = 8 - g_gfx_mode->linear_green_mask_size;
+        const uint_8 b_bits_to_shift = 8 - g_gfx_mode->linear_blue_mask_size;
+
+        // Convert to new color portions by getting ratio of bit sizes of color
+        // compared to "full" 8 bit colors
+        convert_r = (orig_r << r_bits_to_shift) &
+                    ((1 << g_gfx_mode->linear_red_mask_size) - 1);
+        convert_g = (orig_g << g_bits_to_shift) &
+                    ((1 << g_gfx_mode->linear_green_mask_size) - 1);
+        convert_b = (orig_b << b_bits_to_shift) &
+                    ((1 << g_gfx_mode->linear_blue_mask_size) - 1);
+    }
+
+    // Put new color portions into new color
+    converted_color = (convert_r << 16) |
+                      (convert_g << 8) |
+                      (convert_b << 0);
 
     return converted_color;
 }
@@ -469,7 +511,7 @@ void fill_circle_solid(Point center, uint_16 radius, uint_32 color)
 //    // Then redraw boundaries as the correct color
 //    draw_ellipse(center, radiusX, radiusY, color);
 //}
-uint_32 fetch_color(uint_32 X, uint_32 Y)
+FSK_BBP_t fetch_color(uint_32 X, uint_32 Y)
 {
     uint_8 *framebuffer = (uint_8 *) g_gfx_mode->physical_base_pointer;
     uint_8 bytes_per_pixel =
@@ -501,7 +543,7 @@ void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color)
     Point size = {.X = 4, .Y = 4};
     Point topleft = {.X = pos_x, .Y = pos_y};
     Point downright = {.X = pos_x + size.X, .Y = pos_y + size.Y};
-    uint_32 defalut_cursor_color = convert_color(FSK_DEEP_PINK);
+    uint_32 defalut_cursor_color = convert_argb(FSK_DEEP_PINK);
     if (color) {
         fill_rect_solid(topleft, downright, *color);
     } else {

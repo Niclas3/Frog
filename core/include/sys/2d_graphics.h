@@ -89,6 +89,9 @@ typedef enum {
     BOOT_UNKNOW
 } BOOT_GFX_MODE_t;
 
+typedef uint_32 FSK_ARGB_t;
+typedef uint_32 FSK_BBP_t;
+
 // global variable for 2d graphics
 extern vbe_mode_info_t *g_gfx_mode;
 
@@ -112,8 +115,9 @@ void draw_2d_gfx_string(int font_size,
                         uint_32 color,
                         char *str,
                         uint_32 str_len);
-uint_32 convert_color(const uint_32 color);
+FSK_BBP_t convert_argb(const uint_32 argbcolor);
+FSK_ARGB_t convert_bbp(const FSK_BBP_t bbpcolor);
 
-uint_32 fetch_color(uint_32 X, uint_32 Y);
+FSK_BBP_t fetch_color(uint_32 X, uint_32 Y);
 //Components
 void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color);
