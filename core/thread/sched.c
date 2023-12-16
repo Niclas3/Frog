@@ -4,15 +4,15 @@
 #include <sys/sched.h>
 #include <sys/threads.h>
 
-#include <ioqueue.h>
+#include <fifo.h>
 #include <protect.h>
 #include <sys/int.h>
 
 #define mil_seconds_per_intr DIV_ROUND_UP(1000, IRQ0_FREQUENCY)
 
 struct TIME_MANAGER {
-    bool timeout;
-    CircleQueue queue;
+    uint_32 timeout;
+    FIFO *queue;
     uint_8 data;
 };
 
@@ -29,9 +29,18 @@ struct TIME_MANAGER g_timer_manager = {0};
 void init_timer_manager(void)
 {
     // register timer interrupt handler
-    register_r0_intr_handler(INT_VECTOR_INNER_CLOCK, (Inthandle_t *)inthandler20);
-    init_ioqueue(&g_timer_manager.queue);
-    g_timer_manager.timeout = false;
+    register_r0_intr_handler(INT_VECTOR_INNER_CLOCK,
+                             (Inthandle_t *) inthandler20);
+    g_timer_manager.timeout = 0;
+}
+
+void set_timer(uint_32 timeout, void *queue, uint_8 mark)
+{
+    enum intr_status old_status = intr_disable();
+    g_timer_manager.queue = (FIFO*) queue;
+    g_timer_manager.timeout = timeout;
+    g_timer_manager.data = mark;
+    intr_set_status(old_status);
 }
 
 /* int 0x20;
@@ -39,9 +48,11 @@ void init_timer_manager(void)
  **/
 void inthandler20(void)
 {
-    if (g_timer_manager.timeout == true) {
-        g_timer_manager.timeout = false;
-        ioqueue_put_data(g_timer_manager.data, &g_timer_manager.queue);
+    if (g_timer_manager.timeout > 0) {
+        g_timer_manager.timeout--;
+        if (g_timer_manager.timeout == 0) {
+            fifo_put_data(g_timer_manager.data, g_timer_manager.queue);
+        }
     }
 
     TCB_t *cur_thread = running_thread();
