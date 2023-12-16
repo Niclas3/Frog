@@ -2,8 +2,8 @@
  # Real OS code ###########################
 include ../../Makefile.os_rules
 INCLUDE = ../include
-# OUT_FILE= bitmap.o debug.o ioqueue.o list.o oslib.o stdio.o string.o print.o
-OUT_FILE= oslib.o string.o print.o
+# OUT_FILE= bitmap.o debug.o ioqueue.o fifo.o list.o oslib.o stdio.o string.o print.o
+OUT_FILE= oslib.o string.o print.o fifo.o
 
 # bitmap.o: bitmap.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
@@ -18,6 +18,9 @@ OUT_FILE= oslib.o string.o print.o
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 oslib.o: oslib.c
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+
+fifo.o: fifo.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 # stdio.o: stdio.c
