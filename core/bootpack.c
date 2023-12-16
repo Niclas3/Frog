@@ -21,8 +21,10 @@
 #include <kernel_print.h>
 #include <math.h>
 
-// test
+//GUI
+#include <gui/fsk_mouse.h>
 
+// test
 #include <device/ide.h>
 #include <hid/mouse.h>
 #include <ioqueue.h>
@@ -132,66 +134,11 @@ void UkiMain(void)
         down_right.Y = 400;
         fill_rect_solid(top_left, down_right, status_bar_color);
 
-        uint_32 test_r_color = convert_argb(FSK_RED);   // 0x00FF0000
-        uint_32 test_b_color = convert_argb(FSK_BLUE);  // 0x000000FF
-        uint_32 test_g_color = convert_argb(FSK_LIME);  //  0x0000ff00
-        ASSERT(FSK_LIME == convert_bbp(test_g_color));
-                                                         
-        uint_32 test_point_x = 200;
-        uint_32 test_point_y = 200;
-        uint_32 org_color = fetch_color(test_point_x, test_point_y);
-        while (1) {
-            uint_32 packet_size = 16;
-            mouse_device_packet_t packet = {0};
-            char *cur = (char *) &packet;
-            while (packet_size) {
-                char c = ioqueue_get_data(&mouse_queue);
-                *cur = c;
-                cur++;
-                packet_size--;
-            }
+        // display mouse cursor
+        uint_32 cursor_x = 200;
+        uint_32 cursor_y = 200;
+        create_fsk_mouse(cursor_x, cursor_y);
 
-            if (packet.magic == MOUSE_MAGIC) {
-                uint_32 delta_x = packet.x_difference;
-                uint_32 delta_y = packet.y_difference;
-
-                //redraw prev pixel
-                draw_2d_gfx_cursor(test_point_x, test_point_y, &org_color);
-
-                //erase cursor
-                test_point_x += delta_x;
-                test_point_y += (-delta_y);
-
-                org_color = fetch_color(test_point_x, test_point_y);
-
-                uint_32 rcolor = convert_argb(FSK_LIME_GREEN);
-                uint_32 lcolor = convert_argb(FSK_ORANGE_RED);
-
-                uint_32 *default_color = NULL;
-
-                if ((test_point_x > 1 &&
-                     test_point_x < g_gfx_mode->x_resolution) &&
-                    (test_point_y > 0 &&
-                     test_point_y < g_gfx_mode->y_resolution)) {
-                    if (packet.buttons == LEFT_CLICK) {
-                        draw_2d_gfx_cursor(test_point_x, test_point_y, &lcolor);
-                    } else if(packet.buttons == RIGHT_CLICK){
-                        draw_2d_gfx_cursor(test_point_x, test_point_y, &rcolor);
-                    } else {
-                        draw_2d_gfx_cursor(test_point_x, test_point_y, default_color);
-                    }
-                }
-            }
-        }
-
-
-        /* draw_2d_gfx_asc_char(8, 20, 0, convert_color(FSK_LIGHT_PINK), 0x03);
-         */
-        /* draw_2d_gfx_asc_char(8, 20, 0, convert_color(FSK_LIGHT_PINK), '0');
-         */
-        /* char *test_str = "test print string"; */
-        /* draw_2d_gfx_string(8, 20, 0, convert_color(FSK_LIGHT_STEEL_BLUE), */
-        /*                    test_str, strlen(test_str)); */
 
     } else if (g_boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
