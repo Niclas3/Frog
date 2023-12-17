@@ -21,7 +21,7 @@
 #include <kernel_print.h>
 #include <math.h>
 
-//GUI
+// GUI
 #include <gui/fsk_mouse.h>
 
 // test
@@ -71,6 +71,9 @@ void u_fune(int a);
 void u_fung(int a);
 void keyboard_consumer(int a);
 void mouse_consumer(int a);
+
+
+void gfx_test_print_fn(uint_32 text_x, uint_32 text_y, uint_32 print_type);
 
 struct lock main_lock;
 
@@ -122,23 +125,28 @@ void UkiMain(void)
         /* enable_mouse(); */
         uint_32 screen_width = g_gfx_mode->x_resolution;
         uint_32 screen_height = g_gfx_mode->y_resolution;
-        clear_screen(convert_argb(FSK_LIGHT_GRAY));
-        uint_32 status_bar_color = convert_argb(FSK_LIGHT_SLATE_GRAY);
-        uint_32 status_bar_Tcolor =
-            convert_argb(FSK_LIGHT_SLATE_GRAY | 0xaa000000);
+        uint_32 fontsize = 8;
+        clear_screen(convert_argb(FSK_OLIVE));
+        uint_32 status_bar_color = convert_argb(0x131313);
         Point top_left = {.X = 0, .Y = 0};
-        Point down_right = {.X = screen_width, .Y = screen_height / 15};
-        fill_rect_solid(top_left, down_right, status_bar_color);
-        top_left.X = 0;
-        top_left.Y = 100;
-        down_right.Y = 400;
+        Point down_right = {.X = screen_width, .Y = 34};
         fill_rect_solid(top_left, down_right, status_bar_color);
 
         // display mouse cursor
         uint_32 cursor_x = 200;
         uint_32 cursor_y = 200;
         create_fsk_mouse(cursor_x, cursor_y);
+        // test print number
+        uint_32 test_dec_x = 0;
+        uint_32 test_dec_y = down_right.Y;
 
+        uint_32 test_hex_x = 500;
+        uint_32 test_hex_y = down_right.Y;
+        uint_32 pfn_type = 1; // dec type
+        gfx_test_print_fn(test_dec_x, test_dec_y, pfn_type);
+        pfn_type = 2;         // hex type
+        gfx_test_print_fn(test_hex_x, test_hex_y, pfn_type);
+        // end test
 
     } else if (g_boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
@@ -221,8 +229,29 @@ void UkiMain(void)
         __asm__ volatile("sti;hlt;");
     }
 }
+// test code
+void gfx_test_print_fn(uint_32 text_x, uint_32 text_y, uint_32 print_type)
+{
+    uint_32 fontsize = 8;
+    uint_32 base_x = text_x;
+    uint_32 margin = 50;
+    for (int i = 0; i < 0xff; i++) {
+        if (print_type == 1) {
+            draw_2d_gfx_hex(fontsize, text_x, text_y,
+                            convert_argb(FSK_DARK_TURQUOISE), i);
+        } else if (print_type == 2) {
+            draw_2d_gfx_dec(fontsize, text_x, text_y,
+                            convert_argb(FSK_BISQUE), i);
+        }
+        text_x += margin;
+        if (text_x % (margin * 10) == 0) {
+            text_y += 20;
+            text_x = base_x;
+        }
+    }
+}
 
-
+// testend
 void mouse_consumer(int arg)
 {
     uint_32 x_pos = 0;

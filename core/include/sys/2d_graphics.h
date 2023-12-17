@@ -107,17 +107,20 @@ void clear_screen(uint_32 color);
 void draw_pixel(uint_16 X, uint_16 Y, uint_32 color);
 void fill_rect_solid(Point top_left, Point bottom_right, uint_32 color);
 
-void draw_2d_gfx_asc_char(int font_size, int x, int y, uint_32 color, char num);
-uint_32 draw_2d_gfx_hex(int font_size, int x, int y, uint_32 color, int_32 num);
+void draw_2d_gfx_asc_char(int font_size, int x, int y, FSK_BBP_t color, char num);
+uint_32 draw_2d_gfx_hex(int font_size, int x, int y, FSK_BBP_t color, int_32 num);
+uint_32 draw_2d_gfx_dec(int font_size, int x, int y, FSK_BBP_t color, int_32 num);
 void draw_2d_gfx_string(int font_size,
                         int x,
                         int y,
-                        uint_32 color,
+                        FSK_BBP_t color,
                         char *str,
                         uint_32 str_len);
+
 FSK_BBP_t convert_argb(const uint_32 argbcolor);
 FSK_ARGB_t convert_bbp(const FSK_BBP_t bbpcolor);
 
 FSK_BBP_t fetch_color(uint_32 X, uint_32 Y);
+
 //Components
 void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color);

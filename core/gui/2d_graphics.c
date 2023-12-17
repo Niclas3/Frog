@@ -4,8 +4,9 @@
 #include <debug.h>
 #include <global.h>
 #include <math.h>
-#include <oslib.h>
 #include <sys/memory.h>
+#include <stdio.h>
+
 // globla VBE mode structure
 vbe_mode_info_t *g_gfx_mode;
 
@@ -64,7 +65,7 @@ void twoD_graphics_init(void)
 static void draw_2d_gfx_8bit_font(int font_size,
                                   int_16 x,
                                   int_16 y,
-                                  uint_32 color,
+                                  FSK_BBP_t color,
                                   char *font)
 {
     char font_part_8bit;  // each line font data
@@ -83,7 +84,7 @@ static void draw_2d_gfx_8bit_font(int font_size,
     return;
 }
 
-void draw_2d_gfx_asc_char(int font_size, int x, int y, uint_32 color, char c)
+void draw_2d_gfx_asc_char(int font_size, int x, int y, FSK_BBP_t color, char c)
 {
     ASSERT(font_size == 8 || font_size == 16 || font_size == 32);
     char *font_8bits = (char *) FONT_HANKAKU;
@@ -98,7 +99,7 @@ void draw_2d_gfx_asc_char(int font_size, int x, int y, uint_32 color, char c)
 void draw_2d_gfx_string(int font_size,
                         int x,
                         int y,
-                        uint_32 color,
+                        FSK_BBP_t color,
                         char *str,
                         uint_32 str_len)
 {
@@ -115,10 +116,25 @@ void draw_2d_gfx_string(int font_size,
  * @param param write here param Comments write here
  * @return length of this number
  *****************************************************************************/
-uint_32 draw_2d_gfx_hex(int font_size, int x, int y, uint_32 color, int_32 num)
+uint_32 draw_2d_gfx_hex(int font_size, int x, int y, FSK_BBP_t color, int_32 num)
 {
     char num_str[20] = {0};
-    uint_32 len = itoa(num, num_str, 16);
+    uint_32 len = sprintf(num_str, "%x", num);
+    draw_2d_gfx_string(font_size, x, y, color, num_str, len);
+    return len;
+}
+
+/**
+ * draw a dec number
+ * return this number length
+ *
+ * @param param write here param Comments write here
+ * @return length of this number
+ *****************************************************************************/
+uint_32 draw_2d_gfx_dec(int font_size, int x, int y, FSK_BBP_t color, int_32 num)
+{
+    char num_str[20] = {0};
+    uint_32 len = sprintf(num_str,"%d",num);
     draw_2d_gfx_string(font_size, x, y, color, num_str, len);
     return len;
 }
