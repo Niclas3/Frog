@@ -3,6 +3,18 @@
 #include <ostype.h>
 #include <sys/FSK_Color.h>
 
+#define GFX_W(ctx) ((ctx)->width)     /* Display width */
+#define GFX_H(ctx) ((ctx)->height)    /* Display height */
+#define GFX_D(ctx) ((ctx)->depth / 8) /* Display byte depth */
+#define GFX_S(ctx) ((ctx)->stride)    /* Stride */
+
+#define GFX(ctx, x, y)                                                         \
+    *((uint_32 *) &((ctx)->backbuffer)[((GFX_S(ctx) * (y) *GFX_W(ctx) + (x)) * \
+                                        GFX_D(ctx))])
+#define GFXR(ctx, x, y) \
+    *((uint_32 *) &(    \
+        (ctx)->buffer)[((GFX_S(ctx) * (y) *GFX_W(ctx) + (x)) * GFX_D(ctx))])
+
 // VBE infomation
 typedef struct vbe_info_structure {
     char signature[4];  // must be "VESA" to indicate valid VBE support
@@ -82,6 +94,18 @@ typedef struct {
 
 } __attribute__((packed)) vbe_mode_info_t;
 
+// gfx context
+typedef struct gfx_2d_context {
+    uint_16 width;
+    uint_16 height;
+    uint_16 depth;  // color depth aka bytes_per_pixel
+    uint_32 size;
+    char *buffer;
+    char *backbuffer;  // ready for double buffer
+    uint_32 stride;
+} gfx_context_t;
+
+
 typedef enum {
     BOOT_VBE_MODE,
     BOOT_VGA_MODE,
@@ -89,8 +113,8 @@ typedef enum {
     BOOT_UNKNOW
 } BOOT_GFX_MODE_t;
 
-typedef uint_32 FSK_ARGB_t;
-typedef uint_32 FSK_BBP_t;
+typedef uint_32 argb_t;
+typedef uint_32 bbp_t;
 
 // global variable for 2d graphics
 extern vbe_mode_info_t *g_gfx_mode;
@@ -102,25 +126,60 @@ typedef struct {
 
 BOOT_GFX_MODE_t boot_graphics_mode(void);
 void twoD_graphics_init(void);
-// for test
-void clear_screen(uint_32 color);
-void draw_pixel(uint_16 X, uint_16 Y, uint_32 color);
-void fill_rect_solid(Point top_left, Point bottom_right, uint_32 color);
+gfx_context_t *init_gfx_fullscreen(void);
+gfx_context_t *init_gfx_fullscreen_double_buffer(void);
+// draw some graphic patterns
+void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, argb_t color);
+void fill_rect_solid(gfx_context_t *ctx,
+                     Point top_left,
+                     Point bottom_right,
+                     argb_t color);
+void clear_screen(gfx_context_t *ctx, argb_t color);
 
-void draw_2d_gfx_asc_char(int font_size, int x, int y, FSK_BBP_t color, char num);
-uint_32 draw_2d_gfx_hex(int font_size, int x, int y, FSK_BBP_t color, int_32 num);
-uint_32 draw_2d_gfx_dec(int font_size, int x, int y, FSK_BBP_t color, int_32 num);
-void draw_2d_gfx_string(int font_size,
+uint_32 draw_2d_gfx_asc_char(gfx_context_t *ctx,
+                          int font_size,
+                          int x,
+                          int y,
+                          argb_t color,
+                          char c);
+
+uint_32 draw_2d_gfx_string(gfx_context_t *ctx,
+                        int font_size,
                         int x,
                         int y,
-                        FSK_BBP_t color,
+                        argb_t color,
                         char *str,
                         uint_32 str_len);
 
-FSK_BBP_t convert_argb(const uint_32 argbcolor);
-FSK_ARGB_t convert_bbp(const FSK_BBP_t bbpcolor);
+uint_32 draw_2d_gfx_hex(gfx_context_t *ctx,
+                        int font_size,
+                        int x,
+                        int y,
+                        argb_t color,
+                        int_32 num);
+uint_32 draw_2d_gfx_dec(gfx_context_t *ctx,
+                        int font_size,
+                        int x,
+                        int y,
+                        argb_t color,
+                        int_32 num);
 
-FSK_BBP_t fetch_color(uint_32 X, uint_32 Y);
+// helper function
+bbp_t convert_argb(const argb_t argbcolor);
+argb_t convert_bbp(const bbp_t bbpcolor);
+argb_t fetch_color(gfx_context_t *ctx, uint_32 X, uint_32 Y);
 
-//Components
-void draw_2d_gfx_cursor(uint_32 pos_x, uint_32 pos_y, uint_32 *color);
+// Components
+void draw_2d_gfx_cursor(gfx_context_t *ctx,
+                        uint_32 pos_x,
+                        uint_32 pos_y,
+                        argb_t *color);
+
+void draw_2d_gfx_label(gfx_context_t *ctx,
+                       uint_32 x,
+                       uint_32 y,
+                       uint_32 width,
+                       uint_32 length,
+                       argb_t bgcolor,
+                       argb_t font_color,
+                       char *label_name);
