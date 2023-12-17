@@ -12,7 +12,7 @@ file core/build/core_symbol.img
 # b u_funf
 
 b UkiMain
-b sys_write
+# b sys_write
 # b 175
 # b print_to_buf
 # b stdio.c: 140

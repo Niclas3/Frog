@@ -85,7 +85,6 @@
 /* Keymap for US MF-2 keyboard. */
 
 uint_32 keymap[][MAP_COLS] = {
-                        //                               
 /* scan-code			!Shift		Shift	  */
 /* ===================================================== */
 /* 0x00 - none		*/      {0,		0    },

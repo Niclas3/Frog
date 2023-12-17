@@ -5,6 +5,7 @@
 #include <fs/pipe.h>
 #include <io.h>
 #include <ioqueue.h>
+/* #include <fs/pipe.h> */
 
 #include <protect.h>
 #include <sys/int.h>
@@ -15,8 +16,10 @@
 CircleQueue mouse_queue;
 CircleQueue keyboard_queue;
 
-int_32 g_kbd_pipe_fd[2];
-int_32 g_mouse_pipe_fd[2];
+// TODO:
+// Use pipe replace ioqueue
+/* int_32 g_kbd_pipe_fd[2]; */
+/* int_32 g_mouse_pipe_fd[2]; */
 
 static boolean ctrl_status, shift_status, alt_status, caps_lock_status,
     meta_status, ext_scancode;
@@ -171,18 +174,6 @@ static void make_mouse_packet(struct mouse_raw_data *mdata)
         packet_size--;
     }
 
-    /* test_point_x += delta_x; */
-    /* test_point_y += (-delta_y); */
-    /* uint_32 color1 = convert_color(FSK_LIME_GREEN); */
-    /* uint_32 *default_color = NULL; */
-    /* if ((test_point_x > 1 && test_point_x < g_gfx_mode->x_resolution) && */
-    /*     (test_point_y > 0 && test_point_y < g_gfx_mode->y_resolution)) { */
-    /*     if (packet.buttons == LEFT_CLICK) { */
-    /*         draw_2d_gfx_cursor(test_point_x, test_point_y, &color1); */
-    /*     } else { */
-    /*         draw_2d_gfx_cursor(test_point_x, test_point_y, default_color); */
-    /*     } */
-    /* } */
 }
 
 static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 code)
@@ -331,6 +322,8 @@ void ps2hid_init(void)
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
 
+    /* sys_pipe(g_kbd_pipe_fd); */
+    /* sys_pipe(g_mouse_pipe_fd); */
     /* if (sys_pipe(g_kbd_pipe_fd) == -1 || sys_pipe(g_mouse_pipe_fd) == -1) { */
     /*     PAINC("Can not make a kbd or mouse pipe file descriptor.\n"); */
     /* } */
