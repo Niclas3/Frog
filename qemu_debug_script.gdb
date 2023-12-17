@@ -9,6 +9,7 @@ tui en
 # b *0xce57
 # b *0xd082
 b *0xc0080000
+b fsk_mouse.c: 52 if cursor_y == 0
 # b 158
 # b make_mouse_packet
 # b inthandler2C

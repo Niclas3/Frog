@@ -22,7 +22,7 @@
 #include <math.h>
 
 // GUI
-#include <gui/fsk_mouse.h>
+/* #include <gui/fsk_mouse.h> */
 
 // test
 #include <device/ide.h>
@@ -60,7 +60,6 @@ typedef struct B_info {
 } BOOTINFO;
 
 extern CircleQueue keyboard_queue;
-extern CircleQueue mouse_queue;
 
 void func(int a);
 void funcb(int a);
@@ -70,10 +69,9 @@ void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
 void keyboard_consumer(int a);
-void mouse_consumer(int a);
 
 
-void gfx_test_print_fn(uint_32 text_x, uint_32 text_y, uint_32 print_type);
+void gfx_test_print_fn(gfx_context_t *ctx, uint_32 text_x, uint_32 text_y, uint_32 print_type);
 
 struct lock main_lock;
 
@@ -118,34 +116,51 @@ void UkiMain(void)
     // init gfx memory at qemu
     // alloc 2d graphics memory
     g_boot_gfx_mode = boot_graphics_mode();
-    /* TCB_t *mouse_c = thread_start("mouse", 10, mouse_consumer, 3); */
 
     if (g_boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
-        /* enable_mouse(); */
-        uint_32 screen_width = g_gfx_mode->x_resolution;
-        uint_32 screen_height = g_gfx_mode->y_resolution;
+
+        gfx_context_t *g_ctx= init_gfx_fullscreen_double_buffer();
+        if(g_ctx== NULL){
+            PAINC("vedio context error");
+        }
+        draw_pixel(g_ctx, 200, 200, FSK_LIME);
+
+        uint_32 screen_width = g_ctx->width;
+        uint_32 screen_height = g_ctx->height;
         uint_32 fontsize = 8;
-        clear_screen(convert_argb(FSK_OLIVE));
-        uint_32 status_bar_color = convert_argb(0x131313);
+        clear_screen(g_ctx, FSK_OLIVE);
+        uint_32 status_bar_color = 0x131313;
         Point top_left = {.X = 0, .Y = 0};
         Point down_right = {.X = screen_width, .Y = 34};
-        fill_rect_solid(top_left, down_right, status_bar_color);
+        fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
+
+        top_left.X = 20;
+        top_left.Y = 20;
+        down_right.X = 40;
+        down_right.Y = 40;
+        fill_rect_solid(g_ctx, top_left, down_right,  0x00D2B48C);
+        top_left.X = 30;
+        top_left.Y = 25;
+        down_right.X = 40 + 10;
+        down_right.Y = 40 + 15;
+        fill_rect_solid(g_ctx,top_left, down_right,  0xFFD2B48C);
+        draw_pixel(g_ctx, 200, 200,  0xaaD2b48c);
 
         // display mouse cursor
         uint_32 cursor_x = 200;
         uint_32 cursor_y = 200;
-        create_fsk_mouse(cursor_x, cursor_y);
-        // test print number
-        uint_32 test_dec_x = 0;
-        uint_32 test_dec_y = down_right.Y;
+        create_fsk_mouse(g_ctx, cursor_x, cursor_y);
 
-        uint_32 test_hex_x = 500;
-        uint_32 test_hex_y = down_right.Y;
-        uint_32 pfn_type = 1; // dec type
-        gfx_test_print_fn(test_dec_x, test_dec_y, pfn_type);
-        pfn_type = 2;         // hex type
-        gfx_test_print_fn(test_hex_x, test_hex_y, pfn_type);
+        // test print number
+        /* uint_32 test_dec_x = 0; */
+        /* uint_32 test_dec_y = down_right.Y; */
+        /* uint_32 test_hex_x = 500; */
+        /* uint_32 test_hex_y = down_right.Y; */
+        /* uint_32 pfn_type = 1;  // dec type */
+        /* gfx_test_print_fn(g_ctx, test_dec_x, test_dec_y, pfn_type); */
+        /* pfn_type = 2;  // hex type */
+        /* gfx_test_print_fn(g_ctx, test_hex_x, test_hex_y, pfn_type); */
         // end test
 
     } else if (g_boot_gfx_mode == BOOT_VGA_MODE) {
@@ -230,52 +245,23 @@ void UkiMain(void)
     }
 }
 // test code
-void gfx_test_print_fn(uint_32 text_x, uint_32 text_y, uint_32 print_type)
+void gfx_test_print_fn(gfx_context_t *ctx, uint_32 text_x, uint_32 text_y, uint_32 print_type)
 {
     uint_32 fontsize = 8;
     uint_32 base_x = text_x;
     uint_32 margin = 50;
     for (int i = 0; i < 0xff; i++) {
         if (print_type == 1) {
-            draw_2d_gfx_hex(fontsize, text_x, text_y,
-                            convert_argb(FSK_DARK_TURQUOISE), i);
+            draw_2d_gfx_hex(ctx, fontsize, text_x, text_y,
+                             FSK_DARK_TURQUOISE, i);
         } else if (print_type == 2) {
-            draw_2d_gfx_dec(fontsize, text_x, text_y,
-                            convert_argb(FSK_BISQUE), i);
+            draw_2d_gfx_dec(ctx, fontsize, text_x, text_y,  FSK_BISQUE,
+                            i);
         }
         text_x += margin;
         if (text_x % (margin * 10) == 0) {
             text_y += 20;
             text_x = base_x;
-        }
-    }
-}
-
-// testend
-void mouse_consumer(int arg)
-{
-    uint_32 x_pos = 0;
-    uint_32 y_pos = 400;
-    uint_32 color1 = convert_argb(FSK_ROSY_BROWN);
-    uint_32 color2 = convert_argb(FSK_LIME);
-    bool sw = 0;
-
-    /* draw_2d_gfx_cursor(x_pos, y_pos); */
-
-    while (1) {
-        int data = ioqueue_get_data(&mouse_queue);
-        uint_32 hex_len;
-        if (sw == 0) {
-            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color1, data);
-            sw = 1;
-        } else {
-            hex_len = draw_2d_gfx_hex(8, x_pos, y_pos, color2, data);
-            sw = 0;
-        }
-        x_pos += (hex_len * 8);
-        if (x_pos == 200) {
-            y_pos += 18;
-            x_pos = 0;
         }
     }
 }
