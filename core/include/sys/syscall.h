@@ -9,6 +9,8 @@ enum SYSCALL_NR{
     SYS_getpid, // 0
     SYS_write,  // 1
     SYS_sendrec,
+    SYS_malloc,
+    SYS_free,
 };
 
 /**
@@ -139,6 +141,9 @@ uint_32 getpid(void);
 
 pid_t get_pid(void);
 uint_32 get_ticks(void);
+
+void* malloc(uint_32 size);
+void free(void *ptr);
 
 //System call: uint_32 write(char*)
 //return len of str

@@ -80,6 +80,12 @@ uint_32 get_ticks(void)
     return msg.RETVAL;
 }
 
+void* malloc(uint_32 size){
+    return (void*)_syscall1(SYS_malloc, size);
+}
+void free(void *ptr){
+    _syscall1(SYS_free, ptr);
+}
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg){
     return _syscall3(SYS_sendrec, func, src_dest, p_msg);

@@ -78,6 +78,8 @@ void syscall_init(void)
     // Mono-kernel way
     syscall_table[SYS_getpid] = sys_getpid;
     syscall_table[SYS_write] = sys_write;
+    syscall_table[SYS_malloc] = sys_malloc;
+    syscall_table[SYS_free] = sys_free;
     // mico-kernel way
     syscall_table[SYS_sendrec] = sys_sendrec;
 }
