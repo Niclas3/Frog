@@ -103,6 +103,8 @@ typedef struct gfx_2d_context {
     char *buffer;
     char *backbuffer;  // ready for double buffer
     uint_32 stride;
+    char *clips;
+    int_32 clips_size;
 } gfx_context_t;
 
 
@@ -128,8 +130,11 @@ BOOT_GFX_MODE_t boot_graphics_mode(void);
 void twoD_graphics_init(void);
 gfx_context_t *init_gfx_fullscreen(void);
 gfx_context_t *init_gfx_fullscreen_double_buffer(void);
+
+void clear_buffer(gfx_context_t *ctx);
+void flip(gfx_context_t *ctx);
 // draw some graphic patterns
-void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, argb_t color);
+void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color);
 void fill_rect_solid(gfx_context_t *ctx,
                      Point top_left,
                      Point bottom_right,
@@ -137,19 +142,19 @@ void fill_rect_solid(gfx_context_t *ctx,
 void clear_screen(gfx_context_t *ctx, argb_t color);
 
 uint_32 draw_2d_gfx_asc_char(gfx_context_t *ctx,
-                          int font_size,
-                          int x,
-                          int y,
-                          argb_t color,
-                          char c);
+                             int font_size,
+                             int x,
+                             int y,
+                             argb_t color,
+                             char c);
 
 uint_32 draw_2d_gfx_string(gfx_context_t *ctx,
-                        int font_size,
-                        int x,
-                        int y,
-                        argb_t color,
-                        char *str,
-                        uint_32 str_len);
+                           int font_size,
+                           int x,
+                           int y,
+                           argb_t color,
+                           char *str,
+                           uint_32 str_len);
 
 uint_32 draw_2d_gfx_hex(gfx_context_t *ctx,
                         int font_size,

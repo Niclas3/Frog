@@ -5,6 +5,7 @@
 #include <global.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/memory.h>
 #include <sys/syscall.h>
 
@@ -168,6 +169,7 @@ gfx_context_t *init_gfx_fullscreen(void)
     ctx->depth = gfx_mode.bits_per_pixel;  // Get # of bytes per pixel, add 1 to
                                            // fix 15bpp modes
     ctx->backbuffer = ctx->buffer;
+    ctx->clips = NULL;
     ctx->stride = 1;
     return ctx;
 }
@@ -177,8 +179,65 @@ gfx_context_t *init_gfx_fullscreen_double_buffer(void)
     gfx_context_t *out = init_gfx_fullscreen();
     if (!out)
         return NULL;
-    /* out->backbuffer = malloc(out->size); */
+    out->backbuffer = malloc(out->size);
+    if (!out->backbuffer)
+        return NULL;
     return out;
+}
+
+void clear_buffer(gfx_context_t *ctx)
+{
+    memset(ctx->backbuffer, 0, ctx->size);
+}
+
+static inline int_32 _is_in_clip(gfx_context_t *ctx, int_32 y)
+{
+    if (!ctx->clips)
+        return 1;
+    if (y < 0 || y >= ctx->clips_size)
+        return 1;
+    return ctx->clips[y];
+}
+void gfx_add_clip(gfx_context_t *ctx, int_32 x, int_32 y, int_32 w, int_32 h)
+{
+    if (!ctx->clips) {
+        ctx->clips = malloc(ctx->height);
+        memset(ctx->clips, 0, ctx->height);
+        ctx->clips_size = ctx->height;
+    }
+    for (int_32 i = MAX(y, 0); i < MIN(y + h, ctx->clips_size); i++) {
+        ctx->clips[i] = 1;
+    }
+}
+
+void gfx_clear_clip(gfx_context_t *ctx)
+{
+    if (ctx->clips) {
+        memset(ctx->clips, 0, ctx->clips_size);
+    }
+}
+
+void gfx_no_clip(gfx_context_t *ctx)
+{
+    void *tmp = ctx->clips;
+    if (!tmp)
+        return;
+    ctx->clips = NULL;
+    free(tmp);
+}
+
+void flip(gfx_context_t *ctx)
+{
+    if (ctx->clips) {
+        for (uint_32 i = 0; i < ctx->height; i++) {
+            if (_is_in_clip(ctx, i)) {
+                memcpy(&ctx->buffer[i * GFX_S(ctx)],
+                       &ctx->backbuffer[i * GFX_S(ctx)], 4 * ctx->width);
+            }
+        }
+    } else {
+        memcpy(ctx->buffer, ctx->backbuffer, ctx->size);
+    }
 }
 
 static void draw_2d_gfx_8bit_font(gfx_context_t *ctx,
@@ -195,7 +254,7 @@ static void draw_2d_gfx_8bit_font(gfx_context_t *ctx,
         int_8 bit_idx = 0;
         while (bit_idx < 8) {
             if (font_part_8bit & 0x01) {
-                draw_pixel(ctx, x + (7 - bit_idx), (y + i), color);
+                draw_pixel(ctx, x + (7 - bit_idx), (y + i), convert_argb(color));
             }
             bit_idx++;
             font_part_8bit >>= 1;
@@ -289,9 +348,9 @@ uint_32 draw_2d_gfx_dec(gfx_context_t *ctx,
 }
 
 // Draw a single pixel
-void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, argb_t color)
+void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
 {
-    GFX(ctx, X, Y) = convert_argb(color);
+    GFX(ctx, X, Y) = color;
 }
 
 /* // Draw a line */
@@ -548,7 +607,7 @@ void fill_rect_solid(gfx_context_t *ctx,
     // Brute force method
     for (uint_16 y = top_left.Y; y < bottom_right.Y; y++)
         for (uint_16 x = top_left.X; x < bottom_right.X; x++)
-            draw_pixel(ctx, x, y, color);
+            draw_pixel(ctx, x, y, convert_argb(color));
 }
 
 /* // Fill a polygon with a solid color */
