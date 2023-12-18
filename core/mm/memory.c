@@ -353,7 +353,7 @@ void free_addr_bitmap(struct bitmap *map,
 {
     if (addr < addr_start)
         panic("free bad phy address");
-    if (pos > map->map_bytes_length)
+    if (pos > map->map_bytes_length * 8)
         panic("free bad address over length");
     for (int i = 0; i < pg_cnt; i++) {
         set_value_bitmap(map, pos + i, 0);
@@ -432,7 +432,7 @@ void free_page(struct pool *mpool, uint_32 phy_addr_page)
     if (phy_addr_page < mpool->phy_addr_start)
         panic("free bad phy address");
     int pos = (phy_addr_page - mpool->phy_addr_start) / PG_SIZE;
-    if (pos > mpool->pool_bitmap.map_bytes_length)
+    if (pos > mpool->pool_bitmap.map_bytes_length * 8)
         panic("free bad address over length");
     set_value_bitmap(&mpool->pool_bitmap, pos, 0);
 }
