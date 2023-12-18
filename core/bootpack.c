@@ -69,9 +69,13 @@ void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
 void keyboard_consumer(int a);
+void redraw_window(gfx_context_t *ctx);
 
 
-void gfx_test_print_fn(gfx_context_t *ctx, uint_32 text_x, uint_32 text_y, uint_32 print_type);
+void gfx_test_print_fn(gfx_context_t *ctx,
+                       uint_32 text_x,
+                       uint_32 text_y,
+                       uint_32 print_type);
 
 struct lock main_lock;
 
@@ -117,11 +121,13 @@ void UkiMain(void)
     // alloc 2d graphics memory
     g_boot_gfx_mode = boot_graphics_mode();
 
+    gfx_context_t *g_ctx;
     if (g_boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
 
-        gfx_context_t *g_ctx= init_gfx_fullscreen_double_buffer();
-        if(g_ctx== NULL){
+        /* gfx_context_t *g_ctx= init_gfx_fullscreen_double_buffer(); */
+        g_ctx = init_gfx_fullscreen_double_buffer();
+        if (g_ctx == NULL) {
             PAINC("vedio context error");
         }
         draw_pixel(g_ctx, 200, 200, FSK_LIME);
@@ -130,27 +136,29 @@ void UkiMain(void)
         uint_32 screen_height = g_ctx->height;
         uint_32 fontsize = 8;
         clear_screen(g_ctx, FSK_OLIVE);
+
         uint_32 status_bar_color = 0x131313;
         Point top_left = {.X = 0, .Y = 0};
         Point down_right = {.X = screen_width, .Y = 34};
         fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
 
-        top_left.X = 20;
-        top_left.Y = 20;
-        down_right.X = 40;
-        down_right.Y = 40;
-        fill_rect_solid(g_ctx, top_left, down_right,  0x00D2B48C);
-        top_left.X = 30;
-        top_left.Y = 25;
-        down_right.X = 40 + 10;
-        down_right.Y = 40 + 15;
-        fill_rect_solid(g_ctx,top_left, down_right,  0xFFD2B48C);
-        draw_pixel(g_ctx, 200, 200,  0xaaD2b48c);
+        /* top_left.X = 20; */
+        /* top_left.Y = 20; */
+        /* down_right.X = 40; */
+        /* down_right.Y = 40; */
+        /* fill_rect_solid(g_ctx, top_left, down_right,  0x00D2B48C); */
+        /* top_left.X = 30; */
+        /* top_left.Y = 25; */
+        /* down_right.X = 40 + 10; */
+        /* down_right.Y = 40 + 15; */
+        /* fill_rect_solid(g_ctx,top_left, down_right,  0xFFD2B48C); */
+        /* draw_pixel(g_ctx, 200, 200,  0xaaD2b48c); */
 
         // display mouse cursor
         uint_32 cursor_x = 200;
         uint_32 cursor_y = 200;
         create_fsk_mouse(g_ctx, cursor_x, cursor_y);
+
 
         // test print number
         /* uint_32 test_dec_x = 0; */
@@ -223,7 +231,9 @@ void UkiMain(void)
         /* } */
     }
 
-    TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
+    /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
+     */
+    TCB_t *redraw = thread_start("redraw_thread", 42, redraw_window, g_ctx);
     /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
@@ -241,22 +251,25 @@ void UkiMain(void)
     /* process_execute(u_fung, "D");  */
 
     for (;;) {
+        // Temporary place flip in this place
         __asm__ volatile("sti;hlt;");
     }
 }
 // test code
-void gfx_test_print_fn(gfx_context_t *ctx, uint_32 text_x, uint_32 text_y, uint_32 print_type)
+void gfx_test_print_fn(gfx_context_t *ctx,
+                       uint_32 text_x,
+                       uint_32 text_y,
+                       uint_32 print_type)
 {
     uint_32 fontsize = 8;
     uint_32 base_x = text_x;
     uint_32 margin = 50;
     for (int i = 0; i < 0xff; i++) {
         if (print_type == 1) {
-            draw_2d_gfx_hex(ctx, fontsize, text_x, text_y,
-                             FSK_DARK_TURQUOISE, i);
-        } else if (print_type == 2) {
-            draw_2d_gfx_dec(ctx, fontsize, text_x, text_y,  FSK_BISQUE,
+            draw_2d_gfx_hex(ctx, fontsize, text_x, text_y, FSK_DARK_TURQUOISE,
                             i);
+        } else if (print_type == 2) {
+            draw_2d_gfx_dec(ctx, fontsize, text_x, text_y, FSK_BISQUE, i);
         }
         text_x += margin;
         if (text_x % (margin * 10) == 0) {
@@ -426,6 +439,14 @@ void funcc(int a)
     sys_free(data512);
     sys_close(fd2);
 }
+
+void redraw_window(gfx_context_t *ctx)
+{
+    while (1) {
+        flip(ctx);
+    }
+}
+//
 //------------------------------------------------------------------------------
 // process function
 //------------------------------------------------------------------------------
