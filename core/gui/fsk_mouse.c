@@ -7,9 +7,10 @@
 #include <string.h>
 #include <sys/memory.h>
 #include <sys/sched.h>
+#include <sys/syscall.h>
 #include <sys/threads.h>
 
-//for test
+// for test
 #include <stdio.h>
 
 extern CircleQueue mouse_queue;
@@ -35,10 +36,10 @@ static void mouse_event_handler(struct fsk_mouse *mouse)
     uint_32 cursor_x = mouse->point.X;
     uint_32 cursor_y = mouse->point.Y;
     gfx_context_t *ctx = mouse->ctx;
-    sys_free(mouse);
+    free(mouse);
 
     FIFO *timer_queue = {0};
-    char *buf = sys_malloc(2);
+    char *buf = malloc(2);
 
     uint_32 org_color = fetch_color(ctx, cursor_x, cursor_y);
     uint_32 rcolor = FSK_LIME_GREEN;
@@ -62,14 +63,15 @@ static void mouse_event_handler(struct fsk_mouse *mouse)
                 draw_2d_gfx_cursor(ctx, cursor_x, cursor_y, &org_color);
             }
 
-            //testcode
-            /* uint_32 label_x, label_y= 0; */
-            /* char str[200] = {0}; */
+            // testcode
+            uint_32 label_x, label_y= 0;
+            char str[200] = {0};
             /* sprintf(str,"cursor(x:%d, y:%d)",cursor_x, cursor_y); */
-            /* uint_32 label_w = strlen(str) * 8 + 20; */
-            /* uint_32 label_h = 16; */
-            /* draw_2d_gfx_label(ctx, label_x, label_y, label_w, label_h, */
-            /*                   FSK_ORANGE, FSK_MEDIUM_PURPLE, str); */
+            sprintf(str,"org color %x",org_color);
+            uint_32 label_w = strlen(str) * 8 + 20;
+            uint_32 label_h = 16;
+            draw_2d_gfx_label(ctx, label_x, label_y, label_w, label_h,
+                              FSK_ORANGE, FSK_MEDIUM_PURPLE, str);
             /*  */
             /* uint_32 label1_x = 0; */
             /* uint_32 label1_y = label_h + 20; */
@@ -79,7 +81,7 @@ static void mouse_event_handler(struct fsk_mouse *mouse)
             /* uint_32 label1_h = 16; */
             /* draw_2d_gfx_label(ctx, label1_x, label1_y, label1_w, label1_h, */
             /*                   FSK_ORANGE, FSK_MEDIUM_PURPLE, str); */
-            //endtest
+            // endtest
 
             bool is_cursorx_at_saftrange =
                 (cursor_x + delta_x > 1 && cursor_x + delta_x < ctx->width);
@@ -147,7 +149,7 @@ static void mouse_event_handler(struct fsk_mouse *mouse)
 
 void create_fsk_mouse(gfx_context_t *ctx, uint_32 cursor_x, uint_32 cursor_y)
 {
-    struct fsk_mouse *mouse = sys_malloc(sizeof(struct fsk_mouse));
+    struct fsk_mouse *mouse = malloc(sizeof(struct fsk_mouse));
     mouse->point.X = cursor_x;
     mouse->point.Y = cursor_y;
     mouse->ctx = ctx;
