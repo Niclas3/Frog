@@ -48,6 +48,13 @@ $(BUILD_DIR)/protect.o: protect.c
 $(BUILD_DIR)/lib.o:
 	cd ./lib && $(MAKE) lib.o
 
+$(BUILD_DIR)/graphic.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "graphic.c")
+$(BUILD_DIR)/2d_graphics.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "2d_graphics.c")
+$(BUILD_DIR)/fsk_mouse.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "fsk_mouse.c")
+
 $(BUILD_DIR)/libdebug.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find lib -type f -name "debug.c")
 
@@ -60,8 +67,11 @@ $(BUILD_DIR)/bitmap.o:
 $(BUILD_DIR)/ioqueue.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find lib -type f -name "ioqueue.c")
 
+$(BUILD_DIR)/libc.o:
+	cd ./libc && $(MAKE) libc.o
+
 $(BUILD_DIR)/stdio.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find lib -type f -name "stdio.c")
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find libc -type f -name "stdio.c")
 
 $(BUILD_DIR)/device.o:
 	cd ./device && $(MAKE) device.o
@@ -69,8 +79,6 @@ $(BUILD_DIR)/device.o:
 $(BUILD_DIR)/ide.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ide.c")
 
-# $(BUILD_DIR)/ps2mouse.o:
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ps2mouse.c")
 $(BUILD_DIR)/ps2hid.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ps2hid.c")
 
@@ -116,12 +124,6 @@ $(BUILD_DIR)/tss.o:
 $(BUILD_DIR)/destab.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find destab -type f -name "descriptor.c")
 
-$(BUILD_DIR)/graphic.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "graphic.c")
-$(BUILD_DIR)/2d_graphics.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "2d_graphics.c")
-$(BUILD_DIR)/fsk_mouse.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find gui -type f -name "fsk_mouse.c")
 
 $(BUILD_DIR)/bootpack.o: bootpack.c
 	$(CC) $(C_FLAG) -I $(INCLUDE) -o $@ $<
