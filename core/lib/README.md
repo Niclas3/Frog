@@ -1,6 +1,6 @@
-# Forg System Libraries
+# Frog System Libraries
 
-These are the core system libraries of ForgOS.
+These are the core system libraries of FrogOS.
 
 Where functionality isn't expected in the C standard library,
 
