@@ -128,7 +128,7 @@ void UkiMain(void)
         /* gfx_context_t *g_ctx= init_gfx_fullscreen_double_buffer(); */
         g_ctx = init_gfx_fullscreen_double_buffer();
         if (g_ctx == NULL) {
-            PAINC("vedio context error");
+            PANIC("vedio context error");
         }
         draw_pixel(g_ctx, 200, 200, FSK_LIME);
 

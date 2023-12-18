@@ -58,7 +58,7 @@ void flush_inode(struct partition *part, struct inode *inode, void *io_buf)
 {
     // flush buffer must be set
     if (io_buf == NULL) {
-        PAINC("Need buffer for flush inode.");
+        PANIC("Need buffer for flush inode.");
     }
     struct iposition pos = {0};
     struct disk *hd = part->my_disk;
@@ -112,7 +112,7 @@ struct inode *inode_open(struct partition *part, uint_32 inode_nr)
     // 0.Test part is mounted partition
     ASSERT(part->sb);
     if (!part->sb) {
-        PAINC("Not a mounted partition.");
+        PANIC("Not a mounted partition.");
     }
 
     // 1. lookup open_inode at partition if there is a inode number match

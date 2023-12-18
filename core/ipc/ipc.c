@@ -91,7 +91,7 @@ uint_32 msg_send(TCB_t *sender, pid_t dest, message *msg)
     ASSERT(p_dest != NULL);
     // Check for deadlock
     if (detect_cycle(sender->pid, dest)) {
-        PAINC(">>DEADLOCK<<");
+        PANIC(">>DEADLOCK<<");
     }
     /*
      * First dest process is waiting for message aka p_dest->status ==

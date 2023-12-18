@@ -2,7 +2,6 @@
 #include <debug.h>
 #include <global.h>  // MMAP_INFO_POINTER
 #include <math.h>    // for DIV_ROUND_UP
-#include <panic.h>
 #include <string.h>
 #include <sys/int.h>
 #include <sys/memory.h>
@@ -352,9 +351,9 @@ void free_addr_bitmap(struct bitmap *map,
                       uint_32 pg_cnt)
 {
     if (addr < addr_start)
-        panic("free bad phy address");
+        PANIC("free bad phy address");
     if (pos > map->map_bytes_length * 8)
-        panic("free bad address over length");
+        PANIC("free bad address over length");
     for (int i = 0; i < pg_cnt; i++) {
         set_value_bitmap(map, pos + i, 0);
     }
@@ -390,7 +389,7 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
         v_start_addr = start_pos * PG_SIZE + cur->progress_vaddr.vaddr_start;
         return (void *) v_start_addr;
     } else {
-        PAINC(
+        PANIC(
             "get_free_vaddress: not allow kernel alloc userspace or user alloc "
             "kernel space.");
         return NULL;
@@ -430,10 +429,10 @@ void *get_free_page(struct pool *mpool)
 void free_page(struct pool *mpool, uint_32 phy_addr_page)
 {
     if (phy_addr_page < mpool->phy_addr_start)
-        panic("free bad phy address");
+        PANIC("free bad phy address");
     int pos = (phy_addr_page - mpool->phy_addr_start) / PG_SIZE;
     if (pos > mpool->pool_bitmap.map_bytes_length * 8)
-        panic("free bad address over length");
+        PANIC("free bad address over length");
     set_value_bitmap(&mpool->pool_bitmap, pos, 0);
 }
 
@@ -479,11 +478,11 @@ static uint_32 virtual_addr_to_physical_addr(void *v_addr)
             uint_32 p_addr = *pte & 0xfffff000;
             return (uint_32) p_addr;
         } else {
-            panic("Some thing wrong.");
+            PANIC("Some thing wrong.");
             return 0;
         }
     }
-    panic("Some thing wrong.");
+    PANIC("Some thing wrong.");
     return 0;
 }
 // Combine v address -> phy address
@@ -503,7 +502,7 @@ void put_page(void *v_addr, void *phy_addr)
         if ((!(*pte & 0x00000001))) {
             *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
         } else {
-            /* panic("pte exists"); */
+            /* PANIC("pte exists"); */
             *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
         }
     } else {
@@ -529,7 +528,7 @@ static void remove_page(void *v_addr)
         if (*pte & 0x00000001) {  // test pde if exist or not
             *pte &= 0x11111110;   // PG_P_CLI;
         } else {                  // pte is not exists
-            panic("Free twice");
+            PANIC("Free twice");
             // Still make pde is unexist
             *pte &= 0x11111110;  // PG_P_CLI;
         }
@@ -594,7 +593,7 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
         ASSERT(bit_idx > 0);
         set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1);
     } else {
-        PAINC(
+        PANIC(
             "get_free_vaddress: not allow kernel alloc userspace or user alloc "
             "kernel space.");
     }

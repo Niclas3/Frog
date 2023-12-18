@@ -276,13 +276,13 @@ uint_32 draw_2d_gfx_asc_char(gfx_context_t *ctx,
         draw_2d_gfx_8bit_font(ctx, font_size, x, y, color,
                               font_8bits + (c * 16));
     } else if (font_size == 16) {
-        PAINC("not support 16 font size yet.");
+        PANIC("not support 16 font size yet.");
         return 0;
     } else if (font_size == 32) {
-        PAINC("not support 32 font size yet.");
+        PANIC("not support 32 font size yet.");
         return 0;
     } else {  // use default font size
-        PAINC("not support ?? font size yet.");
+        PANIC("not support ?? font size yet.");
         return 0;
     }
     return font_size;

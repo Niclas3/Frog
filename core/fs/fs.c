@@ -190,7 +190,7 @@ static bool mount_partition(struct list_head *ele, int arg)
 
     struct super_block *sb = sys_malloc(sizeof(struct super_block));
     if (!sb) {
-        PAINC("Not enough memory");
+        PANIC("Not enough memory");
     }
     ide_read(part->my_disk, part->start_lba + 1, sb, 1);
     ASSERT(sb->s_magic == 0x2023b07a);
@@ -202,7 +202,7 @@ static bool mount_partition(struct list_head *ele, int arg)
     // 1.create zone  bitmap
     uint_8 *zbm_bits = sys_malloc(sb->s_zmap_sz * SECTOR_SIZE);
     if (!zbm_bits) {
-        PAINC("Not enough memory");
+        PANIC("Not enough memory");
     }
     mounted_part.zone_bitmap.map_bytes_length = sb->s_zmap_sz * SECTOR_SIZE;
     mounted_part.zone_bitmap.bits = zbm_bits;
@@ -212,7 +212,7 @@ static bool mount_partition(struct list_head *ele, int arg)
     // 2.create inode bitmap
     uint_8 *ibm_bits = sys_malloc(sb->s_imap_sz * SECTOR_SIZE);
     if (!ibm_bits) {
-        PAINC("Not enough memory");
+        PANIC("Not enough memory");
     }
     mounted_part.inode_bitmap.map_bytes_length = sb->s_imap_sz * SECTOR_SIZE;
     mounted_part.inode_bitmap.bits = ibm_bits;
@@ -235,7 +235,7 @@ void fs_init(void)
     uint_8 part_idx = 0;
     uint_8 *buf = sys_malloc(SECTOR_SIZE);
     if (!buf) {
-        PAINC("Not enough memory.");
+        PANIC("Not enough memory.");
     }
     // init global file table lock
     lock_init(&g_ft_lock);

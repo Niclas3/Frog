@@ -240,7 +240,7 @@ void thread_unblock(TCB_t *thread)
     if (thread->status != THREAD_TASK_READY) {
         ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
         if (list_find_element(&thread->general_tag, &thread_ready_list)) {
-            PAINC("The blocked thread at ready list!!?");
+            PANIC("The blocked thread at ready list!!?");
         }
         list_add(&thread->general_tag, &thread_ready_list);
         thread->status = THREAD_TASK_READY;

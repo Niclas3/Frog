@@ -64,7 +64,7 @@ int_32 search_dir_entry(struct partition *part,
     uint_32 *all_zones = sys_malloc(12 * 4 + 512);
     if (!all_zones) {
         // TODO: printk("");
-        PAINC("Not enough memory when search_dir_entry");
+        PANIC("Not enough memory when search_dir_entry");
         return -1;
     }
     uint_32 z_idx = 0;

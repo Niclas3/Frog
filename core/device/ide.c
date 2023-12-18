@@ -268,7 +268,7 @@ static void ide_read_sector(struct disk *hd, uint_32 lba, void *buf)
     if (!busy_wait(hd)) {
         char error[64] = "read sector failed";
         // TODO: need sprintf()!
-        /* PAINC(error); */
+        /* PANIC(error); */
         lock_release(&hd->my_channel->lock);
         return;
     }
@@ -321,7 +321,7 @@ void ide_read_v2(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
         if (!busy_wait(hd)) {
             char error[64] = "read sector failed";
             // TODO: need sprintf()!
-            /* PAINC(error); */
+            /* PANIC(error); */
             lock_release(&hd->my_channel->lock);
             return;
         }
@@ -365,7 +365,7 @@ void ide_read_ext(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
         if (!busy_wait(hd)) {
             char error[64] = "read sector failed";
             // TODO: need sprintf()!
-            /* PAINC(error); */
+            /* PANIC(error); */
             lock_release(&hd->my_channel->lock);
             return;
         }
@@ -402,7 +402,7 @@ static void ide_write_sector(struct disk *hd, uint_32 lba, void *buf)
     if (!busy_wait(hd)) {
         char error[64] = "read sector failed";
         // TODO: need sprintf()!
-        PAINC(error);
+        PANIC(error);
     }
     // 5. read data from buffer
     write_to_sector(hd, (void *) ((uint_32) buf ), 1);
@@ -455,7 +455,7 @@ void ide_write_v2(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
         if (!busy_wait(hd)) {
             char error[64] = "read sector failed";
             // TODO: need sprintf()!
-            PAINC(error);
+            PANIC(error);
         }
         // 5. read data from buffer
         write_to_sector(hd, (void *) ((uint_32) buf + secs_done * 512),
@@ -496,7 +496,7 @@ void ide_write_ext(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
         if (!busy_wait(hd)) {
             char error[64] = "read sector failed";
             // TODO: need sprintf()!
-            PAINC(error);
+            PANIC(error);
         }
         // 5. read data from buffer
         write_to_sector(hd, (void *) ((uint_32) buf + secs_done * 512),
@@ -518,7 +518,7 @@ void identify_disk(struct disk *hd)
     if (!busy_wait(hd)) {
         char error[64];
         // TODO: need sprintf()!
-        PAINC("Error identify_disk");
+        PANIC("Error identify_disk");
     }
     read_from_sector(hd, id_info, 1);
     char buf[64];

@@ -33,7 +33,7 @@ void lock_init(struct lock *lock){
 /*         ASSERT(sema->value == 0); */
 /*         TCB_t *cur = running_thread(); */
 /*         if(list_find_element(&cur->general_tag, sema->waiting_queue)){ */
-/*             PAINC("semaphore P: blocked thread already in waiting list?!"); */
+/*             PANIC("semaphore P: blocked thread already in waiting list?!"); */
 /*         } */
 /*         //block self then schedule to next ready thread */
 /*         thread_block(THREAD_TASK_BLOCKED); */
@@ -45,7 +45,7 @@ void semaphore_down(struct semaphore *sema){
         ASSERT(sema->value == 0);
         TCB_t *cur = running_thread();
         if(list_find_element(&cur->general_tag, &sema->waiting_queue)){
-            PAINC("semaphore P: blocked thread already in waiting list?!");
+            PANIC("semaphore P: blocked thread already in waiting list?!");
         }
         list_add_tail(&cur->general_tag, &sema->waiting_queue);
         //block self then schedule to next ready thread

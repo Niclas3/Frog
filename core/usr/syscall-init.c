@@ -67,7 +67,7 @@ uint_32 sys_sendrec(uint_32 func,
         sprintf(error,
                 "sys_sendrec invalid function: %d (SEND:%d, RECEIVE:%d).", func,
                 SEND, RECEIVE);
-        PAINC(error);
+        PANIC(error);
     }
 
     return 0;

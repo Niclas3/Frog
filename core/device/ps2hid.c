@@ -309,7 +309,7 @@ void inthandler21(void)
         }
 
     } else {
-        PAINC("unknow key");
+        PANIC("unknow key");
     }
     return;
 }
@@ -325,7 +325,7 @@ void ps2hid_init(void)
     /* sys_pipe(g_kbd_pipe_fd); */
     /* sys_pipe(g_mouse_pipe_fd); */
     /* if (sys_pipe(g_kbd_pipe_fd) == -1 || sys_pipe(g_mouse_pipe_fd) == -1) { */
-    /*     PAINC("Can not make a kbd or mouse pipe file descriptor.\n"); */
+    /*     PANIC("Can not make a kbd or mouse pipe file descriptor.\n"); */
     /* } */
 
     // enable keyboard
