@@ -92,7 +92,7 @@ uint_32 read_pipe(int_32 fd, void *buf, uint_32 count)
 
 uint_32 write_pipe(int_32 fd, const void *buf, uint_32 count)
 {
-    char *buffer = buf;
+    char *buffer = (char*) buf;
     uint_32 bytes_write = 0;
     int_32 g_fd = fd_local2global(fd);
     struct ioqueue *queue = (struct ioqueue *) g_file_table[g_fd].fd_inode;
