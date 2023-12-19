@@ -22,14 +22,37 @@ static uint_32 rgba(uint_8 r, uint_8 g, uint_8 b, uint_8 a)
     return (a << 24U) | (r << 16) | (g << 8) | (b);
 }
 
+inline uint_32 alpha_blend_rgba(uint_32 bottom, uint_32 top)
+{
+    if (_A(bottom) == 0)
+        return top;
+    if (_A(top) == 255)
+        return top;
+    if (_A(top) == 0)
+        return bottom;
+    uint_8 a = _A(top);
+    uint_16 t = 0xFF ^ a;
+    uint_8 d_r =
+        _R(top) + (((uint_32) (_R(bottom) * t + 0x80) * 0x101) >> 16UL);
+    uint_8 d_g =
+        _G(top) + (((uint_32) (_G(bottom) * t + 0x80) * 0x101) >> 16UL);
+    uint_8 d_b =
+        _B(top) + (((uint_32) (_B(bottom) * t + 0x80) * 0x101) >> 16UL);
+    uint_8 d_a =
+        _A(top) + (((uint_32) (_A(bottom) * t + 0x80) * 0x101) >> 16UL);
+    return rgba(d_r, d_g, d_b, d_a);
+}
+
 // Convert given 32bit 888ARGB color to set bpp value
 // 0x00RRGGBB
 bbp_t convert_argb(const argb_t color)
 {
     uint_8 convert_r, convert_g, convert_b;
+    uint_8 convert_a;
     uint_32 converted_color = 0;
-
+    uint_32 alpha_field_position = 24;
     // Get original color portions
+    const uint_8 orig_a = (color >> 24U) & 0xFF;
     const uint_8 orig_r = (color >> 16) & 0xFF;
     const uint_8 orig_g = (color >> 8) & 0xFF;
     const uint_8 orig_b = color & 0xFF;
@@ -57,7 +80,8 @@ bbp_t convert_argb(const argb_t color)
     }
 
     // Put new color portions into new color
-    converted_color = (convert_r << gfx_mode.linear_red_field_position) |
+    converted_color = (convert_a << alpha_field_position) |
+                      (convert_r << gfx_mode.linear_red_field_position) |
                       (convert_g << gfx_mode.linear_green_field_position) |
                       (convert_b << gfx_mode.linear_blue_field_position);
 
@@ -606,10 +630,15 @@ void fill_rect_solid(gfx_context_t *ctx,
                      argb_t color)
 {
     // Brute force method
-    bbp_t bbp_c  = convert_argb(color);
+    /* bbp_t bbp_c  = convert_argb(color); */
     for (uint_16 y = top_left.Y; y < bottom_right.Y; y++)
-        for (uint_16 x = top_left.X; x < bottom_right.X; x++)
+        for (uint_16 x = top_left.X; x < bottom_right.X; x++) {
+            argb_t _c = alpha_blend_rgba(GFX(ctx, x, y), color);
+            bbp_t bbp_c = convert_argb(_c);
             draw_pixel(ctx, x, y, bbp_c);
+            draw_pixel(ctx, x, y, _c);
+
+        }
 }
 
 /* // Fill a polygon with a solid color */

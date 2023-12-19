@@ -8,6 +8,11 @@
 #define GFX_D(ctx) ((ctx)->depth / 8) /* Display byte depth */
 #define GFX_S(ctx) ((ctx)->stride)    /* Stride */
 
+#define _A(color) ((color & 0xFF000000) >> 0x18)
+#define _R(color) ((color & 0x00FF0000) >> 0x10)
+#define _G(color) ((color & 0x0000FF00) >> 0x8)
+#define _B(color) ((color & 0x000000FF) >> 0x0)
+
 #define GFX(ctx, x, y)                                                         \
     *((uint_32 *) &((ctx)->backbuffer)[((GFX_S(ctx) * (y) *GFX_W(ctx) + (x)) * \
                                         GFX_D(ctx))])
@@ -172,6 +177,8 @@ uint_32 draw_2d_gfx_dec(gfx_context_t *ctx,
 // helper function
 bbp_t convert_argb(const argb_t argbcolor);
 argb_t convert_bbp(const bbp_t bbpcolor);
+
+uint_32 alpha_blend_rgba(uint_32 bottom, uint_32 top);
 argb_t fetch_color(gfx_context_t *ctx, uint_32 X, uint_32 Y);
 
 // Components
