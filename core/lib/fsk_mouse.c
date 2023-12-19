@@ -153,5 +153,5 @@ void create_fsk_mouse(gfx_context_t *ctx, uint_32 cursor_x, uint_32 cursor_y)
     mouse->point.X = cursor_x;
     mouse->point.Y = cursor_y;
     mouse->ctx = ctx;
-    thread_start("mouse_GUI", 40, mouse_event_handler, mouse);
+    thread_start("mouse_GUI", 500, mouse_event_handler, mouse);
 }

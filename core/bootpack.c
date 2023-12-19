@@ -233,7 +233,7 @@ void UkiMain(void)
 
     /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
      */
-    TCB_t *redraw = thread_start("redraw_thread", 42, redraw_window, g_ctx);
+    /* TCB_t *redraw = thread_start("redraw_thread", 42, redraw_window, g_ctx); */
     /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */

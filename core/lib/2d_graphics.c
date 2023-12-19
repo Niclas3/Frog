@@ -254,7 +254,8 @@ static void draw_2d_gfx_8bit_font(gfx_context_t *ctx,
         int_8 bit_idx = 0;
         while (bit_idx < 8) {
             if (font_part_8bit & 0x01) {
-                draw_pixel(ctx, x + (7 - bit_idx), (y + i), convert_argb(color));
+                draw_pixel(ctx, x + (7 - bit_idx), (y + i),
+                           convert_argb(color));
             }
             bit_idx++;
             font_part_8bit >>= 1;
@@ -605,9 +606,10 @@ void fill_rect_solid(gfx_context_t *ctx,
                      argb_t color)
 {
     // Brute force method
+    bbp_t bbp_c  = convert_argb(color);
     for (uint_16 y = top_left.Y; y < bottom_right.Y; y++)
         for (uint_16 x = top_left.X; x < bottom_right.X; x++)
-            draw_pixel(ctx, x, y, convert_argb(color));
+            draw_pixel(ctx, x, y, bbp_c);
 }
 
 /* // Fill a polygon with a solid color */
@@ -677,17 +679,11 @@ void clear_screen(gfx_context_t *ctx, argb_t color)
     // Get 32bit pointer to framebuffer value in VBE mode info block,
     //   dereference to get the 32bit value,
     //   get 32bit pointer to that value - memory address of framebuffer
-    /* uint_8 *framebuffer = (uint_8 *) gfx_mode.physical_base_pointer; */
-    /* uint_8 bytes_per_pixel = (gfx_mode.bits_per_pixel + 1) / 8; */
-    /*  */
-    /* for (uint_32 i = 0; i < gfx_mode.x_resolution * gfx_mode.y_resolution;
-     * i++) { */
-    /*     *((uint_32 *) framebuffer) = convert_argb(color); */
-    /*     framebuffer += bytes_per_pixel; */
-    /* } */
+    bbp_t set_color = convert_argb(color);
     for (uint_32 x_idx = 0; x_idx < ctx->width; x_idx++) {
         for (uint_32 y_idx = 0; y_idx < ctx->height; y_idx++) {
-            GFX(ctx, x_idx, y_idx) = convert_argb(color);
+            /* GFX(ctx, x_idx, y_idx) = set_color; */
+            draw_pixel(ctx, x_idx, y_idx, set_color);
         }
     }
 }
