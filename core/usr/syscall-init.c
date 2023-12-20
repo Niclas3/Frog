@@ -78,10 +78,24 @@ void syscall_init(void)
 {
     // Mono-kernel way
     syscall_table[SYS_getpid] = sys_getpid;
-    syscall_table[SYS_write] = sys_write;
     syscall_table[SYS_malloc] = sys_malloc;
     syscall_table[SYS_free] = sys_free;
     syscall_table[SYS_fork] = sys_fork;
+
+    syscall_table[SYS_open] = sys_open;
+    syscall_table[SYS_close] = sys_close;
+    syscall_table[SYS_read] = sys_read;
+    syscall_table[SYS_write] = sys_write;
+    syscall_table[SYS_seek] = sys_lseek;
+    syscall_table[SYS_unlink] = sys_unlink;
+    syscall_table[SYS_mkdir] = sys_mkdir;
+    syscall_table[SYS_opendir] = sys_opendir ;
+    syscall_table[SYS_closedir] = sys_closedir;
+    syscall_table[SYS_readdir] = sys_readdir;
+    syscall_table[SYS_rewinddir] = sys_rewinddir;
+    syscall_table[SYS_rmdir] = sys_rmdir;
+
+
     // mico-kernel way
     syscall_table[SYS_sendrec] = sys_sendrec;
 }

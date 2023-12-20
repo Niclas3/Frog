@@ -22,15 +22,16 @@
         __res;                                    \
     });
 
-#define _syscall2(NUMBER, ARG1, ARG2)             \
-    ({                                            \
-        int __res;                                \
-        __asm__ volatile("int $0x93"              \
-                         : "=a"(__res)            \
-                         : "a"(NUMBER), "b"(ARG2) \
-                         : "memory");             \
-        __res;                                    \
+#define _syscall2(NUMBER, ARG1, ARG2)                       \
+    ({                                                      \
+        int __res;                                          \
+        __asm__ volatile("int $0x93"                        \
+                         : "=a"(__res)                      \
+                         : "a"(NUMBER), "b"(ARG1) ,"c"(ARG2) \
+                         : "memory");                       \
+        __res;                                              \
     });
+
 
 #define _syscall3(NUMBER, ARG1, ARG2, ARG3)                             \
     ({                                                                  \
@@ -95,7 +96,7 @@ uint_32 fork(void)
 
 int_32 open(const char *pathname, uint_8 flags)
 {
-    return _syscall2(SYS_open, pathname, flags);
+    return _syscall2(SYS_open, (uint_32)pathname, flags);
 }
 int_32 close(int_32 fd)
 {
