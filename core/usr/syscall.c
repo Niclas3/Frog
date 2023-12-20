@@ -56,7 +56,7 @@
 
 uint_32 getpid(void)
 {
-    return _syscall0(SYS_getpid);
+    return _syscall0(SYS_GETPID);
 }
 
 
@@ -82,76 +82,76 @@ uint_32 get_ticks(void)
 
 void *malloc(uint_32 size)
 {
-    return (void *) _syscall1(SYS_malloc, size);
+    return (void *) _syscall1(SYS_MALLOC, size);
 }
 void free(void *ptr)
 {
-    _syscall1(SYS_free, ptr);
+    _syscall1(SYS_FREE, ptr);
 }
 
 uint_32 fork(void)
 {
-    return _syscall0(SYS_fork);
+    return _syscall0(SYS_FORK);
 }
 
 int_32 open(const char *pathname, uint_8 flags)
 {
-    return _syscall2(SYS_open, (uint_32)pathname, flags);
+    return _syscall2(SYS_OPEN, (uint_32)pathname, flags);
 }
 int_32 close(int_32 fd)
 {
-    return _syscall1(SYS_close, fd);
+    return _syscall1(SYS_CLOSE, fd);
 }
 uint_32 write(int_32 fd, const void *buf, uint_32 count)
 {
-    return _syscall3(SYS_write, fd, buf, count);
+    return _syscall3(SYS_WRITE, fd, buf, count);
 }
 
 int_32 read(int_32 fd, void *buf, uint_32 count)
 {
-    return _syscall3(SYS_read, fd, buf, count);
+    return _syscall3(SYS_READ, fd, buf, count);
 }
 
 int_32 lseek(int_32 fd, int_32 offset, uint_8 whence)
 {
-    return _syscall3(SYS_seek, fd, offset, whence);
+    return _syscall3(SYS_SEEK, fd, offset, whence);
 }
 
 int_32 unlink(const char *pathname)
 {
-    return _syscall1(SYS_unlink, pathname);
+    return _syscall1(SYS_UNLINK, pathname);
 }
 
 int_32 mkdir(const char *pathname)
 {
-    return _syscall1(SYS_mkdir, pathname);
+    return _syscall1(SYS_MKDIR, pathname);
 }
 
 struct dir *opendir(const char *name)
 {
-    return _syscall1(SYS_opendir, name);
+    return _syscall1(SYS_OPENDIR, name);
 }
 
 int_32 closedir(struct dir *dirp)
 {
-    return _syscall1(SYS_closedir, dirp);
+    return _syscall1(SYS_CLOSEDIR, dirp);
 }
 
 struct dir_entry *readdir(struct dir *dirp)
 {
-    return _syscall1(SYS_readdir, dirp);
+    return _syscall1(SYS_READDIR, dirp);
 }
 void rewinddir(struct dir *dirp)
 {
-    _syscall1(SYS_rewinddir, dirp);
+    _syscall1(SYS_REWINDDIR, dirp);
 }
 
 int_32 rmdir(const char *pathname)
 {
-    return _syscall1(SYS_rmdir, pathname);
+    return _syscall1(SYS_RMDIR, pathname);
 }
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg)
 {
-    return _syscall3(SYS_sendrec, func, src_dest, p_msg);
+    return _syscall3(SYS_SENDREC, func, src_dest, p_msg);
 }

@@ -6,23 +6,23 @@
 typedef struct kwaak_msg message;
 
 enum SYSCALL_NR{
-    SYS_getpid, // 0
-    SYS_sendrec,
-    SYS_malloc,
-    SYS_free,
-    SYS_fork,
-    SYS_open,
-    SYS_close,
-    SYS_read,
-    SYS_write,
-    SYS_seek,
-    SYS_unlink,
-    SYS_mkdir,
-    SYS_opendir,
-    SYS_closedir,
-    SYS_readdir,
-    SYS_rewinddir,
-    SYS_rmdir,
+    SYS_GETPID, // 0
+    SYS_SENDREC,
+    SYS_MALLOC,
+    SYS_FREE,
+    SYS_FORK,
+    SYS_OPEN,
+    SYS_CLOSE,
+    SYS_READ,
+    SYS_WRITE,
+    SYS_SEEK,
+    SYS_UNLINK,
+    SYS_MKDIR,
+    SYS_OPENDIR,
+    SYS_CLOSEDIR,
+    SYS_READDIR,
+    SYS_REWINDDIR,
+    SYS_RMDIR,
 };
 
 /**
@@ -75,8 +75,7 @@ enum SYSCALL_NR{
  |                    |  | 11. s = pipe(&fd[0])                  | Create a pipe
  |                    +--+---------------------------------------+-----------------------------------------------
  |                    |  | 12. s = ioctl(fd, request, argp)      | Perform special operations on a file
- |                    +--+---------------------------------------+-----------------------------------------------
- |                    |  | 13. s = access(name, amode)           | Check a file's accessibility
+ |                    +--+---------------------------------------+----------------------------------------------- |                    |  | 13. s = access(name, amode)           | Check a file's accessibility
  |                    +--+---------------------------------------+-----------------------------------------------
  |                    |  | 14. s = rename(old, new)              | Give a file a new name
  |                    +--+---------------------------------------+-----------------------------------------------
