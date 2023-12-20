@@ -119,6 +119,7 @@ void UkiMain(void)
 
     ps2hid_init();
 
+    /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
     // init gfx memory at qemu
     // alloc 2d graphics memory
@@ -134,12 +135,12 @@ void UkiMain(void)
         if (g_ctx == NULL) {
             PANIC("vedio context error");
         }
-        draw_pixel(g_ctx, 200, 200, FSK_LIME);
-
-        uint_32 screen_width = g_ctx->width;
-        uint_32 screen_height = g_ctx->height;
-        uint_32 fontsize = 8;
-        clear_screen(g_ctx, FSK_OLIVE);
+        /* draw_pixel(g_ctx, 200, 200, FSK_LIME); */
+        /*  */
+        /* uint_32 screen_width = g_ctx->width; */
+        /* uint_32 screen_height = g_ctx->height; */
+        /* uint_32 fontsize = 8; */
+        /* clear_screen(g_ctx, FSK_OLIVE); */
 
         /* uint_32 status_bar_color = 0x88131313; */
         /* Point top_left = {.X = 0, .Y = 0}; */
@@ -175,7 +176,7 @@ void UkiMain(void)
         /* gfx_test_print_fn(g_ctx, test_hex_x, test_hex_y, pfn_type); */
 
         // end test
-        flip(g_ctx);
+        /* flip(g_ctx); */
 
     } else if (g_boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
@@ -254,7 +255,6 @@ void UkiMain(void)
     // User process test
     /* process_execute(u_funf, "C");  // pid 4 */
     /* process_execute(u_fund, "B");  // pid 5 */
-    /* process_execute(u_fune, "A");  // pid 6 */
     process_execute(u_fune, "A");  // pid 6
 
     /* process_execute(u_fung, "D");  */
@@ -312,7 +312,7 @@ void func(int a)
         char readbuf[1] = "x";
         spin_lock(spin_lock);
 
-        sys_write(stdout_, readbuf, 1);
+        /* sys_write(stdout_, readbuf, 1); */
 
         spin_unlock(spin_lock);
     }
@@ -511,30 +511,26 @@ void u_funf(int a)
 // proc A
 void u_fune(int a)
 {
-
-    char *pathname = "/test1.txt";
-    int_32 fd = open(pathname, O_RDWR);
-    if (fd == -1) {
-        fd = open(pathname, O_CREAT);
-        close(fd);
-        fd = open(pathname, O_RDWR);
-    }
-    char *buf = "u_fune_test";
-    write(fd, buf, strlen(buf));
-    close(fd);
-    /* while (1) { */
+    /* char *pathname = "/test1.txt"; */
+    /* int_32 fd = open(pathname, O_RDWR); */
+    /* if (fd == -1) { */
+    /*     fd = open(pathname, O_CREAT); */
+    /*     close(fd); */
+    /*     fd = open(pathname, O_RDWR); */
+    /* } */
+    /* #<{(| while (1) { |)}># */
     /* uint_32 ret_pid = fork(); */
     /* if (ret_pid) { */
-    /*     #<{(| uint_32 pid = getpid(); |)}># */
-    /*     // I'am parents process */
-    /*     #<{(| printf("Parents pid is %d\n", pid); |)}># */
+    /*     char buf[200] = {0}; */
+    /*     sprintf(buf, "parent pid:%d, fork ret: %d++", getpid(), ret_pid); */
+    /*     write(fd, buf, strlen(buf)); */
     /* } else { */
-    /*     // I'am child process */
-    /*     __asm__ volatile("xchgw %bx, %bx;"); */
-    /*     #<{(| uint_32 pid = getpid(); |)}># */
+    /*     char buf[200] = {0}; */
+    /*     sprintf(buf, "childpid:%d,fork ret: %d--------", getpid(), ret_pid); */
+    /*     write(fd, buf, strlen(buf)); */
     /* } */
-    while (1)
-        ;
+    /* while (1) */
+    /*     ; */
 }
 
 void u_fung(int a) {}
@@ -542,12 +538,12 @@ void u_fung(int a) {}
 
 void init(void)
 {
-    /* uint_32 ret_pid = fork(); */
-    /* if (ret_pid) { */
-    /*     printf("Parents pid is %d", getpid()); */
-    /* } else { */
-    /*     printf("child pid is %d, ret id is %d", getpid(), ret_pid); */
-    /* } */
+    uint_32 ret_pid = fork();
+    if (ret_pid) {
+        /* printf("Parents pid is %d", getpid()); */
+    } else {
+        /* printf("child pid is %d, ret id is %d", getpid(), ret_pid); */
+    }
     while (1)
         ;
 }

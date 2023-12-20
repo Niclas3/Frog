@@ -155,8 +155,7 @@ static void create_user_vaddr_bitmap(TCB_t *user_prog)
 void process_execute(void *filename, char *name)
 {
     TCB_t *thread = get_kernel_page(1);
-    /* init_thread(thread, name, DEFAULT_PRIORITY); */
-    init_thread(thread, name, 20);
+    init_thread(thread, name, DEFAULT_PRIORITY);
     create_user_vaddr_bitmap(thread);
     create_thread(thread, start_process, filename);
     thread->pgdir = create_page_dir();
