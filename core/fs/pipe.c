@@ -49,7 +49,7 @@ static int_32 destory_pipe(int_32 g_fd)
 {
     struct file file = g_file_table[g_fd];
     if (is_pipe(g_fd) && (--file.fd_pos == 0)) {
-        mfree_page(MP_KERNEL, (uint_32) file.fd_inode);
+        mfree_page(MP_KERNEL, (uint_32) file.fd_inode,1);
         file.fd_inode = NULL;
         return 0;
     }
