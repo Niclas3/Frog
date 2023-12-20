@@ -161,6 +161,7 @@ void process_execute(void *filename, char *name)
     create_thread(thread, start_process, filename);
     thread->pgdir = create_page_dir();
     thread->pid = allocate_pid();
+    block_desc_init(thread->u_block_descs);
     enum intr_status old_status = intr_disable();
     ASSERT(!list_find_element(&thread->proc_list_tag, &process_all_list));
     list_add_tail(&thread->proc_list_tag, &process_all_list);
