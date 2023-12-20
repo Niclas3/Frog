@@ -3,23 +3,20 @@
 include ../../Makefile.os_rules
 INCLUDE = ../include
 
-# keyboard.o: keyboard.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
-
 # ps2hid.o: ps2hid.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
-# ide.o: ide.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
-
-console.o: console.c
+ide.o: ide.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+
+# console.o: console.c
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 # device.o: ide.o tty.o ps2hid.o
 # 	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
 
 
-device.o: console.o
+device.o: ide.o
 	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
 
 clean:
