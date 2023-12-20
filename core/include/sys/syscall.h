@@ -7,11 +7,22 @@ typedef struct kwaak_msg message;
 
 enum SYSCALL_NR{
     SYS_getpid, // 0
-    SYS_write,  // 1
     SYS_sendrec,
     SYS_malloc,
     SYS_free,
     SYS_fork,
+    SYS_open,
+    SYS_close,
+    SYS_read,
+    SYS_write,
+    SYS_seek,
+    SYS_unlink,
+    SYS_mkdir,
+    SYS_opendir,
+    SYS_closedir,
+    SYS_readdir,
+    SYS_rewinddir,
+    SYS_rmdir,
 };
 
 /**
@@ -151,6 +162,26 @@ uint_32 fork(void);
 //System call: uint_32 write(char*)
 //return len of str
 uint_32 write(int_32 fd, const void*buf, uint_32 count);
+int_32 open(const char *pathname, uint_8 flags);
+int_32 close(int_32 fd);
+uint_32 write(int_32 fd, const void *buf, uint_32 count);
+
+int_32 read(int_32 fd, void *buf, uint_32 count);
+
+int_32 lseek(int_32 fd, int_32 offset, uint_8 whence);
+
+int_32 unlink(const char *pathname);
+
+int_32 mkdir(const char *pathname);
+
+struct dir *opendir(const char *name);
+
+int_32 closedir(struct dir *dirp);
+
+struct dir_entry *readdir(struct dir *dirp);
+void rewinddir(struct dir *dirp);
+
+int_32 rmdir(const char *pathname);
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg);
 #endif

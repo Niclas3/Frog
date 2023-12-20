@@ -1,3 +1,4 @@
+#include <fs/fs.h>
 #include <sys/syscall.h>
 #include <sys/threads.h>
 
@@ -59,11 +60,6 @@ uint_32 getpid(void)
 
 
 
-uint_32 write(int_32 fd, const void *buf, uint_32 count)
-{
-    return _syscall3(SYS_write, fd, buf, count);
-}
-
 pid_t get_pid(void)
 {
     message msg;
@@ -95,6 +91,63 @@ void free(void *ptr)
 uint_32 fork(void)
 {
     return _syscall0(SYS_fork);
+}
+
+int_32 open(const char *pathname, uint_8 flags)
+{
+    return _syscall2(SYS_open, pathname, flags);
+}
+int_32 close(int_32 fd)
+{
+    return _syscall1(SYS_close, fd);
+}
+uint_32 write(int_32 fd, const void *buf, uint_32 count)
+{
+    return _syscall3(SYS_write, fd, buf, count);
+}
+
+int_32 read(int_32 fd, void *buf, uint_32 count)
+{
+    return _syscall3(SYS_read, fd, buf, count);
+}
+
+int_32 lseek(int_32 fd, int_32 offset, uint_8 whence)
+{
+    return _syscall3(SYS_seek, fd, offset, whence);
+}
+
+int_32 unlink(const char *pathname)
+{
+    return _syscall1(SYS_unlink, pathname);
+}
+
+int_32 mkdir(const char *pathname)
+{
+    return _syscall1(SYS_mkdir, pathname);
+}
+
+struct dir *opendir(const char *name)
+{
+    return _syscall1(SYS_opendir, name);
+}
+
+int_32 closedir(struct dir *dirp)
+{
+    return _syscall1(SYS_closedir, dirp);
+}
+
+struct dir_entry *readdir(struct dir *dirp)
+{
+    return _syscall1(SYS_readdir, dirp);
+}
+void rewinddir(struct dir *dirp)
+{
+    _syscall1(SYS_rewinddir, dirp);
+}
+
+int_32 rmdir(const char *pathname)
+{
+    return _syscall1(SYS_rmdir, pathname);
 }
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg)
