@@ -8,16 +8,16 @@ typedef struct thread_control_block TCB_t;
 // 0xc0000000 is bottom of stack
 // 0xc0000000 is end of lower 3G in 4G virtual address
 #define USER_STACK3_VADDR 0xc0000000-0x1000
+#define USER_VADDR_START  0x08048000
 
-#define default_priority 30
+#define DEFAULT_PRIORITY 30
 
-void start_process(void *filename);
-
-void page_dir_activate(TCB_t *thread);
-
-uint_32* create_page_dir(void);
-
+// start a process
 void process_activate(TCB_t *thread);
+
+uint_32 fork_pid(void);
+void page_dir_activate(TCB_t *thread);
+uint_32 *create_page_dir(void);
 
 // Create process at ring3
 void process_execute(void *filename, char *name);

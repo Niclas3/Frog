@@ -11,7 +11,6 @@ extern struct list_head thread_ready_list;
 extern struct list_head thread_all_list;
 extern struct list_head process_all_list;
 
-#define USER_VADDR_START 0x8048000
 
 #define CELLING(X, STEP) ((X + STEP - 1) / (STEP))
 
@@ -27,11 +26,16 @@ extern void intr_exit(void);
 static pid_t allocate_pid(void)
 {
     // beacuse main thread is the first process
-    static tid_t next_pid = 1;
+    static tid_t next_pid = 0;
     lock_fetch(&pid_lock);
     next_pid++;
     lock_release(&pid_lock);
     return next_pid;
+}
+
+uint_32 fork_pid(void)
+{
+    return allocate_pid();
 }
 
 
@@ -44,11 +48,13 @@ static pid_t allocate_pid(void)
  * ring0, but we can use asm 'ret' to pertend that code returns from ring0 to
  * ring3
  * */
-void start_process(void *filename)
+static void start_process(void *filename)
 {
     void *function = filename;
     TCB_t *cur = running_thread();
-    cur->self_kstack += sizeof(struct thread_stack); // To the bottom of context_register
+    // To the bottom of context_register
+    cur->self_kstack =
+        (uint_32 *) ((uint_32) cur->self_kstack + sizeof(struct thread_stack));
     struct context_registers *proc_stack =
         (struct context_registers *) cur->self_kstack;
     proc_stack->edi = proc_stack->esi = proc_stack->ebp = proc_stack->esp = 0;
@@ -63,17 +69,18 @@ void start_process(void *filename)
         (void *) ((uint_32) malloc_page_with_vaddr(MP_USER, USER_STACK3_VADDR) +
                   PG_SIZE);
     proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_3, TI_GDT, RPL3);
-    __asm__ volatile("movl %0, %%esp;\
-                      jmp intr_exit" 
-                     ::"g"(proc_stack)
-                     : "memory");
+    __asm__ volatile(
+        "movl %0, %%esp;\
+        jmp intr_exit" ::"g"(proc_stack)
+        : "memory");
 }
 
-void start_process_ring1(void *filename)
+static void start_process_ring1(void *filename)
 {
     void *function = filename;
     TCB_t *cur = running_thread();
-    cur->self_kstack += sizeof(struct thread_stack); // To the bottom of context_register
+    cur->self_kstack +=
+        sizeof(struct thread_stack);  // To the bottom of context_register
     struct context_registers *proc_stack =
         (struct context_registers *) cur->self_kstack;
     proc_stack->edi = proc_stack->esi = proc_stack->ebp = proc_stack->esp = 0;
@@ -88,10 +95,10 @@ void start_process_ring1(void *filename)
         (void *) ((uint_32) malloc_page_with_vaddr(MP_USER, USER_STACK3_VADDR) +
                   PG_SIZE);
     proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_1, TI_GDT, RPL1);
-    __asm__ volatile("movl %0, %%esp;\
-                      jmp intr_exit" 
-                     ::"g"(proc_stack)
-                     : "memory");
+    __asm__ volatile(
+        "movl %0, %%esp;\
+                      jmp intr_exit" ::"g"(proc_stack)
+        : "memory");
 }
 
 /*
@@ -113,7 +120,7 @@ void process_activate(TCB_t *thread)
     ASSERT(thread != NULL);
 
     page_dir_activate(thread);
-    if (thread->pgdir) { // if thread is a process
+    if (thread->pgdir) {  // if thread is a process
         update_tss_esp0(thread);
     }
 }
@@ -126,15 +133,14 @@ uint_32 *create_page_dir(void)
     }
     // 1024 = 4 * 256;
     memcpy((uint_32 *) ((uint_32) page_dir_vaddr + 0x300 * 4),
-           (uint_32 *) (0xfffff000 + 0x300 * 4),
-           1024);
+           (uint_32 *) (0xfffff000 + 0x300 * 4), 1024);
     uint_32 new_page_dir_phy_addr = addr_v2p((uint_32) page_dir_vaddr);
     // Add last pde to pd phy_addr
     page_dir_vaddr[1023] = new_page_dir_phy_addr | PG_US_U | PG_RW_W | PG_P_SET;
     return page_dir_vaddr;
 }
 
-void create_user_vaddr_bitmap(TCB_t *user_prog)
+static void create_user_vaddr_bitmap(TCB_t *user_prog)
 {
     user_prog->progress_vaddr.vaddr_start = USER_VADDR_START;
     uint_32 bitmap_pg_cnt =
@@ -149,11 +155,12 @@ void create_user_vaddr_bitmap(TCB_t *user_prog)
 void process_execute(void *filename, char *name)
 {
     TCB_t *thread = get_kernel_page(1);
-    init_thread(thread, name, default_priority);
+    /* init_thread(thread, name, DEFAULT_PRIORITY); */
+    init_thread(thread, name, 20);
     create_user_vaddr_bitmap(thread);
     create_thread(thread, start_process, filename);
     thread->pgdir = create_page_dir();
-    thread->pid   = allocate_pid();
+    thread->pid = allocate_pid();
     enum intr_status old_status = intr_disable();
     ASSERT(!list_find_element(&thread->proc_list_tag, &process_all_list));
     list_add_tail(&thread->proc_list_tag, &process_all_list);
@@ -170,11 +177,11 @@ void process_execute(void *filename, char *name)
 void process_execute_ring1(void *filename, char *name)
 {
     TCB_t *thread = get_kernel_page(1);
-    init_thread(thread, name, default_priority);
+    init_thread(thread, name, DEFAULT_PRIORITY);
     create_user_vaddr_bitmap(thread);
     create_thread(thread, start_process_ring1, filename);
     thread->pgdir = create_page_dir();
-    thread->pid   = allocate_pid();
+    thread->pid = allocate_pid();
     enum intr_status old_status = intr_disable();
     ASSERT(!list_find_element(&thread->proc_list_tag, &process_all_list));
     list_add_tail(&thread->proc_list_tag, &process_all_list);
