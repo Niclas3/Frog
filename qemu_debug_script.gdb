@@ -9,7 +9,13 @@ tui en
 # b *0xce57
 # b *0xd082
 b *0xc0080000
-b fsk_mouse.c: 52 if cursor_y == 0
+# b fsk_mouse.c: 52 if cursor_y == 0
+# b fork.c: 65
+# b sys_fork
+b u_fune
+b bootpack.c: 516
+b bootpack.c: 513
+
 # b 158
 # b make_mouse_packet
 # b inthandler2C

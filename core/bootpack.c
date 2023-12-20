@@ -77,6 +77,8 @@ void gfx_test_print_fn(gfx_context_t *ctx,
                        uint_32 text_y,
                        uint_32 print_type);
 
+// first user progress
+void init(void);
 struct lock main_lock;
 
 // test valuable
@@ -117,11 +119,13 @@ void UkiMain(void)
 
     ps2hid_init();
 
+
     // init gfx memory at qemu
     // alloc 2d graphics memory
+    gfx_context_t *g_ctx;
     g_boot_gfx_mode = boot_graphics_mode();
 
-    gfx_context_t *g_ctx;
+    /* gfx_context_t *g_ctx; */
     if (g_boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
 
@@ -137,28 +141,28 @@ void UkiMain(void)
         uint_32 fontsize = 8;
         clear_screen(g_ctx, FSK_OLIVE);
 
-        uint_32 status_bar_color = 0x131313;
-        Point top_left = {.X = 0, .Y = 0};
-        Point down_right = {.X = screen_width, .Y = 34};
-        fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
-
+        /* uint_32 status_bar_color = 0x88131313; */
+        /* Point top_left = {.X = 0, .Y = 0}; */
+        /* Point down_right = {.X = screen_width, .Y = 34}; */
+        /* fill_rect_solid(g_ctx, top_left, down_right, status_bar_color); */
+        /*  */
         /* top_left.X = 20; */
         /* top_left.Y = 20; */
         /* down_right.X = 40; */
         /* down_right.Y = 40; */
-        /* fill_rect_solid(g_ctx, top_left, down_right,  0x00D2B48C); */
+        /* fill_rect_solid(g_ctx, top_left, down_right, FSK_LIME | 0xff000000);
+         */
         /* top_left.X = 30; */
         /* top_left.Y = 25; */
         /* down_right.X = 40 + 10; */
         /* down_right.Y = 40 + 15; */
-        /* fill_rect_solid(g_ctx,top_left, down_right,  0xFFD2B48C); */
-        /* draw_pixel(g_ctx, 200, 200,  0xaaD2b48c); */
+        /* fill_rect_solid(g_ctx, top_left, down_right, 0x99D2B48C); */
+        /* draw_pixel(g_ctx, 200, 200, 0xaaD2b48c); */
 
         // display mouse cursor
-        uint_32 cursor_x = 200;
-        uint_32 cursor_y = 200;
-        create_fsk_mouse(g_ctx, cursor_x, cursor_y);
-
+        /* uint_32 cursor_x = 200; */
+        /* uint_32 cursor_y = 200; */
+        /* create_fsk_mouse(g_ctx, cursor_x, cursor_y); */
 
         // test print number
         /* uint_32 test_dec_x = 0; */
@@ -169,7 +173,9 @@ void UkiMain(void)
         /* gfx_test_print_fn(g_ctx, test_dec_x, test_dec_y, pfn_type); */
         /* pfn_type = 2;  // hex type */
         /* gfx_test_print_fn(g_ctx, test_hex_x, test_hex_y, pfn_type); */
+
         // end test
+        flip(g_ctx);
 
     } else if (g_boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
@@ -204,17 +210,18 @@ void UkiMain(void)
         /* printf("error %d", b); */
 
         /* printf("1234567890a"); */
-        char *str = sys_malloc(1024);
-        printf("test%d %s %x %c", 10, "zm", 15, 'z');
-        sprintf(str, "test%d %s %x %c", 10, "zm", 15, 'z');
-        sys_write(1, str, strlen(str));
-        sys_free(str);
+        /* char *str = sys_malloc(1024); */
+        /* printf("test%d %s %x %c", 10, "zm", 15, 'z'); */
+        /* sprintf(str, "test%d %s %x %c", 10, "zm", 15, 'z'); */
+        /* sys_write(1, str, strlen(str)); */
+        /* sys_free(str); */
+        /* process_execute(u_fune, "A");  // pid 6 */
 
-        char readbuf[1] = {0};
-        while (1) {
-            sys_read(stdin_, readbuf, 1);
-            sys_write(stdout_, readbuf, 1);
-        }
+        /* char readbuf[1] = {0}; */
+        /* while (1) { */
+        /*     sys_read(stdin_, readbuf, 1); */
+        /*     sys_write(stdout_, readbuf, 1); */
+        /* } */
 
         /* struct dir *pdir = NULL; */
         /* struct dir_entry *dir_e = NULL; */
@@ -233,7 +240,8 @@ void UkiMain(void)
 
     /* TCB_t *keyboard_c = thread_start("k_reader", 10, keyboard_consumer, 3);
      */
-    /* TCB_t *redraw = thread_start("redraw_thread", 42, redraw_window, g_ctx); */
+    /* TCB_t *redraw = thread_start("redraw_thread", 42, redraw_window, g_ctx);
+     */
     /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 240, 100, "test"); */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
     /* TCB_t *fwriter = thread_start("bbbbbbbbbbbbbbb", 10, funcb, 3); */
@@ -247,6 +255,7 @@ void UkiMain(void)
     /* process_execute(u_funf, "C");  // pid 4 */
     /* process_execute(u_fund, "B");  // pid 5 */
     /* process_execute(u_fune, "A");  // pid 6 */
+    process_execute(u_fune, "A");  // pid 6
 
     /* process_execute(u_fung, "D");  */
 
@@ -502,15 +511,43 @@ void u_funf(int a)
 // proc A
 void u_fune(int a)
 {
-    while (1) {
-        if (list_length(&process_all_list) >= 5) {
-            // A->B
-            message msg;
-            reset_msg(&msg);
-            msg.m_type = 1234;
-            sendrec(SEND, 4, &msg);
-        }
+
+    char *pathname = "/test1.txt";
+    int_32 fd = open(pathname, O_RDWR);
+    if (fd == -1) {
+        fd = open(pathname, O_CREAT);
+        close(fd);
+        fd = open(pathname, O_RDWR);
     }
+    char *buf = "u_fune_test";
+    write(fd, buf, strlen(buf));
+    close(fd);
+    /* while (1) { */
+    /* uint_32 ret_pid = fork(); */
+    /* if (ret_pid) { */
+    /*     #<{(| uint_32 pid = getpid(); |)}># */
+    /*     // I'am parents process */
+    /*     #<{(| printf("Parents pid is %d\n", pid); |)}># */
+    /* } else { */
+    /*     // I'am child process */
+    /*     __asm__ volatile("xchgw %bx, %bx;"); */
+    /*     #<{(| uint_32 pid = getpid(); |)}># */
+    /* } */
+    while (1)
+        ;
 }
 
 void u_fung(int a) {}
+
+
+void init(void)
+{
+    /* uint_32 ret_pid = fork(); */
+    /* if (ret_pid) { */
+    /*     printf("Parents pid is %d", getpid()); */
+    /* } else { */
+    /*     printf("child pid is %d, ret id is %d", getpid(), ret_pid); */
+    /* } */
+    while (1)
+        ;
+}
