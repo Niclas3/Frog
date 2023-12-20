@@ -4,8 +4,9 @@
 #include <sys/int.h>
 #include <sys/memory.h>
 #include <sys/process.h>
-#include <sys/threads.h>
 #include <sys/sched.h>
+#include <sys/threads.h>
+#include <sys/fork.h>
 
 #include <debug.h>
 #include <protect.h>
@@ -26,6 +27,7 @@ static struct list_head *thread_tag;
 static tid_t allocate_tid(void);
 
 extern void switch_to(TCB_t *cur, TCB_t *next);
+extern void init(void);
 
 // a thread when os is idle, block itself
 static void idle(void *arg)
@@ -35,6 +37,7 @@ static void idle(void *arg)
         __asm__ volatile("sti; hlt" : : : "memory");
     }
 }
+
 static void kernel_thread(__routine_ptr_t func_ptr, void *func_arg)
 {
     // Looking for threads' status
@@ -92,6 +95,7 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
     thread->elapsed_ticks = 0;
     thread->pgdir = NULL;
     thread->cwd_inode_nr = 0;  // current working directory to root_dir default
+    thread->parent_pid = -1;   // default parent_pid is -1 -> no parent pid
 
     thread->stack_magic = 0x19900921;
 }
@@ -138,7 +142,7 @@ static void make_main_thread(void)
     main_thread = running_thread();
     init_thread(main_thread, "main", 42);
 
-    main_thread->pid = 1;
+    main_thread->pid = 0;
     ASSERT(!list_find_element(&main_thread->proc_list_tag, &process_all_list));
     list_add_tail(&main_thread->proc_list_tag, &process_all_list);
 
@@ -179,6 +183,7 @@ void thread_init(void)
     init_list_head(&process_all_list);
     lock_init(&tid_lock);
     lock_init(&pid_lock);
+    /* process_execute(init, "init"); */
     // main thread tid = 1
     make_main_thread();
     // idle thread tid = 2

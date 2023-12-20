@@ -77,6 +77,7 @@ struct thread_stack {
 
 typedef struct thread_control_block {
     uint_32 *self_kstack;              // <--- thread_stack + context_registers >
+    pid_t parent_pid;                  // parent process id
     pid_t pid;                         // process id
     tid_t tid;                         // thread id for each thread
     task_status_t status;
