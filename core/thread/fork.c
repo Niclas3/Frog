@@ -83,25 +83,32 @@ static void copy_body_stack3(TCB_t *child_thread,
 
 static int_32 build_child_stack(TCB_t *child_thread, TCB_t *parent_thread)
 {
-    /* struct context_registers *intr_0_stack = */
-    /*     (struct context_registers *) ((uint_32) child_thread + PG_SIZE - */
-    /*                                   sizeof(struct thread_stack)); */
     struct context_registers *intr_0_stack =
         (struct context_registers *) ((uint_32) child_thread + PG_SIZE -
                                       sizeof(struct context_registers));
+
     // 1. change child thread return value
     intr_0_stack->eax = 0;
-    struct thread_stack *thread_stack =
-        (struct thread_stack *) ((uint_32) intr_0_stack -
-                                 sizeof(struct thread_stack));
     // 2. Construct thread_stack
+    // in switch.s
+    /* ;Now stack top is ret address */
+    /* push esi */
+    /* push edi */
+    /* push ebx */
+    /* push ebp */
+
     uint_32 *ret_addr_in_thread_stack = (uint_32*) intr_0_stack - 1;
+    uint_32 *esi_addr = (uint_32 *)intr_0_stack -2;
+    uint_32 *edi_addr = (uint_32 *)intr_0_stack -3;
+    uint_32 *ebx_addr = (uint_32 *)intr_0_stack -4;
     uint_32 *ebp_ptr_in_thread_stack = (uint_32 *) intr_0_stack - 5;
     *ret_addr_in_thread_stack = (uint_32) intr_exit;
     child_thread->self_kstack = ebp_ptr_in_thread_stack;
 
-    /* thread_stack->unused_retaddr = intr_exit; */
-    /* child_thread->self_kstack = (uint_32*)thread_stack; */
+    /* struct thread_stack *t_stack = */
+    /*     (struct thread_stack *) ((uint_32) child_thread + PG_SIZE - */
+    /*                              sizeof(struct context_registers) - */
+    /*                              sizeof(struct thread_stack)); */
 
     return 0;
 }
