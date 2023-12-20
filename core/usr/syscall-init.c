@@ -95,6 +95,9 @@ void syscall_init(void)
     syscall_table[SYS_REWINDDIR] = sys_rewinddir;
     syscall_table[SYS_RMDIR] = sys_rmdir;
 
+    syscall_table[SYS_GETCWD] = sys_getcwd;
+    syscall_table[SYS_CHDIR] = sys_chdir;
+    syscall_table[SYS_STAT] = sys_stat;
 
     // mico-kernel way
     syscall_table[SYS_SENDREC] = sys_sendrec;

@@ -23,6 +23,9 @@ enum SYSCALL_NR{
     SYS_READDIR,
     SYS_REWINDDIR,
     SYS_RMDIR,
+    SYS_GETCWD,
+    SYS_CHDIR,
+    SYS_STAT,
 };
 
 /**

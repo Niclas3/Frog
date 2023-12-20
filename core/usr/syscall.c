@@ -22,14 +22,14 @@
         __res;                                    \
     });
 
-#define _syscall2(NUMBER, ARG1, ARG2)                       \
-    ({                                                      \
-        int __res;                                          \
-        __asm__ volatile("int $0x93"                        \
-                         : "=a"(__res)                      \
-                         : "a"(NUMBER), "b"(ARG1) ,"c"(ARG2) \
-                         : "memory");                       \
-        __res;                                              \
+#define _syscall2(NUMBER, ARG1, ARG2)                        \
+    ({                                                       \
+        int __res;                                           \
+        __asm__ volatile("int $0x93"                         \
+                         : "=a"(__res)                       \
+                         : "a"(NUMBER), "b"(ARG1), "c"(ARG2) \
+                         : "memory");                        \
+        __res;                                               \
     });
 
 
@@ -96,7 +96,7 @@ uint_32 fork(void)
 
 int_32 open(const char *pathname, uint_8 flags)
 {
-    return _syscall2(SYS_OPEN, (uint_32)pathname, flags);
+    return _syscall2(SYS_OPEN, (uint_32) pathname, flags);
 }
 int_32 close(int_32 fd)
 {
@@ -149,6 +149,21 @@ void rewinddir(struct dir *dirp)
 int_32 rmdir(const char *pathname)
 {
     return _syscall1(SYS_RMDIR, pathname);
+}
+
+char *sys_getcwd(char *buf, int_32 size)
+{
+    return _syscall2(SYS_GETCWD, buf, size);
+}
+
+int_32 sys_chdir(const char *pathname)
+{
+    return _syscall1(SYS_CHDIR, pathname);
+}
+
+int_32 sys_stat(const char *pathname, struct stat *statbuf)
+{
+    return _syscall2(SYS_STAT, pathname, statbuf);
 }
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg)
