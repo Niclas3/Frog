@@ -8,6 +8,7 @@
 
 #include <sys/graphic.h>
 #include <sys/threads.h>
+#include <sys/fork.h>
 #include <fs/fs.h> // for sys_write/ sys_open/ sys_close
 
 #include <ipc.h>
@@ -80,6 +81,7 @@ void syscall_init(void)
     syscall_table[SYS_write] = sys_write;
     syscall_table[SYS_malloc] = sys_malloc;
     syscall_table[SYS_free] = sys_free;
+    syscall_table[SYS_fork] = sys_fork;
     // mico-kernel way
     syscall_table[SYS_sendrec] = sys_sendrec;
 }

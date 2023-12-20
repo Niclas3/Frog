@@ -41,23 +41,26 @@
         __res;                                                          \
     });
 
-#define _syscall4(NUMBER, ARG1, ARG2, ARG3, ARG4)                             \
-    ({                                                                  \
-        int __res;                                                      \
-        __asm__ volatile("int $0x93"                                    \
-                         : "=a"(__res)                                  \
-                         : "a"(NUMBER), "b"(ARG1), "c"(ARG2), "d"(ARG3), "S"(ARG4) \
-                         : "memory");                                   \
-        __res;                                                          \
+#define _syscall4(NUMBER, ARG1, ARG2, ARG3, ARG4)                        \
+    ({                                                                   \
+        int __res;                                                       \
+        __asm__ volatile("int $0x93"                                     \
+                         : "=a"(__res)                                   \
+                         : "a"(NUMBER), "b"(ARG1), "c"(ARG2), "d"(ARG3), \
+                           "S"(ARG4)                                     \
+                         : "memory");                                    \
+        __res;                                                           \
     });
 
-uint_32 getpid(void){
+uint_32 getpid(void)
+{
     return _syscall0(SYS_getpid);
 }
 
 
 
-uint_32 write(int_32 fd, const void*buf, uint_32 count){
+uint_32 write(int_32 fd, const void *buf, uint_32 count)
+{
     return _syscall3(SYS_write, fd, buf, count);
 }
 
@@ -80,13 +83,21 @@ uint_32 get_ticks(void)
     return msg.RETVAL;
 }
 
-void* malloc(uint_32 size){
-    return (void*)_syscall1(SYS_malloc, size);
+void *malloc(uint_32 size)
+{
+    return (void *) _syscall1(SYS_malloc, size);
 }
-void free(void *ptr){
+void free(void *ptr)
+{
     _syscall1(SYS_free, ptr);
 }
 
-uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg){
+uint_32 fork(void)
+{
+    return _syscall0(SYS_fork);
+}
+
+uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg)
+{
     return _syscall3(SYS_sendrec, func, src_dest, p_msg);
 }

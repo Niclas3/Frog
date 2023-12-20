@@ -11,6 +11,7 @@ enum SYSCALL_NR{
     SYS_sendrec,
     SYS_malloc,
     SYS_free,
+    SYS_fork,
 };
 
 /**
@@ -144,6 +145,8 @@ uint_32 get_ticks(void);
 
 void* malloc(uint_32 size);
 void free(void *ptr);
+
+uint_32 fork(void);
 
 //System call: uint_32 write(char*)
 //return len of str
