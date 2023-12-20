@@ -526,7 +526,8 @@ void u_fune(int a)
     /*     write(fd, buf, strlen(buf)); */
     /* } else { */
     /*     char buf[200] = {0}; */
-    /*     sprintf(buf, "childpid:%d,fork ret: %d--------", getpid(), ret_pid); */
+    /*     sprintf(buf, "childpid:%d,fork ret: %d--------", getpid(), ret_pid);
+     */
     /*     write(fd, buf, strlen(buf)); */
     /* } */
     /* while (1) */
@@ -541,9 +542,9 @@ void init(void)
     uint_32 ret_pid = fork();
     if (ret_pid) {
         /* printf("Parents pid is %d", getpid()); */
+        while (1)
+            ;
     } else {
         /* printf("child pid is %d, ret id is %d", getpid(), ret_pid); */
     }
-    while (1)
-        ;
 }
