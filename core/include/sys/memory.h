@@ -97,22 +97,26 @@ struct pool {
     uint_32 pool_size;
 };
 
+void mem_init(void);
 // alloc any size memory
 void *sys_malloc(uint_32 size);
 // Free pointed memory
 void sys_free(void* ptr);
 
-void mem_init(void);
+void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt);
 
-//Picking a pool return a free v_address
-static void* get_free_vaddress(pool_type poolt, uint_32 pg_cnt);
 //Alloc a page aka (4kb) link to vaddr_start
 void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start);
 
-// get or free 4k phy memory aka 1 page -> pte
-void* get_free_page(struct pool *mpool);
+//alloc a phyaddr to given virtual address
+void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr);
 
-void free_page(struct pool *mpool, uint_32 phy_addr_page);
+// init block descriptors
+void block_desc_init(struct mem_block_desc *desc_array);
+
+// // get or free 4k phy memory aka 1 page -> pte
+// void* get_free_page(struct pool *mpool);
+// void free_page(struct pool *mpool, uint_32 phy_addr_page);
 
 // Copy or free 4m phy memory -> dte
 // TODO: 
