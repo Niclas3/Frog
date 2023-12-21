@@ -2,6 +2,7 @@
 #define __SYS_SYSCALL_H
 #include <ostype.h>
 #include <ipc.h>
+#include <fs/fs.h>
 
 typedef struct kwaak_msg message;
 
@@ -184,6 +185,12 @@ struct dir_entry *readdir(struct dir *dirp);
 void rewinddir(struct dir *dirp);
 
 int_32 rmdir(const char *pathname);
+
+char *getcwd(char *buf, int_32 size);
+
+int_32 chdir(const char *pathname);
+
+int_32 stat(const char *pathname, struct stat *statbuf);
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg);
 #endif

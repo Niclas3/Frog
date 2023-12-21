@@ -151,17 +151,17 @@ int_32 rmdir(const char *pathname)
     return _syscall1(SYS_RMDIR, pathname);
 }
 
-char *sys_getcwd(char *buf, int_32 size)
+char *getcwd(char *buf, int_32 size)
 {
     return _syscall2(SYS_GETCWD, buf, size);
 }
 
-int_32 sys_chdir(const char *pathname)
+int_32 chdir(const char *pathname)
 {
     return _syscall1(SYS_CHDIR, pathname);
 }
 
-int_32 sys_stat(const char *pathname, struct stat *statbuf)
+int_32 stat(const char *pathname, struct stat *statbuf)
 {
     return _syscall2(SYS_STAT, pathname, statbuf);
 }
