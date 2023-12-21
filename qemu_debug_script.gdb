@@ -16,6 +16,12 @@ b u_fune
 b bootpack.c: 516
 b bootpack.c: 513
 
+# b inthandler20
+b sched.c: 62 if cur_thread->ticks == 0
+b init
+# b mount_partition
+#
+# b scan_partitions
 # b 158
 # b make_mouse_packet
 # b inthandler2C
@@ -35,7 +41,6 @@ b bootpack.c: 513
 # b fs.c:248
 # b fs.c:216
 # b intr_hd_handler
-# b mount_partition
 # b scan_partitions
 # b bootpack.c:130
 # b ide.c:495
