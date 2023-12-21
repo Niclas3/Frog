@@ -166,6 +166,10 @@ int_32 stat(const char *pathname, struct stat *statbuf)
     return _syscall2(SYS_STAT, pathname, statbuf);
 }
 
+void putc(char c){
+    _syscall1(SYS_PUTC, c);
+}
+
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg)
 {
     return _syscall3(SYS_SENDREC, func, src_dest, p_msg);

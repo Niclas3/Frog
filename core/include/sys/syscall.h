@@ -27,6 +27,7 @@ enum SYSCALL_NR{
     SYS_GETCWD,
     SYS_CHDIR,
     SYS_STAT,
+    SYS_PUTC,
 };
 
 /**
@@ -192,5 +193,7 @@ int_32 chdir(const char *pathname);
 
 int_32 stat(const char *pathname, struct stat *statbuf);
 
+void putc(char c);
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg);
+
 #endif

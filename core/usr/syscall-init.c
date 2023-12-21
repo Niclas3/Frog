@@ -2,6 +2,7 @@
 #include <ostype.h>
 #include <stdio.h>
 #include <string.h>
+#include <print.h>
 
 #include <sys/syscall-init.h>
 #include <sys/syscall.h>
@@ -74,6 +75,11 @@ uint_32 sys_sendrec(uint_32 func,
     return 0;
 }
 
+void sys_putc(char c)
+{
+    put_char(c);
+}
+
 void syscall_init(void)
 {
     // Mono-kernel way
@@ -98,6 +104,8 @@ void syscall_init(void)
     syscall_table[SYS_GETCWD] = sys_getcwd;
     syscall_table[SYS_CHDIR] = sys_chdir;
     syscall_table[SYS_STAT] = sys_stat;
+
+    syscall_table[SYS_PUTC] = sys_putc;
 
     // mico-kernel way
     syscall_table[SYS_SENDREC] = sys_sendrec;
