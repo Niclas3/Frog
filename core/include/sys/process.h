@@ -8,7 +8,8 @@ typedef struct thread_control_block TCB_t;
 // 0xc0000000 is bottom of stack
 // 0xc0000000 is end of lower 3G in 4G virtual address
 #define USER_STACK3_VADDR 0xc0000000-0x1000
-#define USER_VADDR_START  0x08048000
+// user process code section start at USER_VADDR_START
+#define USER_VADDR_START  0x08048000 
 
 #define DEFAULT_PRIORITY 30
 

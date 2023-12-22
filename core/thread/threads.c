@@ -183,10 +183,11 @@ void thread_init(void)
     init_list_head(&process_all_list);
     lock_init(&tid_lock);
     lock_init(&pid_lock);
+    // init thread tid = 1 pid = 1
     process_execute(init, "init");
-    // main thread tid = 1
+    // main thread tid = 2
     make_main_thread();
-    // idle thread tid = 2
+    // idle thread tid = 3
     idle_thread = thread_start("idle", 10, idle, 0);
 }
 
