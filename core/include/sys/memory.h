@@ -134,4 +134,8 @@ void* get_kernel_page(uint_32 pg_cnt);
 
 void* get_user_page(uint_32 pg_cnt);
 
+uint_32 *pde_ptr(uint_32 vaddr);
+
+uint_32 *pte_ptr(uint_32 vaddr);
+
 #endif

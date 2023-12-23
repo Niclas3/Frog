@@ -285,7 +285,7 @@ static void free_page(struct pool *mpool, uint_32 phy_addr_page)
     set_value_bitmap(&mpool->pool_bitmap, pos, 0);
 }
 
-static uint_32 *pte_ptr(uint_32 vaddr)
+uint_32 *pte_ptr(uint_32 vaddr)
 {
     // I set last PDE as PDT table address
     // So the No.1023 pde to hex is 0x3ff
@@ -298,7 +298,7 @@ static uint_32 *pte_ptr(uint_32 vaddr)
     return (uint_32 *) target_pte;
 }
 
-static uint_32 *pde_ptr(uint_32 vaddr)
+uint_32 *pde_ptr(uint_32 vaddr)
 {
     // the last page table address of main process
     // The last page table address in PDE is
