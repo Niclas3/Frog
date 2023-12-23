@@ -9,9 +9,13 @@ typedef struct kwaak_msg message;
 enum SYSCALL_NR{
     SYS_GETPID, // 0
     SYS_SENDREC,
+    //heap
     SYS_MALLOC,
     SYS_FREE,
+    //process
     SYS_FORK,
+    SYS_EXECV,
+    //file system api
     SYS_OPEN,
     SYS_CLOSE,
     SYS_READ,
@@ -27,6 +31,7 @@ enum SYSCALL_NR{
     SYS_GETCWD,
     SYS_CHDIR,
     SYS_STAT,
+    //i/o
     SYS_PUTC,
 };
 
@@ -155,13 +160,12 @@ enum SYSCALL_NR{
  */
 uint_32 getpid(void);
 
-pid_t get_pid(void);
-uint_32 get_ticks(void);
-
 void* malloc(uint_32 size);
 void free(void *ptr);
 
 uint_32 fork(void);
+
+int_32 execv(const char *path, const char *argv[]);
 
 //System call: uint_32 write(char*)
 //return len of str

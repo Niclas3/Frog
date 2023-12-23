@@ -10,6 +10,7 @@
 #include <sys/graphic.h>
 #include <sys/threads.h>
 #include <sys/fork.h>
+#include <sys/exec.h>
 #include <fs/fs.h> // for sys_write/ sys_open/ sys_close
 
 #include <ipc.h>
@@ -86,7 +87,9 @@ void syscall_init(void)
     syscall_table[SYS_GETPID] = sys_getpid;
     syscall_table[SYS_MALLOC] = sys_malloc;
     syscall_table[SYS_FREE] = sys_free;
+
     syscall_table[SYS_FORK] = sys_fork;
+    syscall_table[SYS_EXECV] = sys_execv;
 
     syscall_table[SYS_OPEN] = sys_open;
     syscall_table[SYS_CLOSE] = sys_close;

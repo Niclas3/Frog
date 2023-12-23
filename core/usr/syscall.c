@@ -59,27 +59,6 @@ uint_32 getpid(void)
     return _syscall0(SYS_GETPID);
 }
 
-
-
-pid_t get_pid(void)
-{
-    message msg;
-    reset_msg(&msg);
-    msg.m_type = GET_PID;
-    sendrec(BOTH, TASK_SYS, &msg);
-    return msg.RETVAL;
-}
-
-// How to communicate with kernel code, like use interrupt
-uint_32 get_ticks(void)
-{
-    message msg;
-    reset_msg(&msg);
-    msg.m_type = GET_TICKS;
-    sendrec(BOTH, TASK_SYS, &msg);
-    return msg.RETVAL;
-}
-
 void *malloc(uint_32 size)
 {
     return (void *) _syscall1(SYS_MALLOC, size);
@@ -92,6 +71,10 @@ void free(void *ptr)
 uint_32 fork(void)
 {
     return _syscall0(SYS_FORK);
+}
+
+int_32 execv(const char *path, const char *argv[]){
+    return _syscall2(SYS_EXECV, path, argv);
 }
 
 int_32 open(const char *pathname, uint_8 flags)
