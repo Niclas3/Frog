@@ -15,7 +15,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/ipc.o \
 	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o $(BUILD_DIR)/pipe.o\
 	 $(BUILD_DIR)/memory.o \
-         $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o \
+         $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o $(BUILD_DIR)/exec.o\
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/fork.o \
          $(BUILD_DIR)/panic.o $(BUILD_DIR)/kernel_print.o \
 	 $(BUILD_DIR)/core.o
@@ -31,6 +31,9 @@ $(BUILD_DIR)/sched.o:
 
 $(BUILD_DIR)/threads.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "threads.c")
+
+$(BUILD_DIR)/exec.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "exec.c")
 
 $(BUILD_DIR)/process.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "process.c")
