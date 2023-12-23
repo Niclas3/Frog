@@ -7,6 +7,7 @@
 #include <ipc.h>
 
 #define MAX_FILES_OPEN_PER_PROC 8
+#define TASK_NAME_LEN 16
 
 #define GET_THREAD_FROM_READYLIST(ptr) container_of((ptr), TCB_t, general_tag);
 #define GET_THREAD_FROM_ALLLIST(ptr) container_of((ptr), TCB_t, all_list_tag);
@@ -82,7 +83,7 @@ typedef struct thread_control_block {
     tid_t tid;                         // thread id for each thread
     task_status_t status;
     uint_32       priority;
-    char name[16];
+    char name[TASK_NAME_LEN];
     uint_32 ticks;                                // working on CPU ticks
     uint_32 elapsed_ticks;                        // containing how many ticks passed
     struct list_head general_tag;                 // set this tag to thread_ready_list
