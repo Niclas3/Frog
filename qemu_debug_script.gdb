@@ -17,8 +17,8 @@ b bootpack.c: 516
 b bootpack.c: 513
 
 # b inthandler20
-b sched.c: 62 if cur_thread->ticks == 0
-b init
+# b sched.c: 62 if cur_thread->ticks == 0
+# b init
 # b mount_partition
 #
 # b scan_partitions

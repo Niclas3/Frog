@@ -117,6 +117,10 @@ void UkiMain(void)
     fs_init();
     ps2hid_init();
 
+
+
+    const char** argv = {0};
+    execv("/test",argv);
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
     // init gfx memory at qemu
@@ -306,12 +310,12 @@ void keyboard_consumer(int a)
 void func(int a)
 {
     while (1) {
-        char readbuf[1] = "x";
-        spin_lock(spin_lock);
-
-        /* sys_write(stdout_, readbuf, 1); */
-
-        spin_unlock(spin_lock);
+        /* char readbuf[1] = "x"; */
+        /* spin_lock(spin_lock); */
+        /*  */
+        /* #<{(| sys_write(stdout_, readbuf, 1); |)}># */
+        /*  */
+        /* spin_unlock(spin_lock); */
     }
     // Read from file
     /* int_32 fd2 = sys_open("/test1.txt", O_RDONLY); */
@@ -485,8 +489,8 @@ void u_funf(int a)
     // pid expecting 2
     /* pid_t pid_what = get_pid_mm_test(); */
     pid_t pid = getpid();
-    pid_t pid_what = get_pid();
-    int maybe100 = get_ticks();
+    /* pid_t pid_what = get_pid(); */
+    /* int maybe100 = get_ticks(); */
 
     while (1) {
         // C->A
@@ -496,17 +500,18 @@ void u_funf(int a)
             msg.m_type = 1234;
             sendrec(SEND, 5, &msg);
         }
-        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16,
-                 maybe100);
-        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16,
-                 pid_what);
-        draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid);
+        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16, */
+        /*          maybe100); */
+        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16, */
+        /*          pid_what); */
+        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid); */
     }
 }
 
 // proc A
 void u_fune(int a)
 {
+    /* TCB_t *t1 = thread_start("u_fune_t1", 20, func,10); */
     /* put_str("test"); */
     /* putc('a'); */
     /* char *pathname = "/test2.txt"; */
