@@ -738,7 +738,8 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
             //console_write() things
             char tmp[1024] = {0};
             memcpy(tmp, buf, count);
-            console_put_str(tmp);
+            console_write(tmp, count);
+            /* console_put_str(tmp); */
             return count;
         }
     } else if (is_pipe(fd)) {
