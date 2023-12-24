@@ -117,9 +117,6 @@ void UkiMain(void)
     fs_init();
     ps2hid_init();
 
-
-    /* const char** argv = {0}; */
-    /* execv("/test",argv); */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
     // init gfx memory at qemu
@@ -137,13 +134,21 @@ void UkiMain(void)
             PANIC("vedio context error");
         }
         console_init(g_ctx);
+
         draw_pixel(g_ctx, 200, 200, FSK_LIME);
         uint_32 screen_width = g_ctx->width;
         uint_32 screen_height = g_ctx->height;
         uint_32 fontsize = 8;
-        clear_screen(g_ctx, FSK_OLIVE);
-        char *test = "zm test!~";
-        printf("%s", test);
+        clear_screen(g_ctx, FSK_BLACK);
+        char path[1024] = {0};
+        sys_getcwd(path, 1024);
+        printf("-<zm@k:%s>-", path);
+        char *buf = sys_malloc(1);
+        while (1) {
+            read(stdin_, buf, 1);
+            write(stdout_, buf, 1);
+        }
+        sys_free(buf);
 
         /* uint_32 status_bar_color = 0x88131313; */
         /* Point top_left = {.X = 0, .Y = 0}; */
@@ -258,7 +263,7 @@ void UkiMain(void)
     // User process test
     /* process_execute(u_funf, "C");  // pid 4 */
     /* process_execute(u_fund, "B");  // pid 5 */
-    process_execute(u_fune, "A");  // pid 6
+    /* process_execute(u_fune, "A");  // pid 6 */
 
     /* process_execute(u_fung, "D");  */
 

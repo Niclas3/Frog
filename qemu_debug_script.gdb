@@ -15,6 +15,7 @@ b *0xc0080000
 b u_fune
 b bootpack.c: 516
 b bootpack.c: 513
+b 148
 
 # b inthandler20
 # b sched.c: 62 if cur_thread->ticks == 0
