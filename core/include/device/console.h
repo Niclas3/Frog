@@ -2,7 +2,11 @@
 #define __DEVICE_CONSOLE_C
 #include <ostype.h>
 
-void console_init(void);
+
+typedef struct gfx_2d_context gfx_context_t;
+
+void console_init(gfx_context_t *ctx);
+int_32 console_write(void *buf, uint_32 len);
 
 void console_put_char(uint_8 c);
 
