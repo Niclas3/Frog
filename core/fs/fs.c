@@ -1265,6 +1265,8 @@ static int_32 get_child_dir_name(struct partition *part,
  *  On  failure, these functions return NULL, and errno is set to indicate the
  *er‐ ror.  The contents of the array pointed to by buf are undefined on error.
  *****************************************************************************/
+//FIXME:
+//there are some bugs here. not test.
 char *sys_getcwd(char *buf, int_32 size)
 {
     struct partition *part = &mounted_part;
