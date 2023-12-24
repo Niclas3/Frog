@@ -309,7 +309,10 @@ void inthandler21(void)
         }
 
     } else {
-        PANIC("unknow key");
+        if(scan_code == 0x0){
+        } else {
+            PANIC("unknow key");
+        }
     }
     return;
 }
