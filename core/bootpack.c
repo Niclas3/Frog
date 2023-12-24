@@ -112,15 +112,14 @@ void UkiMain(void)
 
     init_PIT8253();
 
-    console_init();
+    /* console_init(); */
     ide_init();
     fs_init();
     ps2hid_init();
 
 
-
-    const char** argv = {0};
-    execv("/test",argv);
+    /* const char** argv = {0}; */
+    /* execv("/test",argv); */
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
     // init gfx memory at qemu
@@ -137,11 +136,14 @@ void UkiMain(void)
         if (g_ctx == NULL) {
             PANIC("vedio context error");
         }
+        console_init(g_ctx);
         draw_pixel(g_ctx, 200, 200, FSK_LIME);
         uint_32 screen_width = g_ctx->width;
         uint_32 screen_height = g_ctx->height;
         uint_32 fontsize = 8;
         clear_screen(g_ctx, FSK_OLIVE);
+        char *test = "zm test!~";
+        printf("%s", test);
 
         /* uint_32 status_bar_color = 0x88131313; */
         /* Point top_left = {.X = 0, .Y = 0}; */
@@ -256,7 +258,7 @@ void UkiMain(void)
     // User process test
     /* process_execute(u_funf, "C");  // pid 4 */
     /* process_execute(u_fund, "B");  // pid 5 */
-    /* process_execute(u_fune, "A");  // pid 6 */
+    process_execute(u_fune, "A");  // pid 6
 
     /* process_execute(u_fung, "D");  */
 
@@ -504,13 +506,15 @@ void u_funf(int a)
         /*          maybe100); */
         /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16, */
         /*          pid_what); */
-        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid); */
+        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid);
+         */
     }
 }
 
 // proc A
 void u_fune(int a)
 {
+    printf("ring3 print tests");
     /* TCB_t *t1 = thread_start("u_fune_t1", 20, func,10); */
     /* put_str("test"); */
     /* putc('a'); */
@@ -525,7 +529,7 @@ void u_fune(int a)
     /* uint_32 ret_pid = fork(); */
     /* if (ret_pid) { */
     /*     char buf[200] = {0}; */
-        /* sprintf(buf, "parent pid:%d, fork ret: %d++", getpid(), ret_pid); */
+    /* sprintf(buf, "parent pid:%d, fork ret: %d++", getpid(), ret_pid); */
     /*     write(fd, buf, strlen(buf)); */
     /* } else { */
     /*     char buf[200] = {0}; */
@@ -533,7 +537,8 @@ void u_fune(int a)
      */
     /*     write(fd, buf, strlen(buf)); */
     /* } */
-    while (1);
+    while (1)
+        ;
 }
 
 void u_fung(int a) {}
@@ -544,9 +549,11 @@ void init(void)
     uint_32 ret_pid = fork();
     if (ret_pid) {
         /* printf("Parents pid is %d", getpid()); */
-        while (1) ;
+        while (1)
+            ;
     } else {
-        while (1) ;
+        while (1)
+            ;
         /* printf("child pid is %d, ret id is %d", getpid(), ret_pid); */
     }
 }
