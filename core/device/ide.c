@@ -284,9 +284,11 @@ void ide_read(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
     ASSERT(sec_cnt > 0);
     uint_32 cur_lba = lba;
     uint_32 cur_cnt = sec_cnt;
+    char *r_cursor = (char *) buf;
     while (cur_cnt) {
-        ide_read_sector(hd, cur_lba, buf);
-        lba++;
+        ide_read_sector(hd, cur_lba, r_cursor);
+        r_cursor += 512;
+        cur_lba++;
         cur_cnt--;
     }
     return;
@@ -416,9 +418,11 @@ void ide_write(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
     ASSERT(sec_cnt > 0);
     uint_32 cur_lba = lba;
     uint_32 cur_cnt = sec_cnt;
+    char* w_cursor = (char*)buf;
     while (cur_cnt) {
-        ide_write_sector(hd, cur_lba, buf);
-        lba++;
+        ide_write_sector(hd, cur_lba, w_cursor);
+        w_cursor += 512;
+        cur_lba++;
         cur_cnt--;
     }
     return;
