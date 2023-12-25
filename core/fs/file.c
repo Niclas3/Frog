@@ -366,7 +366,7 @@ static int_32 write_zone(struct partition *part,
         *w_cursor += chunk_rest;
         sys_free(tmp);
     } else {  // ZONE_SIZE for 1 sector / 1 zone
-        ide_write(part->my_disk, zone_lba, w_cursor, 1);
+        ide_write(part->my_disk, zone_lba, *w_cursor, 1);
         /* f_inode->i_size += ZONE_SIZE; */
         file->fd_pos += ZONE_SIZE;
         *bytes_written += ZONE_SIZE;
