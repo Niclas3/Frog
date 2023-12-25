@@ -1,6 +1,6 @@
-#include <fs/fs.h>
+/* #include <fs/fs.h> */
 #include <sys/syscall.h>
-#include <sys/threads.h>
+/* #include <sys/threads.h> */
 
 /* X is 0–6, which are  the  number  of  arguments taken by the system call */
 // NUMBER sub-routine number
