@@ -405,7 +405,7 @@ static void ide_write_sector(struct disk *hd, uint_32 lba, void *buf)
         PANIC(error);
     }
     // 5. read data from buffer
-    write_to_sector(hd, (void *) ((uint_32) buf ), 1);
+    write_to_sector(hd, (void *) ((uint_32) buf), 1);
     semaphore_down(&hd->my_channel->disk_done);
     lock_release(&hd->my_channel->lock);
 }
@@ -422,7 +422,6 @@ void ide_write(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
         cur_cnt--;
     }
     return;
-
 }
 
 // FIXME:
@@ -706,11 +705,11 @@ void ide_init(void)
         register_r0_intr_handler(channel->irq_no, intr_hd_handler);
 
         while (dev_no < 2) {
+            struct disk *hd = &channel->devices[dev_no];
+            hd->dev_no = dev_no;
+            hd->my_channel = channel;
+            sprintf(hd->name, "sd%c", 'a' + channel_no * 2 + dev_no);
             if (dev_no != 0) {
-                struct disk *hd = &channel->devices[dev_no];
-                hd->dev_no = dev_no;
-                hd->my_channel = channel;
-                sprintf(hd->name, "sd%c", 'a' + channel_no * 2 + dev_no);
                 scan_partitions(hd);
             } else {
                 dev_no++;
