@@ -60,10 +60,10 @@ static int_32 load_elf_file(const char *pathname)
     }
     sys_read(fd, buf, sizeof(Elf32_Ehdr));
     Elf32_Ehdr *elf_header = (Elf32_Ehdr *) buf;
-    if (elf_header->e_ident[0] == EI_MAG0 &&
-        elf_header->e_ident[1] == EI_MAG1 &&
-        elf_header->e_ident[2] == EI_MAG2 &&
-        elf_header->e_ident[3] == EI_MAG3) {
+    if (elf_header->e_ident[0] == ELFMAG0 &&
+        elf_header->e_ident[1] == ELFMAG1 &&
+        elf_header->e_ident[2] == ELFMAG2 &&
+        elf_header->e_ident[3] == ELFMAG3) {
         phoff = elf_header->e_phoff;     // offset of file
         phsz = elf_header->e_phentsize;  // program header entry size
         phnum = elf_header->e_phnum;     // program header number
