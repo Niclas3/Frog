@@ -5,6 +5,7 @@
 #include <sys/exec.h>
 #include <sys/memory.h>
 #include <sys/threads.h>
+#include <debug.h>
 
 #include <fs/fs.h>
 extern void intr_exit(void);
@@ -111,8 +112,10 @@ int_32 sys_execv(const char *path, const char *argv[])
         return -1;
     }
     TCB_t *cur = running_thread();
-    memcpy(cur->name, path, TASK_NAME_LEN);
-    cur->name[TASK_NAME_LEN - 1] = '\0';
+    uint_32 name_len = strlen(path);
+    ASSERT(name_len < TASK_NAME_LEN);
+    memcpy(cur->name, path, name_len);
+    cur->name[name_len] = '\0';
 
     struct context_registers *intr_0_stack =
         (struct context_registers *) ((uint_32) cur + PG_SIZE -
