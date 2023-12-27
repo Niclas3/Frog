@@ -12,7 +12,7 @@ extern struct list_head thread_all_list;
 extern struct list_head process_all_list;
 
 
-#define CELLING(X, STEP) ((X + STEP - 1) / (STEP))
+#define CELLING(X, STEP) (((X) + (STEP) - 1) / (STEP))
 
 // init at thread.c
 extern struct lock pid_lock;
@@ -91,6 +91,8 @@ static void start_process_ring1(void *filename)
     proc_stack->cs = CREATE_SELECTOR(SEL_IDX_CODE_DPL_1, TI_GDT, RPL1);
     proc_stack->eip = function;
     proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED);
+
+    //stack top
     proc_stack->esp_ptr =
         (void *) ((uint_32) malloc_page_with_vaddr(MP_USER, USER_STACK3_VADDR) +
                   PG_SIZE);
