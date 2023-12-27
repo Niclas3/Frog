@@ -627,14 +627,11 @@ int_32 file_read(struct partition *part,
         return -1;
     }
     ASSERT(file->fd_pos >= 0 && file->fd_pos <= EOF(file));
-    if (file->fd_pos < 0 || file->fd_pos > EOF(file)) {
+    if (file->fd_pos < 0 || file->fd_pos >= EOF(file)) {
         // TODO
         // kprint("Wrong file position.");
         sys_free(io_buf);
         return -1;
-    }
-    if (file->fd_pos >= EOF(file)) {
-        return 0;
     }
     // test file->fd_pos at the end
     // read all file
@@ -673,6 +670,7 @@ int_32 file_read(struct partition *part,
         uint_32 rd_count = DIV_ROUND_UP(rd_len, ZONE_SIZE);
         uint_32 rd_count_offset = rd_len % ZONE_SIZE;
         for (int i = 0; i < rd_count; i++) {
+            r_lba = all_zones[rd_zone_idx + i];
             ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);
             if ((i == (rd_count - 1)) && rd_count_offset != 0) {
                 memcpy(buf, io_buf, rd_count_offset);
@@ -683,8 +681,8 @@ int_32 file_read(struct partition *part,
                 file->fd_pos += ZONE_SIZE;
                 buf += ZONE_SIZE;
             }
-            r_lba = (rd_zone_idx < 12) ? all_zones[rd_zone_idx + i]
-                                       : all_zones[rd_zone_idx - 12 + i];
+            /* r_lba = (rd_zone_idx < 12) ? all_zones[rd_zone_idx + i] */
+            /*                            : all_zones[rd_zone_idx - 12 + i]; */
         }
         sys_free(io_buf);
         return rd_len;
