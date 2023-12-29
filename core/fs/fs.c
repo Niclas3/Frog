@@ -622,15 +622,17 @@ int_32 sys_open(const char *pathname, uint_8 flags)
     char last_name[MAX_FILE_NAME_LEN];
     memcpy(path, pathname, strlen(pathname));
     path_peel(path, last_name);
+    sys_free(path);
 
     struct dir *next_dir = &root_dir;
     char cur_name[MAX_FILE_NAME_LEN] = {0};
 
     int_32 depth = path_depth(pathname);
-    char *dirs_path = sys_malloc(MAX_FILE_NAME_LEN * depth);
     // Open file not at root directory directly
     if (depth > 1) {
+        char *dirs_path = sys_malloc(MAX_FILE_NAME_LEN * depth);
         if (path_dirs(pathname, dirs_path)) {
+            sys_free(dirs_path);
             return -1;
         };
 
@@ -644,6 +646,7 @@ int_32 sys_open(const char *pathname, uint_8 flags)
                 // TODO:
                 // kprint("file not find.");
                 dir_close(next_dir);
+                sys_free(dirs_path);
                 return -1;
             }
             dir_close(next_dir);  // dir_close() does not close root directory
@@ -678,7 +681,7 @@ int_32 sys_open(const char *pathname, uint_8 flags)
         fd = file_open(&mounted_part, file_inode, flags);
         break;
     default:
-        //TODO:
+        // TODO:
         /*when flags is O_TRUNC O_APPEND not support yet*/
         fd = file_open(&mounted_part, file_inode, flags);
         break;
@@ -734,8 +737,8 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
             bytes_written = write_pipe(fd, buf, count);
             return bytes_written;
         } else {
-            //TODO:
-            //console_write() things
+            // TODO:
+            // console_write() things
             char tmp[1024] = {0};
             memcpy(tmp, buf, count);
             console_write(tmp, count);
@@ -796,7 +799,7 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
         }
     } else if (fd == FD_STDERR_NO) {
         return -1;
-    } else if(is_pipe(fd)){
+    } else if (is_pipe(fd)) {
         res = read_pipe(fd, buf, count);
     } else {
         uint_32 g_fd = fd_local2global(fd);
@@ -1265,8 +1268,8 @@ static int_32 get_child_dir_name(struct partition *part,
  *  On  failure, these functions return NULL, and errno is set to indicate the
  *er‐ ror.  The contents of the array pointed to by buf are undefined on error.
  *****************************************************************************/
-//FIXME:
-//there are some bugs here. not test.
+// FIXME:
+// there are some bugs here. not test.
 char *sys_getcwd(char *buf, int_32 size)
 {
     struct partition *part = &mounted_part;
