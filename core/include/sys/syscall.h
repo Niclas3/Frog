@@ -33,6 +33,8 @@ enum SYSCALL_NR{
     SYS_STAT,
     //i/o
     SYS_PUTC,
+    // for test
+    SYS_TESTSYSCALL,
 };
 
 /**
@@ -199,5 +201,6 @@ int_32 stat(const char *pathname, struct stat *statbuf);
 
 void putc(char c);
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message* p_msg);
+void testsyscall(int a);
 
 #endif

@@ -10,5 +10,7 @@ uint_32 sys_getpid(void);
 uint_32 sys_sendrec(uint_32 func,
                     uint_32 src_dest,
                     message *p_msg);
+
+void sys_testsyscall(int a);
 void syscall_init(void);
 #endif

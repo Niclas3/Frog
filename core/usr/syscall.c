@@ -73,7 +73,8 @@ uint_32 fork(void)
     return _syscall0(SYS_FORK);
 }
 
-int_32 execv(const char *path, const char *argv[]){
+int_32 execv(const char *path, const char *argv[])
+{
     return _syscall2(SYS_EXECV, path, argv);
 }
 
@@ -149,11 +150,17 @@ int_32 stat(const char *pathname, struct stat *statbuf)
     return _syscall2(SYS_STAT, pathname, statbuf);
 }
 
-void putc(char c){
+void putc(char c)
+{
     _syscall1(SYS_PUTC, c);
 }
 
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg)
 {
     return _syscall3(SYS_SENDREC, func, src_dest, p_msg);
+}
+
+void testsyscall(int a)
+{
+    _syscall1(SYS_TESTSYSCALL, a);
 }
