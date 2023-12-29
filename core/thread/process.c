@@ -1,4 +1,5 @@
 #include <const.h>
+#include <math.h>
 #include <string.h>
 #include <sys/descriptor.h>
 #include <sys/int.h>
@@ -12,7 +13,7 @@ extern struct list_head thread_all_list;
 extern struct list_head process_all_list;
 
 
-#define CELLING(X, STEP) (((X) + (STEP) - 1) / (STEP))
+#define CELLING(X, STEP) (((X) + (STEP) -1) / (STEP))
 
 // init at thread.c
 extern struct lock pid_lock;
@@ -92,7 +93,7 @@ static void start_process_ring1(void *filename)
     proc_stack->eip = function;
     proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED);
 
-    //stack top
+    // stack top
     proc_stack->esp_ptr =
         (void *) ((uint_32) malloc_page_with_vaddr(MP_USER, USER_STACK3_VADDR) +
                   PG_SIZE);
@@ -144,13 +145,16 @@ uint_32 *create_page_dir(void)
 
 static void create_user_vaddr_bitmap(TCB_t *user_prog)
 {
+    uint_32 bitmap_len =
+        DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE, 8);
+
     user_prog->progress_vaddr.vaddr_start = USER_VADDR_START;
-    uint_32 bitmap_pg_cnt =
-        CELLING((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE);
+    uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PG_SIZE);
+        /* CELLING((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE); */
     user_prog->progress_vaddr.vaddr_bitmap.bits =
         get_kernel_page(bitmap_pg_cnt);
-    user_prog->progress_vaddr.vaddr_bitmap.map_bytes_length =
-        (0xc0000000 - USER_VADDR_START) / PG_SIZE / 8;
+    user_prog->progress_vaddr.vaddr_bitmap.map_bytes_length = bitmap_len;
+        /* (0xc0000000 - USER_VADDR_START) / PG_SIZE / 8; */
     init_bitmap(&user_prog->progress_vaddr.vaddr_bitmap);
 }
 
