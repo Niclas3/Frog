@@ -7,9 +7,12 @@ typedef struct thread_control_block TCB_t;
 // Every user process stack address
 // 0xc0000000 is bottom of stack
 // 0xc0000000 is end of lower 3G in 4G virtual address
+// 0xbffff000
 #define USER_STACK3_VADDR 0xc0000000-0x1000
 // user process code section start at USER_VADDR_START
-#define USER_VADDR_START  0x08048000 
+// #define USER_VADDR_START  0x08048000
+// #define USER_VADDR_START  0x01000000   // does not work at qume? i dont know why
+#define USER_VADDR_START     0x01001000
 
 #define DEFAULT_PRIORITY 30
 
