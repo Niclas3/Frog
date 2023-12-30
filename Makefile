@@ -6,6 +6,8 @@ LOADER = loader.img
 CORE   = core.img
 CORESYM   = core_symbol.img
 FONT   = hankaku_font.img
+TEST_PROC = core/apps/ls
+# TEST_PROC = ./snapshot.bmp
 
 # Use ELF format
 # Real OS code ###########################
@@ -48,16 +50,13 @@ mount: bootloader loader.img core.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
 	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 82k (blank is 120k)
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=253 conv=notrunc #font.img for now size 4k
-	# sudo mount -o loop $(DISK) /mnt/floppy 
-	# sudo cp loader.img /mnt/floppy -v
-	# sudo cp core.img /mnt/floppy -v
-	# sudo cp name.txt /mnt/floppy -v
-	# sudo umount /mnt/floppy
+	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=384 conv=notrunc
 
 mount_debug: bootloader loader.img core_symbol.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
 	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 82k (blank is 120k)
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=253 conv=notrunc #font.img for now size 4k
+	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=384 conv=notrunc
 umount:
 	sudo umount /mnt/floppy
 
