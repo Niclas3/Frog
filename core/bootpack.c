@@ -117,6 +117,41 @@ void UkiMain(void)
     fs_init();
     ps2hid_init();
 
+
+    /* process_execute(u_fune, "A");  // pid 6 */
+    char *app_path = "/ls";
+    char *argv[2] = {"a", "b"};
+    uint_32 file_sz = 22 * 1024;
+    char *ls_buf = sys_malloc(file_sz);
+    uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
+    struct disk *disk0 = &channels[0].devices[0];
+    struct disk *disk1 = &channels[0].devices[1];
+    ide_read(disk0, 384, ls_buf, sectors);
+    /* ide_write(disk1, 384, ls_buf,sectors); */
+    int_32 fd = open(app_path, O_RDWR);
+    if (fd == -1) {
+        fd = open(app_path, O_CREAT | O_RDWR);
+    }
+    sys_write(fd, ls_buf, file_sz);
+    sys_close(fd);
+    sys_free(ls_buf);
+
+    process_execute(u_fune, "A");  // pid 6
+
+    /* char* rd_buf = sys_malloc(file_sz); */
+    /* int_32 fd1 = open(app_path, O_RDWR); */
+    /* int_32 fd3 = open("/ls_tmp",O_CREAT); */
+    /* sys_close(fd3); */
+    /* fd3 = open("/ls_tmp", O_RDWR); */
+    /* sys_read(fd1, rd_buf, file_sz); */
+    /*  */
+    /* sys_write(fd3, "test_ls_tmp", 12); */
+    /*  */
+    /* sys_free(rd_buf); */
+    /* sys_close(fd1); */
+
+
+
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
     // init gfx memory at qemu
@@ -143,12 +178,12 @@ void UkiMain(void)
         char path[1024] = {0};
         sys_getcwd(path, 1024);
         printf("-<zm@k:%s>-", path);
-        char *buf = sys_malloc(1);
-        while (1) {
-            read(stdin_, buf, 1);
-            write(stdout_, buf, 1);
-        }
-        sys_free(buf);
+        /* char *buf = sys_malloc(1); */
+        /* while (1) { */
+        /*     read(stdin_, buf, 1); */
+        /*     write(stdout_, buf, 1); */
+        /* } */
+        /* sys_free(buf); */
 
         /* uint_32 status_bar_color = 0x88131313; */
         /* Point top_left = {.X = 0, .Y = 0}; */
@@ -470,56 +505,56 @@ void redraw_window(gfx_context_t *ctx)
 // proc B
 void u_fund(int a)
 {
-    /* write("XoX"); */
-    /* uint_32 pid = getpid(); */
-    /* pid_t pid = get_pid_mm_test(); */
+    /* char *tmp3 = malloc(512); */
 
-    while (1) {
-        if (list_length(&process_all_list) >= 5) {
-            // B->C
-            message msg;
-            reset_msg(&msg);
-            msg.m_type = 1234;
-            sendrec(SEND, 3, &msg);
-        }
-        /* u_test_a++ ; */
-        /* lock_fetch(&main_lock); */
-        /* draw_hex((uint_8 *)0xc00a0000, 320, COL8_00FF00, 200, 0, pid ); */
-        /* draw_info((uint_8 *)0xc00a0000, 320, COL8_FFFFFF, 15, 0, "Q"); */
-        /* lock_release(&main_lock); */
-    }
+    while (1)
+        ;
 }
 
 // proc C
 void u_funf(int a)
 {
+    while(1);
     // pid expecting 2
     /* pid_t pid_what = get_pid_mm_test(); */
-    pid_t pid = getpid();
-    /* pid_t pid_what = get_pid(); */
-    /* int maybe100 = get_ticks(); */
-
-    while (1) {
-        // C->A
-        if (list_length(&process_all_list) >= 5) {
-            message msg;
-            reset_msg(&msg);
-            msg.m_type = 1234;
-            sendrec(SEND, 5, &msg);
-        }
-        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16, */
-        /*          maybe100); */
-        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16, */
-        /*          pid_what); */
-        /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid);
-         */
-    }
+    /* pid_t pid = getpid(); */
+    /* #<{(| pid_t pid_what = get_pid(); |)}># */
+    /* #<{(| int maybe100 = get_ticks(); |)}># */
+    /*  */
+    /* while (1) { */
+    /*     // C->A */
+    /*     if (list_length(&process_all_list) >= 5) { */
+    /*         message msg; */
+    /*         reset_msg(&msg); */
+    /*         msg.m_type = 1234; */
+    /*         sendrec(SEND, 5, &msg); */
+    /*     } */
+    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16, |)}># */
+    /*     #<{(|          maybe100); |)}># */
+    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16, |)}># */
+    /*     #<{(|          pid_what); |)}># */
+    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid); */
+    /*      |)}># */
+    /* } */
 }
 
 // proc A
 void u_fune(int a)
 {
-    printf("ring3 print tests");
+    /* printf("ring3 print tests"); */
+    /* char *test = malloc(512); */
+    /* free(test); */
+
+    /* testsyscall(1); */
+
+    char *app_path = "/ls";
+    char *argv[2] = {"a", "b"};
+
+    // alloc 0x3000 bytes
+    /* char* tmp3 = malloc(512); */
+
+    execv(app_path, argv);
+
     /* TCB_t *t1 = thread_start("u_fune_t1", 20, func,10); */
     /* put_str("test"); */
     /* putc('a'); */
@@ -546,19 +581,22 @@ void u_fune(int a)
         ;
 }
 
-void u_fung(int a) {}
+void u_fung(int a) {
+    while(1);
+}
 
 
 void init(void)
 {
-    uint_32 ret_pid = fork();
-    if (ret_pid) {
-        /* printf("Parents pid is %d", getpid()); */
-        while (1)
-            ;
-    } else {
-        while (1)
-            ;
-        /* printf("child pid is %d, ret id is %d", getpid(), ret_pid); */
-    }
+    /* uint_32 ret_pid = fork(); */
+    /* if (ret_pid) { */
+    /*     #<{(| printf("Parents pid is %d", getpid()); |)}># */
+    /*     while (1) */
+    /*         ; */
+    /* } else { */
+    /*     while (1) */
+    /*         ; */
+    /*     #<{(| printf("child pid is %d, ret id is %d", getpid(), ret_pid); |)}># */
+    /* } */
+    while(1);
 }

@@ -4,18 +4,44 @@ target remote localhost:1234
 
 # set architecture i386
 file core/build/core_symbol.img
-# b *0x7c00
 tui en
+# if GDB7.0
+# layout asm
+# set disassemble-next-line on
+
+# b *0x7c00
 # b *0xce57
 # b *0xd082
 b *0xc0080000
+b exception_handler
+b panic_print
 # b fsk_mouse.c: 52 if cursor_y == 0
 # b fork.c: 65
 # b sys_fork
-b u_fune
-b bootpack.c: 516
-b bootpack.c: 513
-b 148
+# b u_fune
+b load_code
+# b bootpack.c: 516
+# b bootpack.c: 513
+# b 140
+
+# b malloc_page_with_vaddr_test
+# b sys_testsyscall
+# b syscall-init.c:267
+b load_elf_file
+b syscall-init.c:390
+b sys_testsyscall
+b memory.c: 455
+# b sys_execv
+# b load_elf_file
+# b thread/exec.c:79 if ph_buf->p_offset == 0x3000
+# b 555
+
+
+# b file.c:559 if i == 25
+# b file.c:559 if i == 31
+# b file.c:559 if i == 40
+# b file.c:559 if i == 10
+# b 128
 
 # b inthandler20
 # b sched.c: 62 if cur_thread->ticks == 0

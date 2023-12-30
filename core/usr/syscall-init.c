@@ -83,62 +83,9 @@ void sys_putc(char c)
     put_char(c);
 }
 
-static bool test_inside(uint_32 virtaddr)
-{
-    uint_32 vaddr_first_page = virtaddr & 0xfffff000;
-    uint_32 size_fpage = PG_SIZE - (virtaddr & 0x00000fff);
-    uint_32 occupy_page_cnt = 1;  // in page
-
-    uint_32 page_idx = 0;
-    uint_32 vaddr_page = vaddr_first_page;
-    while (page_idx < occupy_page_cnt) {
-        uint_32 *pde = pde_ptr(vaddr_page);
-        uint_32 *pte = pte_ptr(vaddr_page);
-
-        if (!(*pde & PG_P_SET) || !(*pte & PG_P_SET)) {
-            if (NULL == malloc_page_with_vaddr(MP_USER, vaddr_page)) {
-                return false;
-            }
-
-            char *test = sys_malloc(512);
-            sys_free(test);
-        }
-        vaddr_page += PG_SIZE;
-        page_idx++;
-    }
-    return true;
-}
-
-#include <elf.h>
-static int_32 testoutside(const char *pathname)
-{
-    uint_8 *buf = sys_malloc(sizeof(Elf32_Ehdr));
-    Elf32_Phdr *ph_buf = sys_malloc(32);
-    test_inside(0x8048000);
-
-    return 0;
-}
-
 extern struct pool user_pool;
 extern struct pool kernel_pool;
 extern struct _virtual_addr kernel_viraddr;
-
-static void remove_page(void *v_addr)
-{
-    uint_32 vaddress = (uint_32) v_addr;
-    uint_32 *pde = pde_ptr(vaddress);
-    uint_32 *pte = pte_ptr(vaddress);
-    if (*pde & 0x00000001) {      // test pde if exist
-        if (*pte & 0x00000001) {  // test pde if exist or not
-            *pte &= 0x11111110;   // PG_P_CLI;
-        } else {                  // pte is not exists
-            PANIC("Free twice");
-            // Still make pde is unexist
-            *pte &= 0x11111110;  // PG_P_CLI;
-        }
-        __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory");
-    }
-}
 /* static void *malloc_a_user_page(struct pool *phy_pool) */
 static void *malloc_a_user_page(uint_32 va, uint_32 pa)
 {
@@ -162,6 +109,74 @@ static void *malloc_a_user_page(uint_32 va, uint_32 pa)
     /* return (void *) va; */
     put_page(v_addr, p_addr);
     return (void *) v_addr;
+}
+
+static void *malloc_user_page_with_va(uint_32 va)
+{
+    // get free p_address
+    struct bitmap *bmap = &user_pool.pool_bitmap;
+    uint_32 p_pos = find_block_bitmap(bmap, 1);
+    set_value_bitmap(bmap, p_pos, 1);
+    uint_32 p_addr = user_pool.phy_addr_start + p_pos * 4096;
+    /* uint_32 p_addr = 0x40c5000; */
+
+    put_page(va, p_addr);
+    return (void *) va;
+}
+
+
+static bool test_inside(uint_32 vaddr_page)
+{
+    if (NULL == malloc_page_with_vaddr(MP_USER, vaddr_page)) {
+        return false;
+    }
+    /* if (NULL == malloc_user_page_with_va(vaddr_page)) { */
+    /*     return false; */
+    /* } */
+
+    // 0x1002000
+    /* char *testa = sys_malloc(512); */
+    /* sys_free(testa); */
+
+    uint_32 v_a = 0x1004000;
+    uint_32 p_a = 0x40c8000;
+    uint_32 v_addr = malloc_a_user_page(v_a, p_a);
+
+    *(char *) v_addr = 0xcc;
+    if (*(char *) v_addr != 0xcc) {
+        // alloc next address
+        v_addr = malloc_a_user_page(v_a, p_a);
+    }
+    *(char *) v_addr = 0xbb;
+    return true;
+}
+
+#include <elf.h>
+static int_32 testoutside(const char *pathname)
+{
+    uint_8 *buf = sys_malloc(sizeof(Elf32_Ehdr));
+    Elf32_Phdr *ph_buf = sys_malloc(32);
+    test_inside(0x8048000);
+
+    return 0;
+}
+
+
+static void remove_page(void *v_addr)
+{
+    uint_32 vaddress = (uint_32) v_addr;
+    uint_32 *pde = pde_ptr(vaddress);
+    uint_32 *pte = pte_ptr(vaddress);
+    if (*pde & 0x00000001) {      // test pde if exist
+        if (*pte & 0x00000001) {  // test pde if exist or not
+            *pte &= 0x11111110;   // PG_P_CLI;
+        } else {                  // pte is not exists
+            PANIC("Free twice");
+            // Still make pde is unexist
+            *pte &= 0x11111110;  // PG_P_CLI;
+        }
+        __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory");
+    }
 }
 
 static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
@@ -206,7 +221,6 @@ static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
                 v_addr = malloc_a_user_page(v_a, p_a);
             }
             *(char *) v_addr = 0xbb;
-
         }
         vaddr_page += PG_SIZE;
         page_idx++;
@@ -218,6 +232,8 @@ static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
 
 static int_32 load_elf_file(const char *pathname)
 {
+    /* test_inside(0x8084000); */
+    /* load_code(3, 0x8084000, 0x1000, 0xc); */
     int_32 ret = -1;
     int_32 fd = sys_open(pathname, O_RDONLY);
     if (fd == -1) {
@@ -377,11 +393,19 @@ void sys_testsyscall(int a)
     /* int_32 bit_pos = start_pos; */
     /* int_32 value = 1; */
     /* set_value_bitmap(bmap, start_pos, 1); */
+
+    /* uint_32 v1= malloc_page(MP_USER, 1); */
+    /* uint_32 v2= malloc_page(MP_USER, 1); */
+    /* uint_32 v1 = sys_malloc(512); */
+    /* uint_32 v2 = sys_malloc(23); */
+
     malloc_page_with_vaddr(MP_USER, 0x08084000);
     /* uint_32 v_addr = malloc_a_user_page(&user_pool); */
-    uint_32 v_addr = malloc_page(MP_USER, 1);
+    /* uint_32 v_addr = malloc_page(MP_USER, 1); */
+    uint_32 v3 = sys_malloc(512);
+    *(char *) v3 = 0xff;
 
-    *(char *) v_addr = 0xff;
+    /* *(char *) v_addr = 0xff; */
     int x = 1;
     x++;
 
