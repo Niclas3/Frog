@@ -20,6 +20,7 @@
 /* #define K_HEAP_START 0x00100000 */
 
 #define MEM_BITMAP_BASE 0xc0009a00
+/* #define MEM_BITMAP_BASE 0xc0008000 */
 /* #define MEM_BITMAP_BASE 0x00009a00 */
 
 // 1 page dir table
@@ -73,8 +74,8 @@ static void *get_free_page(struct pool *mpool)
 // Picking a pool return a free v_address
 static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
 {
-    int_32 v_start_addr = 0;
-    int_32 start_pos = -1;
+    uint_32 v_start_addr = 0;
+    uint_32 start_pos = -1;
     TCB_t *cur = running_thread();
     if (poolt == MP_KERNEL) {
         start_pos = find_block_bitmap(&kernel_viraddr.vaddr_bitmap, pg_cnt);
@@ -365,18 +366,20 @@ void put_page(void *v_addr, void *phy_addr)
 static void remove_page(void *v_addr)
 {
     uint_32 vaddress = (uint_32) v_addr;
-    uint_32 *pde = pde_ptr(vaddress);
+    /* uint_32 *pde = pde_ptr(vaddress); */
     uint_32 *pte = pte_ptr(vaddress);
-    if (*pde & 0x00000001) {      // test pde if exist
-        if (*pte & 0x00000001) {  // test pde if exist or not
-            *pte &= 0x11111110;   // PG_P_CLI;
-        } else {                  // pte is not exists
-            PANIC("Free twice");
-            // Still make pde is unexist
-            *pte &= 0x11111110;  // PG_P_CLI;
-        }
-        __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory");
-    }
+    *pte &= ~PG_P_SET;
+    __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory");
+    /* if (*pde & 0x00000001) {      // test pde if exist */
+    /*     if (*pte & 0x00000001) {  // test pde if exist or not */
+    /*         *pte &= 0x11111110;   // PG_P_CLI; */
+    /*     } else {                  // pte is not exists */
+    /*         PANIC("Free twice"); */
+    /*         // Still make pde is unexist */
+    /*         *pte &= 0x11111110;  // PG_P_CLI; */
+    /*     } */
+    /*     __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory"); */
+    /* } */
 }
 
 // get accurate physical from vaddress
