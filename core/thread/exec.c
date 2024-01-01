@@ -16,14 +16,14 @@ static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
     // next malloc() some memory but useless, I cannot read any bits on
     // it. but next PG_SIZE malloc() while fine.
     // so we alloc some memory not free it to around this bugs(maybe)
-    char* g_fix= NULL;
+    char *g_fix = NULL;
     /*********************************************************************/
     uint_32 vaddr_first_page = virtaddr & 0xfffff000;
     uint_32 size_fpage = PG_SIZE - (virtaddr & 0x00000fff);
     uint_32 occupy_page_cnt = 0;  // in page
     if (size > size_fpage) {
         uint_32 left_size = size - size_fpage;
-        occupy_page_cnt = DIV_ROUND_UP(left_size, PG_SIZE + 1);
+        occupy_page_cnt = DIV_ROUND_UP(left_size, PG_SIZE) + 1;
     } else {
         occupy_page_cnt = 1;
     }
@@ -43,8 +43,8 @@ static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
             // next malloc() some memory but useless, I cannot read any bits on
             // it. but next PG_SIZE malloc() while fine.
             // so we alloc some memory not free it to around this bugs(maybe)
-            g_fix= sys_malloc(1025);
-            *g_fix= 0xbb;
+            /* g_fix= sys_malloc(1025); */
+            /* *g_fix= 0xbb; */
         }
         vaddr_page += PG_SIZE;
         page_idx++;
@@ -86,7 +86,6 @@ static int_32 load_elf_file(const char *pathname)
         Elf32_Phdr *ph_buf = sys_malloc(phsz);
 
         for (uint_32 idx = 0; idx < phnum; idx++) {
-
             memset(ph_buf, 0, phsz);
             sys_lseek(fd, phoff, SEEK_SET);
             if (sys_read(fd, ph_buf, phsz) != phsz) {
