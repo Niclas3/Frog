@@ -7,9 +7,9 @@
 ;   7k      │ unused  │
 ;           │         │
 ;───────────├─────────┤0x0000_9A00 (mem_bitmap_base)
-;   10.5k   │         │            1.kernel_pool.bitmap
-;           │         │            2.user_pool.bitmap
-;           │         │            3.kernel_viraddr.bitmap
+;   10.5k   │         │            
+;           │         │            
+;           │         │            
 ;───────────├─────────┤0x0000_C400
 ;           │loader.s │
 ;    5k     │         │
@@ -42,10 +42,15 @@
 ;           │         │
 ;           │         │
 ;───────────├─────────┤0x0020_0000
-;           │GUI mem  │
-; 8M        │         │
-;───────────├─────────┤0x00a0_0000
-;
+;           │         │
+;           │         │
+;           │         │
+;           │         │
+;───────────├─────────┤0x00a0_0000 
+;                                  
+;           ├─────────┤0xc009_a000 1.kernel_pool.bitmap
+;           │         │            2.user_pool.bitmap
+;           │         │            3.kernel_viraddr.bitmap
 
 
 LOADER_BASE_ADDR equ 0xc400
