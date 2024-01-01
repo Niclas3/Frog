@@ -18,13 +18,8 @@ void set_value_bitmap(struct bitmap *bmap, uint_32 bit_pos, uint_8 value)
     uint_32 byte_id = bit_pos / 8;         // find the target byte
     uint_32 bit_in_byte_id = bit_pos % 8;  // find the right bits in target byte
     if (value) {
-        /* uint_8 *target = (bmap->bits)+byte_id; */
-        /* *target |= (FULL_MASK << bit_in_byte_id); */
-        /* bmap->bits[byte_id] |= (FULL_MASK << bit_in_byte_id);          //???
-         */
         *((bmap->bits) + byte_id) |= (FULL_MASK << bit_in_byte_id);
     } else {
-        /* bmap->bits[byte_id] &= ~(FULL_MASK << bit_in_byte_id);  //??? */
         *((bmap->bits) + byte_id) &= ~(FULL_MASK << bit_in_byte_id);
     }
     return;
