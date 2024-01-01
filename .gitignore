@@ -1,6 +1,7 @@
 *.img
 bochsout.txt
 build/
+core/apps/ls
 *.bin
 .ccls-cache
 *.sys
