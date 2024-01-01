@@ -121,7 +121,7 @@ void UkiMain(void)
     /* process_execute(u_fune, "A");  // pid 6 */
     char *app_path = "/ls";
     char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 22 * 1024;
+    uint_32 file_sz = 27 * 1024;
     char *ls_buf = sys_malloc(file_sz);
     uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
     struct disk *disk0 = &channels[0].devices[0];
