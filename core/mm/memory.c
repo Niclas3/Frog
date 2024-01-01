@@ -19,12 +19,11 @@
 // 14 pages aka 14 * 4kb = 0xe000
 /* #define K_HEAP_START 0x00100000 */
 
-/* #define MEM_BITMAP_BASE 0xc0009a00 */
-#define MEM_BITMAP_BASE 0xc000e800
+#define MEM_BITMAP_BASE 0xc009a000
+/* #define MEM_BITMAP_BASE 0xc000e800 */
 
 // 1 page dir table
 #define PDT_COUNT 1
-/* #define PGT_COUNT 1 */
 #define PGT_COUNT 254 + 1 + 1
 
 /*  If struct arena's attribute large is true cnt stand for page_frame cnt,
@@ -70,12 +69,12 @@ static int_32 next_pos(void)
 static void *get_free_page(struct pool *mpool)
 {
     int_32 start_pos = -1;
-    /* start_pos = find_block_bitmap(&mpool->pool_bitmap, 1); */
-    start_pos = next_pos();
+    start_pos = find_block_bitmap(&mpool->pool_bitmap, 1);
+    /* start_pos = next_pos(); */
     if (start_pos == -1) {
         return NULL;
     }
-    /* set_value_bitmap(&mpool->pool_bitmap, start_pos, 1); */
+    set_value_bitmap(&mpool->pool_bitmap, start_pos, 1);
     return (void *) (start_pos * PG_SIZE + mpool->phy_addr_start);
 }
 
@@ -86,27 +85,25 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
     uint_32 start_pos = -1;
     TCB_t *cur = running_thread();
     if (poolt == MP_KERNEL) {
-        /* start_pos = find_block_bitmap(&kernel_viraddr.vaddr_bitmap, pg_cnt); */
-        start_pos = next_pos();
+        start_pos = find_block_bitmap(&kernel_viraddr.vaddr_bitmap, pg_cnt);
+        /* start_pos = next_pos(); */
         if (start_pos == -1) {
             return NULL;
         }
         for (int i = 0; i < pg_cnt; i++) {
-            /* set_value_bitmap(&kernel_viraddr.vaddr_bitmap, start_pos + i, 1);
-             */
+            set_value_bitmap(&kernel_viraddr.vaddr_bitmap, start_pos + i, 1);
         }
         v_start_addr = start_pos * PG_SIZE + kernel_viraddr.vaddr_start;
         return (void *) v_start_addr;
     } else if (poolt == MP_USER) {
-        /* start_pos = */
-        /*     find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap, pg_cnt); */
+        start_pos =
+            find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap, pg_cnt);
         start_pos = next_pos();
         if (start_pos == -1) {
             return NULL;
         }
         for (int i = 0; i < pg_cnt; i++) {
-            /* set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, start_pos +
-             * i, 1); */
+            set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, start_pos + i, 1);
         }
         v_start_addr = start_pos * PG_SIZE + cur->progress_vaddr.vaddr_start;
         return (void *) v_start_addr;
@@ -266,7 +263,7 @@ static void free_addr_bitmap(struct bitmap *map,
     if (pos > map->map_bytes_length * 8)
         PANIC("free bad address over length");
     for (int i = 0; i < pg_cnt; i++) {
-        /* set_value_bitmap(map, pos + i, 0); */
+        set_value_bitmap(map, pos + i, 0);
     }
 }
 
@@ -294,7 +291,7 @@ static void free_page(struct pool *mpool, uint_32 phy_addr_page)
     int pos = (phy_addr_page - mpool->phy_addr_start) / PG_SIZE;
     if (pos > mpool->pool_bitmap.map_bytes_length * 8)
         PANIC("free bad address over length");
-    /* set_value_bitmap(&mpool->pool_bitmap, pos, 0); */
+    set_value_bitmap(&mpool->pool_bitmap, pos, 0);
 }
 
 uint_32 *pte_ptr(uint_32 vaddr)
@@ -410,11 +407,11 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
     if (cur->pgdir == NULL && poolt == MP_KERNEL) {
         bit_idx = (vaddr_start - kernel_viraddr.vaddr_start) / PG_SIZE;
         ASSERT(bit_idx > 0);
-        /* set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, 1); */
+        set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, 1);
     } else if (cur->pgdir != NULL && poolt == MP_USER) {
         bit_idx = (vaddr_start - cur->progress_vaddr.vaddr_start) / PG_SIZE;
         ASSERT(bit_idx > 0);
-        /* set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1); */
+        set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1);
     } else {
         PANIC(
             "get_free_vaddress: not allow kernel alloc userspace or user alloc "
