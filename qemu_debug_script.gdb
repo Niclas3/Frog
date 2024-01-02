@@ -27,10 +27,11 @@ b load_code
 # b malloc_page_with_vaddr_test
 # b sys_testsyscall
 # b syscall-init.c:267
-b load_elf_file
-b syscall-init.c:390
 b sys_testsyscall
-b memory.c: 455
+b load_elf_file
+# b memory.c:107 if start_pos == 2
+# b memory.c:107
+# b memory.c: 455
 # b sys_execv
 # b load_elf_file
 # b thread/exec.c:79 if ph_buf->p_offset == 0x3000

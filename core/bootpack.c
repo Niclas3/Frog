@@ -117,8 +117,6 @@ void UkiMain(void)
     fs_init();
     ps2hid_init();
 
-
-    /* process_execute(u_fune, "A");  // pid 6 */
     char *app_path = "/ls";
     char *argv[2] = {"a", "b"};
     uint_32 file_sz = 27 * 1024;
@@ -163,7 +161,6 @@ void UkiMain(void)
     if (g_boot_gfx_mode == BOOT_VBE_MODE) {
         twoD_graphics_init();
 
-        /* gfx_context_t *g_ctx= init_gfx_fullscreen_double_buffer(); */
         g_ctx = init_gfx_fullscreen_double_buffer();
         if (g_ctx == NULL) {
             PANIC("vedio context error");
@@ -185,11 +182,11 @@ void UkiMain(void)
         /* } */
         /* sys_free(buf); */
 
-        /* uint_32 status_bar_color = 0x88131313; */
-        /* Point top_left = {.X = 0, .Y = 0}; */
-        /* Point down_right = {.X = screen_width, .Y = 34}; */
-        /* fill_rect_solid(g_ctx, top_left, down_right, status_bar_color); */
-        /*  */
+        uint_32 status_bar_color = 0x88131313;
+        Point top_left = {.X = 0, .Y = 0};
+        Point down_right = {.X = screen_width, .Y = 34};
+        fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
+
         /* top_left.X = 20; */
         /* top_left.Y = 20; */
         /* down_right.X = 40; */
@@ -541,42 +538,11 @@ void u_funf(int a)
 // proc A
 void u_fune(int a)
 {
-    /* printf("ring3 print tests"); */
-    /* char *test = malloc(512); */
-    /* free(test); */
-
-    /* testsyscall(1); */
-
     char *app_path = "/ls";
     char *argv[2] = {"a", "b"};
 
-    // alloc 0x3000 bytes
-    /* char* tmp3 = malloc(512); */
-
     execv(app_path, argv);
 
-    /* TCB_t *t1 = thread_start("u_fune_t1", 20, func,10); */
-    /* put_str("test"); */
-    /* putc('a'); */
-    /* char *pathname = "/test2.txt"; */
-    /* int_32 fd = open(pathname, O_RDWR); */
-    /* if (fd == -1) { */
-    /*     fd = open(pathname, O_CREAT); */
-    /*     close(fd); */
-    /*     fd = open(pathname, O_RDWR); */
-    /* } */
-    /* #<{(| while (1) { |)}># */
-    /* uint_32 ret_pid = fork(); */
-    /* if (ret_pid) { */
-    /*     char buf[200] = {0}; */
-    /* sprintf(buf, "parent pid:%d, fork ret: %d++", getpid(), ret_pid); */
-    /*     write(fd, buf, strlen(buf)); */
-    /* } else { */
-    /*     char buf[200] = {0}; */
-    /*     sprintf(buf, "childpid:%d,fork ret: %d--------", getpid(), ret_pid);
-     */
-    /*     write(fd, buf, strlen(buf)); */
-    /* } */
     while (1)
         ;
 }
