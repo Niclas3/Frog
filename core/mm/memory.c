@@ -14,16 +14,19 @@
 // and start at 0x80000
 // so the end is 0x80000 + 0x11800 = 0x91800
 /* #define K_HEAP_START 0x00092000 */
-#define K_HEAP_START 0xc0100000 + (PG_SIZE * (PDT_COUNT + PGT_COUNT))
+/* #define K_HEAP_START 0xc0100000 + (PG_SIZE * (PDT_COUNT + PGT_COUNT)) */
+#define K_HEAP_START 0xc0100000
 // from 0x92000 to 0xa0000 aka 0xe000 => 12 threads
 // 14 pages aka 14 * 4kb = 0xe000
 /* #define K_HEAP_START 0x00100000 */
 
 #define MEM_BITMAP_BASE 0xc009a000
+/* #define MEM_BITMAP_BASE 0xc002e000 */
 /* #define MEM_BITMAP_BASE 0xc000e800 */
 
 // 1 page dir table
 #define PDT_COUNT 1
+// 254 is upper 1G memory start at 0xc0000000
 #define PGT_COUNT 254 + 1 + 1
 
 /*  If struct arena's attribute large is true cnt stand for page_frame cnt,
@@ -57,20 +60,12 @@ struct _virtual_addr kernel_viraddr;
 // mid   10 bits pte
 #define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
 
-int_32 cur_pos;
-static int_32 next_pos(void)
-{
-    cur_pos++;
-    return cur_pos;
-}
-
 // Get a free 4k phy memory aka 1 page in pool
 // -> pte
 static void *get_free_page(struct pool *mpool)
 {
     int_32 start_pos = -1;
     start_pos = find_block_bitmap(&mpool->pool_bitmap, 1);
-    /* start_pos = next_pos(); */
     if (start_pos == -1) {
         return NULL;
     }
@@ -86,7 +81,6 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
     TCB_t *cur = running_thread();
     if (poolt == MP_KERNEL) {
         start_pos = find_block_bitmap(&kernel_viraddr.vaddr_bitmap, pg_cnt);
-        /* start_pos = next_pos(); */
         if (start_pos == -1) {
             return NULL;
         }
@@ -98,7 +92,6 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
     } else if (poolt == MP_USER) {
         start_pos =
             find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap, pg_cnt);
-        start_pos = next_pos();
         if (start_pos == -1) {
             return NULL;
         }
@@ -218,7 +211,7 @@ static void mem_pool_init(uint_32 all_mem)
     kernel_pool.pool_bitmap.map_bytes_length = kbm_length;
     user_pool.pool_bitmap.map_bytes_length = ubm_length;
 
-    // kernel pool bit map fix at MEM_BITMAP_BASE 0x9a00
+    // kernel pool bit map fix at MEM_BITMAP_BASE 0x9a000
     kernel_pool.pool_bitmap.bits = (void *) MEM_BITMAP_BASE;
     user_pool.pool_bitmap.bits = (void *) (MEM_BITMAP_BASE + kbm_length);
 
@@ -368,6 +361,13 @@ void put_page(void *v_addr, void *phy_addr)
         ASSERT(!(*pte & 0x00000001));
         *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
     }
+
+    TCB_t *thread = running_thread();
+    uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address is 0x100000
+    if (thread->pgdir != NULL) {
+        pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
+    }
+    __asm__ volatile("movl %0, %%cr3;" : : "r"(pagedir_phy_addr) : "memory");
 }
 
 // Remove virtual address from page table
@@ -406,11 +406,11 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
     TCB_t *cur = running_thread();
     if (cur->pgdir == NULL && poolt == MP_KERNEL) {
         bit_idx = (vaddr_start - kernel_viraddr.vaddr_start) / PG_SIZE;
-        ASSERT(bit_idx > 0);
+        ASSERT(bit_idx >= 0);
         set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, 1);
     } else if (cur->pgdir != NULL && poolt == MP_USER) {
         bit_idx = (vaddr_start - cur->progress_vaddr.vaddr_start) / PG_SIZE;
-        ASSERT(bit_idx > 0);
+        ASSERT(bit_idx >= 0);
         set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1);
     } else {
         PANIC(
