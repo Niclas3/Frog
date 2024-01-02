@@ -12,7 +12,8 @@ typedef struct thread_control_block TCB_t;
 // user process code section start at USER_VADDR_START
 // #define USER_VADDR_START  0x08048000
 // #define USER_VADDR_START  0x01000000   // does not work at qume? i dont know why
-#define USER_VADDR_START     0x01001000
+// #define USER_VADDR_START     0x01001000
+#define USER_VADDR_START  0x08000000
 
 #define DEFAULT_PRIORITY 30
 
