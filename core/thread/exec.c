@@ -11,13 +11,6 @@
 extern void intr_exit(void);
 static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
 {
-    // FIXME:
-    // There is a tricky bug. when I call malloc_page_with_vaddr()
-    // next malloc() some memory but useless, I cannot read any bits on
-    // it. but next PG_SIZE malloc() while fine.
-    // so we alloc some memory not free it to around this bugs(maybe)
-    char *g_fix = NULL;
-    /*********************************************************************/
     uint_32 vaddr_first_page = virtaddr & 0xfffff000;
     uint_32 size_fpage = PG_SIZE - (virtaddr & 0x00000fff);
     uint_32 occupy_page_cnt = 0;  // in page
@@ -38,20 +31,12 @@ static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
             if (NULL == malloc_page_with_vaddr(MP_USER, vaddr_page)) {
                 return false;
             }
-            // FIXME:
-            // There is a tricky bug. when I call malloc_page_with_vaddr()
-            // next malloc() some memory but useless, I cannot read any bits on
-            // it. but next PG_SIZE malloc() while fine.
-            // so we alloc some memory not free it to around this bugs(maybe)
-            /* g_fix= sys_malloc(1025); */
-            /* *g_fix= 0xbb; */
         }
         vaddr_page += PG_SIZE;
         page_idx++;
     }
     sys_lseek(fd, offset, SEEK_SET);
     sys_read(fd, (void *) virtaddr, size);
-    /* *g_fix= 0xaf; */
     return true;
 }
 
@@ -74,6 +59,8 @@ static int_32 load_elf_file(const char *pathname)
         return ret;
     }
     sys_read(fd, buf, sizeof(Elf32_Ehdr));
+
+
     Elf32_Ehdr *elf_header = (Elf32_Ehdr *) buf;
     if (elf_header->e_ident[0] == ELFMAG0 &&
         elf_header->e_ident[1] == ELFMAG1 &&
@@ -92,8 +79,6 @@ static int_32 load_elf_file(const char *pathname)
                 ret = -1;
                 goto done;
             }
-            /* ph_buf->p_type = PT_LOAD; */
-            /* ph_buf->p_vaddr = 0x8084000; */
             if (PT_LOAD == ph_buf->p_type) {
                 if (!load_code(fd, ph_buf->p_vaddr, ph_buf->p_offset,
                                ph_buf->p_filesz)) {
