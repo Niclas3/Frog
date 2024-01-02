@@ -147,14 +147,11 @@ static void create_user_vaddr_bitmap(TCB_t *user_prog)
 {
     uint_32 bitmap_len =
         DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE, 8);
-
     user_prog->progress_vaddr.vaddr_start = USER_VADDR_START;
     uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PG_SIZE);
-        /* CELLING((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE); */
     user_prog->progress_vaddr.vaddr_bitmap.bits =
         get_kernel_page(bitmap_pg_cnt);
     user_prog->progress_vaddr.vaddr_bitmap.map_bytes_length = bitmap_len;
-        /* (0xc0000000 - USER_VADDR_START) / PG_SIZE / 8; */
     init_bitmap(&user_prog->progress_vaddr.vaddr_bitmap);
 }
 
