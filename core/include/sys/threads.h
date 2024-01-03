@@ -30,6 +30,7 @@ typedef enum task_status {
     THREAD_TASK_BLOCKED,
     THREAD_TASK_CANCELLED,
     THREAD_TASK_REJECTED,
+    THREAD_TASK_DIED,
 } task_status_t;
 
 /* Saved registers context when change privilege
@@ -119,6 +120,9 @@ void thread_auth_block(TCB_t*task, task_status_t status);
 void thread_block(task_status_t status);
 void thread_unblock(TCB_t *thread);
 void thread_yield(void);
+void thread_exit(TCB_t *discard_thread, bool need_schedule);
+
+TCB_t *pid2thread(pid_t pid);
 
 void schedule(void);
 #endif

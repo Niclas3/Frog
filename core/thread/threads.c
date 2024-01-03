@@ -1,19 +1,24 @@
 #include <const.h>  // for PG_SIZE
 #include <stdbool.h>
 #include <string.h>
+#include <sys/fork.h>
 #include <sys/int.h>
 #include <sys/memory.h>
 #include <sys/process.h>
 #include <sys/sched.h>
 #include <sys/threads.h>
-#include <sys/fork.h>
 
 #include <debug.h>
 #include <protect.h>
 
+struct pid_pool {
+    struct bitmap pid_bm;
+    uint_32 pid_start;
+    struct lock pid_lock;
+};
 
-TCB_t *main_thread;  // kernel_thread() 
-TCB_t *idle_thread;  // idle()          
+TCB_t *main_thread;  // kernel_thread()
+TCB_t *idle_thread;  // idle()
 
 struct lock tid_lock;
 struct lock pid_lock;
@@ -22,6 +27,11 @@ struct lock pid_lock;
 struct list_head thread_ready_list;
 struct list_head thread_all_list;
 struct list_head process_all_list;
+struct pid_pool pid_pool;
+
+// pid bitmap
+uint_8 pid_bitmap[128] = {0};
+
 static struct list_head *thread_tag;
 
 
@@ -62,6 +72,43 @@ TCB_t *running_thread(void)
     uint_32 esp;
     __asm__ volatile("mov %%esp, %0" : "=g"(esp));
     return (TCB_t *) (esp & 0xfffff000);
+}
+
+static void init_pid_bitmap(void)
+{
+    pid_pool.pid_start = 1;
+    pid_pool.pid_bm.bits = pid_bitmap;
+    pid_pool.pid_bm.map_bytes_length = 128;
+    lock_init(&pid_pool.pid_lock);
+    init_bitmap(&pid_pool.pid_bm);
+}
+
+// Allocating process id for each process
+// all threads under a process share same process id.
+static pid_t allocate_pid(void)
+{
+    // beacuse main thread is the first process
+    lock_fetch(&pid_pool.pid_lock);
+    pid_t base = pid_pool.pid_start;
+    uint_32 pos = find_block_bitmap(&pid_pool.pid_bm, 1);
+    set_value_bitmap(&pid_pool.pid_bm, pos, 1);
+    lock_release(&pid_pool.pid_lock);
+    return base + pos;
+}
+
+static void release_pid(pid_t pid)
+{
+    lock_fetch(&pid_pool.pid_lock);
+    ASSERT(pid >= pid_pool.pid_start);
+    pid_t base = pid_pool.pid_start;
+    uint_32 pos = pid - base;
+    set_value_bitmap(&pid_pool.pid_bm, pos, 0);
+    lock_release(&pid_pool.pid_lock);
+}
+
+uint_32 fork_pid(void)
+{
+    return allocate_pid();
 }
 
 /* Init TCB
@@ -175,24 +222,6 @@ void schedule(void)
 }
 
 
-/* Init all things that thread need
- * before all things start
- * */
-void thread_init(void)
-{
-    init_timer_manager();
-    init_list_head(&thread_ready_list);
-    init_list_head(&thread_all_list);
-    init_list_head(&process_all_list);
-    /* lock_init(&tid_lock); */
-    lock_init(&pid_lock);
-    // init thread pid = 1
-    process_execute(init, "init");
-    // main thread pid = 2
-    make_main_thread();
-    // idle thread pid = 3
-    idle_thread = thread_start("idle", 10, idle, 0);
-}
 
 // Auth_block
 // Block self and set self status to status
@@ -269,30 +298,69 @@ void thread_yield(void)
     intr_set_status(old_status);
 }
 
-// DISCARD:
-// Allocating thread id for each thread
-static tid_t allocate_tid(void)
+void thread_exit(TCB_t *discard_thread, bool need_schedule)
 {
-    static tid_t next_tid = 0;
-    lock_fetch(&tid_lock);
-    next_tid++;
-    lock_release(&tid_lock);
-    return next_tid;
+    intr_disable();
+    discard_thread->status = THREAD_TASK_DIED;
+    struct list_head *discard_node = &discard_thread->general_tag;
+    if (list_find_element(discard_node, &thread_ready_list)) {
+        list_del_init(discard_node);
+    }
+    if (discard_thread
+            ->pgdir) {  // if this thread is progress release page table
+        mfree_page(MP_KERNEL, discard_thread->pgdir, 1);
+    }
+
+    // remove from all_thread_list
+    list_del_init(&discard_thread->all_list_tag);
+    // remove from all_progress_list
+    list_del_init(&discard_thread->proc_list_tag);
+
+    if (discard_thread != main_thread) {
+        mfree_page(MP_KERNEL, discard_thread, 1);
+    }
+
+    release_pid(discard_thread->pid);
+    if (need_schedule) {
+        schedule();
+        PANIC("waiting for next!");
+    }
 }
 
-// Allocating process id for each process
-// all threads under a process share same process id.
-static pid_t allocate_pid(void)
+static bool find_pid(struct list_head *ele, pid_t pid)
 {
-    // beacuse main thread is the first process
-    static tid_t next_pid = 0;
-    lock_fetch(&pid_lock);
-    next_pid++;
-    lock_release(&pid_lock);
-    return next_pid;
+    TCB_t *cur = container_of(ele, TCB_t, all_list_tag);
+    if (cur->pid == pid) {
+        return true;
+    }
+    return false;
 }
 
-uint_32 fork_pid(void)
+TCB_t *pid2thread(pid_t pid)
 {
-    return allocate_pid();
+    struct list_head *node = list_walker(&thread_all_list, find_pid, pid);
+    if (node == NULL) {
+        return NULL;
+    }
+    TCB_t *thread = container_of(node, TCB_t, all_list_tag);
+    return thread;
+}
+
+
+/* Init all things that thread need
+ * before all things start
+ * */
+void thread_init(void)
+{
+    init_timer_manager();
+    init_list_head(&thread_ready_list);
+    init_list_head(&thread_all_list);
+    init_list_head(&process_all_list);
+    init_pid_bitmap();
+    // init thread pid = 1
+    process_execute(init, "init");
+    // main thread pid = 2
+    make_main_thread();
+    // idle thread pid = 3
+    idle_thread = thread_start("idle", 10, idle, 0);
 }
