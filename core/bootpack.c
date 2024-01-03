@@ -117,6 +117,7 @@ void UkiMain(void)
     fs_init();
     ps2hid_init();
 
+    /************************load test programe*******************************/
     char *app_path = "/ls";
     char *argv[2] = {"a", "b"};
     uint_32 file_sz = 27 * 1024;
@@ -133,22 +134,9 @@ void UkiMain(void)
     sys_write(fd, ls_buf, file_sz);
     sys_close(fd);
     sys_free(ls_buf);
+    /*****************************************************************/
 
-    process_execute(u_fune, "A");  // pid 6
-
-    /* char* rd_buf = sys_malloc(file_sz); */
-    /* int_32 fd1 = open(app_path, O_RDWR); */
-    /* int_32 fd3 = open("/ls_tmp",O_CREAT); */
-    /* sys_close(fd3); */
-    /* fd3 = open("/ls_tmp", O_RDWR); */
-    /* sys_read(fd1, rd_buf, file_sz); */
-    /*  */
-    /* sys_write(fd3, "test_ls_tmp", 12); */
-    /*  */
-    /* sys_free(rd_buf); */
-    /* sys_close(fd1); */
-
-
+    /* process_execute(u_fune, "A");  // pid 6 */
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
@@ -187,12 +175,12 @@ void UkiMain(void)
         Point down_right = {.X = screen_width, .Y = 34};
         fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
 
+        // Draw 2 Ract
         /* top_left.X = 20; */
         /* top_left.Y = 20; */
         /* down_right.X = 40; */
         /* down_right.Y = 40; */
-        /* fill_rect_solid(g_ctx, top_left, down_right, FSK_LIME | 0xff000000);
-         */
+        /* fill_rect_solid(g_ctx, top_left, down_right, FSK_LIME | 0xff000000); */
         /* top_left.X = 30; */
         /* top_left.Y = 25; */
         /* down_right.X = 40 + 10; */
