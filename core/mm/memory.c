@@ -60,6 +60,16 @@ struct _virtual_addr kernel_viraddr;
 // mid   10 bits pte
 #define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
 
+static void invalidate(void)
+{
+    TCB_t *thread = running_thread();
+    uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address is 0x100000
+    if (thread->pgdir != NULL) {
+        pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
+    }
+    __asm__ volatile("movl %0, %%cr3;" : : "r"(pagedir_phy_addr) : "memory");
+}
+
 // Get a free 4k phy memory aka 1 page in pool
 // -> pte
 static void *get_free_page(struct pool *mpool)
@@ -96,7 +106,8 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
             return NULL;
         }
         for (int i = 0; i < pg_cnt; i++) {
-            set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, start_pos + i, 1);
+            set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, start_pos + i,
+                             1);
         }
         v_start_addr = start_pos * PG_SIZE + cur->progress_vaddr.vaddr_start;
         return (void *) v_start_addr;
@@ -361,13 +372,7 @@ void put_page(void *v_addr, void *phy_addr)
         ASSERT(!(*pte & 0x00000001));
         *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
     }
-
-    TCB_t *thread = running_thread();
-    uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address is 0x100000
-    if (thread->pgdir != NULL) {
-        pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
-    }
-    __asm__ volatile("movl %0, %%cr3;" : : "r"(pagedir_phy_addr) : "memory");
+    invalidate();
 }
 
 // Remove virtual address from page table
