@@ -20,7 +20,6 @@ typedef struct thread_control_block TCB_t;
 // start a process
 void process_activate(TCB_t *thread);
 
-uint_32 fork_pid(void);
 void page_dir_activate(TCB_t *thread);
 uint_32 *create_page_dir(void);
 

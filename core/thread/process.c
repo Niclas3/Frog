@@ -13,31 +13,10 @@ extern struct list_head thread_all_list;
 extern struct list_head process_all_list;
 
 
-#define CELLING(X, STEP) (((X) + (STEP) -1) / (STEP))
-
-// init at thread.c
-extern struct lock pid_lock;
+/* #define CELLING(X, STEP) (((X) + (STEP) -1) / (STEP)) */
 
 // Use this function jmp code from ring0 to ring3
 extern void intr_exit(void);
-
-// Allocating process id for each process
-// all threads under a process share same process id.
-
-static pid_t allocate_pid(void)
-{
-    // beacuse main thread is the first process
-    static tid_t next_pid = 0;
-    lock_fetch(&pid_lock);
-    next_pid++;
-    lock_release(&pid_lock);
-    return next_pid;
-}
-
-uint_32 fork_pid(void)
-{
-    return allocate_pid();
-}
 
 
 /*
@@ -162,7 +141,6 @@ void process_execute(void *filename, char *name)
     create_user_vaddr_bitmap(thread);
     create_thread(thread, start_process, filename);
     thread->pgdir = create_page_dir();
-    thread->pid = allocate_pid();
     block_desc_init(thread->u_block_descs);
     enum intr_status old_status = intr_disable();
     ASSERT(!list_find_element(&thread->proc_list_tag, &process_all_list));
@@ -184,7 +162,6 @@ void process_execute_ring1(void *filename, char *name)
     create_user_vaddr_bitmap(thread);
     create_thread(thread, start_process_ring1, filename);
     thread->pgdir = create_page_dir();
-    thread->pid = allocate_pid();
     enum intr_status old_status = intr_disable();
     ASSERT(!list_find_element(&thread->proc_list_tag, &process_all_list));
     list_add_tail(&thread->proc_list_tag, &process_all_list);

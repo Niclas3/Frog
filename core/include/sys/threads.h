@@ -80,7 +80,7 @@ typedef struct thread_control_block {
     uint_32 *self_kstack;              // <--- thread_stack + context_registers >
     pid_t parent_pid;                  // parent process id
     pid_t pid;                         // process id
-    tid_t tid;                         // thread id for each thread
+    tid_t tid;                         // thread id for each thread(do not use yet)
     int_8 exit_status;                 // exit() arguments status
     task_status_t status;
     uint_32       priority;
@@ -113,6 +113,7 @@ TCB_t* thread_start(char* name, int priority, __routine_t func, void* arg);
 void init_thread(TCB_t* thread, char* name, uint_8 priority);
 void create_thread(TCB_t *thread, __routine_t func, void* arg);
 void thread_init(void);
+uint_32 fork_pid(void);
 
 void thread_auth_block(TCB_t*task, task_status_t status);
 void thread_block(task_status_t status);

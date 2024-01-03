@@ -12,11 +12,12 @@
 #include <protect.h>
 
 
-TCB_t *main_thread;  // kernel_thread() tid = 1
-TCB_t *idle_thread;  // idle()          tid = 2
+TCB_t *main_thread;  // kernel_thread() 
+TCB_t *idle_thread;  // idle()          
 
 struct lock tid_lock;
 struct lock pid_lock;
+
 // TODO: need a max list size
 struct list_head thread_ready_list;
 struct list_head thread_all_list;
@@ -24,7 +25,8 @@ struct list_head process_all_list;
 static struct list_head *thread_tag;
 
 
-static tid_t allocate_tid(void);
+/* static tid_t allocate_tid(void); */
+static pid_t allocate_pid(void);
 
 extern void switch_to(TCB_t *cur, TCB_t *next);
 extern void init(void);
@@ -82,7 +84,8 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
         fd_idx++;
     }
 
-    thread->tid = allocate_tid();
+    /* thread->tid = allocate_tid(); */
+    thread->pid = allocate_pid();
     strcpy(thread->name, name);
     if (thread == main_thread) {
         thread->status = THREAD_TASK_RUNNING;
@@ -181,13 +184,13 @@ void thread_init(void)
     init_list_head(&thread_ready_list);
     init_list_head(&thread_all_list);
     init_list_head(&process_all_list);
-    lock_init(&tid_lock);
+    /* lock_init(&tid_lock); */
     lock_init(&pid_lock);
-    // init thread tid = 1 pid = 1
+    // init thread pid = 1
     process_execute(init, "init");
-    // main thread tid = 2
+    // main thread pid = 2
     make_main_thread();
-    // idle thread tid = 3
+    // idle thread pid = 3
     idle_thread = thread_start("idle", 10, idle, 0);
 }
 
@@ -266,6 +269,7 @@ void thread_yield(void)
     intr_set_status(old_status);
 }
 
+// DISCARD:
 // Allocating thread id for each thread
 static tid_t allocate_tid(void)
 {
@@ -274,4 +278,21 @@ static tid_t allocate_tid(void)
     next_tid++;
     lock_release(&tid_lock);
     return next_tid;
+}
+
+// Allocating process id for each process
+// all threads under a process share same process id.
+static pid_t allocate_pid(void)
+{
+    // beacuse main thread is the first process
+    static tid_t next_pid = 0;
+    lock_fetch(&pid_lock);
+    next_pid++;
+    lock_release(&pid_lock);
+    return next_pid;
+}
+
+uint_32 fork_pid(void)
+{
+    return allocate_pid();
 }
