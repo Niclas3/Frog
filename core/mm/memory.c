@@ -298,6 +298,15 @@ static void free_page(struct pool *mpool, uint_32 phy_addr_page)
     set_value_bitmap(&mpool->pool_bitmap, pos, 0);
 }
 
+void free_phy_page(pool_type pt, uint_32 phy_addr_page)
+{
+    if(pt == MP_KERNEL){
+        free_page(&kernel_pool, phy_addr_page);
+    } else if(pt== MP_USER){
+        free_page(&user_pool, phy_addr_page);
+    }
+}
+
 uint_32 *pte_ptr(uint_32 vaddr)
 {
     // I set last PDE as PDT table address
