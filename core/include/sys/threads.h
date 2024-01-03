@@ -81,6 +81,7 @@ typedef struct thread_control_block {
     pid_t parent_pid;                  // parent process id
     pid_t pid;                         // process id
     tid_t tid;                         // thread id for each thread
+    int_8 exit_status;                 // exit() arguments status
     task_status_t status;
     uint_32       priority;
     char name[TASK_NAME_LEN];
