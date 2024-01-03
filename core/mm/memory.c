@@ -370,6 +370,7 @@ void put_page(void *v_addr, void *phy_addr)
             /* PANIC("pte exists"); */
             *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
         }
+        invalidate();
     } else {
         // if there is no pde , let's create it.
         // Create phyaddr at kernel pool
@@ -381,7 +382,6 @@ void put_page(void *v_addr, void *phy_addr)
         ASSERT(!(*pte & 0x00000001));
         *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
     }
-    invalidate();
 }
 
 // Remove virtual address from page table
