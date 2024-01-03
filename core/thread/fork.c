@@ -32,8 +32,11 @@ static int_32 copy_tcb_vaddrbitmap_stack0(TCB_t *child_thread,
     child_thread->all_list_tag.prev = NULL;
     block_desc_init(child_thread->u_block_descs);
 
-    uint_32 bitmap_pg_cnt =
-        DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE);
+    /* uint_32 bitmap_pg_cnt = */
+    /*     DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE); */
+    uint_32 bitmap_len =
+        DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE, 8);
+    uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PG_SIZE);
     void *vaddr_btmp = get_kernel_page(bitmap_pg_cnt);
     if (vaddr_btmp == NULL) {
         return -1;
