@@ -33,6 +33,7 @@ enum SYSCALL_NR{
     SYS_GETCWD,
     SYS_CHDIR,
     SYS_STAT,
+    SYS_PIPE,
     //i/o
     SYS_PUTC,
     // for test
@@ -175,11 +176,14 @@ void exit(int_32 status);
 
 pid_t wait(int_32 *status_loc);
 
+int_32 pipe(int_32 pipefd[2]);
+
 //System call: uint_32 write(char*)
 //return len of str
-uint_32 write(int_32 fd, const void*buf, uint_32 count);
 int_32 open(const char *pathname, uint_8 flags);
+
 int_32 close(int_32 fd);
+
 uint_32 write(int_32 fd, const void *buf, uint_32 count);
 
 int_32 read(int_32 fd, void *buf, uint_32 count);

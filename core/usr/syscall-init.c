@@ -13,6 +13,7 @@
 #include <sys/exit.h>
 #include <sys/graphic.h>
 #include <sys/threads.h>
+#include <fs/pipe.h>
 
 #include <ipc.h>
 
@@ -209,6 +210,7 @@ void syscall_init(void)
     syscall_table[SYS_EXECV] = sys_execv;
     syscall_table[SYS_EXIT] = sys_exit;
     syscall_table[SYS_WAIT] = sys_wait;
+    syscall_table[SYS_PIPE] = sys_pipe;
 
     syscall_table[SYS_OPEN] = sys_open;
     syscall_table[SYS_CLOSE] = sys_close;

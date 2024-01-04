@@ -88,6 +88,10 @@ int_32 execv(const char *path, const char *argv[])
     return _syscall2(SYS_EXECV, path, argv);
 }
 
+int_32 pipe(int_32 pipefd[2]){
+    return _syscall1(SYS_PIPE, pipefd);
+}
+
 int_32 open(const char *pathname, uint_8 flags)
 {
     return _syscall2(SYS_OPEN, (uint_32) pathname, flags);
