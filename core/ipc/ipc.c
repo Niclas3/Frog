@@ -5,7 +5,8 @@
 #include <sys/memory.h>
 #include <sys/threads.h>
 
-extern struct list_head process_all_list;
+/* extern struct list_head process_all_list; */
+extern struct list_head thread_all_list;
 
 /**
  * Detect the messaging graph contains a cycle.
@@ -50,16 +51,20 @@ uint_32 detect_cycle(pid_t src, pid_t dest)
 boolean pid_helper(struct list_head *proc_tag, int value);
 boolean pid_helper(struct list_head *proc_tag, int value)
 {
-    TCB_t *proc = GET_PROC_FROM_PROCLIST(proc_tag);
+    TCB_t *proc = GET_THREAD_FROM_ALLLIST(proc_tag);
+
     return (proc->pid == value);
 }
 
 TCB_t *pid2proc(pid_t id)
 {
-    ASSERT(!list_is_empty(&process_all_list));
-    struct list_head *proc_tag = list_walker(&process_all_list, pid_helper, id);
+    /* ASSERT(!list_is_empty(&process_all_list)); */
+    ASSERT(!list_is_empty(&thread_all_list));
+    /* struct list_head *proc_tag = list_walker(&process_all_list, pid_helper,
+     * id); */
+    struct list_head *proc_tag = list_walker(&thread_all_list, pid_helper, id);
     if (proc_tag) {
-        TCB_t *proc = GET_PROC_FROM_PROCLIST(proc_tag);
+        TCB_t *proc = GET_THREAD_FROM_ALLLIST(proc_tag);
         return proc;
     }
     return NULL;
