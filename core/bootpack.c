@@ -136,7 +136,6 @@ void UkiMain(void)
     sys_free(ls_buf);
     /*****************************************************************/
 
-    /* process_execute(u_fune, "A");  // pid 6 */
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
@@ -175,6 +174,8 @@ void UkiMain(void)
         Point down_right = {.X = screen_width, .Y = 34};
         fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
 
+        process_execute(u_fune, "A");  // pid 6
+
         // Draw 2 Ract
         /* top_left.X = 20; */
         /* top_left.Y = 20; */
@@ -204,7 +205,7 @@ void UkiMain(void)
         /* gfx_test_print_fn(g_ctx, test_hex_x, test_hex_y, pfn_type); */
 
         // end test
-        flip(g_ctx);
+        /* flip(g_ctx); */
 
     } else if (g_boot_gfx_mode == BOOT_VGA_MODE) {
         // GUI code at bochs
@@ -526,11 +527,35 @@ void u_funf(int a)
 // proc A
 void u_fune(int a)
 {
-    char *app_path = "/ls";
-    char *argv[2] = {"a", "b"};
-
-    execv(app_path, argv);
-
+    uint_32 ppid = getpid();
+    uint_32 ret_pid = fork();
+    if (ret_pid) {
+        /* message msg; */
+        /* reset_msg(&msg); */
+        /* msg.m_type = 1234; */
+        /* sendrec(SEND, ret_pid, &msg); */
+        /* printf("Parents pid is %d\n", getpid()); */
+        int_32 status;
+        wait(&status);
+        printf("wait status %d", status);
+        while (1)
+            ;
+    } else {
+        /* uint_32 cpid = getpid(); */
+        /* message msg; */
+        /* reset_msg(&msg); */
+        /* sendrec(RECEIVE, ppid, &msg); */
+        /* printf("child pid is %d, ret id is %d\n\n", getpid(), ret_pid); */
+        /* printf("message is %d\n", msg.m_type); */
+        exit(0);
+        while (1)
+            ;
+    }
+    /* char *app_path = "/ls"; */
+    /* char *argv[2] = {"a", "b"}; */
+    /*  */
+    /* execv(app_path, argv); */
+    /*  */
     while (1)
         ;
 }
@@ -544,13 +569,15 @@ void init(void)
 {
     /* uint_32 ret_pid = fork(); */
     /* if (ret_pid) { */
-    /*     #<{(| printf("Parents pid is %d", getpid()); |)}># */
+    /*     uint_32 ppid = getpid(); */
+    /*     #<{(| printf("Parents pid is %d\n", getpid()); |)}># */
     /*     while (1) */
     /*         ; */
     /* } else { */
+    /*     uint_32 cpid = getpid(); */
+    /*     #<{(| printf("child pid is %d, ret id is %d", getpid(), ret_pid); |)}># */
     /*     while (1) */
     /*         ; */
-    /*     #<{(| printf("child pid is %d, ret id is %d", getpid(), ret_pid); |)}># */
     /* } */
     while(1);
 }

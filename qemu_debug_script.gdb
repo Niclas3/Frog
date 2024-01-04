@@ -18,8 +18,15 @@ b panic_print
 # b fsk_mouse.c: 52 if cursor_y == 0
 # b fork.c: 65
 # b sys_fork
-# b u_fune
-b load_code
+b u_fune
+b bootpack.c:538
+b sys_wait
+b exit.c:95
+b sys_exit
+b exit.c:37 if pg_phy_addr == 0x0
+# b thread/fork.c:67 if idx_byte == 0x17000-1
+# b thread/fork.c:69 if idx_bit == 0
+# b load_code
 # b bootpack.c: 516
 # b bootpack.c: 513
 # b 140
@@ -27,8 +34,8 @@ b load_code
 # b malloc_page_with_vaddr_test
 # b sys_testsyscall
 # b syscall-init.c:267
-b sys_testsyscall
-b load_elf_file
+# b sys_testsyscall
+# b load_elf_file
 # b memory.c:107 if start_pos == 2
 # b memory.c:107
 # b memory.c: 455
