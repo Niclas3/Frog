@@ -233,7 +233,7 @@ void schedule(void)
 // remove current thread from thread_ready_list
 void thread_auth_block(TCB_t *task, task_status_t status)
 {
-    ASSERT((status == THREAD_TASK_HANDING) || (status == THREAD_TASK_WAITING) ||
+    ASSERT((status == THREAD_TASK_HANGING) || (status == THREAD_TASK_WAITING) ||
            (status == THREAD_TASK_BLOCKED));
     ASSERT(task);
     enum intr_status old_int_status = intr_disable();
@@ -271,7 +271,7 @@ void thread_block(task_status_t status)
 // add thread to head of tread_ready_list
 void thread_unblock(TCB_t *thread)
 {
-    ASSERT((thread->status == THREAD_TASK_HANDING) ||
+    ASSERT((thread->status == THREAD_TASK_HANGING) ||
            (thread->status == THREAD_TASK_WAITING) ||
            (thread->status == THREAD_TASK_BLOCKED));
     enum intr_status old_int_status = intr_disable();
