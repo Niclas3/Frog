@@ -10,6 +10,7 @@
 #include <fs/fs.h>  // for sys_write/ sys_open/ sys_close
 #include <sys/exec.h>
 #include <sys/fork.h>
+#include <sys/exit.h>
 #include <sys/graphic.h>
 #include <sys/threads.h>
 
@@ -206,6 +207,8 @@ void syscall_init(void)
 
     syscall_table[SYS_FORK] = sys_fork;
     syscall_table[SYS_EXECV] = sys_execv;
+    syscall_table[SYS_EXIT] = sys_exit;
+    syscall_table[SYS_WAIT] = sys_wait;
 
     syscall_table[SYS_OPEN] = sys_open;
     syscall_table[SYS_CLOSE] = sys_close;

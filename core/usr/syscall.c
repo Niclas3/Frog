@@ -73,6 +73,16 @@ uint_32 fork(void)
     return _syscall0(SYS_FORK);
 }
 
+void exit(int_32 status)
+{
+    _syscall1(SYS_EXIT, status);
+}
+
+pid_t wait(int_32 *status_loc)
+{
+    return _syscall1(SYS_WAIT, status_loc);
+}
+
 int_32 execv(const char *path, const char *argv[])
 {
     return _syscall2(SYS_EXECV, path, argv);

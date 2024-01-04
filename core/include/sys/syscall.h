@@ -15,6 +15,8 @@ enum SYSCALL_NR{
     //process
     SYS_FORK,
     SYS_EXECV,
+    SYS_WAIT,
+    SYS_EXIT,
     //file system api
     SYS_OPEN,
     SYS_CLOSE,
@@ -168,6 +170,10 @@ void free(void *ptr);
 uint_32 fork(void);
 
 int_32 execv(const char *path, const char *argv[]);
+
+void exit(int_32 status);
+
+pid_t wait(int_32 *status_loc);
 
 //System call: uint_32 write(char*)
 //return len of str
