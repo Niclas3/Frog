@@ -108,7 +108,7 @@ void *sys_malloc(uint_32 size);
 void sys_free(void *ptr);
 
 void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt);
-void free_phy_page(pool_type pt, uint_32 phy_addr_page);
+void free_phy_page(uint_32 phy_addr_page);
 
 // Alloc a page aka (4kb) link to vaddr_start
 void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start);

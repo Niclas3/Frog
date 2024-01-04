@@ -298,12 +298,12 @@ static void free_page(struct pool *mpool, uint_32 phy_addr_page)
     set_value_bitmap(&mpool->pool_bitmap, pos, 0);
 }
 
-void free_phy_page(pool_type pt, uint_32 phy_addr_page)
+void free_phy_page(uint_32 phy_addr_page)
 {
-    if(pt == MP_KERNEL){
-        free_page(&kernel_pool, phy_addr_page);
-    } else if(pt== MP_USER){
+    if(phy_addr_page >= user_pool.phy_addr_start){
         free_page(&user_pool, phy_addr_page);
+    } else {
+        free_page(&kernel_pool, phy_addr_page);
     }
 }
 
