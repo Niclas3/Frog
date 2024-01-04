@@ -375,7 +375,8 @@ uint_32 draw_2d_gfx_dec(gfx_context_t *ctx,
 // Draw a single pixel
 void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
 {
-    GFX(ctx, X, Y) = color;
+    /* GFX(ctx, X, Y) = color; */
+    GFXR(ctx, X, Y) = color;
 }
 
 /* // Draw a line */

@@ -83,5 +83,5 @@ void console_write(void *buf, uint_32 len)
         draw_2d_gfx_string(console_gfx, font_sz, base_x, base_y,
                                          FSK_LIGHT_GRAY, buf, len);
     }
-    flip(console_gfx);
+    /* flip(console_gfx); */
 }
