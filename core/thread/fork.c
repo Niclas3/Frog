@@ -2,6 +2,7 @@
 #include <debug.h>
 #include <fs/file.h>
 #include <fs/inode.h>
+#include <fs/pipe.h>
 #include <math.h>
 #include <string.h>
 #include <sys/fork.h>
@@ -33,7 +34,8 @@ static int_32 copy_tcb_vaddrbitmap_stack0(TCB_t *child_thread,
     block_desc_init(child_thread->u_block_descs);
 
     /* uint_32 bitmap_pg_cnt = */
-    /*     DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE); */
+    /*     DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE / 8, PG_SIZE);
+     */
     uint_32 bitmap_len =
         DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PG_SIZE, 8);
     uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PG_SIZE);
@@ -100,10 +102,10 @@ static int_32 build_child_stack(TCB_t *child_thread, TCB_t *parent_thread)
     /* push ebx */
     /* push ebp */
 
-    uint_32 *ret_addr_in_thread_stack = (uint_32*) intr_0_stack - 1;
-    uint_32 *esi_addr = (uint_32 *)intr_0_stack -2;
-    uint_32 *edi_addr = (uint_32 *)intr_0_stack -3;
-    uint_32 *ebx_addr = (uint_32 *)intr_0_stack -4;
+    uint_32 *ret_addr_in_thread_stack = (uint_32 *) intr_0_stack - 1;
+    uint_32 *esi_addr = (uint_32 *) intr_0_stack - 2;
+    uint_32 *edi_addr = (uint_32 *) intr_0_stack - 3;
+    uint_32 *ebx_addr = (uint_32 *) intr_0_stack - 4;
     uint_32 *ebp_ptr_in_thread_stack = (uint_32 *) intr_0_stack - 5;
     *ret_addr_in_thread_stack = (uint_32) intr_exit;
     child_thread->self_kstack = ebp_ptr_in_thread_stack;
@@ -124,7 +126,11 @@ static void update_inode_open_cnts(TCB_t *thread)
         global_fd = thread->fd_table[local_fd];
         ASSERT(global_fd < MAX_FILE_OPEN);
         if (global_fd != -1) {
-            g_file_table[global_fd].fd_inode->i_count++;
+            if (is_pipe(local_fd)) {
+                g_file_table[global_fd].fd_pos++;
+            } else {
+                g_file_table[global_fd].fd_inode->i_count++;
+            }
         }
         local_fd++;
     }

@@ -1,10 +1,13 @@
 #include <debug.h>
+#include <fs/file.h>
 #include <fs/fs.h>
+#include <fs/pipe.h>
 #include <math.h>
 #include <sys/exit.h>
 #include <sys/threads.h>
 
 extern struct list_head thread_all_list;
+extern struct file g_file_table[MAX_FILE_OPEN];
 
 static void release_proc_resource(TCB_t *thread)
 {
@@ -23,7 +26,7 @@ static void release_proc_resource(TCB_t *thread)
     uint_32 *first_pte_vaddr_in_pde = NULL;
     uint_32 pg_phy_addr = 0;
     while (pde_idx < user_pde_nr) {
-        pde_p = (uint_32)pgdir + pde_idx;
+        pde_p = (uint_32) pgdir + pde_idx;
         pde = *pde_p;
         if (pde & 0x00000001) {
             // one page table has 4M size
@@ -51,9 +54,18 @@ static void release_proc_resource(TCB_t *thread)
     mfree_page(MP_KERNEL, u_vaddr_pool_bm, bitmap_pg_cnt);
 
     // close file descriptor
-    for (int idx = 0; idx < MAX_FILES_OPEN_PER_PROC; idx++) {
-        if (thread->fd_table[idx] != -1) {
-            sys_close(idx);
+    for (int fd_idx = 0; fd_idx < MAX_FILES_OPEN_PER_PROC; fd_idx++) {
+        if (thread->fd_table[fd_idx] != -1) {
+            if (is_pipe(fd_idx)) {
+                uint_32 global_fd = fd_local2global(fd_idx);
+                if (--g_file_table[global_fd].fd_pos == 0) {
+                    // release pipe
+                    mfree_page(MP_KERNEL, g_file_table[fd_idx].fd_inode, 1);
+                    g_file_table[global_fd].fd_inode = NULL;
+                }
+            } else {
+                sys_close(fd_idx);
+            }
         }
     }
 }
