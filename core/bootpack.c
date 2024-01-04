@@ -528,34 +528,24 @@ void u_funf(int a)
 void u_fune(int a)
 {
     uint_32 ppid = getpid();
+    int_32 fd[2] = {-1};
+    pipe(fd);
     uint_32 ret_pid = fork();
     if (ret_pid) {
-        /* message msg; */
-        /* reset_msg(&msg); */
-        /* msg.m_type = 1234; */
-        /* sendrec(SEND, ret_pid, &msg); */
-        /* printf("Parents pid is %d\n", getpid()); */
-        int_32 status;
-        wait(&status);
-        printf("wait status %d", status);
+        close(fd[0]);
+        char *str = "hi, my son, good morning";
+        write(fd[1], str, strlen(str));
+        printf("wait status %d", 10);
         while (1)
             ;
     } else {
-        /* uint_32 cpid = getpid(); */
-        /* message msg; */
-        /* reset_msg(&msg); */
-        /* sendrec(RECEIVE, ppid, &msg); */
-        /* printf("child pid is %d, ret id is %d\n\n", getpid(), ret_pid); */
-        /* printf("message is %d\n", msg.m_type); */
-        exit(0);
+        close(fd[1]);
+        char buf[40] = {0};
+        read(fd[0], buf, 24);
+        printf("some one tell me %s", buf);
         while (1)
             ;
     }
-    /* char *app_path = "/ls"; */
-    /* char *argv[2] = {"a", "b"}; */
-    /*  */
-    /* execv(app_path, argv); */
-    /*  */
     while (1)
         ;
 }
