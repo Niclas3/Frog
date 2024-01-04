@@ -248,14 +248,14 @@ void thread_auth_block(TCB_t *task, task_status_t status)
 
 // Block self and set self status to status
 // If thread status is
-/* THREAD_TASK_HANDING;
+/* THREAD_TASK_HANGING;
    THREAD_TASK_WAITING;
    THREAD_TASK_BLOCKED; */
 // call this function.
 // remove current thread from thread_ready_list
 void thread_block(task_status_t status)
 {
-    ASSERT((status == THREAD_TASK_HANDING) || (status == THREAD_TASK_WAITING) ||
+    ASSERT((status == THREAD_TASK_HANGING) || (status == THREAD_TASK_WAITING) ||
            (status == THREAD_TASK_BLOCKED));
     enum intr_status old_int_status = intr_disable();
     TCB_t *cur = running_thread();
@@ -335,7 +335,6 @@ static bool find_pid(struct list_head *ele, pid_t pid)
     }
     return false;
 }
-
 TCB_t *pid2thread(pid_t pid)
 {
     struct list_head *node = list_walker(&thread_all_list, find_pid, pid);
