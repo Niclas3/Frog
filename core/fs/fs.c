@@ -662,13 +662,13 @@ int_32 sys_open(const char *pathname, uint_8 flags)
         dir_close(next_dir);
         return -1;
     } else if ((file_inode != -1) &&
-               (flags & O_CREAT)) {  // find and create a file
+               (flags & O_CREAT)) {  // found and create a file
         // TODO:
+        // 3.if it is exist, test if it is directory return -1
         // kprint("File found and want to create same name file.");
         dir_close(next_dir);
         return -1;
     }
-    // 3.if it is exist, test if it is directory return -1
     switch (flags & O_CREAT) {
     case O_CREAT:
         fd = file_create(&mounted_part, next_dir, last_name, flags);
@@ -737,12 +737,9 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
             bytes_written = write_pipe(fd, buf, count);
             return bytes_written;
         } else {
-            // TODO:
-            // console_write() things
             char tmp[1024] = {0};
             memcpy(tmp, buf, count);
             console_write(tmp, count);
-            /* console_put_str(tmp); */
             return count;
         }
     } else if (is_pipe(fd)) {
@@ -787,6 +784,7 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
         if (is_pipe(fd)) {
             res = read_pipe(fd, buf, count);
         } else {
+            // read from keyboard_queue
             char *buffer = buf;
             uint_32 bytes_read = 0;
             while (bytes_read < count) {

@@ -5,7 +5,7 @@
 #include <fs/pipe.h>
 #include <io.h>
 #include <ioqueue.h>
-/* #include <fs/pipe.h> */
+#include <fs/pipe.h>
 
 #include <protect.h>
 #include <sys/int.h>
@@ -123,8 +123,6 @@ static uint_8 mouse_write(uint_8 data)
     return inb(PS2_DATA);
 }
 
-uint_32 test_point_x = 200;
-uint_32 test_point_y = 200;
 static void make_mouse_packet(struct mouse_raw_data *mdata)
 {
     mdata->stage = 0;
@@ -173,7 +171,6 @@ static void make_mouse_packet(struct mouse_raw_data *mdata)
         byte_packet++;
         packet_size--;
     }
-
 }
 
 static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 code)

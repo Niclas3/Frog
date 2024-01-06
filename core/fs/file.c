@@ -681,8 +681,6 @@ int_32 file_read(struct partition *part,
                 file->fd_pos += ZONE_SIZE;
                 buf += ZONE_SIZE;
             }
-            /* r_lba = (rd_zone_idx < 12) ? all_zones[rd_zone_idx + i] */
-            /*                            : all_zones[rd_zone_idx - 12 + i]; */
         }
         sys_free(io_buf);
         return rd_len;

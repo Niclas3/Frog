@@ -67,9 +67,6 @@ void ioqueue_put_data(char data, CircleQueue *queue)
     }
 }
 
-// @return: int is a error code
-//          if 0 ok
-//          if !0 error
 char ioqueue_get_data(CircleQueue *queue)
 {
     char data;
