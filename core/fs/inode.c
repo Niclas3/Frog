@@ -107,6 +107,8 @@ static struct inode *find_open_inode(struct list_head *list, uint_32 inode_nr)
     }
     return NULL;
 }
+
+
 struct inode *inode_open(struct partition *part, uint_32 inode_nr)
 {
     // 0.Test part is mounted partition
@@ -131,8 +133,8 @@ struct inode *inode_open(struct partition *part, uint_32 inode_nr)
         TCB_t *cur = running_thread();
         uint_32 *cur_pagedir_bak = cur->pgdir;
         cur->pgdir = NULL;
-        target = sys_malloc(
-            sizeof(struct inode));  // this memory at kernel for share
+        // this memory at kernel for share
+        target = sys_malloc(sizeof(struct inode));
         cur->pgdir = cur_pagedir_bak;
         //--------------------------------------------------------------------
 
