@@ -85,63 +85,6 @@ void sys_putc(char c)
     put_char(c);
 }
 
-extern struct pool user_pool;
-extern struct pool kernel_pool;
-extern struct _virtual_addr kernel_viraddr;
-static void *malloc_a_user_page(uint_32 va, uint_32 pa)
-{
-    // get free v_address
-    TCB_t *cur = running_thread();
-    struct bitmap *v_bitmap = &cur->progress_vaddr.vaddr_bitmap;
-    uint_32 v_pos = find_block_bitmap(v_bitmap, 1);
-    set_value_bitmap(v_bitmap, v_pos, 1);
-    uint_32 v_addr = cur->progress_vaddr.vaddr_start + v_pos * 4096;
-    /* uint_32 v_addr = 0x1003000; */
-
-    // get free p_address
-    struct bitmap *bmap = &user_pool.pool_bitmap;
-    uint_32 p_pos = find_block_bitmap(bmap, 1);
-    set_value_bitmap(bmap, p_pos, 1);
-    uint_32 p_addr = user_pool.phy_addr_start + p_pos * 4096;
-    /* uint_32 p_addr = 0x40c5000; */
-
-    /* put_page(va, pa); */
-    /* *(char *) va= 0xdd; */
-    /* return (void *) va; */
-    put_page(v_addr, p_addr);
-    return (void *) v_addr;
-}
-
-static void *malloc_user_page_with_va(uint_32 va)
-{
-    // get free p_address
-    struct bitmap *bmap = &user_pool.pool_bitmap;
-    uint_32 p_pos = find_block_bitmap(bmap, 1);
-    set_value_bitmap(bmap, p_pos, 1);
-    uint_32 p_addr = user_pool.phy_addr_start + p_pos * 4096;
-    /* uint_32 p_addr = 0x40c5000; */
-
-    put_page(va, p_addr);
-    return (void *) va;
-}
-
-static void remove_page(void *v_addr)
-{
-    uint_32 vaddress = (uint_32) v_addr;
-    uint_32 *pde = pde_ptr(vaddress);
-    uint_32 *pte = pte_ptr(vaddress);
-    if (*pde & 0x00000001) {      // test pde if exist
-        if (*pte & 0x00000001) {  // test pde if exist or not
-            *pte &= 0x11111110;   // PG_P_CLI;
-        } else {                  // pte is not exists
-            PANIC("Free twice");
-            // Still make pde is unexist
-            *pte &= 0x11111110;  // PG_P_CLI;
-        }
-        __asm__ volatile("invlpg %0" ::"m"(v_addr) : "memory");
-    }
-}
-
 void sys_testsyscall(int a)
 {
     return;
