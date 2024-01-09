@@ -3,9 +3,9 @@
 #include <hid/mouse.h>
 
 #include <fs/pipe.h>
+#include <fs/fs.h>
 #include <io.h>
 #include <ioqueue.h>
-#include <fs/pipe.h>
 
 #include <protect.h>
 #include <sys/int.h>
@@ -321,6 +321,9 @@ void ps2hid_init(void)
 {
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
+
+    sys_char_file("/dev/input/event0", &keyboard_queue);
+    sys_char_file("/dev/input/event1", &mouse_queue);
 
     /* sys_pipe(g_kbd_pipe_fd); */
     /* sys_pipe(g_mouse_pipe_fd); */
