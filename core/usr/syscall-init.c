@@ -142,58 +142,6 @@ static void remove_page(void *v_addr)
     }
 }
 
-static bool load_code(int_32 fd, uint_32 virtaddr, uint_32 offset, uint_32 size)
-{
-    uint_32 vaddr_first_page = virtaddr & 0xfffff000;
-    uint_32 size_fpage = PG_SIZE - (virtaddr & 0x00000fff);
-    uint_32 occupy_page_cnt = 0;  // in page
-    if (size > size_fpage) {
-        uint_32 left_size = size - size_fpage;
-        occupy_page_cnt = DIV_ROUND_UP(left_size, PG_SIZE + 1);
-    } else {
-        occupy_page_cnt = 1;
-    }
-
-    uint_32 page_idx = 0;
-    uint_32 vaddr_page = vaddr_first_page;
-    while (page_idx < occupy_page_cnt) {
-        uint_32 *pde = pde_ptr(vaddr_page);
-        uint_32 *pte = pte_ptr(vaddr_page);
-
-        if (!(*pde & PG_P_SET) || !(*pte & PG_P_SET)) {
-            /* // 0x1002000 */
-            /* char *test = sys_malloc(512); */
-            /* sys_free(test); */
-
-            /* if (NULL == malloc_page_with_vaddr_test(MP_USER, vaddr_page)) {
-             */
-            if (NULL == malloc_page_with_vaddr(MP_USER, vaddr_page)) {
-                return false;
-            }
-            // 0x1002000
-            /* char *testa = sys_malloc(512); */
-            /* sys_free(testa); */
-
-            uint_32 v_a = 0x1004000;
-            uint_32 p_a = 0x40c8000;
-            uint_32 v_addr = malloc_a_user_page(v_a, p_a);
-
-            *(char *) v_addr = 0xcc;
-            if (*(char *) v_addr != 0xcc) {
-                // alloc next address
-                v_addr = malloc_a_user_page(v_a, p_a);
-            }
-            *(char *) v_addr = 0xbb;
-        }
-        vaddr_page += PG_SIZE;
-        page_idx++;
-    }
-    sys_lseek(fd, offset, SEEK_SET);
-    sys_read(fd, (void *) virtaddr, size);
-    return true;
-}
-
-
 void sys_testsyscall(int a)
 {
     return;
