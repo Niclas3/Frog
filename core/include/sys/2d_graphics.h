@@ -1,4 +1,4 @@
-#pragma onces
+#pragma once
 
 #include <ostype.h>
 #include <sys/FSK_Color.h>
