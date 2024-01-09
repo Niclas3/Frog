@@ -17,6 +17,8 @@
 #define MAX_FILE_SIZE ZONE_SIZE *MAX_ZONE_COUNT
 #define EOF(file) (file)->fd_inode->i_size + 1
 
+#define __stdin_fd  0
+#define __stdout_fd 1
 struct dir;
 
 extern struct partition mounted_part;  // the partition what we want to mount.

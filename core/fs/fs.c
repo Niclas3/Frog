@@ -748,6 +748,8 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
             bytes_written = write_pipe(fd, buf, count);
             return bytes_written;
         } else {
+            //TODO:
+            //maybe change it to use /dev/input/event*
             char tmp[1024] = {0};
             memcpy(tmp, buf, count);
             console_write(tmp, count);
@@ -799,6 +801,8 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
             res = read_pipe(fd, buf, count);
         } else {
             // read from keyboard_queue
+            //TODO:
+            //maybe change it to use /dev/input/event*
             char *buffer = buf;
             uint_32 bytes_read = 0;
             while (bytes_read < count) {
