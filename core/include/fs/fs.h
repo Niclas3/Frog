@@ -30,6 +30,10 @@ enum file_type {
     FT_REGULAR,
 };
 
+#define IS_FT_CHAR(inode) (((inode)->i_mode >> 11)==FT_CHAR)
+#define IS_FT_DIRECTORY(inode) (((inode)->i_mode >> 11)==FT_DIRECTORY)
+#define IS_FT_REGULAR(inode) (((inode)->i_mode >> 11)==FT_REGULAR)
+
 enum exec_mode {
     EM_SET_USER_ID,
     EM_SET_GROUP_ID,
@@ -78,4 +82,6 @@ int_32 sys_rmdir(const char *pathname);
 char *sys_getcwd(char *buf, int_32 size);
 int_32 sys_chdir(const char *pathname);
 int_32 sys_stat(const char *pathname, struct stat *statbuf);
+
+int_32 sys_char_file(const char *pathname, void *file);
 #endif

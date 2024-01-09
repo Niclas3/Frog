@@ -5,8 +5,10 @@
 #include <fs/super_block.h>
 
 #include <device/ide.h>
+#include <fs/char_file.h>
 #include <fs/file.h>
 #include <fs/pipe.h>
+
 #include <math.h>
 #include <string.h>
 #include <sys/memory.h>
@@ -347,7 +349,7 @@ int_32 path_depth(const char *path)
     char *p_path;
     p_path = path_peel(tmp_path, name);
     uint_32 depth = 1;
-    while (strcmp(p_path, "/")) {
+    while (strcmp("/", p_path)) {
         p_path = path_peel(p_path, name);
         depth++;
     }
@@ -655,13 +657,13 @@ int_32 sys_open(const char *pathname, uint_8 flags)
         }
         sys_free(dirs_path);
     }
-    int_32 file_inode = search_file(&mounted_part, next_dir, last_name);
-    if ((file_inode == -1) && !(flags & O_CREAT)) {
+    int_32 file_inode_nr = search_file(&mounted_part, next_dir, last_name);
+    if ((file_inode_nr == -1) && !(flags & O_CREAT)) {
         // TODO:
         // kprint("File not found and want to read file.");
         dir_close(next_dir);
         return -1;
-    } else if ((file_inode != -1) &&
+    } else if ((file_inode_nr != -1) &&
                (flags & O_CREAT)) {  // found and create a file
         // TODO:
         // 3.if it is exist, test if it is directory return -1
@@ -678,12 +680,18 @@ int_32 sys_open(const char *pathname, uint_8 flags)
     case O_RDONLY:
     case O_WRONLY:
         /*when flags is O_RDWR, O_RDONLY, O_WRONLY */
-        fd = file_open(&mounted_part, file_inode, flags);
-        break;
+        {
+            if (is_char_file(&mounted_part, file_inode_nr)) {
+                fd = open_char_file(&mounted_part, file_inode_nr, flags);
+            } else {
+                fd = file_open(&mounted_part, file_inode_nr, flags);
+            }
+            break;
+        }
     default:
         // TODO:
         /*when flags is O_TRUNC O_APPEND not support yet*/
-        fd = file_open(&mounted_part, file_inode, flags);
+        fd = file_open(&mounted_part, file_inode_nr, flags);
         break;
     }
 
@@ -705,6 +713,9 @@ int_32 sys_close(int_32 fd)
         uint_32 g_fd = fd_local2global(fd);
         if (is_pipe(fd)) {
             close_pipe(fd);
+            ret = 0;
+        } else if (is_char_fd(fd)) {
+            close_char_file(&g_file_table[g_fd]);
             ret = 0;
         } else {
             ret = file_close(&g_file_table[g_fd]);
@@ -744,6 +755,9 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
         }
     } else if (is_pipe(fd)) {
         bytes_written = write_pipe(fd, buf, count);
+        return bytes_written;
+    } else if (is_char_fd(fd)) {
+        bytes_written = write_char_file(fd, buf, count);
         return bytes_written;
     } else {
         uint_32 g_fd = fd_local2global(fd);
@@ -799,6 +813,8 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
         return -1;
     } else if (is_pipe(fd)) {
         res = read_pipe(fd, buf, count);
+    } else if (is_char_fd(fd)) {
+        res = read_char_file(fd, buf, count);
     } else {
         uint_32 g_fd = fd_local2global(fd);
         struct file *f = &g_file_table[g_fd];
@@ -1389,4 +1405,75 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
         // kprint("sys_stat:%s path not found", pathname);
     }
     return ret;
+}
+
+int_32 sys_char_file(const char *pathname, void *file)
+{
+    int_32 fd = -1;
+    // 1. test path
+    // 2.test if this file is exist at `pathname` at struct dir_entry
+    if ('/' == pathname[strlen(pathname) - 1]) {
+        return -1;
+    }
+    char *path = sys_malloc(strlen(pathname));
+    char last_name[MAX_FILE_NAME_LEN];
+    memcpy(path, pathname, strlen(pathname));
+    path_peel(path, last_name);
+    sys_free(path);
+
+    struct dir *next_dir = &root_dir;
+    char cur_name[MAX_FILE_NAME_LEN] = {0};
+
+    int_32 depth = path_depth(pathname);
+    // Open file not at root directory directly
+    if (depth > 1) {
+        char *dirs_path = sys_malloc(MAX_FILE_NAME_LEN * depth);
+        if (path_dirs(pathname, dirs_path)) {
+            sys_free(dirs_path);
+            return -1;
+        };
+
+        // 2. test all directories
+        //  -2 is skip '/' root directory and last file;
+        char *cur_abs_dir_path = sys_malloc(strlen(pathname));
+        memset(cur_abs_dir_path, 0, strlen(pathname));
+        cur_abs_dir_path[0] = '/';
+        for (int_32 idx = (depth - 2) * MAX_FILE_NAME_LEN; idx >= 0;
+             idx -= MAX_FILE_NAME_LEN) {
+            memcpy(cur_name, dirs_path + idx, MAX_FILE_NAME_LEN);
+            strcat(cur_abs_dir_path, cur_name);
+            int_32 d_inode = search_file(&mounted_part, next_dir, cur_name);
+            if (d_inode == -1) {
+                // TODO:
+                // kprint("dir file not find.");
+                sys_mkdir(cur_abs_dir_path);
+                d_inode = search_file(&mounted_part, next_dir, cur_name);
+                if (d_inode == -1) {
+                    // TODO:
+                    //  second check error
+                    return -1;
+                }
+            }
+            dir_close(next_dir);  // dir_close() does not close root directory
+            next_dir = dir_open(&mounted_part, d_inode);
+            memset(cur_name, 0, MAX_FILE_NAME_LEN);
+        }
+        sys_free(cur_abs_dir_path);
+        sys_free(dirs_path);
+    }
+    fd = char_file_create(&mounted_part, next_dir, last_name, file);
+    dir_close(next_dir);
+    return fd;
+
+    /* int_32 file_inode = search_file(&mounted_part, next_dir, last_name); */
+    /* if (file_inode == -1) { */
+    /*     fd = char_file_create(&mounted_part, next_dir, last_name, file); */
+    /*     dir_close(next_dir); */
+    /*     return fd; */
+    /* } else { */
+    /*     // TODO: */
+    /*     // kprint("File not found and want to read file."); */
+    /*     dir_close(next_dir); */
+    /*     return file_inode; */
+    /* } */
 }
