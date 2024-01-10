@@ -7,8 +7,8 @@
 #include <fs/inode.h>
 #include <ioqueue.h>
 #include <math.h>
-#include <sys/memory.h>
 #include <string.h>
+#include <sys/memory.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
@@ -86,15 +86,24 @@ int_32 char_file_create(struct partition *part,
     lock_release(&g_ft_lock);
 
     // 4. flush dir_entry to parents directory
-    if (flush_dir_entry(part, parent_d, &new_entry, buf)) {
-        // TODO:
-        //  kprint("Failed at flush directory entry");
-        rollback_step = 3;
-        // Recover! Need recover inode bitmap set
-        //        ! free new_f_inode
-        //        ! clear g_file_table[fd_idx]
-        goto roll_back;
+    // search new entry first
+    int_32 failed = search_dir_entry(part, name, parent_d, &new_entry);
+    if (!failed) {
+        list_add(&new_f_inode->inode_tag, &part->open_inodes);
+        sys_free(buf);
+        return fd_idx;
+    } else {
+        if (flush_dir_entry(part, parent_d, &new_entry, buf)) {
+            // TODO:
+            //  kprint("Failed at flush directory entry");
+            rollback_step = 3;
+            // Recover! Need recover inode bitmap set
+            //        ! free new_f_inode
+            //        ! clear g_file_table[fd_idx]
+            goto roll_back;
+        }
     }
+
     // 5. flush parent inode
     //  flush_dir_entry will change parent directory inode size
     /* memset(buf, 0, 1024);  // 1024 for 2 sectors */
@@ -106,12 +115,6 @@ int_32 char_file_create(struct partition *part,
     // 7. flush inode bitmap and zones bitmap
     /* flush_bitmap(part, INODE_BITMAP, inode_nr); */
 
-    // 8. add new inode to open_inodes
-    list_add(&new_f_inode->inode_tag, &part->open_inodes);
-
-    sys_free(buf);
-
-    return fd_idx;
 
 roll_back:
     switch (rollback_step) {
@@ -162,17 +165,23 @@ int_32 close_char_file(struct file *file)
 uint_32 read_char_file(int_32 fd, void *buf, uint_32 count)
 {
     int_32 g_fd = fd_local2global(fd);
-    CircleQueue *memory = (CircleQueue*) g_file_table[g_fd].fd_inode->i_zones[0];
-    char data = ioqueue_get_data(memory);
-    memcpy(buf, &data, 1);
-    return 1;
+    CircleQueue *queue =
+        (CircleQueue *) g_file_table[g_fd].fd_inode->i_zones[0];
+    if (ioqueue_length(queue) == 0) {
+        return 0;
+    } else {
+        char data = ioqueue_get_data(queue);
+        memcpy(buf, &data, 1);
+        return 1;
+    }
 }
 
 uint_32 write_char_file(int_32 fd, const void *buf, uint_32 count)
 {
     int_32 g_fd = fd_local2global(fd);
-    CircleQueue *memory = (CircleQueue*) g_file_table[g_fd].fd_inode->i_zones[0];
-    char *data = (char*)buf;
+    CircleQueue *memory =
+        (CircleQueue *) g_file_table[g_fd].fd_inode->i_zones[0];
+    char *data = (char *) buf;
     ioqueue_put_data(data[0], memory);
     return 1;
 }
