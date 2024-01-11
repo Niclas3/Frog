@@ -48,7 +48,7 @@
 ;           │         │
 ;───────────├─────────┤0x00a0_0000 
 ;                                  
-;           ├─────────┤0xc009_a000 1.kernel_pool.bitmap
+;           ├─────────┤0xc006_0000 1.kernel_pool.bitmap
 ;           │         │            2.user_pool.bitmap
 ;           │         │            3.kernel_viraddr.bitmap
 

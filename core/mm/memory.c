@@ -20,7 +20,8 @@
 // 14 pages aka 14 * 4kb = 0xe000
 /* #define K_HEAP_START 0x00100000 */
 
-#define MEM_BITMAP_BASE 0xc009a000
+#define MEM_BITMAP_BASE 0xc0060000
+/* #define MEM_BITMAP_BASE 0xc009a000 */
 /* #define MEM_BITMAP_BASE 0xc002e000 */
 /* #define MEM_BITMAP_BASE 0xc000e800 */
 
