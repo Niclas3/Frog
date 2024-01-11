@@ -15,15 +15,20 @@ tui en
 b *0xc0080000
 b exception_handler
 b panic_print
+
+b 143
+# b sys_char_file
+# b ps2hid.c:292
+# b sys_read
 # b fsk_mouse.c: 52 if cursor_y == 0
 # b fork.c: 65
 # b sys_fork
-b u_fune
-b bootpack.c:538
-b sys_wait
-b exit.c:95
-b sys_exit
-b exit.c:37 if pg_phy_addr == 0x0
+# b u_fune
+# b bootpack.c:538
+# b sys_wait
+# b exit.c:95
+# b sys_exit
+# b exit.c:37 if pg_phy_addr == 0x0
 # b thread/fork.c:67 if idx_byte == 0x17000-1
 # b thread/fork.c:69 if idx_bit == 0
 # b load_code

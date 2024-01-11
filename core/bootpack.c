@@ -23,6 +23,7 @@
 
 // GUI
 /* #include <gui/fsk_mouse.h> */
+#include <poudland.h>
 
 // test
 #include <device/ide.h>
@@ -118,22 +119,22 @@ void UkiMain(void)
     ps2hid_init();
 
     /************************load test programe*******************************/
-    char *app_path = "/ls";
-    char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 27 * 1024;
-    char *ls_buf = sys_malloc(file_sz);
-    uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
-    struct disk *disk0 = &channels[0].devices[0];
-    struct disk *disk1 = &channels[0].devices[1];
-    ide_read(disk0, 384, ls_buf, sectors);
-    /* ide_write(disk1, 384, ls_buf,sectors); */
-    int_32 fd = open(app_path, O_RDWR);
-    if (fd == -1) {
-        fd = open(app_path, O_CREAT | O_RDWR);
-    }
-    sys_write(fd, ls_buf, file_sz);
-    sys_close(fd);
-    sys_free(ls_buf);
+    /* char *app_path = "/ls"; */
+    /* char *argv[2] = {"a", "b"}; */
+    /* uint_32 file_sz = 27 * 1024; */
+    /* char *ls_buf = sys_malloc(file_sz); */
+    /* uint_32 sectors = DIV_ROUND_UP(file_sz, 512); */
+    /* struct disk *disk0 = &channels[0].devices[0]; */
+    /* struct disk *disk1 = &channels[0].devices[1]; */
+    /* ide_read(disk0, 384, ls_buf, sectors); */
+    /* #<{(| ide_write(disk1, 384, ls_buf,sectors); |)}># */
+    /* int_32 fd = open(app_path, O_RDWR); */
+    /* if (fd == -1) { */
+    /*     fd = open(app_path, O_CREAT | O_RDWR); */
+    /* } */
+    /* sys_write(fd, ls_buf, file_sz); */
+    /* sys_close(fd); */
+    /* sys_free(ls_buf); */
     /*****************************************************************/
 
 
@@ -162,12 +163,17 @@ void UkiMain(void)
         char path[1024] = {0};
         sys_getcwd(path, 1024);
         printf("-<zm@k:%s>-", path);
-        /* char *buf = sys_malloc(1); */
-        /* while (1) { */
-        /*     read(stdin_, buf, 1); */
-        /*     write(stdout_, buf, 1); */
-        /* } */
-        /* sys_free(buf); */
+        poudland_main_loop(); 
+
+        char *buf = sys_malloc(1);
+        int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
+        int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
+        while (1) {
+            read(mouse_fd, buf, 1);
+            write(stdout_, buf, 1);
+        }
+        close(kbd_fd);
+        sys_free(buf);
 
         uint_32 status_bar_color = 0x88131313;
         Point top_left = {.X = 0, .Y = 0};
@@ -181,7 +187,8 @@ void UkiMain(void)
         /* top_left.Y = 20; */
         /* down_right.X = 40; */
         /* down_right.Y = 40; */
-        /* fill_rect_solid(g_ctx, top_left, down_right, FSK_LIME | 0xff000000); */
+        /* fill_rect_solid(g_ctx, top_left, down_right, FSK_LIME | 0xff000000);
+         */
         /* top_left.X = 30; */
         /* top_left.Y = 25; */
         /* down_right.X = 40 + 10; */
@@ -500,7 +507,8 @@ void u_fund(int a)
 // proc C
 void u_funf(int a)
 {
-    while(1);
+    while (1)
+        ;
     // pid expecting 2
     /* pid_t pid_what = get_pid_mm_test(); */
     /* pid_t pid = getpid(); */
@@ -515,11 +523,14 @@ void u_funf(int a)
     /*         msg.m_type = 1234; */
     /*         sendrec(SEND, 5, &msg); */
     /*     } */
-    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16, |)}># */
+    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16,
+     * |)}># */
     /*     #<{(|          maybe100); |)}># */
-    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16, |)}># */
+    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16,
+     * |)}># */
     /*     #<{(|          pid_what); |)}># */
-    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16, pid); */
+    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16,
+     * pid); */
     /*      |)}># */
     /* } */
 }
@@ -535,7 +546,7 @@ void u_fune(int a)
         close(fd[0]);
         char *str = "hi, my son, good morning";
         write(fd[1], str, strlen(str));
-        printf("wait status %d", 10);
+        printf("wait status %d\n", 10);
         while (1)
             ;
     } else {
@@ -550,8 +561,10 @@ void u_fune(int a)
         ;
 }
 
-void u_fung(int a) {
-    while(1);
+void u_fung(int a)
+{
+    while (1)
+        ;
 }
 
 
@@ -565,9 +578,11 @@ void init(void)
     /*         ; */
     /* } else { */
     /*     uint_32 cpid = getpid(); */
-    /*     #<{(| printf("child pid is %d, ret id is %d", getpid(), ret_pid); |)}># */
+    /*     #<{(| printf("child pid is %d, ret id is %d", getpid(), ret_pid);
+     * |)}># */
     /*     while (1) */
     /*         ; */
     /* } */
-    while(1);
+    while (1)
+        ;
 }
