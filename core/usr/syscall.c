@@ -88,7 +88,8 @@ int_32 execv(const char *path, const char *argv[])
     return _syscall2(SYS_EXECV, path, argv);
 }
 
-int_32 pipe(int_32 pipefd[2]){
+int_32 pipe(int_32 pipefd[2])
+{
     return _syscall1(SYS_PIPE, pipefd);
 }
 
@@ -172,6 +173,16 @@ void putc(char c)
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg)
 {
     return _syscall3(SYS_SENDREC, func, src_dest, p_msg);
+}
+
+int gettimeofday(struct timeval *t, void *z)
+{
+    return _syscall2(SYS_GETTIMEOFDAY, t, z);
+}
+
+int settimeofday(struct timeval *t, void *z)
+{
+    return _syscall2(SYS_SETTIMEOFDAY, t, z);
 }
 
 void testsyscall(int a)

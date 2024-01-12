@@ -14,6 +14,7 @@
 #include <sys/graphic.h>
 #include <sys/threads.h>
 #include <fs/pipe.h>
+#include <device/cmos.h>
 
 #include <ipc.h>
 
@@ -126,4 +127,7 @@ void syscall_init(void)
     syscall_table[SYS_SENDREC] = sys_sendrec;
     // for test
     syscall_table[SYS_TESTSYSCALL] = sys_testsyscall;
+    // timer
+    syscall_table[SYS_GETTIMEOFDAY] = sys_gettimeofday;
+    syscall_table[SYS_SETTIMEOFDAY] = sys_settimeofday;
 }

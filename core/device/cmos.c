@@ -230,7 +230,7 @@ static void update_ticks(uint_32 ticks,
  * and the boot time retrieved from the CMOS, subdivide the result
  * into seconds and "subseconds" (microseconds), and store that.
  */
-int gettimeofday(struct timeval *t, void *z)
+int sys_gettimeofday(struct timeval *t, void *z)
 {
     uint_32 tsc[2] = {0};
     read_tsc(tsc);
@@ -252,7 +252,7 @@ int gettimeofday(struct timeval *t, void *z)
  * TODO: A lot of this time stuff needs to be made more generic,
  *       it's shared pretty directly with aarch64...
  */
-int settimeofday(struct timeval *t, void *z)
+int sys_settimeofday(struct timeval *t, void *z)
 {
     return 0;
 }
