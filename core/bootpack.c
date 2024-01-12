@@ -18,6 +18,7 @@
 #include <oslib.h>
 #include <protect.h>
 
+#include <device/cmos.h>
 #include <kernel_print.h>
 #include <math.h>
 
@@ -48,6 +49,8 @@
 #include <sys/fstask.h>
 #include <sys/spinlock.h>
 #include <sys/systask.h>
+
+#include <sys/time.h>
 BOOT_GFX_MODE_t g_boot_gfx_mode;
 
 // test things
@@ -99,6 +102,8 @@ void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
     lock_init(&main_lock);
+
+    clock_init();
 
     init_idt_gdt_tss();
 
@@ -160,10 +165,16 @@ void UkiMain(void)
         uint_32 screen_height = g_ctx->height;
         uint_32 fontsize = 8;
         clear_screen(g_ctx, FSK_BLACK);
+        struct timeval t1 = {0};
+        struct timeval t2 = {0};
+
+        gettimeofday(&t1,NULL);
         char path[1024] = {0};
         sys_getcwd(path, 1024);
         printf("-<zm@k:%s>-", path);
-        poudland_main_loop(); 
+        gettimeofday(&t1,NULL);
+
+        poudland_main_loop();
 
         char *buf = sys_malloc(1);
         int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
