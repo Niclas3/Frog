@@ -168,11 +168,13 @@ void UkiMain(void)
         struct timeval t1 = {0};
         struct timeval t2 = {0};
 
-        gettimeofday(&t1,NULL);
+        gettimeofday(&t1, NULL);
         char path[1024] = {0};
         sys_getcwd(path, 1024);
         printf("-<zm@k:%s>-", path);
-        gettimeofday(&t1,NULL);
+        gettimeofday(&t1, NULL);
+
+        process_execute(u_fune, "A");  // pid 6
 
         poudland_main_loop();
 
@@ -191,7 +193,6 @@ void UkiMain(void)
         Point down_right = {.X = screen_width, .Y = 34};
         fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
 
-        process_execute(u_fune, "A");  // pid 6
 
         // Draw 2 Ract
         /* top_left.X = 20; */
@@ -549,25 +550,30 @@ void u_funf(int a)
 // proc A
 void u_fune(int a)
 {
-    uint_32 ppid = getpid();
-    int_32 fd[2] = {-1};
-    pipe(fd);
-    uint_32 ret_pid = fork();
-    if (ret_pid) {
-        close(fd[0]);
-        char *str = "hi, my son, good morning";
-        write(fd[1], str, strlen(str));
-        printf("wait status %d\n", 10);
-        while (1)
-            ;
-    } else {
-        close(fd[1]);
-        char buf[40] = {0};
-        read(fd[0], buf, 24);
-        printf("some one tell me %s", buf);
-        while (1)
-            ;
+    while (1) {
+        struct timeval t;
+        gettimeofday(&t, NULL);
+        printf("s:%x, us:%x\n", t.tv_sec, t.tv_usec);
     }
+    /* uint_32 ppid = getpid(); */
+    /* int_32 fd[2] = {-1}; */
+    /* pipe(fd); */
+    /* uint_32 ret_pid = fork(); */
+    /* if (ret_pid) { */
+    /*     close(fd[0]); */
+    /*     char *str = "hi, my son, good morning"; */
+    /*     write(fd[1], str, strlen(str)); */
+    /*     printf("wait status %d\n", 10); */
+    /*     while (1) */
+    /*         ; */
+    /* } else { */
+    /*     close(fd[1]); */
+    /*     char buf[40] = {0}; */
+    /*     read(fd[0], buf, 24); */
+    /*     printf("some one tell me %s", buf); */
+    /*     while (1) */
+    /*         ; */
+    /* } */
     while (1)
         ;
 }
