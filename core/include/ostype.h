@@ -22,6 +22,9 @@ typedef short int_16;
 typedef char int_8;
 
 // sizeof(half_byte); //0x4
+typedef uint_32 time_t;
+typedef uint_32 suseconds_t;
+
 typedef struct {
     unsigned int value: 4;
 } half_byte;
