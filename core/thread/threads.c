@@ -30,7 +30,9 @@ struct list_head process_all_list;
 struct pid_pool pid_pool;
 
 // pid bitmap
-uint_8 pid_bitmap[128] = {0};
+// max pid is 1024
+/* uint_8 pid_bitmap[128] = {0}; */
+uint_32 *pid_bitmap;
 
 static struct list_head *thread_tag;
 
@@ -69,16 +71,20 @@ static void kernel_thread(__routine_ptr_t func_ptr, void *func_arg)
  * */
 TCB_t *running_thread(void)
 {
-    uint_32 esp;
-    __asm__ volatile("mov %%esp, %0" : "=g"(esp));
-    return (TCB_t *) (esp & 0xfffff000);
+    /* uint_32 esp; */
+    /* __asm__ volatile("mov %%esp, %0" : "=g"(esp)); */
+    /* return (TCB_t *) (esp & 0xfffff000); */
+    TCB_t *current;
+    /* __asm__ volatile ("andl %%esp, %0;":"=r"(current) : "0" (0xfffff000)); */
+    __asm__ volatile("andl %%esp, %0;" : "=r"(current) : "0"(~4095UL));
+    return current;
 }
 
-static void init_pid_bitmap(void)
+static void init_pid_bitmap(uint_32 length)
 {
     pid_pool.pid_start = 1;
     pid_pool.pid_bm.bits = pid_bitmap;
-    pid_pool.pid_bm.map_bytes_length = 128;
+    pid_pool.pid_bm.map_bytes_length = length;
     lock_init(&pid_pool.pid_lock);
     init_bitmap(&pid_pool.pid_bm);
 }
@@ -174,7 +180,8 @@ void create_thread(TCB_t *thread, __routine_t func, void *arg)
 
 TCB_t *thread_start(char *name, int priority, __routine_t func, void *arg)
 {
-    TCB_t *thread = get_kernel_page(1);
+    TCB_t *thread = get_kernel_page(1);  // alloc only 4096b aka 1 page for
+                                         // struct thread
     init_thread(thread, name, priority);
     create_thread(thread, func, arg);
 
@@ -355,7 +362,13 @@ void thread_init(void)
     init_list_head(&thread_ready_list);
     init_list_head(&thread_all_list);
     init_list_head(&process_all_list);
-    init_pid_bitmap();
+
+    // alloc pid_bitmap space
+    pid_bitmap = get_kernel_page(1);
+    if (pid_bitmap == NULL) {
+        PANIC("thread init error when alloc pid bitmap");
+    }
+    init_pid_bitmap(4096);
     // init thread pid = 1
     process_execute(init, "init");
     // main thread pid = 2
