@@ -27,7 +27,7 @@ $(BUILD_DIR)/semaphore.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "semaphore.c")
 
 $(BUILD_DIR)/sched.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "sched.c")
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -O1 $(shell find thread -type f -name "sched.c")
 
 $(BUILD_DIR)/threads.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "threads.c")

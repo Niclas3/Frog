@@ -58,7 +58,9 @@ void inthandler20(void)
     TCB_t *cur_thread = running_thread();
     ASSERT(cur_thread->stack_magic == 0x19900921);
     cur_thread->elapsed_ticks++;
-    ticks++;
+    /* ticks++; */
+    (*(uint_32 *)&ticks)++;
+
     if (cur_thread->ticks == 0) {
         schedule();
     } else {
