@@ -5,7 +5,7 @@
 #include <fs/super_block.h>
 
 #include <device/ide.h>
-#include <fs/char_file.h>
+#include <device/ps2hid.h>
 #include <fs/file.h>
 #include <fs/pipe.h>
 
