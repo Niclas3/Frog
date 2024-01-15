@@ -682,7 +682,7 @@ int_32 sys_open(const char *pathname, uint_8 flags)
         /*when flags is O_RDWR, O_RDONLY, O_WRONLY */
         {
             if (is_char_file(&mounted_part, file_inode_nr)) {
-                fd = open_char_file(&mounted_part, file_inode_nr, flags);
+                fd = open_aux(&mounted_part, file_inode_nr, flags);
             } else {
                 fd = file_open(&mounted_part, file_inode_nr, flags);
             }
@@ -715,7 +715,7 @@ int_32 sys_close(int_32 fd)
             close_pipe(fd);
             ret = 0;
         } else if (is_char_fd(fd)) {
-            close_char_file(&g_file_table[g_fd]);
+            close_aux(&g_file_table[g_fd]);
             ret = 0;
         } else {
             ret = file_close(&g_file_table[g_fd]);
@@ -759,7 +759,7 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
         bytes_written = write_pipe(fd, buf, count);
         return bytes_written;
     } else if (is_char_fd(fd)) {
-        bytes_written = write_char_file(fd, buf, count);
+        bytes_written = write_aux(fd, buf, count);
         return bytes_written;
     } else {
         uint_32 g_fd = fd_local2global(fd);
@@ -818,7 +818,7 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
     } else if (is_pipe(fd)) {
         res = read_pipe(fd, buf, count);
     } else if (is_char_fd(fd)) {
-        res = read_char_file(fd, buf, count);
+        res = read_aux(fd, buf, count);
     } else {
         uint_32 g_fd = fd_local2global(fd);
         struct file *f = &g_file_table[g_fd];

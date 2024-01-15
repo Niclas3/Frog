@@ -57,10 +57,9 @@ int_32 char_file_create(struct partition *part,
                         char *name,
                         void *target);
 
-int_32 open_char_file(struct partition *part, uint_32 inode_nr, uint_8 flags);
-int_32 close_char_file(struct file *file);
-
-uint_32 read_char_file(int_32 fd, void *buf, uint_32 count);
-uint_32 write_char_file(int_32 fd, const void *buf, uint_32 count);
+int_32 open_aux(struct partition *part, uint_32 inode_nr, uint_8 flags);
+int_32 close_aux(struct file *file);
+uint_32 read_aux(int_32 fd, void *buf, uint_32 count);
+uint_32 write_aux(int_32 fd, const void *buf, uint_32 count);
 
 #endif

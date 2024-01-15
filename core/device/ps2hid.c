@@ -487,7 +487,7 @@ roll_back:
 }
 
 
-int_32 open_char_file(struct partition *part, uint_32 inode_nr, uint_8 flags)
+int_32 open_aux(struct partition *part, uint_32 inode_nr, uint_8 flags)
 {
     lock_fetch(&g_ft_lock);
     int_32 gidx = occupy_file_table_slot();
@@ -507,7 +507,7 @@ int_32 open_char_file(struct partition *part, uint_32 inode_nr, uint_8 flags)
     }
 }
 
-int_32 close_char_file(struct file *file)
+int_32 close_aux(struct file *file)
 {
     if (file == NULL) {
         return -1;
@@ -518,7 +518,7 @@ int_32 close_char_file(struct file *file)
     return 0;
 }
 
-uint_32 read_char_file(int_32 fd, void *buf, uint_32 count)
+uint_32 read_aux(int_32 fd, void *buf, uint_32 count)
 {
     int_32 g_fd = fd_local2global(fd);
     CircleQueue *queue =
@@ -532,7 +532,7 @@ uint_32 read_char_file(int_32 fd, void *buf, uint_32 count)
     }
 }
 
-uint_32 write_char_file(int_32 fd, const void *buf, uint_32 count)
+uint_32 write_aux(int_32 fd, const void *buf, uint_32 count)
 {
     int_32 g_fd = fd_local2global(fd);
     CircleQueue *queue =
