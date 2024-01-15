@@ -17,7 +17,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/memory.o \
          $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o $(BUILD_DIR)/exec.o $(BUILD_DIR)/exit.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/fork.o \
-         $(BUILD_DIR)/panic.o $(BUILD_DIR)/kernel_print.o \
+         $(BUILD_DIR)/kernel_print.o \
 	 $(BUILD_DIR)/core.o
 
 $(BUILD_DIR)/switch.o:
@@ -44,8 +44,8 @@ $(BUILD_DIR)/fork.o:
 $(BUILD_DIR)/exit.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find thread -type f -name "exit.c")
 
-$(BUILD_DIR)/panic.o: panic.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
+# $(BUILD_DIR)/panic.o: panic.c
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 $(BUILD_DIR)/kernel_print.o: kernel_print.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $^
 
