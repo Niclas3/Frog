@@ -168,6 +168,9 @@ static void make_mouse_packet(struct mouse_raw_data *mdata)
     char* byte_packet = (char*) &packet;
     while(packet_size){
         ioqueue_put_data(*byte_packet, &mouse_queue);
+        // TODO:
+        // Wake up waiting process
+        //
         byte_packet++;
         packet_size--;
     }
@@ -210,6 +213,8 @@ struct mouse_raw_data mrd = {0};
 void inthandler2C(void)
 {
     char code = inb(PS2_DATA);
+
+    // bottom half
     ps2_mouse_handle(&mrd, code);
     return;
 }
@@ -288,8 +293,11 @@ void inthandler21(void)
         uint_8 index = (scan_code & 0x00ff);
         char key = keymap[index][shift];
         if (key) {
-            ioqueue_put_data(key, &keyboard_queue);
             /* write_pipe(g_kbd_pipe_fd[1], &key, 1); */
+            ioqueue_put_data(key, &keyboard_queue);
+        // TODO:
+        // Wake up waiting process here
+        //
             return;
         }
 
