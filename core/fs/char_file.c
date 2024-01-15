@@ -179,9 +179,13 @@ uint_32 read_char_file(int_32 fd, void *buf, uint_32 count)
 uint_32 write_char_file(int_32 fd, const void *buf, uint_32 count)
 {
     int_32 g_fd = fd_local2global(fd);
-    CircleQueue *memory =
+    CircleQueue *queue =
         (CircleQueue *) g_file_table[g_fd].fd_inode->i_zones[0];
     char *data = (char *) buf;
-    ioqueue_put_data(data[0], memory);
-    return 1;
+    if (ioqueue_is_full(queue)) {
+        return 0;
+    } else {
+        ioqueue_put_data(data[0], queue);
+        return 1;
+    }
 }
