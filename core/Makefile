@@ -13,7 +13,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o $(BUILD_DIR)/list.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/stdio.o  $(BUILD_DIR)/poudland.o\
 	 $(BUILD_DIR)/string.o \
 	 $(BUILD_DIR)/ipc.o \
-	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o $(BUILD_DIR)/pipe.o $(BUILD_DIR)/char_file.o \
+	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o $(BUILD_DIR)/pipe.o $(BUILD_DIR)/char_file.o $(BUILD_DIR)/select.o\
 	 $(BUILD_DIR)/memory.o \
          $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o $(BUILD_DIR)/exec.o $(BUILD_DIR)/exit.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/fork.o \
@@ -136,6 +136,9 @@ $(BUILD_DIR)/dir.o:
 
 $(BUILD_DIR)/char_file.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find fs -type f -name "char_file.c")
+
+$(BUILD_DIR)/select.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find fs -type f -name "select.c")
 
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
