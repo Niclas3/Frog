@@ -759,7 +759,9 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
         bytes_written = write_pipe(fd, buf, count);
         return bytes_written;
     } else if (is_char_fd(fd)) {
-        bytes_written = write_aux(fd, buf, count);
+        uint_32 g_fd = fd_local2global(fd);
+        struct file *wr_file = &g_file_table[g_fd];
+        bytes_written = write_aux(wr_file, buf, count);
         return bytes_written;
     } else {
         uint_32 g_fd = fd_local2global(fd);
@@ -818,7 +820,9 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
     } else if (is_pipe(fd)) {
         res = read_pipe(fd, buf, count);
     } else if (is_char_fd(fd)) {
-        res = read_aux(fd, buf, count);
+        uint_32 g_fd = fd_local2global(fd);
+        struct file *f = &g_file_table[g_fd];
+        res = read_aux(f, buf, count);
     } else {
         uint_32 g_fd = fd_local2global(fd);
         struct file *f = &g_file_table[g_fd];

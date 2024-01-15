@@ -2,8 +2,8 @@
 #include <hid/keymap.h>
 #include <hid/mouse.h>
 
-#include <fs/pipe.h>
 #include <fs/fs.h>
+#include <fs/pipe.h>
 #include <io.h>
 #include <ioqueue.h>
 
@@ -178,8 +178,8 @@ static void make_mouse_packet(struct mouse_raw_data *mdata)
         }
     }
     uint_32 packet_size = sizeof(packet);
-    char* byte_packet = (char*) &packet;
-    while(packet_size){
+    char *byte_packet = (char *) &packet;
+    while (packet_size) {
         ioqueue_put_data(*byte_packet, &mouse_queue);
         // TODO:
         // Wake up waiting process
@@ -308,9 +308,9 @@ void inthandler21(void)
         if (key) {
             /* write_pipe(g_kbd_pipe_fd[1], &key, 1); */
             ioqueue_put_data(key, &keyboard_queue);
-        // TODO:
-        // Wake up waiting process here
-        //
+            // TODO:
+            // Wake up waiting process here
+            //
             return;
         }
 
@@ -327,7 +327,7 @@ void inthandler21(void)
         }
 
     } else {
-        if(scan_code == 0x0){
+        if (scan_code == 0x0) {
         } else {
             PANIC("unknow key");
         }
@@ -348,7 +348,8 @@ void ps2hid_init(void)
 
     /* sys_pipe(g_kbd_pipe_fd); */
     /* sys_pipe(g_mouse_pipe_fd); */
-    /* if (sys_pipe(g_kbd_pipe_fd) == -1 || sys_pipe(g_mouse_pipe_fd) == -1) { */
+    /* if (sys_pipe(g_kbd_pipe_fd) == -1 || sys_pipe(g_mouse_pipe_fd) == -1) {
+     */
     /*     PANIC("Can not make a kbd or mouse pipe file descriptor.\n"); */
     /* } */
 
@@ -518,12 +519,10 @@ int_32 close_aux(struct file *file)
     return 0;
 }
 
-uint_32 read_aux(int_32 fd, void *buf, uint_32 count)
+uint_32 read_aux(struct file *file, void *buf, uint_32 count)
 {
-    int_32 g_fd = fd_local2global(fd);
-    CircleQueue *queue =
-        (CircleQueue *) g_file_table[g_fd].fd_inode->i_zones[0];
-    if (ioqueue_length(queue) == 0) {
+    CircleQueue *queue = (CircleQueue *) file->fd_inode->i_zones[0];
+    if (ioqueue_is_empty(queue) == 0) {
         return 0;
     } else {
         char data = ioqueue_get_data(queue);
@@ -532,11 +531,9 @@ uint_32 read_aux(int_32 fd, void *buf, uint_32 count)
     }
 }
 
-uint_32 write_aux(int_32 fd, const void *buf, uint_32 count)
+uint_32 write_aux(struct file *file, const void *buf, uint_32 count)
 {
-    int_32 g_fd = fd_local2global(fd);
-    CircleQueue *queue =
-        (CircleQueue *) g_file_table[g_fd].fd_inode->i_zones[0];
+    CircleQueue *queue = (CircleQueue *) file->fd_inode->i_zones[0];
     char *data = (char *) buf;
     if (ioqueue_is_full(queue)) {
         return 0;

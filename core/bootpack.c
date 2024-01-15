@@ -172,17 +172,18 @@ void UkiMain(void)
         char path[1024] = {0};
         sys_getcwd(path, 1024);
         printf("-<zm@k:%s>-", path);
-        gettimeofday(&t1, NULL);
+        /* gettimeofday(&t1, NULL); */
 
-        process_execute(u_fune, "A");  // pid 6
+        /* process_execute(u_fune, "A");  // pid 6 */
 
-        poudland_main_loop();
+        /* poudland_main_loop(); */
 
         char *buf = sys_malloc(1);
         int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
         int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
         while (1) {
-            read(mouse_fd, buf, 1);
+            /* read(mouse_fd, buf, 1); */
+            read(kbd_fd, buf, 1);
             write(stdout_, buf, 1);
         }
         close(kbd_fd);
