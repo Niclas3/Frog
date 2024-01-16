@@ -47,7 +47,8 @@ int list_find_element(struct list_head *node, struct list_head *head)
  *
  * @Return :!0 success ,0 error happens
  * */
-//TODO: I think it is in wrong abstractions, maybe find same things in linux kernel.
+// TODO: I think it is in wrong abstractions, maybe find same things in linux
+// kernel.
 int list_map(struct list_head *head,
              struct list_head *res,
              struct list_head *func(struct list_head *cur))
@@ -77,9 +78,9 @@ int list_map(struct list_head *head,
  * @return return Comments write here
  *****************************************************************************/
 
-struct list_head* list_walker(struct list_head *head,
-              bool func(struct list_head *cur, int value),
-              int value)
+struct list_head *list_walker(struct list_head *head,
+                              bool func(struct list_head *cur, int value),
+                              int value)
 {
     if (list_is_empty(head)) {
         return NULL;
@@ -171,6 +172,9 @@ void list_del(struct list_head *node)
     struct list_head *prev = node->prev;
     next->prev = prev;
     prev->next = next;
+
+    node->next = (void *) 0;
+    node->prev = (void *) 0;
 }
 
 /**
@@ -183,7 +187,7 @@ void list_del(struct list_head *node)
 void list_del_init(struct list_head *node)
 {
     list_del(node);
-    init_list_head(node);
+    INIT_LIST_HEAD(node);
 }
 
 /**
@@ -193,14 +197,17 @@ void list_del_init(struct list_head *node)
  * @param head list head
  * @return !0 success/ 0 failed
  *****************************************************************************/
-int list_destory(struct list_head* head){
-    if(list_is_empty(head)){ return -1; }
+int list_destory(struct list_head *head)
+{
+    if (list_is_empty(head)) {
+        return -1;
+    }
     struct list_head *iter = head->next;
     for (; iter != head->prev;) {
         iter = iter->next;
         list_del(iter);
     }
-    init_list_head(head);
+    INIT_LIST_HEAD(head);
     return -1;
 }
 
@@ -292,7 +299,7 @@ void list_append_tail(struct list_head *list, struct list_head *head)
 void list_append_init(struct list_head *list, struct list_head *head)
 {
     list_append(list, head);
-    init_list_head(list);
+    INIT_LIST_HEAD(list);
 }
 
 /**
@@ -310,7 +317,7 @@ void list_append_init(struct list_head *list, struct list_head *head)
 void list_append_tail_init(struct list_head *list, struct list_head *head)
 {
     list_append_tail(list, head);
-    init_list_head(list);
+    INIT_LIST_HEAD(list);
 }
 
 /**
