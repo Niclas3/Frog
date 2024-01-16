@@ -52,8 +52,18 @@ struct list_head {
         const __typeof__(((type *) 0)->member) *__pmember = (ptr); \
         (type *) ((char *) __pmember - offsetof(type, member));    \
     })
+
+#define list_entry(ptr, type, member)                              \
+    __extension__({                                                \
+        const __typeof__(((type *) 0)->member) *__pmember = (ptr); \
+        (type *) ((char *) __pmember - offsetof(type, member));    \
+    })
+
 #else
 #define container_of(ptr, type, member) \
+    ((type *) ((char *) (ptr) -offsetof(type, member)))
+
+#define list_entry(ptr, type, member) \
     ((type *) ((char *) (ptr) -offsetof(type, member)))
 #endif
 #endif
