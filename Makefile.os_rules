@@ -9,7 +9,7 @@ OUTBIN := out.bin
 # -lc  link with libc
 # -fno-stack-protector Do not check stack at gcc stage instead of ld
 # -fno-builtin
-C_FLAG := -c -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes
+C_FLAG := -c -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
 
 # -f elf   outfile format is elf_i386
 A_FLAG := -f elf
