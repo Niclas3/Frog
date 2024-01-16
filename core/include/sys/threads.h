@@ -21,16 +21,12 @@ typedef void *__routine_t(void *);
 
 // Status of thread
 typedef enum task_status {
-    THREAD_TASK_CREATED = 0,
-    THREAD_TASK_RUNNING,
-    THREAD_TASK_READY,
-    THREAD_TASK_DONE,
-    THREAD_TASK_WAITING,
-    THREAD_TASK_HANGING,
-    THREAD_TASK_BLOCKED,
-    THREAD_TASK_CANCELLED,
-    THREAD_TASK_REJECTED,
-    THREAD_TASK_DIED,
+    THREAD_TASK_RUNNING = 0,
+    THREAD_TASK_READY   = 1,
+    THREAD_TASK_WAITING = 2,
+    THREAD_TASK_HANGING = 4,
+    THREAD_TASK_BLOCKED = 8,
+    THREAD_TASK_DIED = 16,
 } task_status_t;
 
 /* Saved registers context when change privilege
@@ -115,6 +111,11 @@ typedef struct thread_control_block {
         *p_next_sending;  // a queue for sender to this process.
     uint_32 stack_magic;  // mark the board of stack 0x19900921;
 } TCB_t;
+
+static inline int task_on_readylist(struct thread_control_block *p)
+{
+	return (p->general_tag.next != NULL);
+}
 
 
 TCB_t *running_thread(void);
