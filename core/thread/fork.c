@@ -16,7 +16,7 @@ extern struct file g_file_table[MAX_FILE_OPEN];
 
 extern struct list_head thread_ready_list;
 extern struct list_head thread_all_list;
-extern struct list_head process_all_list;
+/* extern struct list_head process_all_list; */
 
 static int_32 copy_tcb_vaddrbitmap_stack0(TCB_t *child_thread,
                                           TCB_t *parent_thread)
@@ -178,8 +178,8 @@ uint_32 sys_fork(void)
         return -1;
     }
 
-    ASSERT(!list_find_element(&child_thread->proc_list_tag, &process_all_list));
-    list_add_tail(&child_thread->proc_list_tag, &process_all_list);
+    /* ASSERT(!list_find_element(&child_thread->proc_list_tag, &process_all_list)); */
+    /* list_add_tail(&child_thread->proc_list_tag, &process_all_list); */
 
     ASSERT(!list_find_element(&child_thread->all_list_tag, &thread_all_list));
     list_add_tail(&child_thread->all_list_tag, &thread_all_list);
