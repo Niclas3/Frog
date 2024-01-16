@@ -80,6 +80,19 @@ struct mem_block_desc {
     struct list_head free_list;
 };
 
+/*
+ * Tell the user there is some problem. Beep too, so we can
+ * see^H^H^Hhear bugs in early bootup as well!
+ * The offending file and line are encoded after the "officially
+ * undefined" opcode for parsing in the trap handler.
+ */
+
+#define BUG() __asm__ volatile("ud2\n")
+
+#define PAGE_BUG(page) do { \
+	BUG(); \
+} while (0)
+
 #define DESC_CNT 7  // type counts of memory blocks
 
 /* P bit shows if or not this entry in memory
