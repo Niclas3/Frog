@@ -69,6 +69,21 @@ struct list_head {
 } while (0)
 
 /**
+ * list_for_each	-	iterate over a list
+ * @pos:	the &struct list_head to use as a loop counter.
+ * @head:	the head for your list.
+ */
+#define list_for_each(pos, head) \
+	for (pos = (head)->next; pos != (head); pos = pos->next)
+/**
+ * list_for_each_rear  -	rear iterate over a list
+ * @pos:	the &struct list_head to use as a loop counter.
+ * @head:	the head for your list.
+ */
+#define list_for_each_rear(pos, head) \
+	for (pos = (head)->prev; pos != (head); pos = pos->prev)
+
+/**
  * INIT_LIST_HEAD() - Initialize empty list head
  * @head: pointer to list head
  *
