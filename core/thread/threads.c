@@ -359,9 +359,9 @@ TCB_t *pid2thread(pid_t pid)
 void thread_init(void)
 {
     init_timer_manager();
-    init_list_head(&thread_ready_list);
-    init_list_head(&thread_all_list);
-    init_list_head(&process_all_list);
+    INIT_LIST_HEAD(&thread_ready_list);
+    INIT_LIST_HEAD(&thread_all_list);
+    INIT_LIST_HEAD(&process_all_list);
 
     // alloc pid_bitmap space
     pid_bitmap = get_kernel_page(1);

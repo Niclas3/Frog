@@ -223,7 +223,7 @@ static bool mount_partition(struct list_head *ele, int arg)
 
     // init open inode
 
-    init_list_head(&mounted_part.open_inodes);
+    INIT_LIST_HEAD(&mounted_part.open_inodes);
 
     return true;
 }

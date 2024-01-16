@@ -705,7 +705,7 @@ void ide_init(void)
         lock_init(&channel->lock);
 
         semaphore_init(&channel->disk_done, 0);
-        init_list_head(&partition_list);
+        INIT_LIST_HEAD(&partition_list);
         register_r0_intr_handler(channel->irq_no, intr_hd_handler);
 
         while (dev_no < 2) {

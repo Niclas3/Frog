@@ -157,7 +157,7 @@ void block_desc_init(struct mem_block_desc *desc_array)
         desc_array[desc_idx].block_size = block_size;
         desc_array[desc_idx].blocks_per_arena =
             (PG_SIZE - sizeof(struct arena)) / block_size;
-        init_list_head(&desc_array[desc_idx].free_list);
+        INIT_LIST_HEAD(&desc_array[desc_idx].free_list);
         block_size *= 2;
     }
 }
