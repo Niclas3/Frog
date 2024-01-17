@@ -101,6 +101,12 @@ $(BUILD_DIR)/cmos.o:
 $(BUILD_DIR)/ps2hid.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "ps2hid.c")
 
+$(BUILD_DIR)/pc_mouse.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "pc_mouse.c")
+
+$(BUILD_DIR)/pc_kbd.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "pc_kbd.c")
+
 $(BUILD_DIR)/console.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find device -type f -name "console.c")
 
