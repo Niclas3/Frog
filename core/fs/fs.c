@@ -4,6 +4,7 @@
 #include <fs/inode.h>
 #include <fs/super_block.h>
 
+#include <device/devno-base.h>
 #include <device/ide.h>
 #include <device/ps2hid.h>
 #include <fs/file.h>
@@ -29,6 +30,11 @@ extern struct list_head partition_list;  // partition list
 // global variable define file.c
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
+
+extern int_32 kbd_create(struct partition *part,
+                         struct dir *parent_d,
+                         char *name,
+                         void *target);
 
 struct partition mounted_part;  // the partition what we want to mount.
 
@@ -748,8 +754,8 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
             bytes_written = write_pipe(fd, buf, count);
             return bytes_written;
         } else {
-            //TODO:
-            //maybe change it to use /dev/input/event*
+            // TODO:
+            // maybe change it to use /dev/input/event*
             char tmp[1024] = {0};
             memcpy(tmp, buf, count);
             console_write(tmp, count);
@@ -759,6 +765,8 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
         bytes_written = write_pipe(fd, buf, count);
         return bytes_written;
     } else if (is_char_fd(fd)) {
+        // TODO:
+        // maybe don't use it yet.
         uint_32 g_fd = fd_local2global(fd);
         struct file *wr_file = &g_file_table[g_fd];
         bytes_written = write_aux(wr_file, buf, count);
@@ -803,8 +811,8 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
             res = read_pipe(fd, buf, count);
         } else {
             // read from keyboard_queue
-            //TODO:
-            //maybe change it to use /dev/input/event*
+            // TODO:
+            // maybe change it to use /dev/input/event*
             char *buffer = buf;
             uint_32 bytes_read = 0;
             while (bytes_read < count) {
@@ -822,7 +830,13 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
     } else if (is_char_fd(fd)) {
         uint_32 g_fd = fd_local2global(fd);
         struct file *f = &g_file_table[g_fd];
-        res = read_aux(f, buf, count);
+        if (f->fd_inode->i_dev == DNOAUX) {
+            res = read_aux(f, buf, count);
+        } else if (f->fd_inode->i_dev == DNOPCMOUSE) {
+            res = read_aux(f, buf, count);
+        } else if (f->fd_inode->i_dev == DNOPCKBD) {
+            res = read_aux(f, buf, count);
+        }
     } else {
         uint_32 g_fd = fd_local2global(fd);
         struct file *f = &g_file_table[g_fd];
@@ -1415,7 +1429,7 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
     return ret;
 }
 
-int_32 sys_char_file(const char *pathname, void *file)
+int_32 sys_char_file(const char *pathname, uint_32 dev_no, void *file)
 {
     int_32 fd = -1;
     // 1. test path
@@ -1469,7 +1483,21 @@ int_32 sys_char_file(const char *pathname, void *file)
         sys_free(cur_abs_dir_path);
         sys_free(dirs_path);
     }
-    fd = char_file_create(&mounted_part, next_dir, last_name, file);
+    switch (dev_no) {
+    case DNOAUX: {
+        fd = aux_create(&mounted_part, next_dir, last_name, file);
+        break;
+    }
+    case DNOPCKBD: {
+        /* fd = kbd_create(&mounted_part, next_dir, last_name, file); */
+        fd = aux_create(&mounted_part, next_dir, last_name, file);
+        break;
+    }
+    case DNOPCMOUSE: {
+        fd = aux_create(&mounted_part, next_dir, last_name, file);
+        break;
+    }
+    }
     dir_close(next_dir);
     return fd;
 

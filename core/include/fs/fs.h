@@ -85,5 +85,5 @@ char *sys_getcwd(char *buf, int_32 size);
 int_32 sys_chdir(const char *pathname);
 int_32 sys_stat(const char *pathname, struct stat *statbuf);
 
-int_32 sys_char_file(const char *pathname, void *file);
+int_32 sys_char_file(const char *pathname, uint_32 dev_no, void *file);
 #endif
