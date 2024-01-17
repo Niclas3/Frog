@@ -189,3 +189,28 @@ uint_32 sys_fork(void)
 
     return child_thread->pid;
 }
+
+
+void add_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
+{
+    //TODO:
+    //Don't think about lock at this time
+	/* unsigned long flags; */
+        /*  */
+	/* wait->flags &= ~WQ_FLAG_EXCLUSIVE; */
+	/* wq_write_lock_irqsave(&q->lock, flags); */
+	__add_wait_queue(q, wait);
+	/* wq_write_unlock_irqrestore(&q->lock, flags); */
+}
+
+void remove_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
+{
+    //TODO:
+    //Don't think about lock at this time
+	/* unsigned long flags; */
+        /*  */
+	/* wait->flags &= ~WQ_FLAG_EXCLUSIVE; */
+	/* wq_write_lock_irqsave(&q->lock, flags); */
+        __remove_wait_queue(q, wait);
+	/* wq_write_unlock_irqrestore(&q->lock, flags); */
+}
