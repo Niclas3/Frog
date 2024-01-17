@@ -1,14 +1,16 @@
+#include <device/devno-base.h>
+#include <device/pc_mouse.h>
 #include <device/ps2hid.h>
 #include <hid/keymap.h>
-#include <hid/mouse.h>
 
 #include <fs/fs.h>
-#include <fs/pipe.h>
 #include <io.h>
 #include <ioqueue.h>
 
 #include <protect.h>
 #include <sys/int.h>
+
+#include <errno-base.h>
 
 #include <debug.h>
 #include <sys/2d_graphics.h>
@@ -21,6 +23,7 @@
 #include <ioqueue.h>
 #include <math.h>
 #include <string.h>
+#include <sys/fork.h>
 #include <sys/memory.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
@@ -29,6 +32,15 @@ extern struct lock g_ft_lock;
 CircleQueue mouse_queue;
 CircleQueue keyboard_queue;
 
+struct aux_queue {
+    unsigned long head;
+    unsigned long tail;
+    wait_queue_head_t proc_list;
+    unsigned char buf[AUX_BUF_SIZE];
+};
+
+static struct aux_queue *queue;     // mouse queue
+
 // TODO:
 // Use pipe replace ioqueue
 /* int_32 g_kbd_pipe_fd[2]; */
@@ -36,12 +48,6 @@ CircleQueue keyboard_queue;
 
 static boolean ctrl_status, shift_status, alt_status, caps_lock_status,
     meta_status, ext_scancode;
-uint_32 mouse_mode = MOUSE_DEFAULT;
-
-struct mouse_raw_data {
-    uint_8 buf[4];
-    uint_8 stage;  // mouse decoding process
-};
 
 /**
  * Wait PS/2 controller's output buffer is filled.
@@ -136,107 +142,21 @@ static uint_8 mouse_write(uint_8 data)
     return inb(PS2_DATA);
 }
 
-static void make_mouse_packet(struct mouse_raw_data *mdata)
+static inline void handle_mouse_event(char scancode)
 {
-    mdata->stage = 0;
-    // Collect enough data to make a packet
-    mouse_device_packet_t packet;
-    uint_8 *mouse_byte = mdata->buf;
-    packet.magic = MOUSE_MAGIC;
-    int_32 delta_x = mdata->buf[1];
-    int_32 delta_y = mdata->buf[2];
-    if (delta_x && mdata->buf[0] & (1 << 4)) {
-        delta_x = delta_x - 0x100;
+    int head = queue->head;
+    queue->buf[head] = scancode;
+    head = (head + 1) & (AUX_BUF_SIZE - 1);
+    if (head != queue->tail) {  // queue is not empty
+        queue->head = head;
+        wake_up_interruptible(&queue->proc_list);
     }
-    if (delta_y && mdata->buf[0] & (1 << 5)) {
-        delta_y = delta_y - 0x100;
-    }
-    if (mdata->buf[0] & (1 << 6) || mdata->buf[0] & (1 << 7)) {
-        delta_x = 0;
-        delta_y = 0;
-    }
-
-    packet.x_difference = delta_x;
-    packet.y_difference = delta_y;
-    packet.buttons = 0;
-
-    if (mouse_byte[0] & 0x01) {
-        packet.buttons |= LEFT_CLICK;
-    }
-    if (mouse_byte[0] & 0x02) {
-        packet.buttons |= RIGHT_CLICK;
-    }
-    if (mouse_byte[0] & 0x04) {
-        packet.buttons |= MIDDLE_CLICK;
-    }
-
-    if (mouse_mode == MOUSE_SCROLLWHEEL && mouse_byte[3]) {
-        if ((int_8) mouse_byte[3] > 0) {
-            packet.buttons |= MOUSE_SCROLL_DOWN;
-        } else if ((int_8) mouse_byte[3] < 0) {
-            packet.buttons |= MOUSE_SCROLL_UP;
-        }
-    }
-    uint_32 packet_size = sizeof(packet);
-    char *byte_packet = (char *) &packet;
-    while (packet_size) {
-        ioqueue_put_data(*byte_packet, &mouse_queue);
-        // TODO:
-        // Wake up waiting process
-        //
-        byte_packet++;
-        packet_size--;
-    }
-}
-
-static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 code)
-{
-    int_8 mouse_in = code;
-    uint_8 *mouse_byte = mdata->buf;
-    switch (mdata->stage) {
-    case 0:
-        mouse_byte[0] = mouse_in;
-        if (!(mouse_in & MOUSE_V_BIT))
-            break;
-        ++mdata->stage;
-        break;
-    case 1:
-        mouse_byte[1] = mouse_in;
-        ++mdata->stage;
-        break;
-    case 2:
-        mouse_byte[2] = mouse_in;
-        if (mouse_mode == MOUSE_SCROLLWHEEL || mouse_mode == MOUSE_BUTTONS) {
-            ++mdata->stage;
-            break;
-        }
-        make_mouse_packet(mdata);
-        break;
-    case 3:
-        mouse_byte[3] = mouse_in;
-        make_mouse_packet(mdata);
-        break;
-    }
-}
-
-/* int 0x2C;
- * Interrupt handler for PS/2 mouse
- **/
-struct mouse_raw_data mrd = {0};
-void inthandler2C(void)
-{
-    char code = inb(PS2_DATA);
 
     // bottom half
-    ps2_mouse_handle(&mrd, code);
-    return;
+    /* ps2_mouse_handle(&mrd, scancode); */
 }
 
-/*
- * int 0x21;
- * Interrupt handler for Keyboard
- **/
-void inthandler21(void)
+static inline void handle_keyboard_event(uint_16 scan_code)
 {
     bool is_break_code;
     bool ctrl_pressed = ctrl_status;
@@ -244,11 +164,6 @@ void inthandler21(void)
     bool cap_lock_pressed = caps_lock_status;
     bool meta_pressed = meta_status;
 
-    uint_16 scan_code = 0x0;
-
-    while (inb(PS2_STATUS) & PS2_STR_OUTPUT_BUFFER_FULL) {
-        scan_code = ps2_read_byte();  // get scan_code
-    }
     if (scan_code == FLAG_EXT) {  // scan_code == 0xe0
         ext_scancode = true;
         return;
@@ -307,10 +222,7 @@ void inthandler21(void)
         char key = keymap[index][shift];
         if (key) {
             /* write_pipe(g_kbd_pipe_fd[1], &key, 1); */
-            ioqueue_put_data(key, &keyboard_queue);
-            // TODO:
-            // Wake up waiting process here
-            //
+            /* ioqueue_put_data(key, &keyboard_queue); */
             return;
         }
 
@@ -335,23 +247,57 @@ void inthandler21(void)
     return;
 }
 
+/* int 0x2C;
+ * Interrupt handler for PS/2 mouse
+ **/
+void inthandler2C(void)
+{
+    char scancode = inb(PS2_DATA);
+    // send scancode to make mouse package
+    /* handle_ps2_mouse_scancode(scancode); */
+    // send scancode to this file queue
+    handle_mouse_event(scancode);
+    return;
+}
+
+/*
+ * int 0x21;
+ * Interrupt handler for Keyboard
+ **/
+void inthandler21(void)
+{
+    uint_16 scan_code = 0x0;
+    while (inb(PS2_STATUS) & PS2_STR_OUTPUT_BUFFER_FULL) {
+        scan_code = ps2_read_byte();  // get scan_code
+    }
+    handle_keyboard_event(scan_code);
+}
+
 /**
  * Initialze i8042/AIP PS/2 controller.
  */
 void ps2hid_init(void)
 {
+    // init mouse queue
+    queue = (struct aux_queue *) sys_malloc(sizeof(*queue));
+    if (queue == NULL) {
+        // TODO:
+        //
+        /* printk(KERN_ERR "psaux_init(): out of memory\n"); */
+        /* misc_deregister(&psaux_mouse); */
+        /* return -ENOMEM; */
+        return;
+    }
+    memset(queue, 0, sizeof(*queue));
+    queue->head = queue->tail = 0;
+    init_waitqueue_head(&queue->proc_list);
+
+    /* pc_mouse_init(); */
     init_ioqueue(&keyboard_queue);
     init_ioqueue(&mouse_queue);
 
-    sys_char_file("/dev/input/event0", &keyboard_queue);
-    sys_char_file("/dev/input/event1", &mouse_queue);
-
-    /* sys_pipe(g_kbd_pipe_fd); */
-    /* sys_pipe(g_mouse_pipe_fd); */
-    /* if (sys_pipe(g_kbd_pipe_fd) == -1 || sys_pipe(g_mouse_pipe_fd) == -1) {
-     */
-    /*     PANIC("Can not make a kbd or mouse pipe file descriptor.\n"); */
-    /* } */
+    sys_char_file("/dev/input/event0", DNOPCKBD, &keyboard_queue);
+    sys_char_file("/dev/input/event1", DNOAUX, &mouse_queue);
 
     // enable keyboard
     ps2_wait_input();
@@ -388,10 +334,10 @@ bool is_char_fd(int_32 fd)
  *
  * @return reture a global file table index
  *****************************************************************************/
-int_32 char_file_create(struct partition *part,
-                        struct dir *parent_d,
-                        char *name,
-                        void *target)
+int_32 aux_create(struct partition *part,
+                  struct dir *parent_d,
+                  char *name,
+                  void *target)
 {
     uint_8 rollback_step = 0;
     char *buf = sys_malloc(1024);
@@ -421,6 +367,7 @@ int_32 char_file_create(struct partition *part,
     new_f_inode->i_mode = FT_CHAR << 11;
     new_f_inode->i_zones[0] = (uint_32 *) target;
     new_f_inode->i_count++;
+    new_f_inode->i_dev = DNOAUX;
     // 2. new dir_entry
     struct dir_entry new_entry;
     new_dir_entry(name, inode_nr, FT_CHAR, &new_entry);
@@ -500,6 +447,7 @@ int_32 open_aux(struct partition *part, uint_32 inode_nr, uint_8 flags)
     g_file_table[gidx].fd_inode = inode_open(part, inode_nr);
     g_file_table[gidx].fd_pos = 0;
     g_file_table[gidx].fd_flag = flags;
+    queue->head = queue->tail = 0; /* Flush input queue */
     lock_release(&g_ft_lock);
     if ((flags & O_RDONLY) == O_RDONLY) {
         return install_thread_fd(gidx);
@@ -519,26 +467,59 @@ int_32 close_aux(struct file *file)
     return 0;
 }
 
+static uint_8 get_from_queue(void)
+{
+    unsigned char result;
+    unsigned long flags;
+
+    enum intr_status old_status = intr_disable();
+    result = queue->buf[queue->tail];
+    queue->tail = (queue->tail + 1) & (AUX_BUF_SIZE - 1);
+    intr_set_status(old_status);
+    return result;
+}
+
+static inline bool queue_empty()
+{
+    return queue->head == queue->tail;
+}
+
 uint_32 read_aux(struct file *file, void *buf, uint_32 count)
 {
-    CircleQueue *queue = (CircleQueue *) file->fd_inode->i_zones[0];
-    if (ioqueue_is_empty(queue) == 0) {
-        return 0;
-    } else {
-        char data = ioqueue_get_data(queue);
-        memcpy(buf, &data, 1);
-        return 1;
+    TCB_t *cur = running_thread();
+    DECLARE_WAITQUEUE(wait, cur);
+    uint_32 index = count;
+    uint_8 c;
+    if (queue_empty()) {
+        if (file->fd_flag & O_NONBLOCK)
+            return -EAGAIN;
+        add_wait_queue(&queue->proc_list, &wait);
+        cur->status = THREAD_TASK_WAITING;
+        schedule();
+        cur->status = THREAD_TASK_READY;
+        remove_wait_queue(&queue->proc_list, &wait);
     }
+    while (index > 0 && !queue_empty()) {
+        c = get_from_queue();
+        memcpy(buf++, &c, 1);
+        index--;
+    }
+    if (count - index) {
+        return count - index;
+    }
+    return 0;
 }
+
 
 uint_32 write_aux(struct file *file, const void *buf, uint_32 count)
 {
-    CircleQueue *queue = (CircleQueue *) file->fd_inode->i_zones[0];
-    char *data = (char *) buf;
-    if (ioqueue_is_full(queue)) {
-        return 0;
-    } else {
-        ioqueue_put_data(data[0], queue);
-        return 1;
-    }
+    /* CircleQueue *queue = (CircleQueue *) file->fd_inode->i_zones[0]; */
+    /* char *data = (char *) buf; */
+    /* if (ioqueue_is_full(queue)) { */
+    /*     return 0; */
+    /* } else { */
+    /*     ioqueue_put_data(data[0], queue); */
+    /*     return 1; */
+    /* } */
+    return count;
 }

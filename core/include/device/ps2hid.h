@@ -28,9 +28,6 @@
 #define MOUSE_DATA_OFF     0xF5
 #define MOUSE_SET_DEFAULTS 0xF6
 
-#define MOUSE_DEFAULT         0
-#define MOUSE_SCROLLWHEEL     1
-#define MOUSE_BUTTONS         2
 
 //keyboard
 #define KBD_WRITE      0x60
@@ -42,6 +39,7 @@
 // TODO: finish all keyboard state
 #define PS2_STR_OUTPUT_BUFFER_FULL 0x01
 #define PS2_STR_SEND_NOTREADY      0x02
+#define AUX_BUF_SIZE 2048
 
 void ps2hid_init(void);
 
@@ -52,7 +50,7 @@ void inthandler21(void);
 bool is_char_file(struct partition *part, int_32 inode_nr);
 bool is_char_fd(int_32 fd);
 
-int_32 char_file_create(struct partition *part,
+int_32 aux_create(struct partition *part,
                         struct dir *parent_d,
                         char *name,
                         void *target);
