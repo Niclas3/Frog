@@ -5,7 +5,8 @@
 #include <list.h>
 #include <sys/memory.h>
 #include <sys/spinlock.h>
-#include <sys/threads.h>
+
+extern TCB_t *running_thread(void);
 
 /*
  * Debug control.  Slow but useful.
