@@ -5,6 +5,7 @@
 #include <list.h>
 #include <ostype.h>
 #include <sys/memory.h>
+#include <sys/wait.h>
 
 #define MAX_FILES_OPEN_PER_PROC 8
 #define TASK_NAME_LEN 16
@@ -12,6 +13,8 @@
 #define GET_THREAD_FROM_READYLIST(ptr) container_of((ptr), TCB_t, general_tag);
 #define GET_THREAD_FROM_ALLLIST(ptr) container_of((ptr), TCB_t, all_list_tag);
 #define GET_PROC_FROM_PROCLIST(ptr) container_of((ptr), TCB_t, proc_list_tag);
+
+
 
 typedef uint_16 tid_t;  // thread id for each thread
 
@@ -28,6 +31,11 @@ typedef enum task_status {
     THREAD_TASK_BLOCKED = 8,
     THREAD_TASK_DIED = 16,
 } task_status_t;
+
+void __wake_up(wait_queue_head_t *q, unsigned int mode, int nr);
+
+#define wake_up(x)			__wake_up((x), THREAD_TASK_WAITING | THREAD_TASK_BLOCKED, 1)
+#define wake_up_interruptible(x)	__wake_up((x), THREAD_TASK_WAITING, 1)
 
 /* Saved registers context when change privilege
  * e.g From ring0 to ring3
@@ -114,7 +122,7 @@ typedef struct thread_control_block {
 
 static inline int task_on_readylist(struct thread_control_block *p)
 {
-	return (p->general_tag.next != NULL);
+	return (p->general_tag.next != &p->general_tag);
 }
 
 

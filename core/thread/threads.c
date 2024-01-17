@@ -71,13 +71,88 @@ static void kernel_thread(__routine_ptr_t func_ptr, void *func_arg)
  * */
 TCB_t *running_thread(void)
 {
-    /* uint_32 esp; */
-    /* __asm__ volatile("mov %%esp, %0" : "=g"(esp)); */
-    /* return (TCB_t *) (esp & 0xfffff000); */
     TCB_t *current;
-    /* __asm__ volatile ("andl %%esp, %0;":"=r"(current) : "0" (0xfffff000)); */
     __asm__ volatile("andl %%esp, %0;" : "=r"(current) : "0"(~4095UL));
     return current;
+}
+
+static inline void add_to_readylist(TCB_t *p)
+{
+    list_add_tail(&p->general_tag, &thread_ready_list);
+}
+
+static inline void move_last_readylist(TCB_t *p)
+{
+    list_del(&p->general_tag);
+    list_add_tail(&p->general_tag, &thread_ready_list);
+}
+
+/*
+ * Wake up a process. Put it on the run-queue if it's not
+ * already there.  The "current" process is always on the
+ * run-queue (except when the actual re-schedule is in
+ * progress), and as such you're allowed to do the simpler
+ * "current->state = TASK_RUNNING" to mark yourself runnable
+ * without the overhead of this.
+ */
+static inline int try_to_wake_up(TCB_t *p, int synchronous)
+{
+    int success = 0;
+
+    /*
+     * We want the common case fall through straight, thus the goto.
+     */
+    enum intr_status old_int_status = intr_disable();
+    p->status = THREAD_TASK_READY;
+    if (task_on_readylist(p))
+        goto out;
+    add_to_readylist(p);
+    success = 1;
+out:
+    intr_set_status(old_int_status);
+    return success;
+}
+
+/*
+ * The core wakeup function.  Non-exclusive wakeups (nr_exclusive == 0) just
+ * wake everything up.  If it's an exclusive wakeup (nr_exclusive == small +ve
+ * number) then we wake all the non-exclusive tasks and one exclusive task.
+ *
+ * There are circumstances in which we can try to wake a task which has already
+ * started to run but is not in state TASK_RUNNING.  try_to_wake_up() returns
+ * zero in this (rare) case, and we handle it by contonuing to scan the queue.
+ */
+static inline void __wake_up_common(wait_queue_head_t *q,
+                                    unsigned int mode,
+                                    int nr_exclusive,
+                                    const int sync)
+{
+    struct list_head *tmp;
+    TCB_t *p;
+
+    CHECK_MAGIC_WQHEAD(q);
+    WQ_CHECK_LIST_HEAD(&q->task_list);
+
+    list_for_each (tmp, &q->task_list) {
+        unsigned int state;
+        wait_queue_t *curr = list_entry(tmp, wait_queue_t, task_list);
+
+        CHECK_MAGIC(curr->__magic);
+        p = curr->task;
+        state = p->status;
+        if (state & mode) {
+            WQ_NOTE_WAKER(curr);
+            if (try_to_wake_up(p, sync))
+                break;
+        }
+    }
+}
+
+void __wake_up(wait_queue_head_t *q, unsigned int mode, int nr)
+{
+    if (q) {
+        __wake_up_common(q, mode, nr, 0);
+    }
 }
 
 static void init_pid_bitmap(uint_32 length)
@@ -200,8 +275,8 @@ static void make_main_thread(void)
     init_thread(main_thread, "main", 42);
 
     main_thread->pid = 0;
-    ASSERT(!list_find_element(&main_thread->proc_list_tag, &process_all_list));
-    list_add_tail(&main_thread->proc_list_tag, &process_all_list);
+    /* ASSERT(!list_find_element(&main_thread->proc_list_tag, &process_all_list)); */
+    /* list_add_tail(&main_thread->proc_list_tag, &process_all_list); */
 
     ASSERT(!list_find_element(&main_thread->all_list_tag, &thread_all_list));
     list_add_tail(&main_thread->all_list_tag, &thread_all_list);
@@ -361,7 +436,7 @@ void thread_init(void)
     init_timer_manager();
     INIT_LIST_HEAD(&thread_ready_list);
     INIT_LIST_HEAD(&thread_all_list);
-    INIT_LIST_HEAD(&process_all_list);
+    /* INIT_LIST_HEAD(&process_all_list); */
 
     // alloc pid_bitmap space
     pid_bitmap = get_kernel_page(1);
