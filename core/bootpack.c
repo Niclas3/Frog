@@ -28,6 +28,7 @@
 
 // test
 #include <device/ide.h>
+#include <fs/select.h>
 #include <hid/mouse.h>
 #include <ioqueue.h>
 #include <list.h>
@@ -73,6 +74,7 @@ void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
 void keyboard_consumer(int a);
+static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 scancode);
 void redraw_window(gfx_context_t *ctx);
 
 
@@ -93,10 +95,11 @@ extern struct partition mounted_part;    // the partition what we want to mount.
 extern struct file g_file_table[];
 extern struct dir root_dir;  // root directory
 
-spin_lock_t spin_lock = {0};
+spinlock_t spin_lock = SPIN_LOCK_UNLOCKED;
 int_32 stdin_ = 0;
 int_32 stdout_ = 1;
 
+gfx_context_t *g_ctx;
 // UkiMain must at top of file
 void UkiMain(void)
 {
@@ -147,7 +150,7 @@ void UkiMain(void)
 
     // init gfx memory at qemu
     // alloc 2d graphics memory
-    gfx_context_t *g_ctx;
+    /* gfx_context_t *g_ctx; */
     g_boot_gfx_mode = boot_graphics_mode();
 
     /* gfx_context_t *g_ctx; */
@@ -172,19 +175,27 @@ void UkiMain(void)
         char path[1024] = {0};
         sys_getcwd(path, 1024);
         printf("-<zm@k:%s>-", path);
+
         /* gettimeofday(&t1, NULL); */
 
         /* process_execute(u_fune, "A");  // pid 6 */
-
         /* poudland_main_loop(); */
+        /* struct list_head *pos; */
+        /* list_for_each (pos, &partition_list) { */
+        /*     struct partition *part = */
+        /*         container_of(pos, struct partition, part_tag); */
+        /*     printf("%s\n", part->name); */
+        /* } */
 
+        sys_wait2(1, NULL, NULL);
         char *buf = sys_malloc(1);
         int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
         int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
         while (1) {
-            /* read(mouse_fd, buf, 1); */
-            read(kbd_fd, buf, 1);
-            write(stdout_, buf, 1);
+            /* read(kbd_fd, buf, 1); */
+            read(mouse_fd, buf, 1);
+            printf("%x ", buf[0]);
+            /* write(stdout_, buf, 1); */
         }
         close(kbd_fd);
         sys_free(buf);
@@ -314,6 +325,7 @@ void UkiMain(void)
     }
 }
 // test code
+
 void gfx_test_print_fn(gfx_context_t *ctx,
                        uint_32 text_x,
                        uint_32 text_y,
