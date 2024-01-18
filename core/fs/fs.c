@@ -7,6 +7,8 @@
 #include <device/devno-base.h>
 #include <device/ide.h>
 #include <device/ps2hid.h>
+#include <device/pc_mouse.h>
+#include <device/pc_kbd.h>
 #include <fs/file.h>
 #include <fs/pipe.h>
 
@@ -833,9 +835,9 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
         if (f->fd_inode->i_dev == DNOAUX) {
             res = read_aux(f, buf, count);
         } else if (f->fd_inode->i_dev == DNOPCMOUSE) {
-            res = read_aux(f, buf, count);
+            res = read_pcmouse(f, buf, count);
         } else if (f->fd_inode->i_dev == DNOPCKBD) {
-            res = read_aux(f, buf, count);
+            res = read_kbd(f, buf, count);
         }
     } else {
         uint_32 g_fd = fd_local2global(fd);
@@ -1490,11 +1492,11 @@ int_32 sys_char_file(const char *pathname, uint_32 dev_no, void *file)
     }
     case DNOPCKBD: {
         /* fd = kbd_create(&mounted_part, next_dir, last_name, file); */
-        fd = aux_create(&mounted_part, next_dir, last_name, file);
+        fd = kbd_create(&mounted_part, next_dir, last_name, file);
         break;
     }
     case DNOPCMOUSE: {
-        fd = aux_create(&mounted_part, next_dir, last_name, file);
+        fd = pcmouse_create(&mounted_part, next_dir, last_name, file);
         break;
     }
     }
