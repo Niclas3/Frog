@@ -19,8 +19,8 @@ struct pid_pool {
 TCB_t *main_thread;  // kernel_thread()
 TCB_t *idle_thread;  // idle()
 
-struct lock tid_lock;
-struct lock pid_lock;
+static struct lock tid_lock;
+static struct lock pid_lock;
 
 // TODO: need a max list size
 struct list_head thread_ready_list;
@@ -31,7 +31,7 @@ struct pid_pool pid_pool;
 // pid bitmap
 // max pid is 1024
 /* uint_8 pid_bitmap[128] = {0}; */
-uint_8 *pid_bitmap;
+static uint_8 *pid_bitmap;
 
 static struct list_head *thread_tag;
 
