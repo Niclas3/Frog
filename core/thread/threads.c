@@ -32,7 +32,7 @@ struct pid_pool pid_pool;
 // pid bitmap
 // max pid is 1024
 /* uint_8 pid_bitmap[128] = {0}; */
-uint_32 *pid_bitmap;
+uint_8 *pid_bitmap;
 
 static struct list_head *thread_tag;
 
