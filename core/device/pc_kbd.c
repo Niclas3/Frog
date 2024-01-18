@@ -1,12 +1,14 @@
 #include <device/devno-base.h>
 #include <device/ide.h>
 #include <device/pc_kbd.h>
+
 #include <errno-base.h>
 #include <fs/dir.h>
 #include <fs/fcntl.h>
 #include <fs/file.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
+#include <hid/keymap.h>
 #include <string.h>
 #include <sys/fork.h>
 #include <sys/int.h>
@@ -25,6 +27,9 @@ struct pc_kbd_queue {
     unsigned char buf[KBD_BUF_SIZE];
 };
 static struct pc_kbd_queue *queue;
+
+static boolean ctrl_status, shift_status, alt_status, caps_lock_status,
+    meta_status, ext_scancode;
 
 static uint_8 get_from_queue(void)
 {
@@ -159,6 +164,105 @@ uint_32 read_kbd(struct file *file, void *buf, uint_32 count)
         return count - index;
     }
     return 0;
+}
+
+inline void handle_keyboard_event(uint_16 scan_code)
+{
+    bool is_break_code;
+    bool ctrl_pressed = ctrl_status;
+    bool shift_pressed = shift_status;
+    bool cap_lock_pressed = caps_lock_status;
+    bool meta_pressed = meta_status;
+
+    if (scan_code == FLAG_EXT) {  // scan_code == 0xe0
+        ext_scancode = true;
+        return;
+    }
+    if (ext_scancode) {
+        scan_code = 0xe000 | scan_code;
+        ext_scancode = false;
+    }
+
+    is_break_code = (scan_code & 0x0080) != 0;
+    if (is_break_code) {
+        uint_16 make_code =
+            (scan_code &= 0xff7f);  // break_code = 0x80+make_code
+        if (make_code == MAKE_CTRL_R || make_code == MAKE_CTRL_L) {
+            ctrl_status = false;
+        } else if (make_code == MAKE_ALT_R || make_code == MAKE_ALT_L) {
+            alt_status = false;
+        } else if (make_code == MAKE_SHIFT_R || make_code == MAKE_SHIFT_L) {
+            shift_status = false;
+        } else {
+        }
+        return;
+    } else if ((scan_code > 0x00 && scan_code < 0x3b) ||
+               (scan_code == MAKE_ALT_R || scan_code == MAKE_CTRL_R) ||
+               (scan_code == MAKE_META_L || scan_code == MAKE_META_R)) {
+        bool shift = false;
+
+        /*   0x02 -> 1
+         *   0x0d -> =
+         *   0x0e -> backspace
+         * */
+        if ((scan_code >= 0x02 && scan_code < 0x0e) ||
+            (scan_code == 0x1a) ||  // '['
+            (scan_code == 0x1b) ||  // ']'
+            (scan_code == 0x27) ||  // ';'
+            (scan_code == 0x28) ||  // '\''
+            (scan_code == 0x29) ||  // '`'
+            (scan_code == 0x2b) ||  // '\\'
+            (scan_code == 0x33) ||  // ','
+            (scan_code == 0x34) ||  // '.'
+            (scan_code == 0x35) /* '/'*/) {
+            if (shift_pressed) {
+                shift = true;
+            }
+        } else {  // alphabet
+            if (shift_pressed && cap_lock_pressed) {
+                shift = false;
+            } else if (shift_pressed || cap_lock_pressed) {
+                shift = true;
+            } else {
+                shift = false;
+            }
+        }
+
+        uint_8 index = (scan_code & 0x00ff);
+        char key = keymap[index][shift];
+        if (key) {
+
+            // Process scan code to key and store key into queue
+            //
+            int head = queue->head;
+            queue->buf[head] = key;
+            head = (head + 1) & (KBD_BUF_SIZE - 1);
+            if (head != queue->tail) {  // queue is not empty
+                queue->head = head;
+                wake_up_interruptible(&queue->proc_list);
+            }
+            return;
+        }
+
+        if (scan_code == MAKE_CTRL_L || scan_code == MAKE_CTRL_R) {
+            ctrl_status = true;
+        } else if (scan_code == MAKE_ALT_L || scan_code == MAKE_ALT_R) {
+            alt_status = true;
+        } else if (scan_code == MAKE_SHIFT_L || scan_code == MAKE_SHIFT_R) {
+            shift_status = true;
+        } else if (scan_code == MAKE_CAP_LOCK) {
+            caps_lock_status = true;
+        } else if (scan_code == MAKE_META_L || scan_code == MAKE_META_R) {
+            meta_status = true;
+        }
+
+    } else {
+        if (scan_code == 0x0) {
+        } else {
+            PANIC("unknow key");
+        }
+    }
+    return;
 }
 
 uint_32 pc_kbd_init(void)
