@@ -14,4 +14,6 @@ int_32 kbd_create(struct partition *part,
                   void *target);
 uint_32 read_kbd(struct file *file, void *buf, uint_32 count);
 
+void handle_keyboard_event(uint_16 scan_code);
+
 #endif
