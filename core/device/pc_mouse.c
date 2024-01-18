@@ -7,6 +7,7 @@
 #include <sys/int.h>
 #include <sys/memory.h>
 #include <sys/threads.h>
+#include <sys/sched.h>
 
 #include <device/ide.h>
 #include <device/devno-base.h>

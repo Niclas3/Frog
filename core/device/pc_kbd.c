@@ -14,6 +14,7 @@
 #include <sys/int.h>
 #include <sys/memory.h>
 #include <sys/threads.h>
+#include <sys/sched.h>
 
 #include <debug.h>
 

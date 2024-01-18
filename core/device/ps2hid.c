@@ -18,12 +18,12 @@
 #include <fs/file.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
-/* #include <ioqueue.h> */
 #include <math.h>
 #include <string.h>
 #include <sys/fork.h>
 #include <sys/memory.h>
 #include <sys/threads.h>
+#include <sys/sched.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
