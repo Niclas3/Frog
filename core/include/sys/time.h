@@ -12,9 +12,12 @@ struct timezone {
 	int tz_dsttime;         /* type of DST correction */
 };
 
+
+//impl at cmos.c
 extern int gettimeofday(struct timeval *p, void *z);
 
 //TODO: not implment
+//impl at cmos.c
 extern int settimeofday(struct timeval *p, void *z);
 
 
