@@ -5,7 +5,7 @@
 #include <list.h>
 #include <ostype.h>
 #include <sys/memory.h>
-#include <sys/wait.h>
+#include <sys/sched.h>
 
 #define MAX_FILES_OPEN_PER_PROC 8
 #define TASK_NAME_LEN 16
@@ -23,19 +23,15 @@ typedef void *(*__routine_ptr_t)(void *);
 typedef void *__routine_t(void *);
 
 // Status of thread
-typedef enum task_status {
-    THREAD_TASK_RUNNING = 0,
-    THREAD_TASK_READY   = 1,
-    THREAD_TASK_WAITING = 2,
-    THREAD_TASK_HANGING = 4,
-    THREAD_TASK_BLOCKED = 8,
-    THREAD_TASK_DIED = 16,
-} task_status_t;
+// typedef enum task_status {
+//     THREAD_TASK_RUNNING = 0,
+//     THREAD_TASK_READY   = 1,
+//     THREAD_TASK_WAITING = 2,
+//     THREAD_TASK_HANGING = 4,
+//     THREAD_TASK_BLOCKED = 8,
+//     THREAD_TASK_DIED = 16,
+// } task_status_t;
 
-void __wake_up(wait_queue_head_t *q, unsigned int mode, int nr);
-
-#define wake_up(x)			__wake_up((x), THREAD_TASK_WAITING | THREAD_TASK_BLOCKED, 1)
-#define wake_up_interruptible(x)	__wake_up((x), THREAD_TASK_WAITING, 1)
 
 /* Saved registers context when change privilege
  * e.g From ring0 to ring3
