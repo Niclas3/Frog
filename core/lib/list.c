@@ -17,11 +17,11 @@
  * list_del(_init) on an uninitialized node is undefined (unrelated memory is
  * modified, crashes, ...).
  */
-void init_list_head(struct list_head *head)
-{
-    head->next = head;
-    head->prev = head;
-}
+/* void init_list_head(struct list_head *head) */
+/* { */
+/*     head->next = head; */
+/*     head->prev = head; */
+/* } */
 
 /**
  * list_find_element(struct list_head *head,)
