@@ -21,7 +21,7 @@
 #include <debug.h>
 
 // keyboard queue for reading from stdin
-extern CircleQueue keyboard_queue;
+/* extern CircleQueue keyboard_queue; */
 
 // global variable define at ide.c
 extern struct ide_channel channels[2];  // 2 different channels
@@ -813,15 +813,15 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
             // read from keyboard_queue
             // TODO:
             // maybe change it to use /dev/input/event*
-            char *buffer = buf;
-            uint_32 bytes_read = 0;
-            while (bytes_read < count) {
-                char code = ioqueue_get_data(&keyboard_queue);
-                *buffer = code;
-                bytes_read++;
-                buffer++;
-            }
-            res = (bytes_read == 0 ? -1 : (int_32) bytes_read);
+            /* char *buffer = buf; */
+            /* uint_32 bytes_read = 0; */
+            /* while (bytes_read < count) { */
+            /*     char code = ioqueue_get_data(&keyboard_queue); */
+            /*     *buffer = code; */
+            /*     bytes_read++; */
+            /*     buffer++; */
+            /* } */
+            /* res = (bytes_read == 0 ? -1 : (int_32) bytes_read); */
         }
     } else if (fd == FD_STDERR_NO) {
         return -1;
