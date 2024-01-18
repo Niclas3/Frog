@@ -18,6 +18,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/memory.o \
          $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o $(BUILD_DIR)/exec.o $(BUILD_DIR)/exit.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/fork.o \
+	 $(BUILD_DIR)/timer.o \
          $(BUILD_DIR)/kernel_print.o \
 	 $(BUILD_DIR)/core.o
 
@@ -158,6 +159,9 @@ $(BUILD_DIR)/tss.o:
 	
 $(BUILD_DIR)/destab.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find destab -type f -name "descriptor.c")
+
+$(BUILD_DIR)/timer.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find frog -type f -name "timer.c")
 
 
 $(BUILD_DIR)/bootpack.o: bootpack.c
