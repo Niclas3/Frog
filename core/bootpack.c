@@ -64,7 +64,6 @@ typedef struct B_info {
     unsigned char *vram;
 } BOOTINFO;
 
-extern CircleQueue keyboard_queue;
 
 void func(int a);
 void funcb(int a);
@@ -73,7 +72,6 @@ void u_fund(int a);
 void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
-static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 scancode);
 void redraw_window(gfx_context_t *ctx);
 
 
@@ -185,19 +183,21 @@ void UkiMain(void)
         /*         container_of(pos, struct partition, part_tag); */
         /*     printf("%s\n", part->name); */
         /* } */
-
         sys_wait2(1, NULL, NULL);
-        char *buf = sys_malloc(1);
+        mouse_device_packet_t *mbuf= sys_malloc(sizeof(mouse_device_packet_t));
+        char* buf = sys_malloc(1);
+        uint_32 pkg_size = sizeof(mouse_device_packet_t);
         int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
         int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
         while (1) {
             /* read(kbd_fd, buf, 1); */
-            read(mouse_fd, buf, 1);
-            printf("%x ", buf[0]);
+            /* printf("(key press %c)", buf[0]); */
+            read(mouse_fd, mbuf, pkg_size);
+            printf("(%d, %d)", mbuf->x_difference, mbuf->y_difference);
             /* write(stdout_, buf, 1); */
         }
         close(kbd_fd);
-        sys_free(buf);
+        sys_free(mbuf);
 
         uint_32 status_bar_color = 0x88131313;
         Point top_left = {.X = 0, .Y = 0};
