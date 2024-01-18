@@ -1,9 +1,8 @@
 #include <device/devno-base.h>
 #include <device/pc_mouse.h>
+#include <device/pc_kbd.h>
 #include <device/ps2hid.h>
-#include <hid/keymap.h>
 
-#include <fs/fs.h>
 #include <io.h>
 
 #include <protect.h>
@@ -20,11 +19,11 @@
 #include <fs/fs.h>
 #include <fs/inode.h>
 /* #include <ioqueue.h> */
-#include <sys/threads.h>
 #include <math.h>
 #include <string.h>
 #include <sys/fork.h>
 #include <sys/memory.h>
+#include <sys/threads.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
@@ -39,15 +38,13 @@ struct aux_queue {
     unsigned char buf[AUX_BUF_SIZE];
 };
 
-static struct aux_queue *queue;     // mouse queue
+static struct aux_queue *queue;  // mouse queue
 
 // TODO:
 // Use pipe replace ioqueue
 /* int_32 g_kbd_pipe_fd[2]; */
 /* int_32 g_mouse_pipe_fd[2]; */
 
-static boolean ctrl_status, shift_status, alt_status, caps_lock_status,
-    meta_status, ext_scancode;
 
 /**
  * Wait PS/2 controller's output buffer is filled.
@@ -151,101 +148,8 @@ static inline void handle_mouse_event(char scancode)
         queue->head = head;
         wake_up_interruptible(&queue->proc_list);
     }
-
-    // bottom half
-    /* ps2_mouse_handle(&mrd, scancode); */
 }
 
-static inline void handle_keyboard_event(uint_16 scan_code)
-{
-    bool is_break_code;
-    bool ctrl_pressed = ctrl_status;
-    bool shift_pressed = shift_status;
-    bool cap_lock_pressed = caps_lock_status;
-    bool meta_pressed = meta_status;
-
-    if (scan_code == FLAG_EXT) {  // scan_code == 0xe0
-        ext_scancode = true;
-        return;
-    }
-    if (ext_scancode) {
-        scan_code = 0xe000 | scan_code;
-        ext_scancode = false;
-    }
-
-    is_break_code = (scan_code & 0x0080) != 0;
-    if (is_break_code) {
-        uint_16 make_code =
-            (scan_code &= 0xff7f);  // break_code = 0x80+make_code
-        if (make_code == MAKE_CTRL_R || make_code == MAKE_CTRL_L) {
-            ctrl_status = false;
-        } else if (make_code == MAKE_ALT_R || make_code == MAKE_ALT_L) {
-            alt_status = false;
-        } else if (make_code == MAKE_SHIFT_R || make_code == MAKE_SHIFT_L) {
-            shift_status = false;
-        } else {
-        }
-        return;
-    } else if ((scan_code > 0x00 && scan_code < 0x3b) ||
-               (scan_code == MAKE_ALT_R || scan_code == MAKE_CTRL_R) ||
-               (scan_code == MAKE_META_L || scan_code == MAKE_META_R)) {
-        bool shift = false;
-
-        /*   0x02 -> 1
-         *   0x0d -> =
-         *   0x0e -> backspace
-         * */
-        if ((scan_code >= 0x02 && scan_code < 0x0e) ||
-            (scan_code == 0x1a) ||  // '['
-            (scan_code == 0x1b) ||  // ']'
-            (scan_code == 0x27) ||  // ';'
-            (scan_code == 0x28) ||  // '\''
-            (scan_code == 0x29) ||  // '`'
-            (scan_code == 0x2b) ||  // '\\'
-            (scan_code == 0x33) ||  // ','
-            (scan_code == 0x34) ||  // '.'
-            (scan_code == 0x35) /* '/'*/) {
-            if (shift_pressed) {
-                shift = true;
-            }
-        } else {  // alphabet
-            if (shift_pressed && cap_lock_pressed) {
-                shift = false;
-            } else if (shift_pressed || cap_lock_pressed) {
-                shift = true;
-            } else {
-                shift = false;
-            }
-        }
-
-        uint_8 index = (scan_code & 0x00ff);
-        char key = keymap[index][shift];
-        if (key) {
-            /* write_pipe(g_kbd_pipe_fd[1], &key, 1); */
-            /* ioqueue_put_data(key, &keyboard_queue); */
-            return;
-        }
-
-        if (scan_code == MAKE_CTRL_L || scan_code == MAKE_CTRL_R) {
-            ctrl_status = true;
-        } else if (scan_code == MAKE_ALT_L || scan_code == MAKE_ALT_R) {
-            alt_status = true;
-        } else if (scan_code == MAKE_SHIFT_L || scan_code == MAKE_SHIFT_R) {
-            shift_status = true;
-        } else if (scan_code == MAKE_CAP_LOCK) {
-            caps_lock_status = true;
-        } else if (scan_code == MAKE_META_L || scan_code == MAKE_META_R) {
-            meta_status = true;
-        }
-
-    } else {
-        if (scan_code == 0x0) {
-        } else {
-            PANIC("unknow key");
-        }
-    }
-    return;
-}
 
 /* int 0x2C;
  * Interrupt handler for PS/2 mouse
@@ -254,7 +158,7 @@ void inthandler2C(void)
 {
     char scancode = inb(PS2_DATA);
     // send scancode to make mouse package
-    /* handle_ps2_mouse_scancode(scancode); */
+    handle_ps2_mouse_scancode(scancode);
     // send scancode to this file queue
     handle_mouse_event(scancode);
     return;
@@ -292,12 +196,11 @@ void ps2hid_init(void)
     queue->head = queue->tail = 0;
     init_waitqueue_head(&queue->proc_list);
 
-    /* pc_mouse_init(); */
-    /* init_ioqueue(&keyboard_queue); */
-    /* init_ioqueue(&mouse_queue); */
+    pc_mouse_init();
+    pc_kbd_init();
 
     sys_char_file("/dev/input/event0", DNOPCKBD, NULL);
-    sys_char_file("/dev/input/event1", DNOAUX, NULL);
+    sys_char_file("/dev/input/event1", DNOPCMOUSE, NULL);
 
     // enable keyboard
     ps2_wait_input();
