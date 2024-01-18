@@ -13,7 +13,7 @@
 // for test
 #include <stdio.h>
 
-extern CircleQueue mouse_queue;
+CircleQueue mouse_queue;
 
 static void read_packet_from_queue(CircleQueue *queue,
                                    mouse_device_packet_t *packet)
