@@ -190,10 +190,10 @@ void UkiMain(void)
         int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
         int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
         while (1) {
-            /* read(kbd_fd, buf, 1); */
-            /* printf("(key press %c)", buf[0]); */
-            read(mouse_fd, mbuf, pkg_size);
-            printf("(%d, %d)", mbuf->x_difference, mbuf->y_difference);
+            read(kbd_fd, buf, 1);
+            printf("(key press %c)", buf[0]);
+            /* read(mouse_fd, mbuf, pkg_size); */
+            /* printf("(%d, %d)", mbuf->x_difference, mbuf->y_difference); */
             /* write(stdout_, buf, 1); */
         }
         close(kbd_fd);
