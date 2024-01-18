@@ -73,7 +73,6 @@ void u_fund(int a);
 void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
-void keyboard_consumer(int a);
 static void ps2_mouse_handle(struct mouse_raw_data *mdata, uint_8 scancode);
 void redraw_window(gfx_context_t *ctx);
 
@@ -346,24 +345,6 @@ void gfx_test_print_fn(gfx_context_t *ctx,
             text_y += 20;
             text_x = base_x;
         }
-    }
-}
-
-void keyboard_consumer(int a)
-{
-    int line = 0;
-    int xpos = 0;
-    for (;;) {
-        char code = ioqueue_get_data(&keyboard_queue);
-        lock_fetch(&main_lock);
-        if (xpos >= 300) {
-            line += 16;
-            xpos = 0;
-        }
-        put_asc_char((int_8 *) 0xc00a0000, 320, xpos, line, COL8_00FFFF, code);
-        xpos += 8;
-        lock_release(&main_lock);
-        __asm__ volatile("sti;hlt;");
     }
 }
 
