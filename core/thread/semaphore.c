@@ -8,7 +8,7 @@
 // Init semaphore with value 
 void semaphore_init(struct semaphore *sema, uint_32 value){
     sema->value = value;
-    init_list_head(&sema->waiting_queue);
+    INIT_LIST_HEAD(&sema->waiting_queue);
 }
 
 void lock_init(struct lock *lock){
