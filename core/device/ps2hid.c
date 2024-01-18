@@ -5,7 +5,6 @@
 
 #include <fs/fs.h>
 #include <io.h>
-#include <ioqueue.h>
 
 #include <protect.h>
 #include <sys/int.h>
@@ -20,7 +19,8 @@
 #include <fs/file.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
-#include <ioqueue.h>
+/* #include <ioqueue.h> */
+#include <sys/threads.h>
 #include <math.h>
 #include <string.h>
 #include <sys/fork.h>
@@ -29,8 +29,8 @@
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
 
-CircleQueue mouse_queue;
-CircleQueue keyboard_queue;
+/* CircleQueue mouse_queue; */
+/* CircleQueue keyboard_queue; */
 
 struct aux_queue {
     unsigned long head;
@@ -293,11 +293,11 @@ void ps2hid_init(void)
     init_waitqueue_head(&queue->proc_list);
 
     /* pc_mouse_init(); */
-    init_ioqueue(&keyboard_queue);
-    init_ioqueue(&mouse_queue);
+    /* init_ioqueue(&keyboard_queue); */
+    /* init_ioqueue(&mouse_queue); */
 
-    sys_char_file("/dev/input/event0", DNOPCKBD, &keyboard_queue);
-    sys_char_file("/dev/input/event1", DNOAUX, &mouse_queue);
+    sys_char_file("/dev/input/event0", DNOPCKBD, NULL);
+    sys_char_file("/dev/input/event1", DNOAUX, NULL);
 
     // enable keyboard
     ps2_wait_input();
