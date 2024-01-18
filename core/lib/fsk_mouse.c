@@ -113,7 +113,7 @@ static void mouse_event_handler(struct fsk_mouse *mouse)
                         double_left_click = 1;
                         uint_32 delay = 3500;  // 3500 comes up by test
                         init_fifo(timer_queue, 2, buf);
-                        set_timer(delay, timer_queue, '1');
+                        /* set_timer(delay, timer_queue, '1'); */
                         hold_left_click = true;
 
                         // testcode
