@@ -22,18 +22,32 @@ struct timer_vec_root {
     struct list_head vec[TVR_SIZE];
 };
 
-static struct timer_vec tv5;
-static struct timer_vec tv4;
-static struct timer_vec tv3;
-static struct timer_vec tv2;
-static struct timer_vec_root tv1;
+struct timer_vec tv5;
+struct timer_vec tv4;
+struct timer_vec tv3;
+struct timer_vec tv2;
+struct timer_vec_root tv1;
 
-static struct timer_vec *const tvecs[] = {(struct timer_vec *) &tv1, &tv2, &tv3,
+struct timer_vec *const tvecs[] = {(struct timer_vec *) &tv1, &tv2, &tv3,
                                           &tv4, &tv5};
 
 static struct list_head *run_timer_list_running;
 
 #define NOOF_TVECS (sizeof(tvecs) / sizeof(tvecs[0]))
+
+void init_timervecs (void)
+{
+	int i;
+
+	for (i = 0; i < TVN_SIZE; i++) {
+		INIT_LIST_HEAD(tv5.vec + i);
+		INIT_LIST_HEAD(tv4.vec + i);
+		INIT_LIST_HEAD(tv3.vec + i);
+		INIT_LIST_HEAD(tv2.vec + i);
+	}
+	for (i = 0; i < TVR_SIZE; i++)
+		INIT_LIST_HEAD(tv1.vec + i);
+}
 
 static unsigned long timer_jiffies;
 
