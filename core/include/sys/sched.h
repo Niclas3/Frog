@@ -30,6 +30,5 @@ void inthandler20(void);
 int_32 schedule_timeout(int_32 timeout);
 
 void mtime_sleep(uint_32 m_seconds);
-void set_timer(uint_32 timeout, void* queue, uint_8 mark);
 
 #endif

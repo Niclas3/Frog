@@ -19,9 +19,12 @@ extern struct list_head thread_ready_list;
 uint_32 volatile ticks = 0;
 
 extern void schedule(void);
+extern void init_timervecs (void);
 
 void init_timer_manager(void)
 {
+    //init timer resource
+    init_timervecs();
     // register timer interrupt handler
     register_r0_intr_handler(INT_VECTOR_INNER_CLOCK,
                              (Inthandle_t *) inthandler20);
@@ -123,7 +126,7 @@ static void process_timeout(unsigned long __data)
  **/
 void inthandler20(void)
 {
-    /* timer_bh(); */
+    timer_bh();
 
     TCB_t *cur_thread = running_thread();
     ASSERT(cur_thread->stack_magic == 0x19900921);
