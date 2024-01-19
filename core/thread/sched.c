@@ -1,10 +1,10 @@
 #include <debug.h>
 #include <math.h>
-#include <sys/pic.h>
 #include <sys/sched.h>
 #include <sys/threads.h>
 
 #include <frog/timer.h>
+#include <frog/piti8253.h>
 
 #include <protect.h>
 #include <sys/int.h>

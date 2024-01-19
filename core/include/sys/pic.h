@@ -220,27 +220,11 @@
 #define PIC_EOI_IRQ7  0x67    // LPT1
 #define PIC_EOI_IRQ15 0x67    // Slave disk
 // -----------------------------------------------------------------
-// -----------------------------------------------------------------
-//                       Programmable Interval Timer
-// -----------------------------------------------------------------
-// #define IRQ0_FREQUENCY   100
-// #define IRQ0_FREQUENCY   1000
-#define IRQ0_FREQUENCY   9000
-// #define IRQ0_FREQUENCY   12000
-#define INPUT_FREQUENCY  1193180
-#define COUNTER0_VALUE   INPUT_FREQUENCY/IRQ0_FREQUENCY
-#define COUNTER0_PORT    0x40
-#define COUNTER0_NO      0
-#define COUTNER_MODE     2
-#define READ_WRITE_LATCH 3
-#define PIT_CONTROL_PROT 0x43
 
 
 // To init 8258A 
 void init_8259A(void);
 
-// init PIT (programmable interval timer)
-void init_PIT8253(void);
 
 #endif
 

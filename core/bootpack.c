@@ -7,6 +7,7 @@
 
 #include <sys/int.h>
 #include <sys/pic.h>
+#include <frog/piti8253.h>
 #include <sys/syscall-init.h>
 
 #include <device/console.h>

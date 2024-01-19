@@ -8,7 +8,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/graphic.o $(BUILD_DIR)/2d_graphics.o \
 	 $(BUILD_DIR)/ide.o $(BUILD_DIR)/ps2hid.o $(BUILD_DIR)/pc_mouse.o $(BUILD_DIR)/pc_kbd.o\
          $(BUILD_DIR)/console.o $(BUILD_DIR)/cmos.o \
-         $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
+         $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o $(BUILD_DIR)/pit8253.o\
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
 	 $(BUILD_DIR)/usr.o $(BUILD_DIR)/systask.o $(BUILD_DIR)/syscall-init.o \
 	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o $(BUILD_DIR)/list.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/stdio.o  $(BUILD_DIR)/poudland.o\
@@ -152,6 +152,9 @@ $(BUILD_DIR)/select.o:
 
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
+
+$(BUILD_DIR)/pit8253.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find frog -type f -name "pit8253.c")
 
 $(BUILD_DIR)/int.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find interrupt -type f -name "*.c")
