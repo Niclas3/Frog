@@ -82,7 +82,7 @@ void gfx_test_print_fn(gfx_context_t *ctx,
 
 // first user progress
 void init(void);
-struct lock main_lock;
+/* struct lock main_lock; */
 
 // test valuable
 extern struct list_head process_all_list;
@@ -101,7 +101,7 @@ gfx_context_t *g_ctx;
 void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
-    lock_init(&main_lock);
+    /* lock_init(&main_lock); */
 
     clock_init();
 
@@ -164,7 +164,7 @@ void UkiMain(void)
         uint_32 screen_width = g_ctx->width;
         uint_32 screen_height = g_ctx->height;
         uint_32 fontsize = 8;
-        clear_screen(g_ctx, FSK_BLACK);
+        clear_screen(g_ctx, FSK_DARK_BLUE);
         struct timeval t1 = {0};
         struct timeval t2 = {0};
 
