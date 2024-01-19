@@ -5,7 +5,7 @@ C_FLAG += -g
 BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
-	 $(BUILD_DIR)/graphic.o $(BUILD_DIR)/2d_graphics.o $(BUILD_DIR)/fsk_mouse.o \
+	 $(BUILD_DIR)/graphic.o $(BUILD_DIR)/2d_graphics.o \
 	 $(BUILD_DIR)/ide.o $(BUILD_DIR)/ps2hid.o $(BUILD_DIR)/pc_mouse.o $(BUILD_DIR)/pc_kbd.o\
          $(BUILD_DIR)/console.o $(BUILD_DIR)/cmos.o \
          $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o \
@@ -17,7 +17,8 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o $(BUILD_DIR)/pipe.o  $(BUILD_DIR)/select.o\
 	 $(BUILD_DIR)/memory.o \
          $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o $(BUILD_DIR)/exec.o $(BUILD_DIR)/exit.o \
-         $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/fork.o \
+         $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o \
+         $(BUILD_DIR)/sched.o $(BUILD_DIR)/fork.o \
 	 $(BUILD_DIR)/timer.o \
          $(BUILD_DIR)/kernel_print.o \
 	 $(BUILD_DIR)/core.o
@@ -67,8 +68,9 @@ $(BUILD_DIR)/graphic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "graphic.c")
 $(BUILD_DIR)/2d_graphics.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "2d_graphics.c")
-$(BUILD_DIR)/fsk_mouse.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "fsk_mouse.c")
+
+# $(BUILD_DIR)/fsk_mouse.o:
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "fsk_mouse.c")
 
 $(BUILD_DIR)/libdebug.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find lib -type f -name "debug.c")
