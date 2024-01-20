@@ -3,6 +3,8 @@
 #include <device/pc_kbd.h>
 #include <device/ps2hid.h>
 
+#include <frog/poll.h>
+
 #include <io.h>
 
 #include <protect.h>
@@ -28,8 +30,6 @@
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
 
-/* CircleQueue mouse_queue; */
-/* CircleQueue keyboard_queue; */
 
 struct aux_queue {
     unsigned long head;
@@ -177,47 +177,6 @@ void inthandler21(void)
     handle_keyboard_event(scan_code);
 }
 
-/**
- * Initialze i8042/AIP PS/2 controller.
- */
-void ps2hid_init(void)
-{
-    // init mouse queue
-    queue = (struct aux_queue *) sys_malloc(sizeof(*queue));
-    if (queue == NULL) {
-        // TODO:
-        //
-        /* printk(KERN_ERR "psaux_init(): out of memory\n"); */
-        /* misc_deregister(&psaux_mouse); */
-        /* return -ENOMEM; */
-        return;
-    }
-    memset(queue, 0, sizeof(*queue));
-    queue->head = queue->tail = 0;
-    init_waitqueue_head(&queue->proc_list);
-
-    pc_mouse_init();
-    pc_kbd_init();
-
-    sys_char_file("/dev/input/event0", DNOPCKBD, NULL);
-    sys_char_file("/dev/input/event1", DNOPCMOUSE, NULL);
-
-    // enable keyboard
-    ps2_wait_input();
-    outb(PS2_COMMAND, KBD_WRITE);
-
-    ps2_wait_input();
-    outb(PS2_DATA, KBDC_MODE);
-    register_r0_intr_handler(INT_VECTOR_KEYBOARD, (Inthandle_t *) inthandler21);
-
-    // enable ps2 mouse
-    register_r0_intr_handler(INT_VECTOR_PS2_MOUSE,
-                             (Inthandle_t *) inthandler2C);
-    ps2_wait_input();
-    outb(PS2_COMMAND, MOUSE_WRITE);
-    ps2_wait_input();
-    outb(PS2_DATA, MOUSE_ENABLE);
-}
 
 bool is_char_file(struct partition *part, int_32 inode_nr)
 {
@@ -413,7 +372,6 @@ uint_32 read_aux(struct file *file, void *buf, uint_32 count)
     return 0;
 }
 
-
 uint_32 write_aux(struct file *file, const void *buf, uint_32 count)
 {
     /* CircleQueue *queue = (CircleQueue *) file->fd_inode->i_zones[0]; */
@@ -425,4 +383,55 @@ uint_32 write_aux(struct file *file, const void *buf, uint_32 count)
     /*     return 1; */
     /* } */
     return count;
+}
+
+uint_32 aux_poll(struct file *file, poll_table * wait)
+{
+    // add this file to waiting list
+	poll_wait(file, &queue->proc_list, wait);
+	if (!queue_empty())
+		return POLLIN | POLLRDNORM;
+	return 0;
+}
+
+/**
+ * Initialze i8042/AIP PS/2 controller.
+ */
+void ps2hid_init(void)
+{
+    // init mouse queue
+    queue = (struct aux_queue *) sys_malloc(sizeof(*queue));
+    if (queue == NULL) {
+        // TODO:
+        //
+        /* printk(KERN_ERR "psaux_init(): out of memory\n"); */
+        /* misc_deregister(&psaux_mouse); */
+        /* return -ENOMEM; */
+        return;
+    }
+    memset(queue, 0, sizeof(*queue));
+    queue->head = queue->tail = 0;
+    init_waitqueue_head(&queue->proc_list);
+
+    pc_mouse_init();
+    pc_kbd_init();
+
+    sys_char_file("/dev/input/event0", DNOPCKBD, NULL);
+    sys_char_file("/dev/input/event1", DNOPCMOUSE, NULL);
+
+    // enable keyboard
+    ps2_wait_input();
+    outb(PS2_COMMAND, KBD_WRITE);
+
+    ps2_wait_input();
+    outb(PS2_DATA, KBDC_MODE);
+    register_r0_intr_handler(INT_VECTOR_KEYBOARD, (Inthandle_t *) inthandler21);
+
+    // enable ps2 mouse
+    register_r0_intr_handler(INT_VECTOR_PS2_MOUSE,
+                             (Inthandle_t *) inthandler2C);
+    ps2_wait_input();
+    outb(PS2_COMMAND, MOUSE_WRITE);
+    ps2_wait_input();
+    outb(PS2_DATA, MOUSE_ENABLE);
 }
