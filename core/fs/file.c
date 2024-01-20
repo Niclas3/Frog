@@ -29,6 +29,12 @@ uint_32 fd_local2global(uint_32 local_fd)
     return g_fd;
 }
 
+struct file *get_file(uint_32 local_fd)
+{
+    uint_32 gfd = fd_local2global(local_fd);
+    return &g_file_table[gfd];
+}
+
 /**
  * Occupy a slot from g_file_table
  *

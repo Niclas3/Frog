@@ -21,11 +21,12 @@ enum bitmap_type {
     ZONE_BITMAP
 };
 
-#define MAX_FILE_OPEN 32   //Max file opening TIMES in system (one file can be
+#define MAX_FILE_OPEN 128   //Max file opening TIMES in system (one file can be
                            //reopen )
 
 int_32 occupy_file_table_slot(void);
 uint_32 fd_local2global(uint_32 local_fd);
+struct file *get_file(uint_32 local_fd);
 
 int_32 install_thread_fd(int_32 g_fd_idx);
 int_32 inode_bitmap_alloc(struct partition *part);
