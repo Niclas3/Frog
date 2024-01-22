@@ -5,9 +5,9 @@
 #include <sys/2d_graphics.h>
 #include <sys/graphic.h>
 
+#include <frog/piti8253.h>
 #include <sys/int.h>
 #include <sys/pic.h>
-#include <frog/piti8253.h>
 #include <sys/syscall-init.h>
 
 #include <device/console.h>
@@ -167,7 +167,6 @@ void UkiMain(void)
         uint_32 fontsize = 8;
         clear_screen(g_ctx, FSK_DARK_BLUE);
         struct timeval t1 = {0};
-        struct timeval t2 = {0};
 
         gettimeofday(&t1, NULL);
         char path[1024] = {0};
@@ -184,21 +183,48 @@ void UkiMain(void)
         /*         container_of(pos, struct partition, part_tag); */
         /*     printf("%s\n", part->name); */
         /* } */
-        sys_wait2(1, NULL, NULL);
-        mouse_device_packet_t *mbuf= sys_malloc(sizeof(mouse_device_packet_t));
-        char* buf = sys_malloc(1);
-        uint_32 pkg_size = sizeof(mouse_device_packet_t);
-        int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
-        int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
-        while (1) {
-            read(kbd_fd, buf, 1);
-            printf("(key press %c)", buf[0]);
-            /* read(mouse_fd, mbuf, pkg_size); */
-            /* printf("(%d, %d)", mbuf->x_difference, mbuf->y_difference); */
-            /* write(stdout_, buf, 1); */
-        }
-        close(kbd_fd);
-        sys_free(mbuf);
+
+        process_execute(u_fund, "B");  // pid 5
+
+        /* mouse_device_packet_t *mbuf = sys_malloc(sizeof(mouse_device_packet_t)); */
+        /* char *buf = sys_malloc(1); */
+        /* uint_32 pkg_size = sizeof(mouse_device_packet_t); */
+        /* int_32 kbd_fd = open("/dev/input/event0", O_RDONLY); */
+        /* int_32 mouse_fd = open("/dev/input/event1", O_RDONLY); */
+        /* int_32 aux_fd = open("/dev/input/event2", O_RDONLY); */
+        /* int_32 fds[2] = {kbd_fd, mouse_fd}; */
+        /* struct timeval t2 = {.tv_sec = 16, .tv_usec = 0}; */
+        /*  */
+        /* while (1) { */
+        /*     int_32 idx = sys_wait2(2, fds, &t2); */
+        /*     if (idx == 0) { */
+        /*         printf("No.%d fd is wake \n", idx); */
+        /*         read(kbd_fd, buf, 1); */
+        /*         printf("key event %c key press\n", buf[0]); */
+        /*     } else if (idx == 1) { */
+        /*         printf("No.%d fd is wake \n", idx); */
+        /*         read(mouse_fd, mbuf, pkg_size); */
+        /*         printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference, */
+        /*                mbuf->y_difference); */
+        /*     } else if (idx == 2) { */
+        /*         printf("No.%d fd is wake \n", idx); */
+        /*         read(aux_fd, buf, 1); */
+        /*         printf("aux data %x \n", buf[0]); */
+        /*     } else if (idx == -1) { */
+        /*         printf("timeout is here\n"); */
+        /*     } */
+        /* } */
+
+        /* while (1) { */
+        /*     read(kbd_fd, buf, 1); */
+        /*     printf("(key press %c)", buf[0]); */
+        /*     #<{(| read(mouse_fd, mbuf, pkg_size); |)}># */
+        /*     #<{(| printf("(%d, %d)", mbuf->x_difference, mbuf->y_difference);
+         * |)}># */
+        /*     #<{(| write(stdout_, buf, 1); |)}># */
+        /* } */
+        /* close(kbd_fd); */
+        /* sys_free(mbuf); */
 
         uint_32 status_bar_color = 0x88131313;
         Point top_left = {.X = 0, .Y = 0};
@@ -448,47 +474,7 @@ void funcb(int a)
 
 void funcc(int a)
 {
-    int_32 fd2 = sys_open("/test1.txt", O_RDWR);
-    if (fd2 == -1) {
-        fd2 = sys_open("/test1.txt", O_CREAT);
-    }
-    TCB_t *cur = running_thread();
-    struct file f2 = g_file_table[cur->fd_table[fd2]];
-    char *data508 =
-        "gfbiccageebdcefcjkbahgjihefejkchkdaebfiekbjibbdkihdfgbaddfeghfhhafaeke"
-        "gagajejfjccgiiiccbefbefkhfjceaajaaabgkidkgdbdfcfieickjehddkkbeefghedhk"
-        "fjbjdjafaaikdibidibhecgijhcikagbfgdhkabkhjifghdegdhgjfjcaaaecieecafhdk"
-        "agkbjgfecigkikhigjcgeeikihagkkacdakkdiijbfccdccdchkcfiefgddbidbkckihge"
-        "bjbicccecchadffbdaeaidkcdhaabdbiiahfcfgkcekcacjhjbgahfcfiahijcgiahijff"
-        "ebafehjkgibhhekfcaacakeaaacabejkkjckhdehebjkcgidfidgggkhchkficbbekdefb"
-        "kebjfahfabdaaajefdhjgchgcicjehgcceeekbeiaaahbffibbegihgbccdcbehdbiee"
-        "agghbfkgfbcdgfkjijij";
-
-    char *data504 =
-        "gfbiccaebdcefcjkbahgjihefejkchkdaebfiekbjibbdkihdfgbaddfeghfhhafaeke"
-        "gagajejfjccgiiiccbefbefkhfjceaajaaabgkidkgdbdfcfieickjehddkkbeefghedhk"
-        "fjbjdjafaaikdibidibhecgijhcikagbfgdhkabkhjifghdegdhgjfjcaaaecieecafhdk"
-        "agkbjgfecigkikhigjcgeeikihagkkacdakkdiijbfccdccdchkcfiefgddbidbkckihge"
-        "bjbicccecchadffbdaeaidkcdhaabdbiiahfcfgkcekcacjhjbgahfcfiahijcgiahijff"
-        "ebafehjkgibhhekfcaacakeaaacabejkckhdehebjkcgidfidgggkhchkficbbekdefb"
-        "kebjfahfabdaaajefdhjgchgcicjehgcceeekbeiaaahbffibbegihgbccdcbehdbiee"
-        "agghbfkgfbcdgfkjijij";
-
-    uint_8 *data512 = sys_malloc(512);
-    for (int i = 0; i < 140; i++) {
-        if (i < 10) {
-            sprintf(data512, "{00%d%s00%d}", i, data504, i);
-        } else if (i >= 10 && i < 100) {
-            sprintf(data512, "{0%d%s0%d}", i, data504, i);
-        } else if (i >= 100) {
-            sprintf(data512, "{%d%s%d}", i, data504, i);
-        }
-        file_write(&mounted_part, &f2, data512, strlen(data512));
-        memset(data512, 0, 512);
-    }
-
-    sys_free(data512);
-    sys_close(fd2);
+    while(1);
 }
 
 void redraw_window(gfx_context_t *ctx)
@@ -505,7 +491,35 @@ void redraw_window(gfx_context_t *ctx)
 // proc B
 void u_fund(int a)
 {
-    /* char *tmp3 = malloc(512); */
+    mouse_device_packet_t *mbuf = malloc(sizeof(mouse_device_packet_t));
+    char *buf = malloc(1);
+    uint_32 pkg_size = sizeof(mouse_device_packet_t);
+    int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
+    int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
+    int_32 aux_fd = open("/dev/input/event2", O_RDONLY);
+
+    int_32 fds[2] = {kbd_fd, mouse_fd};
+    struct timeval t2 = {.tv_sec = 16, .tv_usec = 0};
+
+    while (1) {
+        int_32 idx = wait2(2, fds, &t2);
+        if (idx == 0) {
+            printf("No.%d fd is wake \n", idx);
+            read(kbd_fd, buf, 1);
+            printf("key event %c key press\n", buf[0]);
+        } else if (idx == 1) {
+            printf("No.%d fd is wake \n", idx);
+            read(mouse_fd, mbuf, pkg_size);
+            printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference,
+                   mbuf->y_difference);
+        } else if (idx == 2) {
+            printf("No.%d fd is wake \n", idx);
+            read(aux_fd, buf, 1);
+            printf("aux data %x \n", buf[0]);
+        } else if (idx == -1) {
+            printf("timeout is here\n");
+        }
+    }
 
     while (1)
         ;
