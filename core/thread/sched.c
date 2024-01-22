@@ -5,13 +5,14 @@
 
 #include <frog/timer.h>
 #include <frog/piti8253.h>
+#include <const.h>
 
 #include <protect.h>
 #include <sys/int.h>
 
 extern struct list_head thread_ready_list;
 
-#define mil_seconds_per_intr DIV_ROUND_UP(1000, IRQ0_FREQUENCY)
+#define mil_seconds_per_intr DIV_ROUND_UP(1000, HZ)
 
 /**
  * Total ticks count since open timer interrupt

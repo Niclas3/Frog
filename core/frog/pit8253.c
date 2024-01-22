@@ -1,11 +1,11 @@
 #include <frog/piti8253.h>
 #include <io.h>
-
+#include <const.h>
 // -----------------------------------------------------------------
 //                       Programmable Interval Timer
 // -----------------------------------------------------------------
 #define INPUT_FREQUENCY  1193180
-#define COUNTER0_VALUE   INPUT_FREQUENCY/IRQ0_FREQUENCY
+#define COUNTER0_VALUE   INPUT_FREQUENCY/HZ
 #define COUNTER0_PORT    0x40
 #define COUNTER0_NO      0
 #define COUTNER_MODE     2

@@ -1,6 +1,8 @@
 #ifndef __LIB_CONST_H
 #define __LIB_CONST_H
 
+#define HZ 9000
+
 #define PG_SIZE 4096U
 //   0|CF (Carry flag): This bit is set by arithmetic instructions that generate either a carry or a borrow. This bit can also be set, cleared, or inverted with the STC, CLC, or CMC instructions, respectively Carry flag is also used in shift and rotate instructions to contain the bit shifted or rotated out of the register.
 //   1|1 
