@@ -17,8 +17,8 @@
 #define MAX_FILE_SIZE ZONE_SIZE *MAX_ZONE_COUNT
 #define EOF(file) (file)->fd_inode->i_size + 1
 
-#define __stdin_fd  0
-#define __stdout_fd 1
+#define stdin  0
+#define stdout 1
 struct dir;
 struct file;
 struct poll_table_struct;
