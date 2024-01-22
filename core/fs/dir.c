@@ -206,6 +206,7 @@ void new_dir_entry(char *name,
 {
     uint_32 nlen = strlen(name);
     ASSERT(nlen < MAX_FILE_NAME_LEN);
+    memset(entry->filename, 0, MAX_FILE_NAME_LEN);
     memcpy(entry->filename, name, nlen);
     entry->i_no = inode_nr;
     entry->f_type = file_type;
