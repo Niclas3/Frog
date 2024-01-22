@@ -18,6 +18,7 @@ enum SYSCALL_NR {
     SYS_EXECV,
     SYS_WAIT,
     SYS_EXIT,
+    SYS_WAIT2, // select like things
     // file system api
     SYS_OPEN,
     SYS_CLOSE,
@@ -241,6 +242,8 @@ void exit(int_32 status);
 pid_t wait(int_32 *status_loc);
 
 int_32 pipe(int_32 pipefd[2]);
+
+uint_32 wait2(int n, int_32 *fds, struct timeval *tvp);
 
 // System call: uint_32 write(char*)
 // return len of str

@@ -15,6 +15,7 @@
 #include <sys/threads.h>
 #include <fs/pipe.h>
 #include <device/cmos.h>
+#include <fs/select.h>
 
 #include <ipc.h>
 
@@ -103,6 +104,8 @@ void syscall_init(void)
     syscall_table[SYS_EXIT] = sys_exit;
     syscall_table[SYS_WAIT] = sys_wait;
     syscall_table[SYS_PIPE] = sys_pipe;
+
+    syscall_table[SYS_WAIT2] = sys_wait2;
 
     syscall_table[SYS_OPEN] = sys_open;
     syscall_table[SYS_CLOSE] = sys_close;
