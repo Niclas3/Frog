@@ -177,54 +177,8 @@ void UkiMain(void)
 
         /* process_execute(u_fune, "A");  // pid 6 */
         /* poudland_main_loop(); */
-        /* struct list_head *pos; */
-        /* list_for_each (pos, &partition_list) { */
-        /*     struct partition *part = */
-        /*         container_of(pos, struct partition, part_tag); */
-        /*     printf("%s\n", part->name); */
-        /* } */
 
-        process_execute(u_fund, "B");  // pid 5
-
-        /* mouse_device_packet_t *mbuf = sys_malloc(sizeof(mouse_device_packet_t)); */
-        /* char *buf = sys_malloc(1); */
-        /* uint_32 pkg_size = sizeof(mouse_device_packet_t); */
-        /* int_32 kbd_fd = open("/dev/input/event0", O_RDONLY); */
-        /* int_32 mouse_fd = open("/dev/input/event1", O_RDONLY); */
-        /* int_32 aux_fd = open("/dev/input/event2", O_RDONLY); */
-        /* int_32 fds[2] = {kbd_fd, mouse_fd}; */
-        /* struct timeval t2 = {.tv_sec = 16, .tv_usec = 0}; */
-        /*  */
-        /* while (1) { */
-        /*     int_32 idx = sys_wait2(2, fds, &t2); */
-        /*     if (idx == 0) { */
-        /*         printf("No.%d fd is wake \n", idx); */
-        /*         read(kbd_fd, buf, 1); */
-        /*         printf("key event %c key press\n", buf[0]); */
-        /*     } else if (idx == 1) { */
-        /*         printf("No.%d fd is wake \n", idx); */
-        /*         read(mouse_fd, mbuf, pkg_size); */
-        /*         printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference, */
-        /*                mbuf->y_difference); */
-        /*     } else if (idx == 2) { */
-        /*         printf("No.%d fd is wake \n", idx); */
-        /*         read(aux_fd, buf, 1); */
-        /*         printf("aux data %x \n", buf[0]); */
-        /*     } else if (idx == -1) { */
-        /*         printf("timeout is here\n"); */
-        /*     } */
-        /* } */
-
-        /* while (1) { */
-        /*     read(kbd_fd, buf, 1); */
-        /*     printf("(key press %c)", buf[0]); */
-        /*     #<{(| read(mouse_fd, mbuf, pkg_size); |)}># */
-        /*     #<{(| printf("(%d, %d)", mbuf->x_difference, mbuf->y_difference);
-         * |)}># */
-        /*     #<{(| write(stdout_, buf, 1); |)}># */
-        /* } */
-        /* close(kbd_fd); */
-        /* sys_free(mbuf); */
+        process_execute(u_fund, "compositor");  // pid 5
 
         uint_32 status_bar_color = 0x88131313;
         Point top_left = {.X = 0, .Y = 0};
@@ -419,7 +373,7 @@ void funcb(int a)
         char readbuf[2] = "y";
         spin_lock(spin_lock);
 
-        sys_write(stdout_, readbuf, 1);
+        sys_write(stdout, readbuf, 1);
 
         spin_unlock(spin_lock);
     }
