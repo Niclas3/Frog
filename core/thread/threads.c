@@ -196,7 +196,8 @@ static void make_main_thread(void)
     init_thread(main_thread, "main", 42);
 
     main_thread->pid = 0;
-    /* ASSERT(!list_find_element(&main_thread->proc_list_tag, &process_all_list)); */
+    /* ASSERT(!list_find_element(&main_thread->proc_list_tag,
+     * &process_all_list)); */
     /* list_add_tail(&main_thread->proc_list_tag, &process_all_list); */
 
     ASSERT(!list_find_element(&main_thread->all_list_tag, &thread_all_list));
@@ -211,7 +212,10 @@ void schedule(void)
         list_add_tail(&cur->general_tag, &thread_ready_list);
         cur->ticks = cur->priority;
         cur->status = THREAD_TASK_READY;
-    } else {
+    } else if (cur->status == THREAD_TASK_READY &&
+               !list_find_element(&cur->general_tag, &thread_ready_list)) {
+        ASSERT(!list_find_element(&cur->general_tag, &thread_ready_list));
+        list_add_tail(&cur->general_tag, &thread_ready_list);
     }
     if (list_is_empty(&thread_ready_list)) {
         thread_unblock(idle_thread);
