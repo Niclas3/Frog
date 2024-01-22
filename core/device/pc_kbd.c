@@ -15,6 +15,7 @@
 #include <sys/memory.h>
 #include <sys/threads.h>
 #include <sys/sched.h>
+#include <frog/poll.h>
 
 #include <debug.h>
 
@@ -125,6 +126,10 @@ int_32 kbd_create(struct partition *part,
             //        ! clear g_file_table[fd_idx]
             goto roll_back;
         }
+
+        list_add(&new_f_inode->inode_tag, &part->open_inodes);
+        sys_free(buf);
+        return fd_idx;
     }
 
 roll_back:
@@ -151,10 +156,12 @@ uint_32 read_kbd(struct file *file, void *buf, uint_32 count)
         if (file->fd_flag & O_NONBLOCK)
             return -EAGAIN;
         add_wait_queue(&queue->proc_list, &wait);
-        cur->status = THREAD_TASK_WAITING;
-        schedule();
+        thread_block(THREAD_TASK_WAITING);
+
+        enum intr_status old_status = intr_disable();
         cur->status = THREAD_TASK_READY;
         remove_wait_queue(&queue->proc_list, &wait);
+        intr_set_status(old_status);
     }
     while (index > 0 && !queue_empty()) {
         c = get_from_queue();
@@ -164,6 +171,16 @@ uint_32 read_kbd(struct file *file, void *buf, uint_32 count)
     if (count - index) {
         return count - index;
     }
+    return 0;
+}
+
+
+uint_32 poll_kbd(struct file *file, poll_table *wait)
+{
+    // add this file to waiting list
+    poll_wait(file, &queue->proc_list, wait);
+    if (!queue_empty())
+        return POLLIN | POLLRDNORM;
     return 0;
 }
 

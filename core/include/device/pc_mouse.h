@@ -14,6 +14,7 @@
 struct file;
 struct partition;
 struct dir;
+struct poll_table_struct;
 
 void handle_ps2_mouse_scancode(uint_8 scancode);
 uint_32 pc_mouse_init(void);
@@ -23,7 +24,6 @@ int_32 pcmouse_create(struct partition *part,
                       char *name,
                       void *target);
 uint_32 read_pcmouse(struct file *file, void *buf, uint_32 count);
-
-
+uint_32 poll_pcmouse(struct file *file, struct poll_table_struct *wait);
 
 #endif

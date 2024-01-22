@@ -1,6 +1,6 @@
 #include <device/devno-base.h>
-#include <device/pc_mouse.h>
 #include <device/pc_kbd.h>
+#include <device/pc_mouse.h>
 #include <device/ps2hid.h>
 
 #include <frog/poll.h>
@@ -24,8 +24,8 @@
 #include <string.h>
 #include <sys/fork.h>
 #include <sys/memory.h>
-#include <sys/threads.h>
 #include <sys/sched.h>
+#include <sys/threads.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
@@ -268,6 +268,9 @@ int_32 aux_create(struct partition *part,
             //        ! clear g_file_table[fd_idx]
             goto roll_back;
         }
+        list_add(&new_f_inode->inode_tag, &part->open_inodes);
+        sys_free(buf);
+        return fd_idx;
     }
 
     // 5. flush parent inode
@@ -356,10 +359,13 @@ uint_32 read_aux(struct file *file, void *buf, uint_32 count)
         if (file->fd_flag & O_NONBLOCK)
             return -EAGAIN;
         add_wait_queue(&queue->proc_list, &wait);
-        cur->status = THREAD_TASK_WAITING;
-        schedule();
+
+        thread_block(THREAD_TASK_WAITING);
+
+        enum intr_status old_status = intr_disable();
         cur->status = THREAD_TASK_READY;
         remove_wait_queue(&queue->proc_list, &wait);
+        intr_set_status(old_status);
     }
     while (index > 0 && !queue_empty()) {
         c = get_from_queue();
@@ -385,13 +391,13 @@ uint_32 write_aux(struct file *file, const void *buf, uint_32 count)
     return count;
 }
 
-uint_32 aux_poll(struct file *file, poll_table * wait)
+uint_32 poll_aux(struct file *file, poll_table *wait)
 {
     // add this file to waiting list
-	poll_wait(file, &queue->proc_list, wait);
-	if (!queue_empty())
-		return POLLIN | POLLRDNORM;
-	return 0;
+    poll_wait(file, &queue->proc_list, wait);
+    if (!queue_empty())
+        return POLLIN | POLLRDNORM;
+    return 0;
 }
 
 /**
@@ -418,6 +424,7 @@ void ps2hid_init(void)
 
     sys_char_file("/dev/input/event0", DNOPCKBD, NULL);
     sys_char_file("/dev/input/event1", DNOPCMOUSE, NULL);
+    sys_char_file("/dev/input/event2", DNOAUX, NULL);
 
     // enable keyboard
     ps2_wait_input();

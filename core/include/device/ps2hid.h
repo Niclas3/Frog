@@ -55,9 +55,12 @@ int_32 aux_create(struct partition *part,
                         char *name,
                         void *target);
 
+struct poll_table_struct;
+
 int_32 open_aux(struct partition *part, uint_32 inode_nr, uint_8 flags);
 int_32 close_aux(struct file *file);
 uint_32 read_aux(struct file *file, void *buf, uint_32 count);
 uint_32 write_aux(struct file *file, const void *buf, uint_32 count);
+uint_32 poll_aux(struct file *file, struct poll_table_struct* wait);
 
 #endif

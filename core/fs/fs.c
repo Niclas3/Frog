@@ -1,3 +1,4 @@
+#include <frog/poll.h>  // for poll_table
 #include <fs/dir.h>
 #include <fs/fcntl.h>
 #include <fs/fs.h>
@@ -6,9 +7,9 @@
 
 #include <device/devno-base.h>
 #include <device/ide.h>
-#include <device/ps2hid.h>
-#include <device/pc_mouse.h>
 #include <device/pc_kbd.h>
+#include <device/pc_mouse.h>
+#include <device/ps2hid.h>
 #include <fs/file.h>
 #include <fs/pipe.h>
 
@@ -629,7 +630,7 @@ int_32 sys_open(const char *pathname, uint_8 flags)
         return -1;
     }
     char *path = sys_malloc(strlen(pathname));
-    char last_name[MAX_FILE_NAME_LEN];
+    char last_name[MAX_FILE_NAME_LEN] = {0};
     memcpy(path, pathname, strlen(pathname));
     path_peel(path, last_name);
     sys_free(path);
@@ -1514,4 +1515,17 @@ int_32 sys_char_file(const char *pathname, uint_32 dev_no, void *file)
     /*     dir_close(next_dir); */
     /*     return file_inode; */
     /* } */
+}
+
+uint_32 sys_poll(struct file *file, struct poll_table_struct *wait)
+{
+    uint_32 res;
+    if (file->fd_inode->i_dev == DNOAUX) {
+        res = poll_aux(file, wait);
+    } else if (file->fd_inode->i_dev == DNOPCMOUSE) {
+        res = poll_pcmouse(file, wait);
+    } else if (file->fd_inode->i_dev == DNOPCKBD) {
+        res = poll_kbd(file, wait);
+    }
+    return res;
 }

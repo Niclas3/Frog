@@ -20,6 +20,8 @@
 #define __stdin_fd  0
 #define __stdout_fd 1
 struct dir;
+struct file;
+struct poll_table_struct;
 
 extern struct partition mounted_part;  // the partition what we want to mount.
 
@@ -86,4 +88,6 @@ int_32 sys_chdir(const char *pathname);
 int_32 sys_stat(const char *pathname, struct stat *statbuf);
 
 int_32 sys_char_file(const char *pathname, uint_32 dev_no, void *file);
+
+uint_32 sys_poll(struct file *file, struct poll_table_struct *wait);
 #endif

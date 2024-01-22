@@ -18,6 +18,8 @@
 #include <fs/fs.h>
 #include <fs/inode.h>
 
+#include <frog/poll.h>
+
 #include <debug.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
@@ -223,6 +225,9 @@ int_32 pcmouse_create(struct partition *part,
             //        ! clear g_file_table[fd_idx]
             goto roll_back;
         }
+        list_add(&new_f_inode->inode_tag, &part->open_inodes);
+        sys_free(buf);
+        return fd_idx;
     }
 
     // 5. flush parent inode
@@ -268,8 +273,10 @@ uint_32 read_pcmouse(struct file *file, void *buf, uint_32 count)
             schedule();
             goto repeat;
         }
+        enum intr_status old_status = intr_disable();
         cur->status = THREAD_TASK_READY;
         remove_wait_queue(&queue->proc_list, &wait);
+        intr_set_status(old_status);
     }
     while (index > 0 && !queue_empty()) {
         packet = get_from_queue();
@@ -280,6 +287,15 @@ uint_32 read_pcmouse(struct file *file, void *buf, uint_32 count)
     if (count - index) {
         return count - index;
     }
+    return 0;
+}
+
+uint_32 poll_pcmouse(struct file *file, poll_table *wait)
+{
+    // add this file to waiting list
+    poll_wait(file, &queue->proc_list, wait);
+    if (!queue_empty())
+        return POLLIN | POLLRDNORM;
     return 0;
 }
 
