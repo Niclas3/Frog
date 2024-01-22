@@ -199,7 +199,9 @@ void add_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
         /*  */
 	/* wait->flags &= ~WQ_FLAG_EXCLUSIVE; */
 	/* wq_write_lock_irqsave(&q->lock, flags); */
+        enum intr_status old_status = intr_disable();
 	__add_wait_queue(q, wait);
+        intr_set_status(old_status);
 	/* wq_write_unlock_irqrestore(&q->lock, flags); */
 }
 
@@ -211,6 +213,8 @@ void remove_wait_queue(wait_queue_head_t *q, wait_queue_t * wait)
         /*  */
 	/* wait->flags &= ~WQ_FLAG_EXCLUSIVE; */
 	/* wq_write_lock_irqsave(&q->lock, flags); */
+        enum intr_status old_status = intr_disable();
         __remove_wait_queue(q, wait);
+        intr_set_status(old_status);
 	/* wq_write_unlock_irqrestore(&q->lock, flags); */
 }
