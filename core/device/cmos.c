@@ -1,5 +1,7 @@
 #include <device/cmos.h>
 #include <io.h>
+#include <const.h>
+#include <sys/int.h>
 
 uint_32 tsc_mhz = 3000;
 uint_32 tsc_basis_time = 0;
@@ -214,9 +216,9 @@ static void update_ticks(uint_32 ticks,
                          uint_32 *timer_ticks,
                          uint_32 *timer_subticks)
 {
-    *timer_subticks = ticks - tsc_basis_time;
-    *timer_ticks = *timer_subticks / SUBSECONDS_PER_SECOND;
-    *timer_subticks = *timer_subticks % SUBSECONDS_PER_SECOND;
+    *timer_subticks = ticks;
+    *timer_ticks = *timer_subticks / HZ;
+    *timer_subticks = (*timer_subticks % HZ) * (SUBSECONDS_PER_SECOND / HZ);
 }
 
 /**
@@ -230,14 +232,18 @@ static void update_ticks(uint_32 ticks,
  * and the boot time retrieved from the CMOS, subdivide the result
  * into seconds and "subseconds" (microseconds), and store that.
  */
+extern volatile uint_32 ticks;
 int sys_gettimeofday(struct timeval *t, void *z)
 {
-    uint_32 tsc[2] = {0};
-    read_tsc(tsc);
+    /* uint_32 tsc[2] = {0}; */
+    /* read_tsc(tsc); */
     uint_32 timer_ticks, timer_subticks;
+    enum intr_status old_status = intr_disable();
+    update_ticks(ticks, &timer_ticks, &timer_subticks);
+    intr_set_status(old_status);
     // TODO:
     //  tsc is 64bits value
-    update_ticks(tsc[0] / tsc_mhz, &timer_ticks, &timer_subticks);
+    /* update_ticks(tsc[0] / tsc_mhz, &timer_ticks, &timer_subticks); */
     t->tv_sec = arch_boot_time + timer_ticks;
     t->tv_usec = timer_subticks;
     return 0;
@@ -278,63 +284,63 @@ int sys_settimeofday(struct timeval *t, void *z)
 void clock_init(void)
 {
     arch_boot_time = read_rtc();
-    uint_32 end_lo;
-    uint_32 end_hi;
-    uint_32 start_lo, start_hi;
-    __asm__ volatile(
-        /* Disables and sets gating for channel 2 */
-        "inb   $0x61, %%al\n"
-        "andb  $0xDD, %%al\n"
-        "orb   $0x01, %%al\n"
-        "outb  %%al, $0x61\n"
-        /* Configure channel 2 to one-shot, next two bytes are low/high */
-        "movb  $0xB2, %%al\n" /* 0b10110010 */
-        "outb  %%al, $0x43\n"
-        /* 0x__9b */
-        "movb  $0x9B, %%al\n"
-        "outb  %%al, $0x42\n"
-        "inb   $0x60, %%al\n"
-        /*  0x2e__ */
-        "movb  $0x2E, %%al\n"
-        "outb  %%al, $0x42\n"
-        /* Re-enable */
-        "inb   $0x61, %%al\n"
-        "andb  $0xDE, %%al\n"
-        "outb  %%al, $0x61\n"
-        /* Pulse high */
-        "orb   $0x01, %%al\n"
-        "outb  %%al, $0x61\n"
-        /* Read TSC and store in vars */
-        "rdtsc\n"
-        "movl  %%eax, %2\n"
-        "movl  %%edx, %3\n"
-        /* In QEMU and VirtualBox, this seems to flip low.
-         * On real hardware and VMware it flips high. */
-        "inb   $0x61, %%al\n"
-        "andb  $0x20, %%al\n"
-        "jz   2f\n"
-        /* Loop until output goes low? */
-        "1:\n"
-        "inb   $0x61, %%al\n"
-        "andb  $0x20, %%al\n"
-        "jnz   1b\n"
-        "rdtsc\n"
-        "jmp   3f\n"
-        /* Loop until output goes high */
-        "2:\n"
-        "inb   $0x61, %%al\n"
-        "andb  $0x20, %%al\n"
-        "jz   2b\n"
-        "rdtsc\n"
-        "3:\n"
-        : "=a"(end_lo), "=d"(end_hi), "=r"(start_lo), "=r"(start_hi));
-
-    // TODO:
-    // end and start are 64bits value
-    uint_32 end = end_lo;
-    uint_32 start = start_lo;
-    tsc_mhz = (end - start) / 10000;
-    if (tsc_mhz == 0)
-        tsc_mhz = 2000; /* uh oh */
-    tsc_basis_time = start / tsc_mhz;
+    /* uint_32 end_lo; */
+    /* uint_32 end_hi; */
+    /* uint_32 start_lo, start_hi; */
+    /* __asm__ volatile( */
+    /*     #<{(| Disables and sets gating for channel 2 |)}># */
+    /*     "inb   $0x61, %%al\n" */
+    /*     "andb  $0xDD, %%al\n" */
+    /*     "orb   $0x01, %%al\n" */
+    /*     "outb  %%al, $0x61\n" */
+    /*     #<{(| Configure channel 2 to one-shot, next two bytes are low/high |)}># */
+    /*     "movb  $0xB2, %%al\n" #<{(| 0b10110010 |)}># */
+    /*     "outb  %%al, $0x43\n" */
+    /*     #<{(| 0x__9b |)}># */
+    /*     "movb  $0x9B, %%al\n" */
+    /*     "outb  %%al, $0x42\n" */
+    /*     "inb   $0x60, %%al\n" */
+    /*     #<{(|  0x2e__ |)}># */
+    /*     "movb  $0x2E, %%al\n" */
+    /*     "outb  %%al, $0x42\n" */
+    /*     #<{(| Re-enable |)}># */
+    /*     "inb   $0x61, %%al\n" */
+    /*     "andb  $0xDE, %%al\n" */
+    /*     "outb  %%al, $0x61\n" */
+    /*     #<{(| Pulse high |)}># */
+    /*     "orb   $0x01, %%al\n" */
+    /*     "outb  %%al, $0x61\n" */
+    /*     #<{(| Read TSC and store in vars |)}># */
+    /*     "rdtsc\n" */
+    /*     "movl  %%eax, %2\n" */
+    /*     "movl  %%edx, %3\n" */
+    /*     #<{(| In QEMU and VirtualBox, this seems to flip low. */
+    /*      * On real hardware and VMware it flips high. |)}># */
+    /*     "inb   $0x61, %%al\n" */
+    /*     "andb  $0x20, %%al\n" */
+    /*     "jz   2f\n" */
+    /*     #<{(| Loop until output goes low? |)}># */
+    /*     "1:\n" */
+    /*     "inb   $0x61, %%al\n" */
+    /*     "andb  $0x20, %%al\n" */
+    /*     "jnz   1b\n" */
+    /*     "rdtsc\n" */
+    /*     "jmp   3f\n" */
+    /*     #<{(| Loop until output goes high |)}># */
+    /*     "2:\n" */
+    /*     "inb   $0x61, %%al\n" */
+    /*     "andb  $0x20, %%al\n" */
+    /*     "jz   2b\n" */
+    /*     "rdtsc\n" */
+    /*     "3:\n" */
+    /*     : "=a"(end_lo), "=d"(end_hi), "=r"(start_lo), "=r"(start_hi)); */
+    /*  */
+    /* // TODO: */
+    /* // end and start are 64bits value */
+    /* uint_32 end = end_lo; */
+    /* uint_32 start = start_lo; */
+    /* tsc_mhz = (end - start) / 10000; */
+    /* if (tsc_mhz == 0) */
+    /*     tsc_mhz = 2000; #<{(| uh oh |)}># */
+    /* tsc_basis_time = start / tsc_mhz; */
 }
