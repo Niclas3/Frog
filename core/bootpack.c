@@ -456,6 +456,9 @@ void u_fund(int a)
     struct timeval t2 = {.tv_sec = 16, .tv_usec = 0};
 
     while (1) {
+        struct timeval t = {0};
+        gettimeofday(&t, NULL);
+        printf("waiting start at %d s %d ms\n", t.tv_sec, t.tv_usec);
         int_32 idx = wait2(2, fds, &t2);
         if (idx == 0) {
             printf("No.%d fd is wake \n", idx);
@@ -471,7 +474,9 @@ void u_fund(int a)
             read(aux_fd, buf, 1);
             printf("aux data %x \n", buf[0]);
         } else if (idx == -1) {
-            printf("timeout is here\n");
+            struct timeval t = {0};
+            gettimeofday(&t, NULL);
+            printf("timeout at at %d s %d ms\n", t.tv_sec, t.tv_usec);
         }
     }
 
@@ -550,19 +555,16 @@ void u_fung(int a)
 
 void init(void)
 {
-    /* uint_32 ret_pid = fork(); */
-    /* if (ret_pid) { */
-    /*     uint_32 ppid = getpid(); */
-    /*     #<{(| printf("Parents pid is %d\n", getpid()); |)}># */
-    /*     while (1) */
-    /*         ; */
-    /* } else { */
-    /*     uint_32 cpid = getpid(); */
-    /*     #<{(| printf("child pid is %d, ret id is %d", getpid(), ret_pid);
-     * |)}># */
-    /*     while (1) */
-    /*         ; */
-    /* } */
-    while (1)
-        ;
+    uint_32 ret_pid = fork();
+    if (ret_pid) {
+        uint_32 ppid = getpid();
+        /* printf("init pid is %d\n", getpid()); */
+        while (1)
+            ;
+    } else {
+        uint_32 cpid = getpid();
+        /* printf("child pid is %d, ret id is %d\n", getpid(), ret_pid); */
+        while (1)
+            ;
+    }
 }
