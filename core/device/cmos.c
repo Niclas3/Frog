@@ -222,15 +222,11 @@ static void update_ticks(uint_32 ticks,
 }
 
 /**
- * @brief Exposed interface for wall clock time.
+ * wall clock time.
  *
  * Note that while the kernel version of this takes a *z option that is
  * supposed to have timezone information, we don't actually use  it,
  * and I'm pretty sure it's NULL everywhere?
- *
- * We calculate wall time using the TSC, the calculate TSC tick rate,
- * and the boot time retrieved from the CMOS, subdivide the result
- * into seconds and "subseconds" (microseconds), and store that.
  */
 extern volatile uint_32 ticks;
 int sys_gettimeofday(struct timeval *t, void *z)
@@ -264,22 +260,7 @@ int sys_settimeofday(struct timeval *t, void *z)
 }
 
 /**
- * @brief Initializes boot time, system time, TSC rate, etc.
- *
- * We determine TSC rate with a one-shot PIT, which seems
- * to work fine... the PIT is the only thing with both reasonable
- * precision and actual known wall-clock configuration.
- *
- * In Bochs, this has a tendency to be 1) completely wrong (usually
- * about half the time that actual execution will run at, in my
- * experiences) and 2) loud, as despite the attempt to turn off
- * the speaker it still seems to beep it (the second channel of the
- * PIT controls the beeper).
- *
- * In QEMU, VirtualBox, VMware, and on all real hardware I've tested,
- * including everything from a ThinkPad T410 to a Surface Pro 6, this
- * has been surprisingly accurate and good enough to use the TSC as
- * our only wall clock source.
+ * Initializes boot time, system time aka rtc
  */
 void clock_init(void)
 {
