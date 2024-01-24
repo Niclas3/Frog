@@ -93,26 +93,21 @@ typedef struct thread_control_block {
     struct list_head proc_list_tag;  // for process_all_list
     uint_32 *pgdir;                  // virtual address of page directory
     virtual_addr progress_vaddr;  // vaddress start and a new bitmap of memory
-    struct mem_block_desc
-        u_block_descs[DESC_CNT];  // block descriptor from allocate memory
+    struct mem_block_desc u_block_descs[DESC_CNT];  // block descriptor from allocate memory
     // File things
-    int_32
-        fd_table[MAX_FILES_OPEN_PER_PROC];  // file description of each thread
+    int_32 fd_table[MAX_FILES_OPEN_PER_PROC];  // file description of each thread
     uint_32 cwd_inode_nr;  // current thread working directory inode number
     // IPC things
     message p_message;  // pointer to message
     pid_t p_recvfrom;   // if process want to receive message, but no process to
                         // sent things. this contain who this process wants to
                         // receive.
-    pid_t
-        p_sendto;  // if process want to send message, but no process to receive
-                   // things. this contain who this process wants to send.
+    pid_t p_sendto;  // if process want to send message, but no process to receive
+                     // things. this contain who this process wants to send.
     uint_8 p_flags;         // for ipc SENDING or RECEIVING
     uint_8 p_intr_present;  // some interrupt happens will set it to 1
-    struct thread_control_block
-        *p_sending_queue;  // a queue for sender to this process.
-    struct thread_control_block
-        *p_next_sending;  // a queue for sender to this process.
+    struct thread_control_block *p_sending_queue;  // a queue for sender to this process.
+    struct thread_control_block *p_next_sending;  // a queue for sender to this process.
     uint_32 stack_magic;  // mark the board of stack 0x19900921;
 } TCB_t;
 

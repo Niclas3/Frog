@@ -21,7 +21,7 @@ extern struct list_head thread_all_list;
  * @param param write here param Comments write here
  * @return return zero if success
  *****************************************************************************/
-uint_32 detect_cycle(pid_t src, pid_t dest)
+static uint_32 detect_cycle(pid_t src, pid_t dest)
 {
     TCB_t *proc = pid2proc(dest);
     while (1) {
