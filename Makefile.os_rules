@@ -32,10 +32,11 @@ AS_INCLUDE := boot.inc
 # -lc link libc use dynamic linking
 # -Ttext set start virtual address
 # -M print a map
-LD_FLAG := -s -m elf_i386 -Ttext 0xc0080000
+CORE_VADDR := 0xc0070000
+LD_FLAG := -s -m elf_i386 -Ttext $(CORE_VADDR) 
 # LD_FLAG := -s -m elf_i386 -Ttext 0x00080000
 # LD_DEBUG_FLAG := -m elf_i386 -Ttext 0xc0080000
-LD_DEBUG_FLAG := -m elf_i386 -Ttext 0xc0080000
+LD_DEBUG_FLAG := -m elf_i386 -Ttext $(CORE_VADDR)
 
 BUILD := ..
 BUILD_DIR = ./build

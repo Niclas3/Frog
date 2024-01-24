@@ -12,7 +12,7 @@ tui en
 # b *0x7c00
 # b *0xce57
 # b *0xd082
-b *0xc0080000
+b *0xc0070000
 b exception_handler
 b panic_print
 

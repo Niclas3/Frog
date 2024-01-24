@@ -465,7 +465,8 @@ LABEL_SEG_CODE32:
 ;;       change to    0x10000 ~ 0x9fc00 575kb
 ;;==============================================================================
     KERNELBIN_START equ 0x10000
-    KERNEL_START    equ 0xc0080000
+    ; KERNEL_START    equ 0xc0080000
+    KERNEL_START    equ 0xc0070000
 
 ; eax = LBA sector number
 ; ebx  = base address 
@@ -874,6 +875,7 @@ read_hard_disk_32:
 
 ;===============================================================================
 ;void load_text_sections(section_offset, count, size)
+;; NO USED
 ;; ebp+4 ---> size   0x0028          ebx 3
 ;; ebp+8 ---> count  0x0007          ecx 2
 ;; ebp+12---> section_offset 0x3070  eax 1
