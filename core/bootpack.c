@@ -25,6 +25,7 @@
 
 // GUI
 /* #include <gui/fsk_mouse.h> */
+#include <gua/poudland-server.h>
 #include <gua/poudland.h>
 
 // test
@@ -73,7 +74,7 @@ void u_fund(int a);
 void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
-void _redraw(gfx_context_t *ctx);
+void _redraw(struct poudland_globals *p_glb);
 
 
 void gfx_test_print_fn(gfx_context_t *ctx,
@@ -431,8 +432,11 @@ void funcc(int a)
         ;
 }
 
-void _redraw(gfx_context_t *ctx)
+void _redraw(struct poudland_globals *pg)
 {
+    gfx_context_t *ctx = pg->backend_ctx;
+    // mouse draw test
+    draw_pixel(ctx, pg->mouse_x, pg->mouse_y, FSK_GOLD);
     flip(ctx);
 }
 //
@@ -451,11 +455,16 @@ void u_fund(int a)
 
     int_32 fds[2] = {kbd_fd, mouse_fd};
     struct timeval t2 = {.tv_sec = 16, .tv_usec = 0};
+    poudland_globals_t *global = malloc(sizeof(poudland_globals_t));
+    global->backend_ctx = g_ctx;
+    global->mouse_x = 200;
+    global->mouse_y = 200;
 
     while (1) {
-        _redraw(g_ctx);  // _redraw() every 16s
         int_32 idx = wait2(2, fds, &t2);
         if (idx == -1) {
+            // no interrupt happends
+            _redraw(global);  // _redraw() every 16s
             continue;
         }
         int_32 selected_fd = fds[idx];
@@ -464,11 +473,14 @@ void u_fund(int a)
             read(kbd_fd, buf, 1);
             printf("key event %c key press\n", buf[0]);
         } else if (selected_fd == mouse_fd) {
-            printf("No.%d fd is wake \n", idx);
+            /* printf("No.%d fd is wake \n", idx); */
             read(mouse_fd, mbuf, pkg_size);
-            printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference,
-                   mbuf->y_difference);
+            /* printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference, */
+            /*        mbuf->y_difference); */
+            global->mouse_x += mbuf->x_difference * 3;
+            global->mouse_y -= mbuf->y_difference * 3;
         }
+        _redraw(global);  // _redraw() every 16s
     }
 }
 

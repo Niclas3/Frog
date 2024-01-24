@@ -1,3 +1,4 @@
 #pragma once
-
-void poudland_main_loop(void);
+#include <ostype.h>
+typedef uint_32 poudland_wid_t;
+void poudland_init(void);

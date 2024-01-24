@@ -1,9 +1,77 @@
 #include <list.h>
 #include <ostype.h>
-
 #include <gua/2d_graphics.h>
+#include <gua/poudland.h>
 
-typedef struct poundland_globals {
+/*
+ * Server window definitions
+ */
+typedef struct poudland_server_window {
+	/* Window identifier number */
+	poudland_wid_t wid;
+
+	/* Window location */
+	signed long x;
+	signed long y;
+
+	/* Stack order */
+	unsigned short z;
+
+	/* Window size */
+	int_32 width;
+	int_32 height;
+
+	/* Canvas buffer */
+	uint_8 * buffer;
+	uint_32 bufid;
+	uint_32 newbufid;
+	uint_8 * newbuffer;
+
+	/* Connection that owns this window */
+	// uintptr_t owner;
+
+	/* Rotation of windows XXX */
+	// int16_t  rotation;
+
+	/* Client advertisements */
+	uint_32 client_flags;
+	uint_32 client_icon;
+	uint_32 client_length;
+	char *   client_strings;
+
+	/* Alpha shaping threshold */
+	int alpha_threshold;
+
+	/*
+	 * Mouse cursor selection
+	 * Originally, this specified whether the mouse was
+	 * hidden, but it plays double duty since client
+	 * control over mouse cursors was added.
+	 */
+	int show_mouse;
+	int default_mouse;
+
+	/* Tiling / untiling information */
+	int tiled;
+	int_32 untiled_width;
+	int_32 untiled_height;
+	int_32 untiled_left;
+	int_32 untiled_top;
+
+	/* Client-configurable server behavior flags */
+	uint_32 server_flags;
+
+	/* Window opacity */
+	int opacity;
+
+	/* Window is hidden? */
+	int hidden;
+	int minimized;
+
+	int_32 icon_x, icon_y, icon_w, icon_h;
+} poudland_server_window_t;
+
+typedef struct poudland_globals {
     /* Display resolution */
     unsigned int width;
     unsigned int height;
@@ -55,16 +123,17 @@ typedef struct poundland_globals {
 
     /* Server backend communication identifier */
     char *server_ident;
-    FILE *server;
+    // FILE *server;
+    void *server;
 
     /* Pointer to focused window */
-    yutani_server_window_t *focused_window;
+    poudland_server_window_t *focused_window;
 
     /* Mouse movement state */
     int mouse_state;
 
     /* Pointer to window being manipulated by mouse actions */
-    yutani_server_window_t *mouse_window;
+    poudland_server_window_t *mouse_window;
 
     /* Buffered information on mouse-moved window */
     int mouse_win_x;
@@ -83,33 +152,34 @@ typedef struct poundland_globals {
     int_32 mouse_click_y;
 
     /* Pointer to window being resized */
-    yutani_server_window_t *resizing_window;
+    poudland_server_window_t *resizing_window;
     int_32 resizing_w;
     int_32 resizing_h;
-    yutani_scale_direction_t resizing_direction;
+    // yutani_scale_direction_t resizing_direction;
     int_32 resizing_offset_x;
     int_32 resizing_offset_y;
     int resizing_button;
 
     /* List of clients subscribing to window information events */
-    list_t *window_subscribers;
+    struct list_head *window_subscribers;
 
     /* When the server started, used for timing functions */
     time_t start_time;
     suseconds_t start_subtime;
 
     /* Pointer to last hovered window to allow exit events */
-    yutani_server_window_t *old_hover_window;
+    poudland_server_window_t *old_hover_window;
+
 
     /* Key bindings */
     // hashmap_t *key_binds;
 
     /* Windows to remove after the end of the rendering pass */
-    list_t *windows_to_remove;
+    struct list_head *windows_to_remove;
 
     /* For nested mode, the host Yutani context and window */
-    yutani_t *host_context;
-    yutani_window_t *host_window;
+    // yutani_t *host_context;
+    // yutani_window_t *host_window;
 
     /* Map of clients to their windows */
     // hashmap_t *clients_to_windows;
@@ -137,4 +207,4 @@ typedef struct poundland_globals {
 
     // list_t *windows_to_minimize;
     // list_t *minimized_zs;
-} yutani_globals_t;
+} poudland_globals_t;
