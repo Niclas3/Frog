@@ -428,7 +428,8 @@ void funcb(int a)
 
 void funcc(int a)
 {
-    while(1);
+    while (1)
+        ;
 }
 
 void redraw_window(gfx_context_t *ctx)
@@ -450,7 +451,6 @@ void u_fund(int a)
     uint_32 pkg_size = sizeof(mouse_device_packet_t);
     int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
     int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
-    int_32 aux_fd = open("/dev/input/event2", O_RDONLY);
 
     int_32 fds[2] = {kbd_fd, mouse_fd};
     struct timeval t2 = {.tv_sec = 16, .tv_usec = 0};
@@ -460,28 +460,24 @@ void u_fund(int a)
         gettimeofday(&t, NULL);
         printf("waiting start at %d s %d ms\n", t.tv_sec, t.tv_usec);
         int_32 idx = wait2(2, fds, &t2);
-        if (idx == 0) {
+        if(idx == -1){
+            struct timeval t = {0};
+            gettimeofday(&t, NULL);
+            printf("timeout at at %d s %d ms\n", t.tv_sec, t.tv_usec);
+            continue;
+        }
+        int_32 selected_fd = fds[idx];
+        if (selected_fd == kbd_fd) {
             printf("No.%d fd is wake \n", idx);
             read(kbd_fd, buf, 1);
             printf("key event %c key press\n", buf[0]);
-        } else if (idx == 1) {
+        } else if (selected_fd == mouse_fd) {
             printf("No.%d fd is wake \n", idx);
             read(mouse_fd, mbuf, pkg_size);
             printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference,
                    mbuf->y_difference);
-        } else if (idx == 2) {
-            printf("No.%d fd is wake \n", idx);
-            read(aux_fd, buf, 1);
-            printf("aux data %x \n", buf[0]);
-        } else if (idx == -1) {
-            struct timeval t = {0};
-            gettimeofday(&t, NULL);
-            printf("timeout at at %d s %d ms\n", t.tv_sec, t.tv_usec);
         }
     }
-
-    while (1)
-        ;
 }
 
 // proc C
