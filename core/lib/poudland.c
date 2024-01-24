@@ -4,7 +4,7 @@
 #include <hid/mouse.h>
 #include <ioqueue.h>
 #include <ostype.h>
-#include <poudland.h>
+#include <gua/poudland.h>
 #include <stdio.h>
 #include <string.h>
 #include <syscall.h>

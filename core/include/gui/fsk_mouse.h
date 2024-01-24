@@ -1,7 +1,7 @@
 #ifndef __GUI_FSK_MOUSE_H
 #define __GUI_FSK_MOUSE_H
 #include <ostype.h>
-#include <sys/2d_graphics.h>
+#include <gua/2d_graphics.h>
 
 struct fsk_mouse{
     gfx_context_t *ctx;

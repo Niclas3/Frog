@@ -1,4 +1,4 @@
-#include <sys/2d_graphics.h>
+#include <gua/2d_graphics.h>
 
 #include <const.h>
 #include <debug.h>
@@ -373,10 +373,9 @@ uint_32 draw_2d_gfx_dec(gfx_context_t *ctx,
 }
 
 // Draw a single pixel
-void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
+inline void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
 {
-    /* GFX(ctx, X, Y) = color; */
-    GFXR(ctx, X, Y) = color;
+    GFX(ctx, X, Y) = color;
 }
 
 void draw_sprite(gfx_context_t *ctx, const sprite_t *sprite, int_32 x, int_32 y)
@@ -750,8 +749,7 @@ void clear_screen(gfx_context_t *ctx, argb_t color)
     bbp_t set_color = convert_argb(color);
     for (uint_32 x_idx = 0; x_idx < ctx->width; x_idx++) {
         for (uint_32 y_idx = 0; y_idx < ctx->height; y_idx++) {
-            /* GFX(ctx, x_idx, y_idx) = set_color; */
-            draw_pixel(ctx, x_idx, y_idx, set_color);
+            GFX(ctx, x_idx, y_idx) = set_color;
         }
     }
 }

@@ -2,7 +2,7 @@
 
 #include <sys/descriptor.h>
 
-#include <sys/2d_graphics.h>
+#include <gua/2d_graphics.h>
 #include <sys/graphic.h>
 
 #include <frog/piti8253.h>
@@ -25,7 +25,7 @@
 
 // GUI
 /* #include <gui/fsk_mouse.h> */
-#include <poudland.h>
+#include <gua/poudland.h>
 
 // test
 #include <device/ide.h>
@@ -73,7 +73,7 @@ void u_fund(int a);
 void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
-void redraw_window(gfx_context_t *ctx);
+void _redraw(gfx_context_t *ctx);
 
 
 void gfx_test_print_fn(gfx_context_t *ctx,
@@ -178,13 +178,12 @@ void UkiMain(void)
         /* process_execute(u_fune, "A");  // pid 6 */
         /* poudland_main_loop(); */
 
-        process_execute(u_fund, "compositor");  // pid 5
 
         uint_32 status_bar_color = 0x88131313;
         Point top_left = {.X = 0, .Y = 0};
         Point down_right = {.X = screen_width, .Y = 34};
         fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
-
+        process_execute(u_fund, "compositor");  // pid 5
 
         // Draw 2 Ract
         /* top_left.X = 20; */
@@ -432,11 +431,9 @@ void funcc(int a)
         ;
 }
 
-void redraw_window(gfx_context_t *ctx)
+void _redraw(gfx_context_t *ctx)
 {
-    while (1) {
-        flip(ctx);
-    }
+    flip(ctx);
 }
 //
 //------------------------------------------------------------------------------
@@ -456,14 +453,9 @@ void u_fund(int a)
     struct timeval t2 = {.tv_sec = 16, .tv_usec = 0};
 
     while (1) {
-        struct timeval t = {0};
-        gettimeofday(&t, NULL);
-        printf("waiting start at %d s %d ms\n", t.tv_sec, t.tv_usec);
+        _redraw(g_ctx);  // _redraw() every 16s
         int_32 idx = wait2(2, fds, &t2);
-        if(idx == -1){
-            struct timeval t = {0};
-            gettimeofday(&t, NULL);
-            printf("timeout at at %d s %d ms\n", t.tv_sec, t.tv_usec);
+        if (idx == -1) {
             continue;
         }
         int_32 selected_fd = fds[idx];

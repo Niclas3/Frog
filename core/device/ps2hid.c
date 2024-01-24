@@ -13,7 +13,7 @@
 #include <errno-base.h>
 
 #include <debug.h>
-#include <sys/2d_graphics.h>
+/* #include <gua/2d_graphics.h> */
 
 #include <device/ide.h>
 #include <fs/dir.h>

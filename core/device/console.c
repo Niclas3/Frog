@@ -3,7 +3,7 @@
 #include <print.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/2d_graphics.h>
+#include <gua/2d_graphics.h>
 #include <sys/memory.h>
 #include <sys/semaphore.h>
 
