@@ -7,6 +7,23 @@
 #define GFX_H(ctx) ((ctx)->height)    /* Display height */
 #define GFX_D(ctx) ((ctx)->depth / 8) /* Display byte depth */
 #define GFX_S(ctx) ((ctx)->stride)    /* Stride */
+#define SPRITE(sprite,x,y) sprite->bitmap[sprite->width * (y) + (x)]
+#define SMASKS(sprite,x,y) sprite->masks[sprite->width * (y) + (x)]
+
+#define ALPHA_OPAQUE   0
+#define ALPHA_MASK     1
+#define ALPHA_EMBEDDED 2
+#define ALPHA_INDEXED  3
+#define ALPHA_FORCE_SLOW_EMBEDDED 4
+
+typedef struct sprite {
+	uint_16 width;
+	uint_16 height;
+	uint_32 * bitmap;
+	uint_32 * masks;
+	uint_32 blank;
+	uint_8  alpha;
+} sprite_t;
 
 #define _A(color) ((color & 0xFF000000) >> 0x18)
 #define _R(color) ((color & 0x00FF0000) >> 0x10)
@@ -140,6 +157,7 @@ void clear_buffer(gfx_context_t *ctx);
 void flip(gfx_context_t *ctx);
 // draw some graphic patterns
 void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color);
+void draw_sprite(gfx_context_t *ctx, const sprite_t *sprite, int_32 x, int_32 y);
 void fill_rect_solid(gfx_context_t *ctx,
                      Point top_left,
                      Point bottom_right,

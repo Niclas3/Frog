@@ -379,6 +379,45 @@ void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
     GFXR(ctx, X, Y) = color;
 }
 
+void draw_sprite(gfx_context_t *ctx, const sprite_t *sprite, int_32 x, int_32 y)
+{
+    int_32 _left = MAX(x, 0);
+    int_32 _top = MAX(y, 0);
+    int_32 _right = MIN(x + sprite->width, ctx->width - 1);
+    int_32 _bottom = MIN(y + sprite->height, ctx->height - 1);
+    if (sprite->alpha == ALPHA_EMBEDDED) {
+        /* Alpha embedded is the most important step. */
+        for (uint_16 _y = 0; _y < sprite->height; ++_y) {
+            if (y + _y < _top)
+                continue;
+            if (y + _y > _bottom)
+                break;
+            if (!_is_in_clip(ctx, y + _y))
+                continue;
+            for (uint_16 _x = 0; _x < sprite->width; ++_x) {
+                if (x + _x < _left || x + _x > _right || y + _y < _top ||
+                    y + _y > _bottom)
+                    continue;
+                GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(
+                    GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
+            }
+        }
+    } else if (sprite->alpha == ALPHA_OPAQUE) {
+        for (uint_16 _y = 0; _y < sprite->height; ++_y) {
+            if (y + _y < _top)
+                continue;
+            if (y + _y > _bottom)
+                break;
+            if (!_is_in_clip(ctx, y + _y))
+                continue;
+            for (uint_16 _x = (x < _left) ? _left - x : 0;
+                 _x < sprite->width && x + _x <= _right; ++_x) {
+                GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
+            }
+        }
+    }
+}
+
 /* // Draw a line */
 /* //   Adapted from Wikipedia page on Bresenham's line algorithm */
 /* void draw_line(Point start, Point end, argb_t color) */
@@ -510,15 +549,15 @@ void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
  */
 /* // color) */
 /* //{ */
-/* //    int32_t rx2 = radiusX * radiusX; */
-/* //    int32_t ry2 = radiusY * radiusY; */
-/* //    int32_t twoRx2 = 2*rx2; */
-/* //    int32_t twoRy2 = 2*ry2; */
-/* //    int32_t p; */
-/* //    int32_t x = 0; */
-/* //    int32_t y = radiusY; */
-/* //    int32_t px = 0; */
-/* //    int32_t py = twoRx2 * y; */
+/* //    int_32 rx2 = radiusX * radiusX; */
+/* //    int_32 ry2 = radiusY * radiusY; */
+/* //    int_32 twoRx2 = 2*rx2; */
+/* //    int_32 twoRy2 = 2*ry2; */
+/* //    int_32 p; */
+/* //    int_32 x = 0; */
+/* //    int_32 y = radiusY; */
+/* //    int_32 px = 0; */
+/* //    int_32 py = twoRx2 * y; */
 /* // */
 /* //    // Draw initial 4 quadrant points */
 /* //    draw_pixel(center.X + x, center.Y + y, color); */
@@ -638,7 +677,6 @@ void fill_rect_solid(gfx_context_t *ctx,
             bbp_t bbp_c = convert_argb(_c);
             draw_pixel(ctx, x, y, bbp_c);
             draw_pixel(ctx, x, y, _c);
-
         }
 }
 
