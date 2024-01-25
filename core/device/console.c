@@ -54,7 +54,7 @@ static uint_32 font_sz = 8;
 static uint_32 line_pixels = 1000;
 void console_write(void *buf, uint_32 len)
 {
-    gfx_clear_clip(console_gfx);
+    lock_fetch(&gl_console_lock);
     char *c = buf;
     if (*c == '\b') {
         Point lt = {.X = base_x, .Y = base_y};
@@ -87,4 +87,7 @@ void console_write(void *buf, uint_32 len)
                                          FSK_LIGHT_GRAY, buf, len);
     }
     flip(console_gfx);
+    gfx_clear_clip(console_gfx);
+    gfx_free_clip(console_gfx);
+    lock_release(&gl_console_lock);
 }
