@@ -36,6 +36,7 @@
 #include <list.h>
 #include <panic.h>
 #include <stdio.h>
+#include <sys/exec.h>
 #include <sys/memory.h>
 #include <sys/process.h>
 #include <sys/sched.h>
@@ -128,7 +129,7 @@ void UkiMain(void)
     /************************load test programe*******************************/
     /* char *app_path = "/ls"; */
     /* char *argv[2] = {"a", "b"}; */
-    /* uint_32 file_sz = 27 * 1024; */
+    /* uint_32 file_sz = 30 * 1024; */
     /* char *ls_buf = sys_malloc(file_sz); */
     /* uint_32 sectors = DIV_ROUND_UP(file_sz, 512); */
     /* struct disk *disk0 = &channels[0].devices[0]; */
@@ -176,7 +177,7 @@ void UkiMain(void)
 
         /* gettimeofday(&t1, NULL); */
 
-        /* process_execute(u_fune, "A");  // pid 6 */
+        process_execute(u_fune, "A");  // pid 6
         /* poudland_main_loop(); */
 
 
@@ -533,11 +534,30 @@ void u_funf(int a)
 // proc A
 void u_fune(int a)
 {
-    while (1) {
-        struct timeval t;
-        gettimeofday(&t, NULL);
-        printf("s:%x, us:%x\n", t.tv_sec, t.tv_usec);
+    /* char **argv = malloc(10); */
+    /* argv[0] = malloc(3); */
+    /* argv[1] = malloc(3); */
+    /* argv[0] = "a"; */
+    /* argv[1] = "b"; */
+    if(!fork()){
+        printf("test\n");
+        exit(995);
+    } else {
+        int_32 last_words;
+        pid_t child_pid = wait(&last_words);
+        printf("child %d is dead", child_pid);
+        printf("he saied %d", last_words);
     }
+
+    /* if(!fork()){ */
+        /* execv("/ls", argv); */
+    /* } */
+
+    /* while (1) { */
+    /* struct timeval t; */
+    /* gettimeofday(&t, NULL); */
+    /* printf("s:%x, us:%x\n", t.tv_sec, t.tv_usec); */
+    /* } */
     /* uint_32 ppid = getpid(); */
     /* int_32 fd[2] = {-1}; */
     /* pipe(fd); */
@@ -557,8 +577,6 @@ void u_fune(int a)
     /*     while (1) */
     /*         ; */
     /* } */
-    while (1)
-        ;
 }
 
 void u_fung(int a)
