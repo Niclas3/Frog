@@ -26,7 +26,7 @@ static void release_proc_resource(TCB_t *thread)
     uint_32 *first_pte_vaddr_in_pde = NULL;
     uint_32 pg_phy_addr = 0;
     while (pde_idx < user_pde_nr) {
-        pde_p = (uint_32) pgdir + pde_idx;
+        pde_p = pgdir + pde_idx;
         pde = *pde_p;
         if (pde & 0x00000001) {
             // one page table has 4M size
