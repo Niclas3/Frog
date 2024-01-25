@@ -30,12 +30,8 @@ typedef struct sprite {
 #define _G(color) ((color & 0x0000FF00) >> 0x8)
 #define _B(color) ((color & 0x000000FF) >> 0x0)
 
-#define GFX(ctx, x, y)                                                         \
-    *((uint_32 *) &((ctx)->backbuffer)[((GFX_S(ctx) * (y) *GFX_W(ctx) + (x)) * \
-                                        GFX_D(ctx))])
-#define GFXR(ctx, x, y) \
-    *((uint_32 *) &(    \
-        (ctx)->buffer)[((GFX_S(ctx) * (y) *GFX_W(ctx) + (x)) * GFX_D(ctx))])
+#define GFX(ctx,x,y) *((uint_32 *)&((ctx)->backbuffer)[(GFX_S(ctx) * (y) + (x) * GFX_D(ctx))])
+#define GFXR(ctx,x,y) *((uint_32 *)&((ctx)->buffer)[(GFX_S(ctx) * (y) + (x) * GFX_D(ctx))])
 
 // VBE infomation
 typedef struct vbe_info_structure {
@@ -66,7 +62,7 @@ typedef struct {
     uint_16 window_a_segment;
     uint_16 window_b_segment;
     uint_32 window_function_pointer;
-    uint_16 bytes_per_scanline;
+    uint_16 bytes_per_scanline;     // stride
 
     // Mandatory info for VBE 1.2 and above
     uint_16 x_resolution;
@@ -120,12 +116,12 @@ typedef struct {
 typedef struct gfx_2d_context {
     uint_16 width;
     uint_16 height;
-    uint_16 depth;  // color depth aka bytes_per_pixel
+    uint_16 depth;  // color depth aka bits_per_pixel
     uint_32 size;
     char *buffer;
     char *backbuffer;  // ready for double buffer
     uint_32 stride;
-    char *clips;
+    char *clips;       // damage region
     int_32 clips_size;
 } gfx_context_t;
 
@@ -153,11 +149,16 @@ void twoD_graphics_init(void);
 gfx_context_t *init_gfx_fullscreen(void);
 gfx_context_t *init_gfx_fullscreen_double_buffer(void);
 
+void gfx_add_clip(gfx_context_t *ctx, int_32 x, int_32 y, int_32 w, int_32 h);
+void gfx_clear_clip(gfx_context_t *ctx);
+void gfx_free_clip(gfx_context_t *ctx);
+
 void clear_buffer(gfx_context_t *ctx);
 void flip(gfx_context_t *ctx);
 // draw some graphic patterns
 void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color);
 void draw_sprite(gfx_context_t *ctx, const sprite_t *sprite, int_32 x, int_32 y);
+void draw_fill(gfx_context_t *ctx, uint_32 color);
 void fill_rect_solid(gfx_context_t *ctx,
                      Point top_left,
                      Point bottom_right,

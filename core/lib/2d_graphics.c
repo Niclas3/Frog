@@ -153,7 +153,7 @@ void twoD_graphics_init(void)
         gfx_mode.y_resolution * gfx_mode.linear_bytes_per_scanline;
     uint_32 fb_page_count = DIV_ROUND_UP(fbsize_in_bytes, PG_SIZE);
     // For hardware, double size of framebuffer pages just in case
-    fb_page_count *= 2;
+    fb_page_count *= 2;  // around 16M
     for (uint_32 i = 0, fb_start = gfx_mode.physical_base_pointer;
          i < fb_page_count; i++, fb_start += PG_SIZE)
         put_page((void *) fb_start, (void *) fb_start);
@@ -194,7 +194,7 @@ gfx_context_t *init_gfx_fullscreen(void)
                                            // fix 15bpp modes
     ctx->backbuffer = ctx->buffer;
     ctx->clips = NULL;
-    ctx->stride = 1;
+    ctx->stride = gfx_mode.linear_bytes_per_scanline;
     return ctx;
 }
 
@@ -222,6 +222,7 @@ static inline int_32 _is_in_clip(gfx_context_t *ctx, int_32 y)
         return 1;
     return ctx->clips[y];
 }
+
 void gfx_add_clip(gfx_context_t *ctx, int_32 x, int_32 y, int_32 w, int_32 h)
 {
     if (!ctx->clips) {
@@ -241,7 +242,7 @@ void gfx_clear_clip(gfx_context_t *ctx)
     }
 }
 
-void gfx_no_clip(gfx_context_t *ctx)
+void gfx_free_clip(gfx_context_t *ctx)
 {
     void *tmp = ctx->clips;
     if (!tmp)
@@ -250,13 +251,14 @@ void gfx_no_clip(gfx_context_t *ctx)
     free(tmp);
 }
 
-void flip(gfx_context_t *ctx)
+inline void flip(gfx_context_t *ctx)
 {
     if (ctx->clips) {
         for (uint_32 i = 0; i < ctx->height; i++) {
             if (_is_in_clip(ctx, i)) {
                 memcpy(&ctx->buffer[i * GFX_S(ctx)],
-                       &ctx->backbuffer[i * GFX_S(ctx)], 4 * ctx->width);
+                       &ctx->backbuffer[i * GFX_S(ctx)],
+                        4 * ctx->width); // 4 is r g b a (?)
             }
         }
     } else {
@@ -376,6 +378,7 @@ uint_32 draw_2d_gfx_dec(gfx_context_t *ctx,
 inline void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
 {
     GFX(ctx, X, Y) = color;
+    /* GFXR(ctx, X, Y) = color; */
 }
 
 void draw_sprite(gfx_context_t *ctx, const sprite_t *sprite, int_32 x, int_32 y)
@@ -413,6 +416,19 @@ void draw_sprite(gfx_context_t *ctx, const sprite_t *sprite, int_32 x, int_32 y)
                  _x < sprite->width && x + _x <= _right; ++_x) {
                 GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
             }
+        }
+    }
+}
+
+/**
+ * Fill all pixels in given ctx
+ *
+ *****************************************************************************/
+void draw_fill(gfx_context_t *ctx, uint_32 color)
+{
+    for (uint_16 y = 0; y < ctx->height; ++y) {
+        for (uint_16 x = 0; x < ctx->width; ++x) {
+            GFX(ctx, x, y) = color;
         }
     }
 }
@@ -672,10 +688,11 @@ void fill_rect_solid(gfx_context_t *ctx,
     /* bbp_t bbp_c  = convert_argb(color); */
     for (uint_16 y = top_left.Y; y < bottom_right.Y; y++)
         for (uint_16 x = top_left.X; x < bottom_right.X; x++) {
-            argb_t _c = alpha_blend_rgba(GFX(ctx, x, y), color);
-            bbp_t bbp_c = convert_argb(_c);
-            draw_pixel(ctx, x, y, bbp_c);
-            draw_pixel(ctx, x, y, _c);
+            /* argb_t _c = alpha_blend_rgba(GFX(ctx, x, y), color); */
+            /* draw_pixel(ctx, x, y, _c); */
+            /* bbp_t bbp_c = convert_argb(_c); */
+            /* draw_pixel(ctx, x, y, bbp_c); */
+            draw_pixel(ctx, x, y, color);
         }
 }
 
