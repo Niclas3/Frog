@@ -172,7 +172,7 @@ void UkiMain(void)
         gettimeofday(&t1, NULL);
         char path[1024] = {0};
         sys_getcwd(path, 1024);
-        printf("-<zm@k:%s>-", path);
+        /* printf("-<zm@k:%s>-", path); */
 
         /* gettimeofday(&t1, NULL); */
 
@@ -184,6 +184,7 @@ void UkiMain(void)
         Point top_left = {.X = 0, .Y = 0};
         Point down_right = {.X = screen_width, .Y = 34};
         fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
+        flip(g_ctx);
         process_execute(u_fund, "compositor");  // pid 5
 
         // Draw 2 Ract
@@ -434,9 +435,17 @@ void funcc(int a)
 
 void _redraw(struct poudland_globals *pg)
 {
+    argb_t col = FSK_GOLD;
+    argb_t bg = FSK_DARK_BLUE;
     gfx_context_t *ctx = pg->backend_ctx;
+    gfx_clear_clip(pg->backend_ctx);
+
     // mouse draw test
-    draw_pixel(ctx, pg->mouse_x, pg->mouse_y, FSK_GOLD);
+    /* draw_pixel(ctx, pg->mouse_x, pg->mouse_y, FSK_GOLD); */
+    gfx_add_clip(pg->backend_ctx, pg->mouse_x, pg->mouse_y, 48, 48);
+    draw_2d_gfx_cursor(ctx, pg->mouse_x, pg->mouse_y, &col);
+    gfx_add_clip(pg->backend_ctx, pg->last_mouse_x, pg->last_mouse_y, 48, 48);
+    draw_2d_gfx_cursor(ctx, pg->last_mouse_x, pg->last_mouse_y, &bg);
     flip(ctx);
 }
 //
@@ -475,8 +484,14 @@ void u_fund(int a)
         } else if (selected_fd == mouse_fd) {
             /* printf("No.%d fd is wake \n", idx); */
             read(mouse_fd, mbuf, pkg_size);
+            struct timeval t = {0};
+            gettimeofday(&t, NULL);
+            /* printf("%d: %d   ", t.tv_sec, t.tv_usec); */
             /* printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference, */
             /*        mbuf->y_difference); */
+            global->last_mouse_x = global->mouse_x;
+            global->last_mouse_y = global->mouse_y;
+
             global->mouse_x += mbuf->x_difference * 3;
             global->mouse_y -= mbuf->y_difference * 3;
         }
