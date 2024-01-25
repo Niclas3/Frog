@@ -105,6 +105,10 @@ done:
 
 int_32 sys_execv(const char *path, const char *argv[])
 {
+    if(!strcmp(running_thread()->name, "main")){
+        PANIC("Only works under user process!");
+        return -1;
+    }
     int_32 argc;
     for (argc = 0; argv[argc]; argc++) {
     }
