@@ -320,8 +320,6 @@ void thread_exit(TCB_t *discard_thread, bool need_schedule)
 
     // remove from all_thread_list
     list_del_init(&discard_thread->all_list_tag);
-    // remove from all_progress_list
-    list_del_init(&discard_thread->proc_list_tag);
 
     if (discard_thread != main_thread) {
         mfree_page(MP_KERNEL, discard_thread, 1);
