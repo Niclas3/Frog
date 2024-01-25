@@ -1432,7 +1432,7 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf)
     return ret;
 }
 
-int_32 sys_char_file(const char *pathname, uint_32 dev_no, void *file)
+int_32 sys_mount_device(const char *pathname, uint_32 dev_no, void *file)
 {
     int_32 fd = -1;
     // 1. test path

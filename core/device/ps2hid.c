@@ -422,9 +422,9 @@ void ps2hid_init(void)
     pc_mouse_init();
     pc_kbd_init();
 
-    sys_char_file("/dev/input/event0", DNOPCKBD, NULL);
-    sys_char_file("/dev/input/event1", DNOPCMOUSE, NULL);
-    sys_char_file("/dev/input/event2", DNOAUX, NULL);
+    sys_mount_device("/dev/input/event0", DNOPCKBD, NULL);
+    sys_mount_device("/dev/input/event1", DNOPCMOUSE, NULL);
+    sys_mount_device("/dev/input/event2", DNOAUX, NULL);
 
     // enable keyboard
     ps2_wait_input();
