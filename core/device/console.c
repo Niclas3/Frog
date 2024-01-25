@@ -54,10 +54,12 @@ static uint_32 font_sz = 8;
 static uint_32 line_pixels = 1000;
 void console_write(void *buf, uint_32 len)
 {
+    gfx_clear_clip(console_gfx);
     char *c = buf;
     if (*c == '\b') {
         Point lt = {.X = base_x, .Y = base_y};
         Point rd = {.X = base_x + font_sz, .Y = base_y + font_sz * 2};
+        gfx_add_clip(console_gfx, base_x,base_y, rd.X, rd.Y);
         fill_rect_solid(console_gfx, lt, rd, FSK_ROSY_BROWN | 0xff000000);
         if (base_x <= 0) {
             base_y -= (font_sz * 2);
@@ -80,8 +82,9 @@ void console_write(void *buf, uint_32 len)
             base_y += (2 * font_sz);
             base_x = 0;
         }
+        gfx_add_clip(console_gfx, base_x,base_y,font_sz ,font_sz*2);
         draw_2d_gfx_string(console_gfx, font_sz, base_x, base_y,
                                          FSK_LIGHT_GRAY, buf, len);
     }
-    /* flip(console_gfx); */
+    flip(console_gfx);
 }
