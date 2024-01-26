@@ -182,6 +182,7 @@ $(BUILD_DIR)/core.o: core.s
 $(BUILD_DIR)/core: $(C_OBJS)
 	ld $(LD_FLAG) -o $@.img $^
 
+## -M is print a symbol map
 $(BUILD_DIR)/core_symbol: $(C_OBJS)
 	ld $(LD_DEBUG_FLAG) -M -o $@.img $^ 
 
@@ -203,9 +204,12 @@ move:
 move_symbol:
 	cp $(BUILD_DIR)/core_symbol.img ../
 
-all: mk_dir build move
+build_apps_test:
+	cd ./apps && $(MAKE) all
 
-debug: mk_dir build_symbol build move
+all: mk_dir build move build_apps_test
+
+debug: mk_dir build_symbol build move build_apps_test
 
 clean:
 	rm -rf *.o
@@ -215,4 +219,5 @@ clean:
 	cd ./fs && $(MAKE) clean
 	cd ./lib && $(MAKE) clean
 	cd ./libc && $(MAKE) clean
+	cd ./apps && $(MAKE) clean
 
