@@ -6,6 +6,7 @@ BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/graphic.o $(BUILD_DIR)/2d_graphics.o \
+         $(BUILD_DIR)/lfbvideo.o \
 	 $(BUILD_DIR)/ide.o $(BUILD_DIR)/ps2hid.o $(BUILD_DIR)/pc_mouse.o $(BUILD_DIR)/pc_kbd.o\
          $(BUILD_DIR)/console.o $(BUILD_DIR)/cmos.o \
          $(BUILD_DIR)/int.o $(BUILD_DIR)/pic.o $(BUILD_DIR)/pit8253.o\
@@ -167,6 +168,10 @@ $(BUILD_DIR)/destab.o:
 
 $(BUILD_DIR)/timer.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find frog -type f -name "timer.c")
+
+$(BUILD_DIR)/lfbvideo.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find video -type f -name "lfbvideo.c")
+
 
 
 $(BUILD_DIR)/bootpack.o: bootpack.c
