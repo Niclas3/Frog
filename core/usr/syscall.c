@@ -169,6 +169,10 @@ int_32 stat(const char *pathname, struct stat *statbuf)
     return _syscall2(SYS_STAT, pathname, statbuf);
 }
 
+uint_32 ioctl(int_32 fd, uint_32 request, void* argp){
+    return _syscall3(SYS_IOCTL, fd, request, argp);
+}
+
 void putc(char c)
 {
     _syscall1(SYS_PUTC, c);

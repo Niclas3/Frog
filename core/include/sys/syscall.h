@@ -36,6 +36,8 @@ enum SYSCALL_NR {
     SYS_CHDIR,
     SYS_STAT,
     SYS_PIPE,
+    //device
+    SYS_IOCTL,
     // i/o
     SYS_PUTC,
     // for test
@@ -275,6 +277,8 @@ char *getcwd(char *buf, int_32 size);
 int_32 chdir(const char *pathname);
 
 int_32 stat(const char *pathname, struct stat *statbuf);
+
+uint_32 ioctl(int_32 fd, uint_32 request, void* argp);
 
 void putc(char c);
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg);
