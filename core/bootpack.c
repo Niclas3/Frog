@@ -138,22 +138,22 @@ void UkiMain(void)
     ps2hid_init();
 
     /************************load test programe*******************************/
-    /* char *app_path = "/ls"; */
-    /* char *argv[2] = {"a", "b"}; */
-    /* uint_32 file_sz = 30 * 1024; */
-    /* char *ls_buf = sys_malloc(file_sz); */
-    /* uint_32 sectors = DIV_ROUND_UP(file_sz, 512); */
-    /* struct disk *disk0 = &channels[0].devices[0]; */
-    /* struct disk *disk1 = &channels[0].devices[1]; */
-    /* ide_read(disk0, 384, ls_buf, sectors); */
-    /* #<{(| ide_write(disk1, 384, ls_buf,sectors); |)}># */
-    /* int_32 fd = open(app_path, O_RDWR); */
-    /* if (fd == -1) { */
-    /*     fd = open(app_path, O_CREAT | O_RDWR); */
-    /* } */
-    /* sys_write(fd, ls_buf, file_sz); */
-    /* sys_close(fd); */
-    /* sys_free(ls_buf); */
+    char *app_path = "/cor";
+    char *argv[2] = {"a", "b"};
+    uint_32 file_sz = 25 * 1024;
+    char *ls_buf = sys_malloc(file_sz);
+    uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
+    struct disk *disk0 = &channels[0].devices[0];
+    struct disk *disk1 = &channels[0].devices[1];
+    ide_read(disk0, 384, ls_buf, sectors);
+    /* ide_write(disk1, 384, ls_buf,sectors); */
+    int_32 fd = open(app_path, O_RDWR);
+    if (fd == -1) {
+        fd = open(app_path, O_CREAT | O_RDWR);
+    }
+    sys_write(fd, ls_buf, file_sz);
+    sys_close(fd);
+    sys_free(ls_buf);
     /*****************************************************************/
 
 
@@ -187,17 +187,9 @@ void UkiMain(void)
         /* printf("-<zm@k:%s>-", path); */
 
         /* gettimeofday(&t1, NULL); */
+        process_execute(u_fune, "app-com"); // pid 6
 
-        /* process_execute(u_fune, "A");  // pid 6 */
-        /* poudland_main_loop(); */
-
-        clear_screen(g_ctx, FSK_DARK_BLUE);
-        uint_32 status_bar_color = 0x88131313;
-        Point top_left = {.X = 0, .Y = 0};
-        Point down_right = {.X = screen_width, .Y = 34};
-        fill_rect_solid(g_ctx, top_left, down_right, status_bar_color);
-        flip(g_ctx);
-        process_execute(u_fund, "compositor");  // pid 5
+        /* process_execute(u_fund, "compositor");  // pid 5 */
 
         // Draw 2 Ract
         /* top_left.X = 20; */
@@ -310,7 +302,6 @@ void UkiMain(void)
     /* process_execute(u_fund, "B");  // pid 5 */
     /* process_execute(u_fune, "A");  // pid 6 */
 
-    /* process_execute(u_fung, "D");  */
 
     for (;;) {
         // Temporary place flip in this place
@@ -546,14 +537,15 @@ void u_funf(int a)
 void u_fune(int a)
 {
     char *argv[2] = {"a", "b"};
-    if (!fork()) {
-        execv("/ls", argv);
-    } else {
-        int_32 last_words;
-        pid_t child_pid = wait(&last_words);
-        printf("child %d is dead", child_pid);
-        printf("he saied %d", last_words);
-    }
+    /* if (!fork()) { */
+        execv("/cor", argv);
+    /* }  */
+    /* else { */
+    /*     int_32 last_words; */
+    /*     pid_t child_pid = wait(&last_words); */
+    /*     printf("child %d is dead", child_pid); */
+    /*     printf("he saied %d", last_words); */
+    /* } */
 
 
     /* while (1) { */

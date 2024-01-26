@@ -16,9 +16,10 @@ b *0xc0070000
 b exception_handler
 b panic_print
 
-b 143
+# b u_fune
+# b 143
 # b init_timervecs
-b timer.c:183
+# b timer.c:183
 # b sys_char_file
 # b ps2hid.c:292
 # b sys_read
