@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/memory.h>
 #include <sys/syscall.h>
+#include <kernel/video.h>
 
 // globla VBE mode structure
 static vbe_mode_info_t gfx_mode;
@@ -128,73 +129,35 @@ argb_t convert_bbp(const bbp_t bbpcolor)
     return converted_color;
 }
 
-BOOT_GFX_MODE_t boot_graphics_mode(void)
-{
-    vbe_mode_info_t *p_gfx_mode = *((vbe_mode_info_t **) VBE_MODE_INFO_POINTER);
-    vbe_info_t *vbe_info = *((struct vbe_info_structure **) VBE_INFO_POINTER);
-    if (p_gfx_mode == 0 && vbe_info == 0) {
-        return BOOT_VGA_MODE;
-    } else if ((uint_32) p_gfx_mode == 1 && (uint_32) vbe_info == 1) {
-        return BOOT_CGA_MODE;
-    } else if ((p_gfx_mode && (uint_32) p_gfx_mode != 1) ||
-               (vbe_info && (uint_32) vbe_info != 1)) {
-        return BOOT_VBE_MODE;
-    } else {
-        return BOOT_UNKNOW;
-    }
-}
-
-void twoD_graphics_init(void)
-{
-    // alloc 2d graphics memory
-    gfx_mode = **((vbe_mode_info_t **) VBE_MODE_INFO_POINTER);
-    vbe_info_t *vbe_info = *((struct vbe_info_structure **) VBE_INFO_POINTER);
-    const uint_32 fbsize_in_bytes =
-        gfx_mode.y_resolution * gfx_mode.linear_bytes_per_scanline;
-    uint_32 fb_page_count = DIV_ROUND_UP(fbsize_in_bytes, PG_SIZE);
-    // For hardware, double size of framebuffer pages just in case
-    fb_page_count *= 2;  // around 16M
-    for (uint_32 i = 0, fb_start = gfx_mode.physical_base_pointer;
-         i < fb_page_count; i++, fb_start += PG_SIZE)
-        put_page((void *) fb_start, (void *) fb_start);
-
-    // test VBE info
-    if (!strcmp("VESA", vbe_info->signature) && vbe_info != NULL) {
-        // has vbe_info and right signature
-        uint_32 mode = vbe_info->video_modes_pointer;
-        uint_32 vers = vbe_info->version;
-        switch (vbe_info->version) {
-        case 0x100:
-            // VBE 1.0
-            break;
-        case 0x200:
-            // VBE 2.0
-            break;
-        case 0x300:
-            // VBE 3.0
-            break;
-        default:
-            // VBE unknow
-            break;
-        }
-    }
-}
-
 gfx_context_t *init_gfx_fullscreen(void)
 {
     gfx_context_t *ctx = malloc(sizeof(gfx_context_t));
     if (!ctx) {
         return NULL;
     }
-    ctx->width = gfx_mode.x_resolution;
-    ctx->height = gfx_mode.y_resolution;
-    ctx->size = gfx_mode.y_resolution * gfx_mode.linear_bytes_per_scanline;
-    ctx->buffer = (char *) gfx_mode.physical_base_pointer;
-    ctx->depth = gfx_mode.bits_per_pixel;  // Get # of bytes per pixel, add 1 to
-                                           // fix 15bpp modes
+    int_32 lfb_fd = open("/dev/fb0", O_RDWR);
+    if(lfb_fd == -1){
+        return NULL;
+    }
+
+    ioctl(lfb_fd, IO_VID_WIDTH, &ctx->width);
+    ioctl(lfb_fd, IO_VID_HEIGHT,&ctx->height);
+    ioctl(lfb_fd, IO_VID_DEPTH, &ctx->depth);
+    ioctl(lfb_fd, IO_VID_STRIDE, &ctx->stride);
+    ioctl(lfb_fd, IO_VID_ADDR, &ctx->buffer);
+    ioctl(lfb_fd, IO_VID_VBE_MODE, &gfx_mode);
+
+    ctx->size = ctx->height * ctx->stride;
+    /* ctx->size = gfx_mode.y_resolution * gfx_mode.linear_bytes_per_scanline; */
+
+    /* ctx->width = gfx_mode.x_resolution; */
+    /* ctx->height = gfx_mode.y_resolution; */
+    /* ctx->buffer = (char *) gfx_mode.physical_base_pointer; */
+    /* ctx->stride = gfx_mode.linear_bytes_per_scanline; */
+    /* ctx->depth = gfx_mode.bits_per_pixel;  // Get # of bytes per pixel, add 1 to */
+    /*                                        // fix 15bpp modes */
     ctx->backbuffer = ctx->buffer;
     ctx->clips = NULL;
-    ctx->stride = gfx_mode.linear_bytes_per_scanline;
     return ctx;
 }
 
@@ -748,13 +711,6 @@ void fill_rect_solid(gfx_context_t *ctx,
 
 argb_t fetch_color(gfx_context_t *ctx, uint_32 X, uint_32 Y)
 {
-    /* uint_8 *framebuffer = (uint_8 *) gfx_mode.physical_base_pointer; */
-    /* uint_8 bytes_per_pixel = */
-    /*     (gfx_mode.bits_per_pixel + 1) / */
-    /*     8;  // Get # of bytes per pixel, add 1 to fix 15bpp modes */
-    /*  */
-    /* framebuffer += (Y * gfx_mode.x_resolution + X) * bytes_per_pixel; */
-    /* return *(uint_32 *) framebuffer; */
     return (argb_t) GFX(ctx, X, Y);
 }
 
