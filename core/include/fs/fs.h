@@ -90,4 +90,5 @@ int_32 sys_stat(const char *pathname, struct stat *statbuf);
 int_32 sys_mount_device(const char *pathname, uint_32 dev_no, void *file);
 
 uint_32 sys_poll(struct file *file, struct poll_table_struct *wait);
+uint_32 sys_ioctl(int_32 fd, uint_32 request, void* argp);
 #endif
