@@ -10,6 +10,7 @@
 #include <device/pc_kbd.h>
 #include <device/pc_mouse.h>
 #include <device/ps2hid.h>
+#include <device/lfbvideo.h>
 #include <fs/file.h>
 #include <fs/pipe.h>
 
@@ -1500,6 +1501,10 @@ int_32 sys_mount_device(const char *pathname, uint_32 dev_no, void *file)
         fd = pcmouse_create(&mounted_part, next_dir, last_name, file);
         break;
     }
+    case DNOLFB: {
+        fd = lfbvideo_create(&mounted_part, next_dir, last_name, file);
+        break;
+    }
     }
     dir_close(next_dir);
     return fd;
@@ -1526,6 +1531,19 @@ uint_32 sys_poll(struct file *file, struct poll_table_struct *wait)
         res = poll_pcmouse(file, wait);
     } else if (file->fd_inode->i_dev == DNOPCKBD) {
         res = poll_kbd(file, wait);
+    }
+    return res;
+}
+
+uint_32 sys_ioctl(int_32 fd, uint_32 request, void* argp)
+{
+    uint_32 res;
+    struct file *file = get_file(fd);
+    if (file->fd_inode->i_dev == DNOAUX) {
+    } else if (file->fd_inode->i_dev == DNOPCMOUSE) {
+    } else if (file->fd_inode->i_dev == DNOPCKBD) {
+    } else if (file->fd_inode->i_dev == DNOLFB){
+        res = ioctl_vid(file, request, argp);
     }
     return res;
 }
