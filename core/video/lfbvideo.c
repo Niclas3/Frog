@@ -29,7 +29,7 @@ static vbe_mode_info_t vbe_mode;
  * Used by the compositor to get display sizes and by the
  * resolution changer to initiate modesetting.
  */
-int ioctl_vid(struct file *file, unsigned long request, void *argp)
+int_32 ioctl_vid(struct file *file, unsigned long request, void *argp)
 {
     switch (request) {
     case IO_VID_WIDTH:
