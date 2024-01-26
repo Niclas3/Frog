@@ -6,7 +6,7 @@ LOADER = loader.img
 CORE   = core.img
 CORESYM   = core_symbol.img
 FONT   = hankaku_font.img
-TEST_PROC = core/apps/ls
+TEST_PROC = core/apps/build/compositor
 # TEST_PROC = ./snapshot.bmp
 
 # Use ELF format
