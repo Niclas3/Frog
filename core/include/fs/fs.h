@@ -37,6 +37,7 @@ enum file_type {
 #define IS_FT_CHAR(inode) (((inode)->i_mode >> 11)==FT_CHAR)
 #define IS_FT_DIRECTORY(inode) (((inode)->i_mode >> 11)==FT_DIRECTORY)
 #define IS_FT_REGULAR(inode) (((inode)->i_mode >> 11)==FT_REGULAR)
+#define validate(c)
 
 enum exec_mode {
     EM_SET_USER_ID,

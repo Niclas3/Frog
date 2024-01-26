@@ -1505,6 +1505,10 @@ int_32 sys_mount_device(const char *pathname, uint_32 dev_no, void *file)
         fd = lfbvideo_create(&mounted_part, next_dir, last_name, file);
         break;
     }
+    case DNOCONSOLE: {
+        fd = console_create(&mounted_part, next_dir, last_name, file);
+        break;
+    }
     }
     dir_close(next_dir);
     return fd;
@@ -1544,6 +1548,8 @@ uint_32 sys_ioctl(int_32 fd, uint_32 request, void* argp)
     } else if (file->fd_inode->i_dev == DNOPCKBD) {
     } else if (file->fd_inode->i_dev == DNOLFB){
         res = ioctl_vid(file, request, argp);
+    } else if (file->fd_inode->i_dev == DNOCONSOLE){
+        res = ioctl_console(file, request, argp);
     }
     return res;
 }
