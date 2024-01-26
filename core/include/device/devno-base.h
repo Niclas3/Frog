@@ -4,5 +4,6 @@
 #define DNOAUX 1
 #define DNOPCMOUSE 2
 #define DNOPCKBD 3
+#define DNOLFB 4   /*line frame buffer*/
 
 #endif
