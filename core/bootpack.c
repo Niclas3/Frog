@@ -19,6 +19,8 @@
 #include <oslib.h>
 #include <protect.h>
 
+#include <device/lfbvideo.h>
+
 #include <device/cmos.h>
 #include <kernel_print.h>
 #include <math.h>
@@ -27,6 +29,7 @@
 /* #include <gui/fsk_mouse.h> */
 #include <gua/poudland-server.h>
 #include <gua/poudland.h>
+#include <kernel/video.h>
 
 // test
 #include <device/ide.h>
@@ -55,7 +58,6 @@
 #include <sys/systask.h>
 
 #include <sys/time.h>
-BOOT_GFX_MODE_t g_boot_gfx_mode;
 
 // test things
 typedef struct B_info {
@@ -67,6 +69,15 @@ typedef struct B_info {
     unsigned char *vram;
 } BOOTINFO;
 
+typedef enum {
+    BOOT_VBE_MODE,
+    BOOT_VGA_MODE,
+    BOOT_CGA_MODE,
+    BOOT_UNKNOW
+} BOOT_GFX_MODE_t;
+
+BOOT_GFX_MODE_t g_boot_gfx_mode;
+BOOT_GFX_MODE_t boot_graphics_mode(void);
 
 void func(int a);
 void funcb(int a);
@@ -155,32 +166,32 @@ void UkiMain(void)
 
     /* gfx_context_t *g_ctx; */
     if (g_boot_gfx_mode == BOOT_VBE_MODE) {
-        twoD_graphics_init();
+        /* twoD_graphics_init(); */
+        lfb_init("qemu");
 
         g_ctx = init_gfx_fullscreen_double_buffer();
         if (g_ctx == NULL) {
-            PANIC("vedio context error");
+            PANIC("video context error");
         }
         console_init(g_ctx);
 
-        draw_pixel(g_ctx, 200, 200, FSK_LIME);
         uint_32 screen_width = g_ctx->width;
         uint_32 screen_height = g_ctx->height;
         uint_32 fontsize = 8;
-        clear_screen(g_ctx, FSK_DARK_BLUE);
         struct timeval t1 = {0};
 
         gettimeofday(&t1, NULL);
         char path[1024] = {0};
         sys_getcwd(path, 1024);
+
         /* printf("-<zm@k:%s>-", path); */
 
         /* gettimeofday(&t1, NULL); */
 
-        process_execute(u_fune, "A");  // pid 6
+        /* process_execute(u_fune, "A");  // pid 6 */
         /* poudland_main_loop(); */
 
-
+        clear_screen(g_ctx, FSK_DARK_BLUE);
         uint_32 status_bar_color = 0x88131313;
         Point top_left = {.X = 0, .Y = 0};
         Point down_right = {.X = screen_width, .Y = 34};
@@ -534,14 +545,9 @@ void u_funf(int a)
 // proc A
 void u_fune(int a)
 {
-    /* char **argv = malloc(10); */
-    /* argv[0] = malloc(3); */
-    /* argv[1] = malloc(3); */
-    /* argv[0] = "a"; */
-    /* argv[1] = "b"; */
-    if(!fork()){
-        printf("test\n");
-        exit(995);
+    char *argv[2] = {"a", "b"};
+    if (!fork()) {
+        execv("/ls", argv);
     } else {
         int_32 last_words;
         pid_t child_pid = wait(&last_words);
@@ -549,9 +555,6 @@ void u_fune(int a)
         printf("he saied %d", last_words);
     }
 
-    /* if(!fork()){ */
-        /* execv("/ls", argv); */
-    /* } */
 
     /* while (1) { */
     /* struct timeval t; */
@@ -585,6 +588,21 @@ void u_fung(int a)
         ;
 }
 
+BOOT_GFX_MODE_t boot_graphics_mode(void)
+{
+    vbe_mode_info_t *p_gfx_mode = *((vbe_mode_info_t **) VBE_MODE_INFO_POINTER);
+    vbe_info_t *vbe_info = *((struct vbe_info_structure **) VBE_INFO_POINTER);
+    if (p_gfx_mode == 0 && vbe_info == 0) {
+        return BOOT_VGA_MODE;
+    } else if ((uint_32) p_gfx_mode == 1 && (uint_32) vbe_info == 1) {
+        return BOOT_CGA_MODE;
+    } else if ((p_gfx_mode && (uint_32) p_gfx_mode != 1) ||
+               (vbe_info && (uint_32) vbe_info != 1)) {
+        return BOOT_VBE_MODE;
+    } else {
+        return BOOT_UNKNOW;
+    }
+}
 
 void init(void)
 {
