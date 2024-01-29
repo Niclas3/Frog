@@ -1,17 +1,17 @@
 # CFLAGS= -g -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers -m32 -fno-stack-protector
-CFLAGS := -c -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
+CFLAGS := -g -c -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
 
 # -s --strip-all
 #     Omit all symbol information from the output
 #     file.
-LD_FLAG := -s -m elf_i386
+LD_FLAG := -m elf_i386
 CINCLUDE= -I../include
 OBJS= ../build/stdio.o ../lib/oslib.o ../build/string.o \
       ../build/usr.o ../build/libdebug.o \
       ../build/list.o
 # sys_OBJS = ../build/memory.o
 sys_OBJS =
-gua_OBJS = ../build/2d_graphics.o
+gua_OBJS = ../build/2d_graphics.o ../build/poudland.o
 
 BUILD =./build
 DISK = ../../hd.img
