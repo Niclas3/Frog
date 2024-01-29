@@ -3,22 +3,22 @@
 #include <const.h>
 #include <debug.h>
 #include <global.h>
+#include <kernel/video.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/memory.h>
 #include <sys/syscall.h>
-#include <kernel/video.h>
 
 // globla VBE mode structure
 static vbe_mode_info_t gfx_mode;
 
-static uint_32 rgb(uint_8 r, uint_8 g, uint_8 b)
+uint_32 rgb(uint_8 r, uint_8 g, uint_8 b)
 {
     return 0xFF000000 | (r << 16) | (g << 8) | (b);
 }
 
-static uint_32 rgba(uint_8 r, uint_8 g, uint_8 b, uint_8 a)
+uint_32 rgba(uint_8 r, uint_8 g, uint_8 b, uint_8 a)
 {
     return (a << 24U) | (r << 16) | (g << 8) | (b);
 }
@@ -136,25 +136,27 @@ gfx_context_t *init_gfx_fullscreen(void)
         return NULL;
     }
     int_32 lfb_fd = open("/dev/fb0", O_RDWR);
-    if(lfb_fd == -1){
+    if (lfb_fd == -1) {
         return NULL;
     }
 
     ioctl(lfb_fd, IO_VID_WIDTH, &ctx->width);
-    ioctl(lfb_fd, IO_VID_HEIGHT,&ctx->height);
+    ioctl(lfb_fd, IO_VID_HEIGHT, &ctx->height);
     ioctl(lfb_fd, IO_VID_DEPTH, &ctx->depth);
     ioctl(lfb_fd, IO_VID_STRIDE, &ctx->stride);
     ioctl(lfb_fd, IO_VID_ADDR, &ctx->buffer);
     ioctl(lfb_fd, IO_VID_VBE_MODE, &gfx_mode);
 
     ctx->size = ctx->height * ctx->stride;
-    /* ctx->size = gfx_mode.y_resolution * gfx_mode.linear_bytes_per_scanline; */
+    /* ctx->size = gfx_mode.y_resolution * gfx_mode.linear_bytes_per_scanline;
+     */
 
     /* ctx->width = gfx_mode.x_resolution; */
     /* ctx->height = gfx_mode.y_resolution; */
     /* ctx->buffer = (char *) gfx_mode.physical_base_pointer; */
     /* ctx->stride = gfx_mode.linear_bytes_per_scanline; */
-    /* ctx->depth = gfx_mode.bits_per_pixel;  // Get # of bytes per pixel, add 1 to */
+    /* ctx->depth = gfx_mode.bits_per_pixel;  // Get # of bytes per pixel, add 1
+     * to */
     /*                                        // fix 15bpp modes */
     ctx->backbuffer = ctx->buffer;
     ctx->clips = NULL;
@@ -170,6 +172,38 @@ gfx_context_t *init_gfx_fullscreen_double_buffer(void)
     if (!out->backbuffer)
         return NULL;
     return out;
+}
+
+sprite_t *create_sprite(uint_32 width, uint_32 height, int_32 alpha)
+{
+    sprite_t *out = malloc(sizeof(sprite_t));
+
+    /*
+    uint16_t width;
+    uint16_t height;
+    uint32_t * bitmap;
+    uint32_t * masks;
+    uint32_t blank;
+    uint8_t  alpha;
+    */
+
+    out->width = width;
+    out->height = height;
+    out->bitmap = malloc(sizeof(uint_32) * out->width * out->height);
+    out->masks = NULL;
+    out->blank = 0x00000000;
+    out->alpha = alpha;
+
+    return out;
+}
+
+void sprite_free(sprite_t *sprite)
+{
+    if (sprite->masks) {
+        free(sprite->masks);
+    }
+    free(sprite->bitmap);
+    free(sprite);
 }
 
 void clear_buffer(gfx_context_t *ctx)
@@ -188,6 +222,8 @@ static inline int_32 _is_in_clip(gfx_context_t *ctx, int_32 y)
 
 void gfx_add_clip(gfx_context_t *ctx, int_32 x, int_32 y, int_32 w, int_32 h)
 {
+    (void) x;
+    (void) w;
     if (!ctx->clips) {
         ctx->clips = malloc(ctx->height);
         memset(ctx->clips, 0, ctx->height);
@@ -221,7 +257,7 @@ inline void flip(gfx_context_t *ctx)
             if (_is_in_clip(ctx, i)) {
                 memcpy(&ctx->buffer[i * GFX_S(ctx)],
                        &ctx->backbuffer[i * GFX_S(ctx)],
-                        4 * ctx->width); // 4 is r g b a (?)
+                       4 * ctx->width);  // 4 is r g b a (?)
             }
         }
     } else {
@@ -342,6 +378,14 @@ inline void draw_pixel(gfx_context_t *ctx, uint_16 X, uint_16 Y, bbp_t color)
 {
     GFX(ctx, X, Y) = color;
     /* GFXR(ctx, X, Y) = color; */
+}
+void draw_sprite_alpha(gfx_context_t *ctx,
+                       const sprite_t *sprite,
+                       int_32 x,
+                       int_32 y,
+                       int_32 opacity)
+{
+    return;
 }
 
 void draw_sprite(gfx_context_t *ctx, const sprite_t *sprite, int_32 x, int_32 y)
@@ -659,6 +703,15 @@ void fill_rect_solid(gfx_context_t *ctx,
         }
 }
 
+void draw_rect_solid(gfx_context_t *ctx, rect_t rect, argb_t color)
+{
+    for (uint_16 y = rect.y; y < rect.y + rect.height; y++) {
+        for (uint_16 x = rect.x; x < rect.x + rect.width; x++) {
+            GFX(ctx, x, y) = color;
+        }
+    }
+}
+
 /* // Fill a polygon with a solid color */
 /* void fill_polygon_solid(Point vertex_array[], uint_8 num_vertices, argb_t
  * color) */
@@ -724,23 +777,6 @@ void clear_screen(gfx_context_t *ctx, argb_t color)
         for (uint_32 y_idx = 0; y_idx < ctx->height; y_idx++) {
             GFX(ctx, x_idx, y_idx) = set_color;
         }
-    }
-}
-
-// componments cursor
-void draw_2d_gfx_cursor(gfx_context_t *ctx,
-                        uint_32 pos_x,
-                        uint_32 pos_y,
-                        argb_t *color)
-{
-    Point size = {.X = 4, .Y = 4};
-    Point topleft = {.X = pos_x, .Y = pos_y};
-    Point downright = {.X = pos_x + size.X, .Y = pos_y + size.Y};
-    argb_t defalut_cursor_color = FSK_SANDY_BROWN;
-    if (color) {
-        fill_rect_solid(ctx, topleft, downright, *color);
-    } else {
-        fill_rect_solid(ctx, topleft, downright, defalut_cursor_color);
     }
 }
 
