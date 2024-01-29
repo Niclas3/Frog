@@ -3,6 +3,27 @@
 #include <gua/2d_graphics.h>
 #include <gua/poudland.h>
 
+/* Mouse resolution scaling */
+#define MOUSE_SCALE 3
+#define INCOMING_MOUSE_SCALE * 3
+
+/* Mouse cursor hotspot */
+#define MOUSE_OFFSET_X 26
+#define MOUSE_OFFSET_Y 26
+
+/* Mouse cursor size */
+#define MOUSE_WIDTH 64
+#define MOUSE_HEIGHT 64
+
+/*damage region*/
+typedef struct {
+    struct list_head damage_region_target;
+    int_32 x;
+    int_32 y;
+    uint_32 width;
+    uint_32 height;
+} damage_rect_t;
+
 /*
  * Server window definitions
  */
@@ -31,13 +52,13 @@ typedef struct poudland_server_window {
 	// uintptr_t owner;
 
 	/* Rotation of windows XXX */
-	// int16_t  rotation;
+	int_16  rotation;
 
 	/* Client advertisements */
 	uint_32 client_flags;
 	uint_32 client_icon;
 	uint_32 client_length;
-	char *   client_strings;
+	char *  client_strings;
 
 	/* Alpha shaping threshold */
 	int alpha_threshold;
@@ -57,6 +78,11 @@ typedef struct poudland_server_window {
 	int_32 untiled_height;
 	int_32 untiled_left;
 	int_32 untiled_top;
+
+        /* list target mid_zs */
+        struct list_head server_w_mid_target;
+        /* list target for all windows list*/
+        struct list_head server_w_target;
 
 	/* Client-configurable server behavior flags */
 	uint_32 server_flags;
@@ -93,7 +119,8 @@ typedef struct poudland_globals {
     signed int last_mouse_y;
 
     /* List of all windows */
-    struct list_head *windows;
+    /* insert at create a server windows*/
+    struct list_head windows;
 
     /* Hash of window IDs to their objects */
     uint_32 *wids_to_windows;
@@ -102,14 +129,16 @@ typedef struct poudland_globals {
      * Window stacking information
      * TODO: Support multiple top and bottom windows.
      */
-    // yutani_server_window_t * bottom_z;
-    // struct list_head * mid_zs;
-    // struct list_head * menu_zs;
-    // struct list_head * overlay_zs;
-    // yutani_server_window_t * top_z;
+    poudland_server_window_t * bottom_z; // bottom windows
+
+    struct list_head mid_zs;    /* regular windows list zs == z-axis-stack */
+    struct list_head menu_zs;
+    struct list_head overlay_zs;
+
+    poudland_server_window_t * top_z;
 
     /* Damage region list */
-    // list_t * update_list;
+    struct list_head update_list;  /* rect_t windows list */
 
     /* Mouse cursors */
     sprite_t mouse_sprite;
@@ -161,15 +190,15 @@ typedef struct poudland_globals {
     int resizing_button;
 
     /* List of clients subscribing to window information events */
-    struct list_head *window_subscribers;
+    struct list_head window_subscribers;
 
     /* When the server started, used for timing functions */
     time_t start_time;
     suseconds_t start_subtime;
 
     /* Pointer to last hovered window to allow exit events */
+    // for mouse 
     poudland_server_window_t *old_hover_window;
-
 
     /* Key bindings */
     // hashmap_t *key_binds;
@@ -194,11 +223,10 @@ typedef struct poudland_globals {
     /* Last mouse buttons - used for some specialized mouse drivers */
     uint_32 last_mouse_buttons;
 
-
     /* Renderer plugin context */
     void *renderer_ctx;
 
-    int reload_renderer;
+    // int reload_renderer;
     uint_8 active_modifiers;
 
     // uint64_t resize_release_time;
