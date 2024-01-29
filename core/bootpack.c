@@ -111,11 +111,11 @@ int_32 stdin_ = 0;
 int_32 stdout_ = 1;
 
 gfx_context_t *g_ctx;
+
 // UkiMain must at top of file
 void UkiMain(void)
 {
     char *hankaku = (char *) FONT_HANKAKU;  // size 4096 address 0x90000
-    /* lock_init(&main_lock); */
 
     clock_init();
 
@@ -140,7 +140,7 @@ void UkiMain(void)
     /************************load test programe*******************************/
     char *app_path = "/cor";
     char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 25 * 1024;
+    uint_32 file_sz = 56 * 1024;
     char *ls_buf = sys_malloc(file_sz);
     uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
     struct disk *disk0 = &channels[0].devices[0];
@@ -155,7 +155,6 @@ void UkiMain(void)
     sys_close(fd);
     sys_free(ls_buf);
     /*****************************************************************/
-
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
@@ -187,7 +186,7 @@ void UkiMain(void)
         /* printf("-<zm@k:%s>-", path); */
 
         /* gettimeofday(&t1, NULL); */
-        process_execute(u_fune, "app-com"); // pid 6
+        process_execute(u_fune, "app-com");  // pid 6
 
         /* process_execute(u_fund, "compositor");  // pid 5 */
 
@@ -446,9 +445,9 @@ void _redraw(struct poudland_globals *pg)
     // mouse draw test
     /* draw_pixel(ctx, pg->mouse_x, pg->mouse_y, FSK_GOLD); */
     gfx_add_clip(pg->backend_ctx, pg->mouse_x, pg->mouse_y, 48, 48);
-    draw_2d_gfx_cursor(ctx, pg->mouse_x, pg->mouse_y, &col);
+    /* draw_2d_gfx_cursor(ctx, pg->mouse_x, pg->mouse_y, &col); */
     gfx_add_clip(pg->backend_ctx, pg->last_mouse_x, pg->last_mouse_y, 48, 48);
-    draw_2d_gfx_cursor(ctx, pg->last_mouse_x, pg->last_mouse_y, &bg);
+    /* draw_2d_gfx_cursor(ctx, pg->last_mouse_x, pg->last_mouse_y, &bg); */
     flip(ctx);
 }
 //
@@ -538,7 +537,7 @@ void u_fune(int a)
 {
     char *argv[2] = {"a", "b"};
     /* if (!fork()) { */
-        execv("/cor", argv);
+    execv("/cor", argv);
     /* }  */
     /* else { */
     /*     int_32 last_words; */
