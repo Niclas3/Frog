@@ -7,7 +7,7 @@
 #include <sys/memory.h>
 #include <sys/sched.h>
 
-#define MAX_FILES_OPEN_PER_PROC 8
+#define MAX_FILES_OPEN_PER_PROC 32
 #define TASK_NAME_LEN 16
 
 #define GET_THREAD_FROM_READYLIST(ptr) container_of((ptr), TCB_t, general_tag);
