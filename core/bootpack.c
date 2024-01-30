@@ -79,6 +79,11 @@ typedef enum {
 BOOT_GFX_MODE_t g_boot_gfx_mode;
 BOOT_GFX_MODE_t boot_graphics_mode(void);
 
+void load_file_from_disk0(char *app_path,
+                          uint_32 file_sz,
+                          struct disk *disk,
+                          uint_32 disk_offset);
+
 void func(int a);
 void funcb(int a);
 void funcc(int a);
@@ -140,13 +145,12 @@ void UkiMain(void)
     /************************load test programe*******************************/
     char *app_path = "/cor";
     char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 56 * 1024;
+    uint_32 file_sz = 87 * 1024;
     char *ls_buf = sys_malloc(file_sz);
     uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
     struct disk *disk0 = &channels[0].devices[0];
     struct disk *disk1 = &channels[0].devices[1];
     ide_read(disk0, 384, ls_buf, sectors);
-    /* ide_write(disk1, 384, ls_buf,sectors); */
     int_32 fd = open(app_path, O_RDWR);
     if (fd == -1) {
         fd = open(app_path, O_CREAT | O_RDWR);
@@ -155,6 +159,18 @@ void UkiMain(void)
     sys_close(fd);
     sys_free(ls_buf);
     /*****************************************************************/
+
+    /************************load test image file*****************************/
+    char *image_path = "/b.bmp";
+    uint_32 img_sz =  9.3 * 1024;
+    uint_32 image_offset = 6144;
+    load_file_from_disk0(image_path, img_sz, disk0, image_offset);
+    /*****************************************************************/
+    /************************load test jpeg image file******************/
+    /* char *jpeg_path = "/b.jpg"; */
+    /* uint_32 jpeg_sz = 2 * 1024; */
+    /* uint_32 jpeg_offset = 6144; */
+    /* load_file_from_disk0(jpeg_path, jpeg_sz, disk0, jpeg_offset); */
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
@@ -186,6 +202,7 @@ void UkiMain(void)
         /* printf("-<zm@k:%s>-", path); */
 
         /* gettimeofday(&t1, NULL); */
+        int testfd = sys_open("/a.bmp", O_RDONLY);
         process_execute(u_fune, "app-com");  // pid 6
 
         /* process_execute(u_fund, "compositor");  // pid 5 */
@@ -577,6 +594,28 @@ void u_fung(int a)
 {
     while (1)
         ;
+}
+
+void load_file_from_disk0(char *app_path,
+                          uint_32 file_sz,
+                          struct disk *disk,
+                          uint_32 disk_offset)
+{
+    /* char *app_path = "/cor"; */
+    /* uint_32 file_sz = 75 * 1024; */
+    char *buf = sys_malloc(file_sz);
+    uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
+    /* struct disk *disk0 = &channels[0].devices[0]; */
+    /* struct disk *disk1 = &channels[0].devices[1]; */
+    /* ide_read(disk, 384, buf, sectors); */
+    ide_read(disk, disk_offset, buf, sectors);
+    int_32 fd = open(app_path, O_RDWR);
+    if (fd == -1) {
+        fd = open(app_path, O_CREAT | O_RDWR);
+    }
+    sys_write(fd, buf, file_sz);
+    sys_close(fd);
+    sys_free(buf);
 }
 
 BOOT_GFX_MODE_t boot_graphics_mode(void)
