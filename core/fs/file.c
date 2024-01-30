@@ -678,6 +678,16 @@ int_32 file_read(struct partition *part,
         for (int i = 0; i < rd_count; i++) {
             r_lba = all_zones[rd_zone_idx + i];
             ide_read(part->my_disk, r_lba, io_buf, SECTOR_PER_ZONE);
+
+            if(rd_zone_offset > 0){
+                int_32 first_len = ZONE_SIZE - rd_zone_offset;
+                memcpy(buf, &io_buf[rd_zone_offset], first_len);
+                file->fd_pos += first_len;
+                buf += first_len;
+                rd_zone_offset = 0;
+                continue;
+            }
+
             if ((i == (rd_count - 1)) && rd_count_offset != 0) {
                 memcpy(buf, io_buf, rd_count_offset);
                 file->fd_pos += rd_count_offset;
