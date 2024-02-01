@@ -9,6 +9,7 @@
 #include <sys/syscall.h>
 
 #include <device/console.h>
+#include "bmp.h"
 
 static uint_32 poudland_current_time(poudland_globals_t *pg)
 {
@@ -32,6 +33,44 @@ static uint_32 poudland_time_since(poudland_globals_t *pg, uint_32 start_time)
     uint_32 diff = now - start_time; /* Milliseconds */
 
     return diff;
+}
+
+/**
+ * Convert window point to screen point
+ *
+ *****************************************************************************/
+void convert_window_point(poudland_server_window_t *w,
+                          int_32 x,
+                          int_32 y,
+                          int_32 *out_x,
+                          int_32 *out_y)
+{
+}
+
+void convert_screen_point(poudland_server_window_t *w,
+                          int_32 x,
+                          int_32 y,
+                          int_32 *out_x,
+                          int_32 *out_y)
+{
+}
+
+bool point_in_rect(point_t point, rect_t rect)
+{
+    return true;
+}
+
+static bool in_window(poudland_server_window_t *w, point_t point)
+{
+    int x_max = w->x + w->width;
+    int y_max = w->y + w->height;
+
+    if ((point.X > x_max || point.X < w->x) ||
+        (point.Y > y_max || point.Y < w->y)) {
+        return false;
+    } else {
+        return true;
+    }
 }
 
 
@@ -90,21 +129,23 @@ static poudland_server_window_t *server_window_create(poudland_globals_t *pg,
 
     return win;
 }
-
-
-static void draw_mouse(gfx_context_t *ctx,
+static void draw_mouse(poudland_globals_t *pg,
                        uint_32 pos_x,
                        uint_32 pos_y,
                        argb_t *color)
 {
-    Point size = {.X = MOUSE_WIDTH, .Y = MOUSE_HEIGHT};
-    Point topleft = {.X = pos_x, .Y = pos_y};
-    Point downright = {.X = pos_x + size.X, .Y = pos_y + size.Y};
+    gfx_context_t *ctx = pg->backend_ctx;
+    point_t size = {.X = MOUSE_WIDTH, .Y = MOUSE_HEIGHT};
+    point_t topleft = {.X = pos_x, .Y = pos_y};
+    point_t downright = {.X = pos_x + size.X, .Y = pos_y + size.Y};
     argb_t defalut_cursor_color = FSK_SANDY_BROWN;
     if (color) {
-        fill_rect_solid(ctx, topleft, downright, *color);
+        draw_sprite(ctx, &pg->mouse_sprite, pos_x, pos_y);
+        if (pg->mouse_state == LEFT_CLICK) {
+            fill_rect_solid(ctx, topleft, downright, *color);
+        }
     } else {
-        fill_rect_solid(ctx, topleft, downright, defalut_cursor_color);
+        /* fill_rect_solid(ctx, topleft, downright, defalut_cursor_color); */
     }
 }
 
@@ -148,14 +189,14 @@ static void draw_mouse_last_pos(gfx_context_t *ctx,
         // 2. Move from down right to top left
         /* printf("<-"); x*/
         /* printf("^");  y*/
-        Point last_br_point = {.X = last_mouse_x + width,
-                               .Y = last_mouse_y + height};
+        point_t last_br_point = {.X = last_mouse_x + width,
+                                 .Y = last_mouse_y + height};
 
-        Point curr_br_point = {.X = mouse_x + width, .Y = mouse_y + height};
-        Point last_bt_point = {.X = curr_br_point.X, .Y = last_br_point.Y};
+        point_t curr_br_point = {.X = mouse_x + width, .Y = mouse_y + height};
+        point_t last_bt_point = {.X = curr_br_point.X, .Y = last_br_point.Y};
 
-        Point curr_md_point = {.X = curr_br_point.X, .Y = last_mouse_y};
-        Point curr_bt_point = {.X = last_mouse_x, .Y = curr_br_point.Y};
+        point_t curr_md_point = {.X = curr_br_point.X, .Y = last_mouse_y};
+        point_t curr_bt_point = {.X = last_mouse_x, .Y = curr_br_point.Y};
 
         uint_32 _x_1 = curr_md_point.X;
         uint_32 _y_1 = curr_md_point.Y;
@@ -181,12 +222,12 @@ static void draw_mouse_last_pos(gfx_context_t *ctx,
     } else if (mouse_x > last_mouse_x && mouse_y < last_mouse_y) {
         printf("->");  // x
         printf("^");   // y
-        Point last_br_point = {.X = last_mouse_x + width,
-                               .Y = last_mouse_y + height};
-        Point curr_br_point = {.X = mouse_x + width, .Y = mouse_y + height};
-        Point curr_bl_point = {.X = mouse_x, .Y = curr_br_point.Y};
-        Point last_bt_point = {.X = curr_br_point.X, .Y = last_br_point.Y};
-        Point last_ul_point = {.X = last_mouse_x, .Y = last_mouse_y};
+        point_t last_br_point = {.X = last_mouse_x + width,
+                                 .Y = last_mouse_y + height};
+        point_t curr_br_point = {.X = mouse_x + width, .Y = mouse_y + height};
+        point_t curr_bl_point = {.X = mouse_x, .Y = curr_br_point.Y};
+        point_t last_bt_point = {.X = curr_br_point.X, .Y = last_br_point.Y};
+        point_t last_ul_point = {.X = last_mouse_x, .Y = last_mouse_y};
 
         uint_32 _x_1 = last_mouse_x;
         uint_32 _y_1 = last_mouse_y;
@@ -253,9 +294,9 @@ static void poudland_blit_windows(poudland_globals_t *pg)
     if (!pg->bottom_z /*|| pg->bottom_z->anim_mode*/) {
         draw_fill(pg->backend_ctx, FSK_DARK_CYAN);
     }
+
     if (pg->bottom_z) {
-        poudland_blit_window(pg, pg->bottom_z, 
-                pg->bottom_z->x,
+        poudland_blit_window(pg, pg->bottom_z, pg->bottom_z->x,
                              pg->bottom_z->y);
     }
 
@@ -266,15 +307,16 @@ static void poudland_blit_windows(poudland_globals_t *pg)
         if (w)
             poudland_blit_window(pg, w, w->x, w->y);
     }
+
     if (pg->top_z)
         poudland_blit_window(pg, pg->top_z, pg->top_z->x, pg->top_z->y);
 }
 
 
 /**
- * Mark a screen region as damaged.
+ * Mark a given region as damaged.
  */
-static void mark_screen(poudland_globals_t *pg,
+static void mark_region(poudland_globals_t *pg,
                         int_32 x,
                         int_32 y,
                         int_32 width,
@@ -391,7 +433,8 @@ static void redraw_windows(struct poudland_globals *pg)
     gfx_clear_clip(pg->backend_ctx);
 
     // Add damage region mouse damage region
-    if (pg->last_mouse_x != tmp_mouse_x || pg->last_mouse_y != tmp_mouse_y) {
+    if (pg->last_mouse_x != tmp_mouse_x || pg->last_mouse_y != tmp_mouse_y ||
+        pg->mouse_state == LEFT_CLICK) {
         need_update = 2;
 
         gfx_add_clip(pg->backend_ctx, pg->last_mouse_x, pg->last_mouse_y,
@@ -418,14 +461,11 @@ static void redraw_windows(struct poudland_globals *pg)
 
     /* Render */
     if (need_update) {
-        // 1.Go through all windows and blit changed windows to backer_buffer
+        // 1.Go through all windows and blit all windows to backer_buffer
         poudland_blit_windows(pg);
 
         // 2. draw cursor last.
-        draw_mouse(pg->backend_ctx, pg->mouse_x, pg->mouse_y, &col);
-        // mouse draw last position
-        /* draw_mouse_last_pos(pg->backend_ctx, pg->mouse_x, pg->mouse_y, */
-        /*                     pg->last_mouse_x, pg->last_mouse_y, bg); */
+        draw_mouse(pg, pg->mouse_x, pg->mouse_y, &col);
         flip(pg->backend_ctx);
     }
 }
@@ -455,13 +495,12 @@ gfx_context_t *init_graphics_poudland_swindows_double_buffer(
     return out;
 }
 
-poudland_server_window_t *
-quick_create_window(poudland_globals_t *global,
-                                uint_32 x,
-                                uint_32 y,
-                                uint_32 width,
-                                uint_32 height,
-                                uint_32 color)
+poudland_server_window_t *quick_create_window(poudland_globals_t *global,
+                                              uint_32 x,
+                                              uint_32 y,
+                                              uint_32 width,
+                                              uint_32 height,
+                                              uint_32 color)
 {
     poudland_server_window_t *w =
         server_window_create(global, width, height, NULL, 0);
@@ -472,14 +511,25 @@ quick_create_window(poudland_globals_t *global,
 
     // fill w->buffer
     draw_fill(w_ctx, color);
-    draw_pixel(w_ctx, 4,4, FSK_CORN_SILK);
-    rect_t _rect = {.x = 10, .y= 10, .width = 20, .height =20};
+    draw_pixel(w_ctx, 4, 4, FSK_CORN_SILK);
+    rect_t _rect = {.x = 10, .y = 10, .width = 20, .height = 20};
     draw_rect_solid(w_ctx, _rect, FSK_RED);
 
     // mark window localtion at global->ctx
     mark_window(global, w);
     global->bottom_z = w;  // set bottom z axis windows
     return w;
+}
+
+static void window_move(poudland_globals_t *pg,
+                        poudland_server_window_t *window,
+                        int x,
+                        int y)
+{
+    mark_window(pg, window);
+    window->x = x;
+    window->y = y;
+    mark_window(pg, window);
 }
 
 int main(int argc, char *argv[])
@@ -505,8 +555,8 @@ int main(int argc, char *argv[])
 
     // draw background
     uint_32 status_bar_color = 0x88131313;
-    Point top_left = {.X = 0, .Y = 0};
-    Point down_right = {.X = global->backend_ctx->width, .Y = 34};
+    point_t top_left = {.X = 0, .Y = 0};
+    point_t down_right = {.X = global->backend_ctx->width, .Y = 34};
 
     clear_screen(global->backend_ctx, FSK_DARK_BLUE);
     fill_rect_solid(global->backend_ctx, top_left, down_right,
@@ -538,12 +588,61 @@ int main(int argc, char *argv[])
     INIT_LIST_HEAD(&global->overlay_zs);  // not used yet
                                           //
     // test code
-    poudland_server_window_t *w1 = quick_create_window(
-        global, 0, 0, global->width, global->height, FSK_GREEN_YELLOW);
+    /* poudland_server_window_t *w1 = */
+    /*     quick_create_window(global, 0, 0, global->width, global->height, */
+    /*                         FSK_WHITE); */
+
+    poudland_server_window_t *w1 =
+        server_window_create(global, global->width, global->height, NULL, 0);
+    w1->hidden = 0;
+    w1->x = 0;
+    w1->y = 0;
+    gfx_context_t *w_ctx = init_gfx_poudland_swindow(w1);
+    draw_fill(w_ctx, FSK_WHITE);
+    draw_pixel(w_ctx, 4, 4, FSK_CORN_SILK);
+    rect_t _rect = {.x = 10, .y = 10, .width = 20, .height = 20};
+    draw_rect_solid(w_ctx, _rect, FSK_RED);
+    mark_window(global, w1);
+    ioctl(tty_fd, IO_CONSOLE_SET, &w_ctx);
+    uint_32 set_color = FSK_CYAN;
+    ioctl(tty_fd, IO_CONSOLE_COLOR, &set_color);
+    printf("test");
+
     poudland_server_window_t *w2 =
-        quick_create_window(global,50,50, 200, 200, FSK_DARK_OLIVE_GREEN);
+        quick_create_window(global, 50, 50, 200, 200, FSK_DARK_OLIVE_GREEN);
     poudland_server_window_t *w3 =
-        quick_create_window(global,100,100, 200, 200, FSK_DARK_CYAN);
+        quick_create_window(global, 100, 100, 200, 200, FSK_DARK_CYAN);
+
+    // load bmp image
+    char *filename = "/b.bmp";
+    int_32 img_fd = open(filename, O_RDONLY);
+    /* int_32 image_fd = open("/b.jpg", O_RDONLY); */
+    int meta[8] = {0};
+    int a = bmp_meta(img_fd, meta);
+    int imagesz = meta[1];
+    int img_offset = meta[2];
+    uint_32 *image = malloc(imagesz);
+    int_32 width = meta[3];
+    int_32 height = meta[4];
+
+    lseek(img_fd, img_offset, SEEK_SET);
+    read(img_fd, image, imagesz);
+
+    global->mouse_sprite.bitmap = malloc(width * height * 4);
+    global->mouse_sprite.width = width;
+    global->mouse_sprite.height = height;
+    global->mouse_sprite.alpha = ALPHA_OPAQUE;
+    for (uint_32 h = 0; h < height; h++) {
+        for (uint_32 w = 0; w < width; w++) {
+            uint_32 color;
+            color = image[w + width * h];
+            /* draw_pixel(w3, w, h, color); */
+            global->mouse_sprite.bitmap[w + width * h] = color;
+        }
+    }
+
+    close(img_fd);
+    free(image);
 
     // end test code
 
@@ -562,19 +661,48 @@ int main(int argc, char *argv[])
             continue;
         int_32 selected_fd = fds[idx];
         if (selected_fd == kbd_fd) {
-            printf("No.%d fd is wake \n", idx);
+            int step = 30;
             read(kbd_fd, buf, 1);
-            printf("key event %c key press\n", buf[0]);
+            // kbd_handler
+            if (buf[0] == 'j') {
+                int_32 y = w2->y;
+                y += step;
+                window_move(global, w2, w2->x, y);
+            } else if (buf[0] == 'k') {
+                int_32 y = w2->y;
+                y -= step;
+                window_move(global, w2, w2->x, y);
+            } else if (buf[0] == 'h') {
+                int_32 x = w2->x;
+                x -= step;
+                window_move(global, w2, x, w2->y);
+            } else if (buf[0] == 'l') {
+                int_32 x = w2->x;
+                x += step;
+                window_move(global, w2, x, w2->y);
+            }
+            /* printf("key event %c key press\n", buf[0]); */
         } else if (selected_fd == mouse_fd) {
-            /* printf("No.%d fd is wake \n", idx); */
             read(mouse_fd, mbuf, pkg_size);
-            struct timeval t = {0};
-            gettimeofday(&t, NULL);
-            /* printf("%d: %d   ", t.tv_sec, t.tv_usec); */
-            /* printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference, */
-            /*        mbuf->y_difference); */
+            global->mouse_state = mbuf->buttons;
             global->mouse_x += mbuf->x_difference;
             global->mouse_y -= mbuf->y_difference;
+            // mouse_handler
+            if (global->mouse_x < 0) {
+                global->mouse_x = 0;
+            }
+            if (global->mouse_y < 0) {
+                global->mouse_y = 0;
+            }
+            point_t p = {.X = global->mouse_x, .Y = global->mouse_y};
+            if (in_window(w2, p)) {
+                if (mbuf->buttons == LEFT_CLICK) {
+                    window_move(global, w2, global->mouse_x - 50,
+                                global->mouse_y - 50);
+                } else {
+                    printf("(%d,%d)  ", p.X, p.Y);
+                }
+            }
         }
     }
 }
