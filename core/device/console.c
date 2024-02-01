@@ -20,6 +20,7 @@ struct lock gl_console_lock;
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
 
+static uint_32 font_color = FSK_RED;
 void console_put_char(uint_8 c)
 {
     lock_fetch(&gl_console_lock);
@@ -67,8 +68,8 @@ void console_write(void *buf, uint_32 len)
     lock_fetch(&gl_console_lock);
     char *c = buf;
     if (*c == '\b') {
-        Point lt = {.X = base_x, .Y = base_y};
-        Point rd = {.X = base_x + font_sz, .Y = base_y + font_sz * 2};
+        point_t lt = {.X = base_x, .Y = base_y};
+        point_t rd = {.X = base_x + font_sz, .Y = base_y + font_sz * 2};
         gfx_add_clip(console_gfx, base_x, base_y, rd.X, rd.Y);
         fill_rect_solid(console_gfx, lt, rd, FSK_ROSY_BROWN | 0xff000000);
         if (base_x <= 0) {
@@ -93,7 +94,7 @@ void console_write(void *buf, uint_32 len)
             base_x = 0;
         }
         gfx_add_clip(console_gfx, base_x, base_y, font_sz, font_sz * 2);
-        draw_2d_gfx_string(console_gfx, font_sz, base_x, base_y, FSK_LIGHT_GRAY,
+        draw_2d_gfx_string(console_gfx, font_sz, base_x, base_y, font_color,
                            buf, len);
     }
     flip(console_gfx);
@@ -110,6 +111,11 @@ int_32 ioctl_console(struct file *file, unsigned long request, void *argp)
         console_gfx = *(gfx_context_t **) argp;
         return 0;
     }
+    case IO_CONSOLE_COLOR: {
+        validate(argp);
+        font_color = *(int_32*) argp;
+        return 0;
+                           }
     default:
         return -EINVAL;
     }

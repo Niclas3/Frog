@@ -10,6 +10,7 @@ typedef struct gfx_2d_context gfx_context_t;
 
 #define IO_CONSOLE_REINIT 0x6001
 #define IO_CONSOLE_SET    0x6002
+#define IO_CONSOLE_COLOR  0x6003
 
 void console_init(gfx_context_t *ctx);
 void console_write(void *buf, uint_32 len);
