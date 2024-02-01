@@ -10,15 +10,18 @@ tui en
 # layout asm
 # set disassemble-next-line on
 
-b *0xc0070000
+# b *0xc0070000
 # b exception_handler
 b panic_print
 
 ### debug compositor
 b main
-b quick_create_window
+b info_JPEG
+# b quick_create_window
 b draw_mouse
 b poudland_blit_windows
+b bmp_meta
+b compositor.c:554
 
 
 
