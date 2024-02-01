@@ -53,7 +53,7 @@ typedef uint_32 bbp_t;
 typedef struct {
     int_32 X;
     int_32 Y;
-} Point;
+} point_t;
 
 typedef struct {
     int_32 x;
@@ -93,8 +93,8 @@ void draw_sprite_alpha(gfx_context_t *ctx,
                        int_32 opacity);
 void draw_fill(gfx_context_t *ctx, uint_32 color);
 void fill_rect_solid(gfx_context_t *ctx,
-                     Point top_left,
-                     Point bottom_right,
+                     point_t top_left,
+                     point_t bottom_right,
                      argb_t color);
 void draw_rect_solid(gfx_context_t *ctx, rect_t rect, argb_t color);
 void clear_screen(gfx_context_t *ctx, argb_t color);

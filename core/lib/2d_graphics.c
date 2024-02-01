@@ -687,8 +687,8 @@ void draw_fill(gfx_context_t *ctx, uint_32 color)
 
 // Fill rectangle with a solid color
 void fill_rect_solid(gfx_context_t *ctx,
-                     Point top_left,
-                     Point bottom_right,
+                     point_t top_left,
+                     point_t bottom_right,
                      argb_t color)
 {
     // Brute force method
@@ -791,8 +791,8 @@ void draw_2d_gfx_label(gfx_context_t *ctx,
                        argb_t font_color,
                        char *label_name)
 {
-    Point tl = {.X = x, .Y = y};
-    Point br = {.X = x + width, .Y = y + length};
+    point_t tl = {.X = x, .Y = y};
+    point_t br = {.X = x + width, .Y = y + length};
     fill_rect_solid(ctx, tl, br, bgcolor);
     draw_2d_gfx_string(ctx, 8, x, y, font_color, label_name,
                        strlen(label_name));

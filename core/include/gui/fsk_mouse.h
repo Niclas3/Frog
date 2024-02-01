@@ -5,7 +5,7 @@
 
 struct fsk_mouse{
     gfx_context_t *ctx;
-    Point point;
+    point_t point;
 };
 
 void create_fsk_mouse(gfx_context_t *ctx, uint_32 cursor_x, uint_32 cursor_y);
