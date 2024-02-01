@@ -16,10 +16,8 @@ gua_OBJS = ../build/2d_graphics.o ../build/poudland.o
 BUILD =./build
 DISK = ../../hd.img
 
-ls.o: ls.c
-	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
 
-compositor.o: compositor.c
+ls.o: ls.c
 	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
 
 # home brew C runtime
@@ -29,10 +27,21 @@ crt.o: start.s
 objs:
 	cd ../ && make all
 
+# list app things
 ls:ls.o crt.o
 	ld $(LD_FLAG) $^ $(OBJS) -o $(BUILD)/$@
 
-compositor: compositor.o crt.o
+# compositor things
+bmp.o: bmp.c
+	gcc $(CFLAGS) $(CINCLUDE) -I. $^ -o $@
+
+jpeg.o: jpeg.c
+	gcc $(CFLAGS) $^ -o $@
+
+compositor.o: compositor.c
+	gcc $(CFLAGS) $(CINCLUDE) -I. $^ -o $@
+
+compositor: compositor.o crt.o bmp.o jpeg.o
 	ld $(LD_FLAG) $^ $(OBJS) $(gua_OBJS) $(sys_OBJS) -o $(BUILD)/$@
 
 all: compositor ls
