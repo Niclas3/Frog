@@ -7,6 +7,8 @@ CORE   = core.img
 CORESYM   = core_symbol.img
 FONT   = hankaku_font.img
 TEST_PROC = core/apps/build/compositor
+# TEST_IMG= core/apps/test/a.bmp
+TEST_IMG= core/apps/test/b.bmp
 # TEST_PROC = ./snapshot.bmp
 
 # Use ELF format
@@ -51,12 +53,14 @@ mount: bootloader loader.img core.img font
 	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 82k (blank is 120k)
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=253 conv=notrunc #font.img for now size 4k
 	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=384 conv=notrunc
+	dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place to 3M img size < 150k
 
 mount_debug: bootloader loader.img core_symbol.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
 	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 82k (blank is 120k)
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=253 conv=notrunc #font.img for now size 4k
 	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=384 conv=notrunc
+	dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place at 3M, img size < 150k
 umount:
 	sudo umount /mnt/floppy
 
