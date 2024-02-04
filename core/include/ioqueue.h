@@ -8,20 +8,25 @@
 #define QUEUE_MAX 4000  // 1 page size is 4096
 typedef struct ioqueue{
     struct lock queue_lock;
-    TCB_t *producer;
-    TCB_t *consumor;
-    int producer_p;
-    int consumor_p;
-    char buf[QUEUE_MAX];
+    struct list_head producer_waiting_list;
+    struct list_head consumor_waiting_list;
+    int_32 producer_p;
+    int_32 consumor_p;
+    uint_32 size;
+    char buf[];
 } CircleQueue;
 
 
-void init_ioqueue(CircleQueue *queue);
+CircleQueue *init_ioqueue(uint_32 size);
+void destory_ioqueue(CircleQueue *queue);
 
-void ioqueue_put_data(char data, CircleQueue *queue);
-char ioqueue_get_data(CircleQueue *queue);
+uint_32 ioqueue_put_data(CircleQueue *queue, char* data, uint_32 count);
+uint_32 ioqueue_get_data(CircleQueue *queue, char* data, uint_32 count);
 
-uint_32 ioqueue_length(CircleQueue *queue);
+// check if ioqueue is available 
+// return 0 has data unread
+// return -1 no data unread
+int_32 ioqueue_check(CircleQueue *queue);
 
 // return !0 when queue is full
 uint_32 ioqueue_is_full(CircleQueue *queue);
