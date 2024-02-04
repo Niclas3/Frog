@@ -30,8 +30,11 @@ bool is_pipe(int_32 fd)
 int_32 sys_pipe(int_32 pipefd[2])
 {
     int_32 g_fd = occupy_file_table_slot();
-    g_file_table[g_fd].fd_inode = get_kernel_page(1);
-    init_ioqueue((struct ioqueue *) g_file_table[g_fd].fd_inode);
+    /* g_file_table[g_fd].fd_inode = get_kernel_page(1); */
+    CircleQueue *queue = init_ioqueue(4096);
+    g_file_table[g_fd].fd_inode = (void *)queue;
+    /* init_ioqueue((struct ioqueue *) g_file_table[g_fd].fd_inode); */
+
     if (g_file_table[g_fd].fd_inode == NULL) {
         return -1;
     }
@@ -48,8 +51,8 @@ int_32 sys_pipe(int_32 pipefd[2])
 static int_32 destory_pipe(int_32 g_fd)
 {
     struct file file = g_file_table[g_fd];
-    if (is_pipe(g_fd) && (--file.fd_pos == 0)) {
-        mfree_page(MP_KERNEL, (uint_32) file.fd_inode,1);
+    if ((--file.fd_pos == 0)) {
+        destory_ioqueue((CircleQueue *) file.fd_inode);
         file.fd_inode = NULL;
         return 0;
     }
@@ -80,13 +83,7 @@ uint_32 read_pipe(int_32 fd, void *buf, uint_32 count)
     uint_32 bytes_read = 0;
     int_32 g_fd = fd_local2global(fd);
     struct ioqueue *queue = (struct ioqueue *) g_file_table[g_fd].fd_inode;
-    uint_32 q_len = ioqueue_length(queue);
-    uint_32 size = MIN(q_len, count);
-    while (bytes_read < size) {
-        *buffer = ioqueue_get_data(queue);
-        bytes_read++;
-        buffer++;
-    }
+    bytes_read = ioqueue_get_data(queue, buf, count);
     return bytes_read;
 }
 
@@ -96,21 +93,13 @@ uint_32 write_pipe(int_32 fd, const void *buf, uint_32 count)
     uint_32 bytes_write = 0;
     int_32 g_fd = fd_local2global(fd);
     struct ioqueue *queue = (struct ioqueue *) g_file_table[g_fd].fd_inode;
-
-    uint_32 q_len = ioqueue_length(queue);
-    uint_32 size = MIN(QUEUE_MAX - q_len, count);
-
-    while (bytes_write < size) {
-        ioqueue_put_data(*buffer, queue);
-        bytes_write++;
-        buffer++;
-    }
+    bytes_write = ioqueue_put_data(queue,(char*) buf, count);
     return bytes_write;
 }
 
-uint_32 pipe_length(int_32 fd)
+int_32 pipe_check(int_32 fd)
 {
     int_32 g_fd = fd_local2global(fd);
     struct ioqueue *queue = (struct ioqueue *) g_file_table[g_fd].fd_inode;
-    return ioqueue_length(queue);
+    return ioqueue_check(queue);
 }
