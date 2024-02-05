@@ -745,6 +745,7 @@ setpage:
 ;; ebp+12 ---> base address
 ;; ebp+16 ---> count read-in sector number
 ;===============================================================================
+;; TODO: Use 32bit register !
 read_hard_disk_qemu:
     mov ebp, esp
     ;; Read
