@@ -4,7 +4,7 @@
 #include <sys/int.h>
 
 
-static uint_32 ioqueue_avaliable(CircleQueue *queue)
+uint_32 ioqueue_avaliable(CircleQueue *queue)
 {
     uint_32 len = 0;
     if (queue->consumor_p == queue->producer_p) {
@@ -33,7 +33,6 @@ static inline uint_32 ioqueue_unread(CircleQueue *queue)
 }
 
 
-
 int_32 ioqueue_check(CircleQueue *queue)
 {
     if (ioqueue_unread(queue) > 0) {
@@ -51,6 +50,14 @@ uint_32 ioqueue_is_full(CircleQueue *queue)
 uint_32 ioqueue_is_empty(CircleQueue *queue)
 {
     return queue->producer_p == queue->consumor_p;
+}
+
+int ioqueue_size(CircleQueue *queue)
+{
+    lock_fetch(&queue->queue_lock);
+    int out = ioqueue_unread(queue);
+    lock_release(&queue->queue_lock);
+    return out;
 }
 
 
