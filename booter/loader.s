@@ -478,13 +478,15 @@ LABEL_SEG_CODE32:
     ; ; mov ecx, 128 ; for  64kb
     ; ; mov ecx, 160 ; for  80kb
     ; ; mov ecx, 240 ; for 120kb
+    ;;  mov ecx, 300 ; for 150kb
     ; call SELECTOR_CODE:read_hard_disk_32
 
     ; Read n sector from hard disk 
     ; ebp+4 ---> count read-in sector number
     ; ebp+8 ---> base address
     ; ebp+12---> LBA sector number
-    push 240             ;; read sector number 
+    ; push 300 ;; read sector number 
+    push 255 ;; read sector number 
     push KERNELBIN_START
     push 13              ;; start LBA address
     call SELECTOR_CODE:read_hard_disk_qemu
@@ -577,7 +579,7 @@ LABEL_SEG_CODE32:
     ; ebp+12---> LBA sector number
     push 8
     push FONT_START
-    push 253
+    push 2048
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12   ; Clean up the stack after the function call
 
