@@ -28,6 +28,9 @@ uint_32 ioqueue_get_data(CircleQueue *queue, char* data, uint_32 count);
 // return -1 no data unread
 int_32 ioqueue_check(CircleQueue *queue);
 
+uint_32 ioqueue_avaliable(CircleQueue *queue);
+int ioqueue_size(CircleQueue *queue);
+
 // return !0 when queue is full
 uint_32 ioqueue_is_full(CircleQueue *queue);
 // return !0 when queue is empty
