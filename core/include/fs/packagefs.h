@@ -1,10 +1,10 @@
 #ifndef __FS_PACKAGEFS_H
 #include <ostype.h>
+#include <sys/ioctl.h>
 struct partition;
 struct dir;
 struct file;
 
-#define IO_PACKAGEFS_QUEUE 0x9001
 
 bool is_pkg_file(struct partition *part, int_32 inode_nr);
 bool is_pkg_fd(int_32 fd);
