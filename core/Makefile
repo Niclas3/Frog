@@ -13,6 +13,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/destab.o  \
 	 $(BUILD_DIR)/usr.o $(BUILD_DIR)/systask.o $(BUILD_DIR)/syscall-init.o \
 	 $(BUILD_DIR)/lib.o $(BUILD_DIR)/libdebug.o $(BUILD_DIR)/list.o $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/stdio.o  $(BUILD_DIR)/poudland.o\
+	 $(BUILD_DIR)/packetx.o \
 	 $(BUILD_DIR)/string.o \
 	 $(BUILD_DIR)/ipc.o \
 	 $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o $(BUILD_DIR)/pipe.o  $(BUILD_DIR)/select.o\
@@ -65,6 +66,9 @@ $(BUILD_DIR)/lib.o:
 
 $(BUILD_DIR)/poudland.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "poudland.c")
+
+$(BUILD_DIR)/packetx.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "packetx.c")
 
 # $(BUILD_DIR)/graphic.o:
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "graphic.c")
