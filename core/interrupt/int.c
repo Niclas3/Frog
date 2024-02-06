@@ -95,11 +95,11 @@ void exception_handler(int vec_no, int err_code, int eip, int cs, int eflags)
     };
     if (g_boot_gfx_mode == 1) {
         char str[50];
-        sprintf(str, "No.%d, %s", vec_no, err_msg[vec_no]);
-        draw_info(0xc00a0000, 320, COL8_FF0000, 0, 100, str);
-        memset(str, 0, 50);
-        sprintf(str, "eip 0x%x ", eip);
-        draw_info(0xc00a0000, 320, COL8_FF0000, 0, 120, str);
+        /* sprintf(str, "No.%d, %s", vec_no, err_msg[vec_no]); */
+        /* draw_info(0xc00a0000, 320, COL8_FF0000, 0, 100, str); */
+        /* memset(str, 0, 50); */
+        /* sprintf(str, "eip 0x%x ", eip); */
+        /* draw_info(0xc00a0000, 320, COL8_FF0000, 0, 120, str); */
     } else if (g_boot_gfx_mode == 2) {
         kprint_with_cls("Exception\n");
         kprint("No.%d, %s\n", vec_no, err_msg[vec_no]);
