@@ -16,6 +16,11 @@ int_32 open_pkg(struct partition *part,
                 uint_32 inode_nr,
                 uint_8 flags);
 
+int_32 packagefs_create(struct partition *part,
+                        struct dir *parent_d,
+                        char *name,
+                        void *target);
+
 void packagefs_init(void);
 
 uint_32 read_server(struct file *file, void *buf, uint_32 count);

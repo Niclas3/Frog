@@ -3,14 +3,15 @@
 #include <fs/fcntl.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
+#include <fs/packagefs.h>
 #include <fs/super_block.h>
 
 #include <device/devno-base.h>
 #include <device/ide.h>
+#include <device/lfbvideo.h>
 #include <device/pc_kbd.h>
 #include <device/pc_mouse.h>
 #include <device/ps2hid.h>
-#include <device/lfbvideo.h>
 #include <fs/file.h>
 #include <fs/pipe.h>
 
@@ -35,13 +36,21 @@ extern struct list_head partition_list;  // partition list
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;
 
-extern int_32 kbd_create(struct partition *part,
-                         struct dir *parent_d,
-                         char *name,
-                         void *target);
+/* extern int_32 kbd_create(struct partition *part, */
+/*                          struct dir *parent_d, */
+/*                          char *name, */
+/*                          void *target); */
+
+/* extern int_32 packagefs_create(struct partition *part, */
+/*                                struct dir *parent_d, */
+/*                                char *name, */
+/*                                void *target); */
 
 struct partition mounted_part;  // the partition what we want to mount.
 
+#ifndef CLIENT_MARK
+#define CLIENT_MARK 0xdeadbeef
+#endif
 
 static void inode_all_zones(struct partition *part,
                             struct inode *inode,
@@ -682,17 +691,46 @@ int_32 sys_open(const char *pathname, uint_8 flags)
         return -1;
     }
     switch (flags & O_CREAT) {
-    case O_CREAT:
-        fd = file_create(&mounted_part, next_dir, last_name, flags);
+    case O_CREAT: {
+        if (file_inode_nr != -1) {
+            if (is_char_file(&mounted_part, file_inode_nr)) {
+                PANIC("Char device can not use O_CREAT");
+            } else if (is_pkg_file(&mounted_part, file_inode_nr)) {
+                // create client
+                fd = open_pkg(&mounted_part, next_dir, last_name, file_inode_nr,
+                              flags);
+            } else {
+                fd = file_create(&mounted_part, next_dir, last_name, flags);
+            }
+        } else {
+            if (!strncmp(pathname, "/dev/pkg", 8)) {
+                // create server
+                fd = open_pkg(&mounted_part, next_dir, last_name, file_inode_nr,
+                              flags);
+            } else {
+                fd = file_create(&mounted_part, next_dir, last_name, flags);
+            }
+        }
         dir_close(next_dir);
         break;
+    }
     case O_RDWR:
     case O_RDONLY:
     case O_WRONLY:
         /*when flags is O_RDWR, O_RDONLY, O_WRONLY */
         {
             if (is_char_file(&mounted_part, file_inode_nr)) {
-                fd = open_aux(&mounted_part, file_inode_nr, flags);
+                if (is_dev(&mounted_part, file_inode_nr, DNOAUX)) {
+                    fd = open_aux(&mounted_part, file_inode_nr, flags);
+                } else if (is_dev(&mounted_part, file_inode_nr, DNOLFB)) {
+                    fd = open_lfb(&mounted_part, file_inode_nr, flags);
+                } else {
+                    fd = open_aux(&mounted_part, file_inode_nr, flags);
+                }
+            } else if (is_pkg_file(&mounted_part, file_inode_nr)) {
+                // create a client
+                fd = open_pkg(&mounted_part, next_dir, last_name, file_inode_nr,
+                              flags);
             } else {
                 fd = file_open(&mounted_part, file_inode_nr, flags);
             }
@@ -775,6 +813,19 @@ int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
         struct file *wr_file = &g_file_table[g_fd];
         bytes_written = write_aux(wr_file, buf, count);
         return bytes_written;
+    } else if (is_pkg_fd(fd)) {
+        uint_32 g_fd = fd_local2global(fd);
+        struct file *package = &g_file_table[g_fd];
+        if (package->fd_pos == CLIENT_MARK) {
+            // package is client
+            bytes_written = write_client(package, buf, count);
+            return bytes_written;
+
+        } else {
+            // package is server
+            bytes_written = write_server(package, buf, count);
+            return bytes_written;
+        }
     } else {
         uint_32 g_fd = fd_local2global(fd);
         struct file *wr_file = &g_file_table[g_fd];
@@ -840,6 +891,17 @@ int_32 sys_read(int_32 fd, void *buf, uint_32 count)
             res = read_pcmouse(f, buf, count);
         } else if (f->fd_inode->i_dev == DNOPCKBD) {
             res = read_kbd(f, buf, count);
+        }
+    } else if (is_pkg_fd(fd)) {
+        uint_32 g_fd = fd_local2global(fd);
+        struct file *package = &g_file_table[g_fd];
+        if (package->fd_pos == CLIENT_MARK) {
+            // package is client
+            res = read_client(package, buf, count);
+
+        } else {
+            // package is server
+            res = read_server(package, buf, count);
         }
     } else {
         uint_32 g_fd = fd_local2global(fd);
@@ -1493,7 +1555,6 @@ int_32 sys_mount_device(const char *pathname, uint_32 dev_no, void *file)
         break;
     }
     case DNOPCKBD: {
-        /* fd = kbd_create(&mounted_part, next_dir, last_name, file); */
         fd = kbd_create(&mounted_part, next_dir, last_name, file);
         break;
     }
@@ -1509,21 +1570,12 @@ int_32 sys_mount_device(const char *pathname, uint_32 dev_no, void *file)
         fd = console_create(&mounted_part, next_dir, last_name, file);
         break;
     }
+    case DNOPKGFS: {
+        fd = packagefs_create(&mounted_part, next_dir, last_name, file);
+    }
     }
     dir_close(next_dir);
     return fd;
-
-    /* int_32 file_inode = search_file(&mounted_part, next_dir, last_name); */
-    /* if (file_inode == -1) { */
-    /*     fd = char_file_create(&mounted_part, next_dir, last_name, file); */
-    /*     dir_close(next_dir); */
-    /*     return fd; */
-    /* } else { */
-    /*     // TODO: */
-    /*     // kprint("File not found and want to read file."); */
-    /*     dir_close(next_dir); */
-    /*     return file_inode; */
-    /* } */
 }
 
 uint_32 sys_poll(struct file *file, struct poll_table_struct *wait)
@@ -1535,21 +1587,33 @@ uint_32 sys_poll(struct file *file, struct poll_table_struct *wait)
         res = poll_pcmouse(file, wait);
     } else if (file->fd_inode->i_dev == DNOPCKBD) {
         res = poll_kbd(file, wait);
+    } else if (file->fd_inode->i_dev == DNOPKGFS) {
+        if (file->fd_pos == CLIENT_MARK) {
+            /* res = ioctl_client(file, request, argp); */
+        } else {
+            /* res = ioctl_server(file, request, argp); */
+        }
     }
     return res;
 }
 
-uint_32 sys_ioctl(int_32 fd, uint_32 request, void* argp)
+uint_32 sys_ioctl(int_32 fd, uint_32 request, void *argp)
 {
     uint_32 res;
     struct file *file = get_file(fd);
     if (file->fd_inode->i_dev == DNOAUX) {
     } else if (file->fd_inode->i_dev == DNOPCMOUSE) {
     } else if (file->fd_inode->i_dev == DNOPCKBD) {
-    } else if (file->fd_inode->i_dev == DNOLFB){
+    } else if (file->fd_inode->i_dev == DNOLFB) {
         res = ioctl_vid(file, request, argp);
-    } else if (file->fd_inode->i_dev == DNOCONSOLE){
+    } else if (file->fd_inode->i_dev == DNOCONSOLE) {
         res = ioctl_console(file, request, argp);
+    } else if (file->fd_inode->i_dev == DNOPKGFS) {
+        if (file->fd_pos == CLIENT_MARK) {
+            res = ioctl_client(file, request, argp);
+        } else {
+            res = ioctl_server(file, request, argp);
+        }
     }
     return res;
 }

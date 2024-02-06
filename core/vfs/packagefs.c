@@ -90,9 +90,9 @@ bool is_pkg_fd(int_32 fd)
  *****************************************************************************/
 static uint_32 receive_packet(CircleQueue *msg_list, package_t **out)
 {
-    uint_32 data_size = 0;
     // 4 to read first 4 bytes get real size
-    ioqueue_get_data(msg_list, (char *) data_size, 4);
+    uint_32 data_size = 0;
+    ioqueue_get_data(msg_list, (char *) &data_size, 4);
     package_t *tmp = sys_malloc(data_size + sizeof(package_t));
     tmp->size = data_size;
     uint_32 res = ioqueue_get_data(msg_list, (char *) tmp + 4,
@@ -143,21 +143,35 @@ static int send_to_client(pkg_server_t *serv,
 // create more clients
 static pkg_client_t *create_client(pkg_server_t *server)
 {
+    TCB_t *cur = running_thread();
+    uint_32 *cur_pagedir_bak = cur->pgdir;
+    cur->pgdir = NULL;
+    // this memory at kernel for share
     pkg_client_t *client = sys_malloc(sizeof(pkg_client_t));
+    cur->pgdir = cur_pagedir_bak;
+
     client->msg_list = init_ioqueue(4000);
     client->server = server;
     list_add_tail(&client->client_target, &server->clients);
     return client;
 }
 
-static pkg_server_t *create_server(char *name, pkg_monitor *monitor)
+/* static pkg_server_t *create_server(char *name, pkg_monitor *monitor) */
+static pkg_server_t *create_server(char *name)
 {
+    TCB_t *cur = running_thread();
+    uint_32 *cur_pagedir_bak = cur->pgdir;
+    cur->pgdir = NULL;
+    // this memory at kernel for share
     pkg_server_t *server = sys_malloc(sizeof(pkg_server_t));
+    cur->pgdir = cur_pagedir_bak;
+
     server->msg_list = init_ioqueue(4000);
     INIT_LIST_HEAD(&server->clients);
+    server->name = sys_malloc(strlen(name));
     strcpy(server->name, name);
     lock_init(&server->lock);
-    list_add_tail(&server->server_target, &monitor->servers);
+    /* list_add_tail(&server->server_target, &monitor->servers); */
     return server;
 }
 
@@ -186,7 +200,17 @@ int_32 packagefs_create(struct partition *part,
         return -1;
     }
     ASSERT(inode_nr != -1);
+
+    //--------------------------------------------------------------------
+    // alloc memory struct inode at kernel memory
+    TCB_t *cur = running_thread();
+    uint_32 *cur_pagedir_bak = cur->pgdir;
+    cur->pgdir = NULL;
+    // this memory at kernel for share
     struct inode *new_f_inode = sys_malloc(sizeof(struct inode));
+    cur->pgdir = cur_pagedir_bak;
+    //--------------------------------------------------------------------
+
     if (!new_f_inode) {
         // TODO:
         //  kprint("Not enough memory for inode .");
@@ -265,12 +289,14 @@ int_32 open_pkg(struct partition *part,
 {
     if ((flags & O_CREAT) == O_CREAT) {
         // create server
-        int_32 fd = sys_open("/dev/pkg", O_RDONLY);
-        if (fd == -1) {
-            return -1;
-        }
-        pkg_monitor *m = (pkg_monitor *) get_file(fd)->fd_inode->i_zones[0];
-        pkg_server_t *server = server = create_server(name, m);
+        /* int_32 fd = sys_open("/dev/pkg", O_RDONLY); */
+        /* if (fd == -1) { */
+        /*     return -1; */
+        /* } */
+        /* pkg_monitor *m = (pkg_monitor *) get_file(fd)->fd_inode->i_zones[0];
+         */
+        /* pkg_server_t *server = server = create_server(name, m); */
+        pkg_server_t *server = create_server(name);
         // create a dir entry /dev/pkg/****(name)
         int_32 gidx = packagefs_create(part, parent_d, name, server);
         return install_thread_fd(gidx);
@@ -287,7 +313,13 @@ int_32 open_pkg(struct partition *part,
             return -1;
         }
 
+        TCB_t *cur = running_thread();
+        uint_32 *cur_pagedir_bak = cur->pgdir;
+        cur->pgdir = NULL;
+        // this memory at kernel for share
         struct inode *client_inode = sys_malloc(sizeof(struct inode));
+        cur->pgdir = cur_pagedir_bak;
+
         client_inode->i_zones[0] = client;
         client_inode->i_mode = FT_FIFO << 11;
         client_inode->i_count++;
@@ -315,8 +347,8 @@ uint_32 read_server(struct file *file, void *buf, uint_32 count)
         return -1;
     }
 
-    memcpy(buf, packet, packet->size + sizeof(package_t));
-    uint_32 out = packet->size + sizeof(package_t);
+    memcpy(buf, packet->data, packet->size);
+    uint_32 out = packet->size;
 
     sys_free(packet);
     return out;
@@ -347,8 +379,7 @@ uint_32 write_server(struct file *file, const void *buf, uint_32 count)
     }
 
     return send_to_client(p, head->target, count - sizeof(header_t),
-                          head->data) +
-           sizeof(header_t);
+                          head->data) + sizeof(header_t);
 }
 
 int_32 ioctl_server(struct file *file, unsigned long request, void *argp)
@@ -385,8 +416,8 @@ uint_32 read_client(struct file *file, void *buf, uint_32 count)
         return -1;
     }
 
-    memcpy((char *) buf, packet, packet->size + sizeof(package_t));
-    uint_32 out = packet->size + sizeof(package_t);
+    memcpy((char *) buf, packet->data, packet->size);
+    uint_32 out = packet->size;
 
     sys_free(packet);
     return out;
@@ -400,7 +431,8 @@ uint_32 write_client(struct file *file, const void *buf, uint_32 count)
         /* debug_print(WARNING, "Size of %lu is too big.", size); */
         return -EINVAL;
     }
-    send_to_client(c->server, c, count, buf);
+    /* send_to_client(c->server, c, count, buf); */
+    send_to_server(c->server, c, count, buf);
     return count;
 }
 
@@ -409,7 +441,7 @@ int_32 ioctl_client(struct file *file, unsigned long request, void *argp)
     switch (request) {
     case IO_PACKAGEFS_QUEUE: {
         validate(argp);
-        pkg_client_t *c = (pkg_client_t*) file->fd_inode->i_zones[0];
+        pkg_client_t *c = (pkg_client_t *) file->fd_inode->i_zones[0];
         uint_32 size = ioqueue_size(c->msg_list);
 
         return size;
@@ -434,5 +466,5 @@ static pkg_monitor *create_packetfs_monitor()
 void packagefs_init(void)
 {
     pkg_monitor *m = create_packetfs_monitor();
-    sys_mount_device("/dev/pkg", DNOPKGFS, m);
+    sys_mount_device("/dev/pkg/monitor", DNOPKGFS, m);
 }
