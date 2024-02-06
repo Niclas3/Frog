@@ -333,6 +333,8 @@ int_32 open_pkg(struct partition *part,
     }
 }
 
+
+// server read server fifo
 uint_32 read_server(struct file *file, void *buf, uint_32 count)
 {
     package_t *packet = NULL;
@@ -347,13 +349,14 @@ uint_32 read_server(struct file *file, void *buf, uint_32 count)
         return -1;
     }
 
-    memcpy(buf, packet->data, packet->size);
-    uint_32 out = packet->size;
+    uint_32 out_size = packet->size + sizeof(package_t);
+    memcpy(buf, packet, out_size);
 
     sys_free(packet);
-    return out;
+    return out_size;
 }
 
+// server write to client 
 uint_32 write_server(struct file *file, const void *buf, uint_32 count)
 {
     pkg_server_t *p = (pkg_server_t *) file->fd_inode->i_zones[0];
