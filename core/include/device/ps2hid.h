@@ -47,6 +47,7 @@ void inthandler2C(void);
 void inthandler21(void);
 
 
+bool is_dev(struct partition *part, int_32 inode_nr, int_32 dev_flag);
 bool is_char_file(struct partition *part, int_32 inode_nr);
 bool is_char_fd(int_32 fd);
 
