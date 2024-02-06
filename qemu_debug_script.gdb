@@ -3,25 +3,30 @@ target remote localhost:1234
 # file core/build/core_symbol.img
 
 # set architecture i386
-# file core/build/core_symbol.img
-file core/apps/build/compositor
+file core/build/core_symbol.img
+# file core/apps/build/compositor
 tui en
 # if GDB7.0
 # layout asm
 # set disassemble-next-line on
 
-# b *0xc0070000
-# b exception_handler
+b *0xc0070000
+b exception_handler
 b panic_print
 
+b ioqueue_put_data
+b ioqueue_get_data
+b u_fund
+
+
 ### debug compositor
-b main
-b info_JPEG
+# b main
+# b info_JPEG
 # b quick_create_window
-b draw_mouse
-b poudland_blit_windows
-b bmp_meta
-b compositor.c:554
+# b draw_mouse
+# b poudland_blit_windows
+# b bmp_meta
+# b compositor.c:554
 
 
 

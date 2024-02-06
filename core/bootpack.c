@@ -20,6 +20,7 @@
 #include <protect.h>
 
 #include <device/lfbvideo.h>
+#include <fs/packagefs.h>
 
 #include <device/cmos.h>
 #include <kernel_print.h>
@@ -91,7 +92,6 @@ void u_fund(int a);
 void u_funf(int a);
 void u_fune(int a);
 void u_fung(int a);
-void _redraw(struct poudland_globals *p_glb);
 
 
 void gfx_test_print_fn(gfx_context_t *ctx,
@@ -142,35 +142,37 @@ void UkiMain(void)
     fs_init();
     ps2hid_init();
 
+    packagefs_init(); /* "/dev/pkg" */
+
     /************************load test programe*******************************/
-    char *app_path = "/cor";
-    char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 87 * 1024;
-    char *ls_buf = sys_malloc(file_sz);
-    uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
-    struct disk *disk0 = &channels[0].devices[0];
-    struct disk *disk1 = &channels[0].devices[1];
-    ide_read(disk0, 384, ls_buf, sectors);
-    int_32 fd = open(app_path, O_RDWR);
-    if (fd == -1) {
-        fd = open(app_path, O_CREAT | O_RDWR);
-    }
-    sys_write(fd, ls_buf, file_sz);
-    sys_close(fd);
-    sys_free(ls_buf);
+    /* char *app_path = "/cor"; */
+    /* char *argv[2] = {"a", "b"}; */
+    /* uint_32 file_sz = 87 * 1024; */
+    /* char *ls_buf = sys_malloc(file_sz); */
+    /* uint_32 sectors = DIV_ROUND_UP(file_sz, 512); */
+    /* struct disk *disk0 = &channels[0].devices[0]; */
+    /* struct disk *disk1 = &channels[0].devices[1]; */
+    /* ide_read(disk0, 3000, ls_buf, sectors); */
+    /* int_32 fd = open(app_path, O_RDWR); */
+    /* if (fd == -1) { */
+    /*     fd = open(app_path, O_CREAT | O_RDWR); */
+    /* } */
+    /* sys_write(fd, ls_buf, file_sz); */
+    /* sys_close(fd); */
+    /* sys_free(ls_buf); */
     /*****************************************************************/
 
     /************************load test image file*****************************/
-    char *image_path = "/b.bmp";
-    uint_32 img_sz =  9.3 * 1024;
-    uint_32 image_offset = 6144;
-    load_file_from_disk0(image_path, img_sz, disk0, image_offset);
+    /* char *image_path = "/b.bmp"; */
+    /* uint_32 img_sz = 9.3 * 1024; */
+    /* uint_32 image_offset = 6144; */
+    /* load_file_from_disk0(image_path, img_sz, disk0, image_offset); */
     /*****************************************************************/
     /************************load test jpeg image file******************/
     /* char *jpeg_path = "/b.jpg"; */
     /* uint_32 jpeg_sz = 2 * 1024; */
-    /* uint_32 jpeg_offset = 6144; */
-    /* load_file_from_disk0(jpeg_path, jpeg_sz, disk0, jpeg_offset); */
+    /* uint_32 jpeg_offset = 6144; */ /* load_file_from_disk0(jpeg_path,
+                                         jpeg_sz, disk0, jpeg_offset); */
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
@@ -201,11 +203,9 @@ void UkiMain(void)
 
         /* printf("-<zm@k:%s>-", path); */
 
-        /* gettimeofday(&t1, NULL); */
-        int testfd = sys_open("/a.bmp", O_RDONLY);
-        process_execute(u_fune, "app-com");  // pid 6
+        /* process_execute(u_fune, "app-com");  //Real app  */
 
-        /* process_execute(u_fund, "compositor");  // pid 5 */
+        process_execute(u_fund, "server");  // pid 5
 
         // Draw 2 Ract
         /* top_left.X = 20; */
@@ -259,13 +259,14 @@ void UkiMain(void)
         int my = 50;
 
         /* draw_backgrond(info.vram, info.scrnx, info.scrny); */
-        draw_backgrond(0xc00a0000, 320, 200);
-        draw_info((uint_8 *) 0xc00a0000, 320, COL8_848484, 20, 0, "test");
-
-        char *mcursor = sys_malloc(256);
-        draw_cursor8(mcursor, COL8_848484);
-        putblock8_8((char *) 0xc00a0000, vxsize, 16, 16, mx, my, mcursor, 16);
-        sys_free(mcursor);
+        /* draw_backgrond(0xc00a0000, 320, 200); */
+        /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_848484, 20, 0, "test"); */
+        /*  */
+        /* char *mcursor = sys_malloc(256); */
+        /* draw_cursor8(mcursor, COL8_848484); */
+        /* putblock8_8((char *) 0xc00a0000, vxsize, 16, 16, mx, my, mcursor,
+         * 16); */
+        /* sys_free(mcursor); */
 
     } else if (g_boot_gfx_mode == BOOT_CGA_MODE) {
         /* cls_screen(); */
@@ -349,101 +350,12 @@ void gfx_test_print_fn(gfx_context_t *ctx,
     }
 }
 
-void func(int a)
-{
-    while (1) {
-        /* char readbuf[1] = "x"; */
-        /* spin_lock(spin_lock); */
-        /*  */
-        /* #<{(| sys_write(stdout_, readbuf, 1); |)}># */
-        /*  */
-        /* spin_unlock(spin_lock); */
-    }
-    // Read from file
-    /* int_32 fd2 = sys_open("/test1.txt", O_RDONLY); */
-    /* if (fd2 == -1) { */
-    /*     while (1) */
-    /*         ; */
-    /*     #<{(| fd2 = sys_open("/test1.txt", O_CREAT); |)}># */
-    /* } */
-    /* #<{(| TCB_t *cur = running_thread(); |)}># */
-    /* #<{(| struct file f2 = g_file_table[cur->fd_table[fd2]]; |)}># */
-    /* #<{(|  |)}># */
-    /* #<{(| f2.fd_pos = 512; |)}># */
-    /* uint_32 buf_len = 512; */
-    /* char *buf = sys_malloc(buf_len); */
-    /* #<{(| file_read(&mounted_part, &f2, buf, buf_len); |)}># */
-    /* #<{(| file_read(&mounted_part, &f2, buf, buf_len); |)}># */
-    /* sys_read(fd2, buf, buf_len); */
-    /*  */
-    /* sys_free(buf); */
-    /* sys_close(fd2); */
-    //--------------------------------------------------------------------------
-    /* uint_32 pid = getpid(); */
-    /* while (1) { */
-    /*     lock_fetch(&main_lock); */
-    /*     draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 0, pid); */
-    /*     lock_release(&main_lock); */
-    /* } */
-}
+void func(int a) {}
 
 void funcb(int a)
 {
-    while (1) {
-        char readbuf[2] = "y";
-        spin_lock(spin_lock);
-
-        sys_write(stdout, readbuf, 1);
-
-        spin_unlock(spin_lock);
-    }
-    /* int_32 fd2 = sys_open("/test1.txt", O_RDWR); */
-    /* if (fd2 == -1) { */
-    /*     fd2 = sys_open("/test1.txt", O_CREAT); */
-    /*     sys_close(fd2); */
-    /*     fd2 = sys_open("/test1.txt", O_RDWR); */
-    /* } */
-    /*  */
-    /* TCB_t *cur = running_thread(); */
-    /* char buf[512] = {'V'}; */
-    /* struct file f2 = g_file_table[cur->fd_table[fd2]]; */
-    /* for (int i = 0; i < 140; i++) { */
-    /*     int ret = 0; */
-    /*     #<{(| sprintf(buf, "%c", "A"); |)}># */
-    /*     ret = sys_write(fd2, buf, strlen(buf)); */
-    /*     if (ret == 0) */
-    /*         break; */
-    /*     #<{(| file_write(&mounted_part, &f2, buf, strlen(buf)); |)}># */
-    /* } */
-
-    /* sys_lseek(fd2, -2, SEEK_END); */
-    /* sys_lseek(fd2, -2, SEEK_END); */
-    /* char *buf = sys_malloc(512); */
-    /* sys_lseek(fd2, 1, SEEK_SET); */
-    /* sys_read(fd2, buf, 12); */
-    /* sys_write(fd2, "R", 1); */
-    /* sys_lseek(fd2, -1, SEEK_END); */
-    /* sys_read(fd2, buf, 12); */
-    /* sys_lseek(fd2, -71680, SEEK_END); */
-    /* sys_read(fd2, buf, 12); */
-    /* sys_write(fd2, "Q", 1); */
-    /* for (int i = 0; i < 65535; i++) { */
-    /*     char buf[10] = {0}; */
-    /*     sprintf(buf, "%d",i ); */
-    /*     sys_write(fd2, buf, strlen(buf)); */
-    /* } */
-    /* sys_close(fd2); */
-
-    /* TCB_t *cur = running_thread(); */
-    /* #<{(| while(1){ |)}># */
-    /* lock_fetch(&main_lock); */
-    /* draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 200, 36, cur->pid); */
-    /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_FFFFFF, 100, 0, "T"); */
-    /* draw_info((uint_8 *) 0xc00a0000, 320, COL8_FF00FF, 100, 0, "H"); */
-    /* lock_release(&main_lock); */
-    /* #<{(| } |)}># */
-    /* while (1) */
-    /*     ; */
+    while (1)
+        ;
 }
 
 void funcc(int a)
@@ -452,104 +364,79 @@ void funcc(int a)
         ;
 }
 
-void _redraw(struct poudland_globals *pg)
-{
-    argb_t col = FSK_GOLD;
-    argb_t bg = FSK_DARK_BLUE;
-    gfx_context_t *ctx = pg->backend_ctx;
-    gfx_clear_clip(pg->backend_ctx);
-
-    // mouse draw test
-    /* draw_pixel(ctx, pg->mouse_x, pg->mouse_y, FSK_GOLD); */
-    gfx_add_clip(pg->backend_ctx, pg->mouse_x, pg->mouse_y, 48, 48);
-    /* draw_2d_gfx_cursor(ctx, pg->mouse_x, pg->mouse_y, &col); */
-    gfx_add_clip(pg->backend_ctx, pg->last_mouse_x, pg->last_mouse_y, 48, 48);
-    /* draw_2d_gfx_cursor(ctx, pg->last_mouse_x, pg->last_mouse_y, &bg); */
-    flip(ctx);
-}
 //
 //------------------------------------------------------------------------------
 // process function
 //------------------------------------------------------------------------------
 
-// proc B
+// server
+int_32 sfd;
+int_32 cfd;
 void u_fund(int a)
 {
-    mouse_device_packet_t *mbuf = malloc(sizeof(mouse_device_packet_t));
-    char *buf = malloc(1);
-    uint_32 pkg_size = sizeof(mouse_device_packet_t);
-    int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
-    int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
+    typedef struct server_write_header {
+        uint_32 *target;
+        uint_8 data[];
+    } header_t;
+#define MAX_PACKET_SIZE 1024
 
-    int_32 fds[2] = {kbd_fd, mouse_fd};
-    struct timeval t2 = {.tv_sec = 16, .tv_usec = 0};
-    poudland_globals_t *global = malloc(sizeof(poudland_globals_t));
-    global->backend_ctx = g_ctx;
-    global->mouse_x = 200;
-    global->mouse_y = 200;
+    sfd = open("/dev/pkg/server", O_CREAT);
+    int pid = fork();
+    if (pid) {
+        typedef struct pex_header {
+            uint_32 *target;
+            uint_8 data[];
+        } pex_header_t;
+        while (1) {
+            uint_32 size = ioctl(sfd, IO_PACKAGEFS_QUEUE, NULL);
+            if (size > 0) {
+                char *buf = malloc(5);
+                read(sfd, buf, MAX_PACKET_SIZE);
+                printf("client %s\n", buf);
 
-    while (1) {
-        int_32 idx = wait2(2, fds, &t2);
-        if (idx == -1) {
-            // no interrupt happends
-            _redraw(global);  // _redraw() every 16s
-            continue;
+                char *sbuf = "56789";
+                pex_header_t *head = malloc(sizeof(pex_header_t) + strlen(sbuf));
+                head->target = NULL;
+                strcpy(head->data, sbuf);
+                write(sfd, head, sizeof(pex_header_t) + strlen(sbuf));  // reply to client
+            }
         }
-        int_32 selected_fd = fds[idx];
-        if (selected_fd == kbd_fd) {
-            printf("No.%d fd is wake \n", idx);
-            read(kbd_fd, buf, 1);
-            printf("key event %c key press\n", buf[0]);
-        } else if (selected_fd == mouse_fd) {
-            /* printf("No.%d fd is wake \n", idx); */
-            read(mouse_fd, mbuf, pkg_size);
-            struct timeval t = {0};
-            gettimeofday(&t, NULL);
-            /* printf("%d: %d   ", t.tv_sec, t.tv_usec); */
-            /* printf("mouse event:(x:%d, y:%d)\n", mbuf->x_difference, */
-            /*        mbuf->y_difference); */
-            global->last_mouse_x = global->mouse_x;
-            global->last_mouse_y = global->mouse_y;
-
-            global->mouse_x += mbuf->x_difference * 3;
-            global->mouse_y -= mbuf->y_difference * 3;
+    } else {
+        cfd = open("/dev/pkg/server", O_RDONLY);
+        bool has_write = 0;
+        while (!has_write) {
+            char *buf = "12345";
+            write(cfd, buf, 5);  // write to server
+            has_write = 1;
         }
-        _redraw(global);  // _redraw() every 16s
+        while (1) {
+            uint_32 size = ioctl(cfd, IO_PACKAGEFS_QUEUE, NULL);
+            if (size > 0) {
+                char *pkg = malloc(MAX_PACKET_SIZE);
+                read(cfd, pkg, MAX_PACKET_SIZE);
+                printf("from server %s\n", pkg);
+            }
+        }
     }
 }
 
-// proc C
+// Client1
 void u_funf(int a)
 {
+    while (1) {
+    }
+}
+
+// client2
+void u_fung(int a)
+{
+    int_32 cfd = open("/dev/pkg/server", O_RDONLY);
     while (1)
         ;
-    // pid expecting 2
-    /* pid_t pid_what = get_pid_mm_test(); */
-    /* pid_t pid = getpid(); */
-    /* #<{(| pid_t pid_what = get_pid(); |)}># */
-    /* #<{(| int maybe100 = get_ticks(); |)}># */
-    /*  */
-    /* while (1) { */
-    /*     // C->A */
-    /*     if (list_length(&process_all_list) >= 5) { */
-    /*         message msg; */
-    /*         reset_msg(&msg); */
-    /*         msg.m_type = 1234; */
-    /*         sendrec(SEND, 5, &msg); */
-    /*     } */
-    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 3 * 16,
-     * |)}># */
-    /*     #<{(|          maybe100); |)}># */
-    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 2 * 16,
-     * |)}># */
-    /*     #<{(|          pid_what); |)}># */
-    /*     #<{(| draw_hex((uint_8 *) 0xc00a0000, 320, COL8_00FF00, 100, 5 * 16,
-     * pid); */
-    /*      |)}># */
-    /* } */
 }
 
 // proc A
+// Real app
 void u_fune(int a)
 {
     char *argv[2] = {"a", "b"};
@@ -562,39 +449,8 @@ void u_fune(int a)
     /*     printf("child %d is dead", child_pid); */
     /*     printf("he saied %d", last_words); */
     /* } */
-
-
-    /* while (1) { */
-    /* struct timeval t; */
-    /* gettimeofday(&t, NULL); */
-    /* printf("s:%x, us:%x\n", t.tv_sec, t.tv_usec); */
-    /* } */
-    /* uint_32 ppid = getpid(); */
-    /* int_32 fd[2] = {-1}; */
-    /* pipe(fd); */
-    /* uint_32 ret_pid = fork(); */
-    /* if (ret_pid) { */
-    /*     close(fd[0]); */
-    /*     char *str = "hi, my son, good morning"; */
-    /*     write(fd[1], str, strlen(str)); */
-    /*     printf("wait status %d\n", 10); */
-    /*     while (1) */
-    /*         ; */
-    /* } else { */
-    /*     close(fd[1]); */
-    /*     char buf[40] = {0}; */
-    /*     read(fd[0], buf, 24); */
-    /*     printf("some one tell me %s", buf); */
-    /*     while (1) */
-    /*         ; */
-    /* } */
 }
 
-void u_fung(int a)
-{
-    while (1)
-        ;
-}
 
 void load_file_from_disk0(char *app_path,
                           uint_32 file_sz,
