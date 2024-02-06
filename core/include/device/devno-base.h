@@ -5,6 +5,9 @@
 #define DNOPCMOUSE 2
 #define DNOPCKBD 3
 #define DNOLFB 4   /*line frame buffer*/
-#define DNOCONSOLE 5   
+#define DNOCONSOLE 5
+
+/*special file system*/
+#define DNOPKGFS 6
 
 #endif
