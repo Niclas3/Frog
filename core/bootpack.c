@@ -52,6 +52,7 @@
 #include <fs/file.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
+#include <packetx.h>
 #include <print.h>
 #include <string.h>
 #include <sys/fstask.h>
@@ -205,7 +206,8 @@ void UkiMain(void)
 
         /* process_execute(u_fune, "app-com");  //Real app  */
 
-        process_execute(u_fund, "server");  // pid 5
+        /* process_execute(u_fund, "server");  // pid 5 */
+        process_execute(u_funf, "s2_t");  // pid 4
 
         // Draw 2 Ract
         /* top_left.X = 20; */
@@ -370,43 +372,47 @@ void funcc(int a)
 //------------------------------------------------------------------------------
 
 // server
-int_32 sfd;
-int_32 cfd;
 void u_fund(int a)
 {
-    typedef struct server_write_header {
-        uint_32 *target;
-        uint_8 data[];
-    } header_t;
 #define MAX_PACKET_SIZE 1024
-
-    sfd = open("/dev/pkg/server", O_CREAT);
+    int_32 sfd = open("/dev/pkg/server", O_CREAT);
     int pid = fork();
     if (pid) {
         typedef struct pex_header {
             uint_32 *target;
             uint_8 data[];
         } pex_header_t;
+
+        typedef struct {
+            uint_32 size;
+            void *source;
+            char data[];
+        } package_t;
+
         while (1) {
             uint_32 size = ioctl(sfd, IO_PACKAGEFS_QUEUE, NULL);
             if (size > 0) {
-                char *buf = malloc(5);
-                read(sfd, buf, MAX_PACKET_SIZE);
-                printf("client %s\n", buf);
+                package_t *pack = malloc(sizeof(pex_header_t) + 5);
+                read(sfd, pack, MAX_PACKET_SIZE);
+                printf("Client say: %s\n", pack->data);
 
-                char *sbuf = "56789";
-                pex_header_t *head = malloc(sizeof(pex_header_t) + strlen(sbuf));
+                char *sbuf = malloc(48);
+                sprintf(sbuf, "hello client this is server %d\n", getpid());
+                pex_header_t *head =
+                    malloc(sizeof(pex_header_t) + strlen(sbuf));
                 head->target = NULL;
                 strcpy(head->data, sbuf);
-                write(sfd, head, sizeof(pex_header_t) + strlen(sbuf));  // reply to client
+                write(sfd, head,
+                      sizeof(pex_header_t) + strlen(sbuf));  // reply to client
             }
         }
     } else {
-        cfd = open("/dev/pkg/server", O_RDONLY);
+        int_32 cfd = open("/dev/pkg/server", O_RDONLY);
         bool has_write = 0;
         while (!has_write) {
-            char *buf = "12345";
-            write(cfd, buf, 5);  // write to server
+            char *buf = malloc(48);
+            sprintf(buf, "Hi! server I'am client pid is %d", getpid());
+            write(cfd, buf, strlen(buf));  // write to server
             has_write = 1;
         }
         while (1) {
@@ -414,16 +420,52 @@ void u_fund(int a)
             if (size > 0) {
                 char *pkg = malloc(MAX_PACKET_SIZE);
                 read(cfd, pkg, MAX_PACKET_SIZE);
-                printf("from server %s\n", pkg);
+                printf("Server say: %s.\n", pkg);
             }
         }
     }
 }
 
-// Client1
+// test2
 void u_funf(int a)
 {
-    while (1) {
+    int sfd = pkx_bind("server");
+    if (sfd == -1) {
+        exit(0);
+    }
+    int_32 pid = fork();
+    if (pid) {
+        while (1) {
+            if (pkx_query(sfd)) {
+                packetx_t *packet = malloc(PACKET_SIZE);
+                uint_32 size = pkx_listen(sfd, packet);
+                printf("XClient say: %s\n", packet->data);
+
+                char *sbuf = malloc(48);
+                sprintf(sbuf, "hello XClient this is server %d", getpid());
+                void *ptr = packet->source;
+
+                pkx_send(sfd, ptr, strlen(sbuf), sbuf);
+            }
+        }
+
+    } else {
+        int cfd = pkx_connect("server");
+
+        bool has_write = 0;
+        while (!has_write) {
+            char *buf = malloc(48);
+            sprintf(buf, "Hi! Xserver I'am client pid is %d", getpid());
+            pkx_reply(cfd, strlen(buf), buf);
+            has_write = 1;
+        }
+        while (1) {
+            if (pkx_query(cfd)) {
+                char *pkg = malloc(MAX_PACKET_SIZE);
+                pkx_recv(cfd, pkg);
+                printf("XServer say:%s.\n", pkg);
+            }
+        }
     }
 }
 
