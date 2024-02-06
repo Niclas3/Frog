@@ -5,7 +5,7 @@ C_FLAG += -g
 BUILD_DIR = ./build
 
 C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
-	 $(BUILD_DIR)/graphic.o $(BUILD_DIR)/2d_graphics.o \
+	 $(BUILD_DIR)/2d_graphics.o \
          $(BUILD_DIR)/lfbvideo.o \
 	 $(BUILD_DIR)/ide.o $(BUILD_DIR)/ps2hid.o $(BUILD_DIR)/pc_mouse.o $(BUILD_DIR)/pc_kbd.o\
          $(BUILD_DIR)/console.o $(BUILD_DIR)/cmos.o \
@@ -17,6 +17,7 @@ C_OBJS = $(BUILD_DIR)/bootpack.o $(BUILD_DIR)/protect.o \
 	 $(BUILD_DIR)/ipc.o \
 	 $(BUILD_DIR)/inode.o $(BUILD_DIR)/fs_c.o $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o $(BUILD_DIR)/pipe.o  $(BUILD_DIR)/select.o\
 	 $(BUILD_DIR)/memory.o \
+         $(BUILD_DIR)/packagefs.o \
          $(BUILD_DIR)/semaphore.o $(BUILD_DIR)/process.o $(BUILD_DIR)/exec.o $(BUILD_DIR)/exit.o \
          $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o \
          $(BUILD_DIR)/sched.o $(BUILD_DIR)/fork.o \
@@ -65,8 +66,8 @@ $(BUILD_DIR)/lib.o:
 $(BUILD_DIR)/poudland.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "poudland.c")
 
-$(BUILD_DIR)/graphic.o:
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "graphic.c")
+# $(BUILD_DIR)/graphic.o:
+# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "graphic.c")
 $(BUILD_DIR)/2d_graphics.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find lib -type f -name "2d_graphics.c")
 
@@ -150,6 +151,9 @@ $(BUILD_DIR)/dir.o:
 
 $(BUILD_DIR)/select.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find fs -type f -name "select.c")
+
+$(BUILD_DIR)/packagefs.o:
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) -g $(shell find vfs -type f -name "packagefs.c")
 
 $(BUILD_DIR)/pic.o:
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $(shell find pic -type f -name "*.c")
