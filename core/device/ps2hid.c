@@ -184,6 +184,12 @@ bool is_char_file(struct partition *part, int_32 inode_nr)
     return IS_FT_CHAR(inode_char_file);
 }
 
+bool is_dev(struct partition *part, int_32 inode_nr, int_32 dev_flag)
+{
+    struct inode *inode_char_file = inode_open(part, inode_nr);
+    return inode_char_file->i_dev == dev_flag;
+}
+
 bool is_char_fd(int_32 fd)
 {
     uint_32 g_fd = fd_local2global(fd);
