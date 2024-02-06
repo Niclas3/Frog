@@ -8,6 +8,7 @@ struct dir;
 
 int_32 ioctl_vid(struct file *file, unsigned long request, void *argp);
 int_32 lfb_init(char *argp);
+int_32 open_lfb(struct partition *part, uint_32 inode_nr, uint_8 flags);
 int_32 lfbvideo_create(struct partition *part,
                        struct dir *parent_d,
                        char *name,

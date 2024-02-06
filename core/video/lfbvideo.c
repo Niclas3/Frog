@@ -117,6 +117,26 @@ static void finalize_graphics(const char *driver)
     sys_mount_device("/dev/fb0", DNOLFB, &vbe_mode);
 }
 
+int_32 open_lfb(struct partition *part, uint_32 inode_nr, uint_8 flags)
+{
+    lock_fetch(&g_ft_lock);
+    int_32 gidx = occupy_file_table_slot();
+    if (gidx == -1) {
+        // TODO:
+        // kprint("Not enough global file table slots. when open file");
+        return -1;
+    }
+    g_file_table[gidx].fd_inode = inode_open(part, inode_nr);
+    g_file_table[gidx].fd_pos = 0;
+    g_file_table[gidx].fd_flag = flags;
+    lock_release(&g_ft_lock);
+    if ((flags & O_RDONLY) == O_RDONLY) {
+        return install_thread_fd(gidx);
+    } else {
+        return -1;
+    }
+}
+
 /**
  * create a char type file
  *
@@ -159,23 +179,24 @@ int_32 lfbvideo_create(struct partition *part,
     // 2. new dir_entry
     struct dir_entry new_entry;
     new_dir_entry(name, inode_nr, FT_CHAR, &new_entry);
+    uint_32 fd_idx = 0;
     // 3.get file slot form global file_table
-    lock_fetch(&g_ft_lock);
-    // global file table index
-    uint_32 fd_idx = occupy_file_table_slot();
-    if (fd_idx == -1) {
-        // TODO:
-        //  kprint("Not enough slot at file table.");
-        // Recover! Need recover inode bitmap set
-        //        ! free new_f_inode
-        rollback_step = 2;
-        goto roll_back;
-    }
-
-    g_file_table[fd_idx].fd_pos = 0;
-    g_file_table[fd_idx].fd_inode = new_f_inode;
-    g_file_table[fd_idx].fd_inode->i_lock = false;
-    lock_release(&g_ft_lock);
+    /* lock_fetch(&g_ft_lock); */
+    /* // global file table index */
+    /* uint_32 fd_idx = occupy_file_table_slot(); */
+    /* if (fd_idx == -1) { */
+    /*     // TODO: */
+    /*     //  kprint("Not enough slot at file table."); */
+    /*     // Recover! Need recover inode bitmap set */
+    /*     //        ! free new_f_inode */
+    /*     rollback_step = 2; */
+    /*     goto roll_back; */
+    /* } */
+    /*  */
+    /* g_file_table[fd_idx].fd_pos = 0; */
+    /* g_file_table[fd_idx].fd_inode = new_f_inode; */
+    /* g_file_table[fd_idx].fd_inode->i_lock = false; */
+    /* lock_release(&g_ft_lock); */
 
     // 4. flush dir_entry to parents directory
     // search new entry first
