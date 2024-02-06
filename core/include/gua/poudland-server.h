@@ -49,7 +49,7 @@ typedef struct poudland_server_window {
 	uint_8 * newbuffer;
 
 	/* Connection that owns this window */
-	// uintptr_t owner;
+	uint_32 *owner;
 
 	/* Rotation of windows XXX */
 	int_16  rotation;
