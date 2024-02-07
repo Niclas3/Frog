@@ -146,34 +146,34 @@ void UkiMain(void)
     packagefs_init(); /* "/dev/pkg" */
 
     /************************load test programe*******************************/
-    /* char *app_path = "/cor"; */
-    /* char *argv[2] = {"a", "b"}; */
-    /* uint_32 file_sz = 87 * 1024; */
-    /* char *ls_buf = sys_malloc(file_sz); */
-    /* uint_32 sectors = DIV_ROUND_UP(file_sz, 512); */
-    /* struct disk *disk0 = &channels[0].devices[0]; */
-    /* struct disk *disk1 = &channels[0].devices[1]; */
-    /* ide_read(disk0, 3000, ls_buf, sectors); */
-    /* int_32 fd = open(app_path, O_RDWR); */
-    /* if (fd == -1) { */
-    /*     fd = open(app_path, O_CREAT | O_RDWR); */
-    /* } */
-    /* sys_write(fd, ls_buf, file_sz); */
-    /* sys_close(fd); */
-    /* sys_free(ls_buf); */
+    char *app_path = "/cor";
+    char *argv[2] = {"a", "b"};
+    uint_32 file_sz = 91 * 1024;
+    char *ls_buf = sys_malloc(file_sz);
+    uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
+    struct disk *disk0 = &channels[0].devices[0];
+    struct disk *disk1 = &channels[0].devices[1];
+    ide_read(disk0, 3000, ls_buf, sectors);
+    int_32 fd = open(app_path, O_RDWR);
+    if (fd == -1) {
+        fd = open(app_path, O_CREAT | O_RDWR);
+    }
+    sys_write(fd, ls_buf, file_sz);
+    sys_close(fd);
+    sys_free(ls_buf);
     /*****************************************************************/
 
     /************************load test image file*****************************/
-    /* char *image_path = "/b.bmp"; */
-    /* uint_32 img_sz = 9.3 * 1024; */
-    /* uint_32 image_offset = 6144; */
-    /* load_file_from_disk0(image_path, img_sz, disk0, image_offset); */
+    char *image_path = "/b.bmp";
+    uint_32 img_sz = 9.3 * 1024;
+    uint_32 image_offset = 6144;
+    load_file_from_disk0(image_path, img_sz, disk0, image_offset);
     /*****************************************************************/
     /************************load test jpeg image file******************/
     /* char *jpeg_path = "/b.jpg"; */
     /* uint_32 jpeg_sz = 2 * 1024; */
-    /* uint_32 jpeg_offset = 6144; */ /* load_file_from_disk0(jpeg_path,
-                                         jpeg_sz, disk0, jpeg_offset); */
+    /* uint_32 jpeg_offset = 6144; */ 
+    /* load_file_from_disk0(jpeg_path, jpeg_sz, disk0, jpeg_offset); */
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
 
@@ -204,10 +204,10 @@ void UkiMain(void)
 
         /* printf("-<zm@k:%s>-", path); */
 
-        /* process_execute(u_fune, "app-com");  //Real app  */
+        process_execute(u_fune, "app-com");  //Real app 
 
         /* process_execute(u_fund, "server");  // pid 5 */
-        process_execute(u_funf, "s2_t");  // pid 4
+        /* process_execute(u_funf, "s2_t");  // pid 4 */
 
         // Draw 2 Ract
         /* top_left.X = 20; */
