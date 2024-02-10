@@ -120,6 +120,7 @@ int_32 sys_execv(const char *path, const char *argv[])
     TCB_t *cur = running_thread();
     uint_32 name_len = strlen(path);
     ASSERT(name_len < TASK_NAME_LEN);
+    memset(cur->name, 0, strlen(cur->name));
     memcpy(cur->name, path, name_len);
     cur->name[name_len] = '\0';
 
