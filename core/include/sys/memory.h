@@ -130,7 +130,10 @@ void *malloc_page_with_vaddr_test(enum mem_pool_type poolt,
                                   uint_32 vaddr_start);
 
 // alloc a phyaddr to given virtual address
-void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr);
+// void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr);
+void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
+                                   uint_32 vaddr,
+                                   uint_32 *child_pgdir);
 
 // init block descriptors
 void block_desc_init(struct mem_block_desc *desc_array);

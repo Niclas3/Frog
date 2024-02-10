@@ -75,7 +75,7 @@ static void copy_body_stack3(TCB_t *child_thread,
                     // copy to kernel memory first
                     memcpy(buf_page, (void *) prog_vaddr, PG_SIZE);
                     page_dir_activate(child_thread);
-                    get_phy_free_page_with_vaddr(MP_USER, prog_vaddr);
+                    get_phy_free_page_with_vaddr(MP_USER, prog_vaddr, child_thread->pgdir);
                     memcpy((void *) prog_vaddr, buf_page, PG_SIZE);
                     page_dir_activate(parent_thread);
                 }
@@ -158,6 +158,8 @@ static uint_32 copy_process(TCB_t *child_thread, TCB_t *parent_thread)
     }
     // 4. copy parent code and data
     copy_body_stack3(child_thread, parent_thread, buf_page);
+
+
     // 5. create new child thread
     build_child_stack(child_thread, parent_thread);
     update_inode_open_cnts(child_thread);
@@ -178,8 +180,6 @@ uint_32 sys_fork(void)
         return -1;
     }
 
-    /* ASSERT(!list_find_element(&child_thread->proc_list_tag, &process_all_list)); */
-    /* list_add_tail(&child_thread->proc_list_tag, &process_all_list); */
 
     ASSERT(!list_find_element(&child_thread->all_list_tag, &thread_all_list));
     list_add_tail(&child_thread->all_list_tag, &thread_all_list);

@@ -61,6 +61,15 @@ struct _virtual_addr kernel_viraddr;
 // mid   10 bits pte
 #define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
 
+static void flush_cr3(uint_32 *pgdir)
+{
+    uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address is 0x100000
+    if (pgdir != NULL) {
+        pagedir_phy_addr = addr_v2p((uint_32) pgdir);
+    }
+    __asm__ volatile("movl %0, %%cr3;" : : "r"(pagedir_phy_addr) : "memory");
+}
+
 static void invalidate(void)
 {
     TCB_t *thread = running_thread();
@@ -301,7 +310,7 @@ static void free_page(struct pool *mpool, uint_32 phy_addr_page)
 
 void free_phy_page(uint_32 phy_addr_page)
 {
-    if(phy_addr_page >= user_pool.phy_addr_start){
+    if (phy_addr_page >= user_pool.phy_addr_start) {
         free_page(&user_pool, phy_addr_page);
     } else {
         free_page(&kernel_pool, phy_addr_page);
@@ -385,6 +394,39 @@ void put_page(void *v_addr, void *phy_addr)
     }
 }
 
+void put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
+{
+    uint_32 vaddress = (uint_32) v_addr;
+    uint_32 phyaddress = (uint_32) phy_addr;
+    uint_32 *pde = pde_ptr(vaddress);
+    uint_32 *pte = pte_ptr(vaddress);
+
+    // test P bit of vaddress
+    if (*pde & 0x00000001) {
+        // TODO:
+        // test if pte is exist
+        // should re-consider v-address start
+        /* ASSERT(!(*pte & 0x00000001)); */
+        if ((!(*pte & 0x00000001))) {
+            *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+        } else {
+            /* PANIC("pte exists"); */
+            *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+        }
+        flush_cr3(pgdir);
+    } else {
+        // if there is no pde , let's create it.
+        // Create phyaddr at kernel pool
+        uint_32 pde_phyaddr = (uint_32) get_free_page(&kernel_pool);
+        *pde = (pde_phyaddr | PG_US_U | PG_RW_W | PG_P_SET);
+        // Clear pte target address 1 page 4kb
+        // top 10 ->
+        memset((void *) ((int) pte & 0xfffff000), 0, PG_SIZE);
+        ASSERT(!(*pte & 0x00000001));
+        *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+    }
+}
+
 // Remove virtual address from page table
 static void remove_page(void *v_addr)
 {
@@ -442,7 +484,9 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
 
 
 // invoke by fork() fork.c
-void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr)
+void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
+                                   uint_32 vaddr,
+                                   uint_32 *child_pgdir)
 {
     struct pool *mem_pool = poolt == MP_KERNEL ? &kernel_pool : &user_pool;
     lock_fetch(&mem_pool->lock);
@@ -451,7 +495,8 @@ void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr)
         lock_fetch(&mem_pool->lock);
         return NULL;
     }
-    put_page((void *) vaddr, page_phyaddr);
+    /* put_page((void *) vaddr, page_phyaddr); */
+    put_page_and_flush((void *) vaddr, page_phyaddr, child_pgdir);
     lock_release(&mem_pool->lock);
     return (void *) vaddr;
 }

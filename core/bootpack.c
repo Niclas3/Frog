@@ -145,14 +145,14 @@ void UkiMain(void)
 
     packagefs_init(); /* "/dev/pkg" */
 
+struct disk *disk0 = &channels[0].devices[0];
     /************************load test programe*******************************/
+#if 0
     char *app_path = "/cor";
     char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 91 * 1024;
+    uint_32 file_sz = 94 * 1024;
     char *ls_buf = sys_malloc(file_sz);
     uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
-    struct disk *disk0 = &channels[0].devices[0];
-    struct disk *disk1 = &channels[0].devices[1];
     ide_read(disk0, 3000, ls_buf, sectors);
     int_32 fd = open(app_path, O_RDWR);
     if (fd == -1) {
@@ -161,6 +161,7 @@ void UkiMain(void)
     sys_write(fd, ls_buf, file_sz);
     sys_close(fd);
     sys_free(ls_buf);
+#endif
     /*****************************************************************/
 
     /************************load test image file*****************************/
@@ -169,10 +170,20 @@ void UkiMain(void)
     uint_32 image_offset = 6144;
     load_file_from_disk0(image_path, img_sz, disk0, image_offset);
     /*****************************************************************/
+
+
+    /************************load ls code *****************************/
+    {
+        char *prog_path = "/ls";
+        uint_32 prog_sz = 34 * 1024;
+        uint_32 prog_offset = 3000;
+        load_file_from_disk0(prog_path, prog_sz, disk0, prog_offset);
+    }
+    /*****************************************************************/
     /************************load test jpeg image file******************/
     /* char *jpeg_path = "/b.jpg"; */
     /* uint_32 jpeg_sz = 2 * 1024; */
-    /* uint_32 jpeg_offset = 6144; */ 
+    /* uint_32 jpeg_offset = 6144; */
     /* load_file_from_disk0(jpeg_path, jpeg_sz, disk0, jpeg_offset); */
 
     /* TCB_t *freader = thread_start("aaaaaaaaaaaaaaa", 10, func, 4); */
@@ -204,7 +215,8 @@ void UkiMain(void)
 
         /* printf("-<zm@k:%s>-", path); */
 
-        process_execute(u_fune, "app-com");  //Real app 
+        /* process_execute(u_fung, "T"); */
+        process_execute(u_fune, "app-com");  // Real app
 
         /* process_execute(u_fund, "server");  // pid 5 */
         /* process_execute(u_funf, "s2_t");  // pid 4 */
@@ -472,9 +484,13 @@ void u_funf(int a)
 // client2
 void u_fung(int a)
 {
-    int_32 cfd = open("/dev/pkg/server", O_RDONLY);
-    while (1)
-        ;
+    if(fork()){
+        printf("parent\n");
+        while(1);
+    } else {
+        printf("child\n");
+        while(1);
+    }
 }
 
 // proc A
@@ -482,15 +498,8 @@ void u_fung(int a)
 void u_fune(int a)
 {
     char *argv[2] = {"a", "b"};
-    /* if (!fork()) { */
-    execv("/cor", argv);
-    /* }  */
-    /* else { */
-    /*     int_32 last_words; */
-    /*     pid_t child_pid = wait(&last_words); */
-    /*     printf("child %d is dead", child_pid); */
-    /*     printf("he saied %d", last_words); */
-    /* } */
+    /* execv("/cor", argv); */
+    execv("/ls", argv);
 }
 
 
@@ -534,16 +543,17 @@ BOOT_GFX_MODE_t boot_graphics_mode(void)
 
 void init(void)
 {
-    uint_32 ret_pid = fork();
-    if (ret_pid) {
-        uint_32 ppid = getpid();
-        /* printf("init pid is %d\n", getpid()); */
-        while (1)
-            ;
-    } else {
-        uint_32 cpid = getpid();
-        /* printf("child pid is %d, ret id is %d\n", getpid(), ret_pid); */
-        while (1)
-            ;
-    }
+    while(1);
+    /* uint_32 ret_pid = fork(); */
+    /* if (ret_pid) { */
+    /*     uint_32 ppid = getpid(); */
+    /*     #<{(| printf("init pid is %d\n", getpid()); |)}># */
+    /*     while (1) */
+    /*         ; */
+    /* } else { */
+    /*     uint_32 cpid = getpid(); */
+    /*     #<{(| printf("child pid is %d, ret id is %d\n", getpid(), ret_pid); |)}># */
+    /*     while (1) */
+    /*         ; */
+    /* } */
 }
