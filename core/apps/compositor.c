@@ -4,6 +4,7 @@
 #include <hid/mouse.h>
 #include <list.h>
 #include <math.h>
+#include <packetx.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/syscall.h>
@@ -500,10 +501,11 @@ poudland_server_window_t *quick_create_window(poudland_globals_t *global,
                                               uint_32 y,
                                               uint_32 width,
                                               uint_32 height,
-                                              uint_32 color)
+                                              uint_32 color,
+                                              uint_32* owner)
 {
     poudland_server_window_t *w =
-        server_window_create(global, width, height, NULL, 0);
+        server_window_create(global, width, height, owner, 0);
     w->hidden = 0;
     w->x = x;
     w->y = y;
@@ -532,36 +534,18 @@ static void window_move(poudland_globals_t *pg,
     mark_window(pg, window);
 }
 
+/* static mouse_handler(poudland_globals_t *pg, ){ */
+/* } */
+
 int main(int argc, char *argv[])
 {
-    mouse_device_packet_t *mbuf = malloc(sizeof(mouse_device_packet_t));
-    char *buf = malloc(1);
-    uint_32 pkg_size = sizeof(mouse_device_packet_t);
-    int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
-    int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
-    int_32 aux_fd = open("/dev/input/event2", O_RDONLY);
     int_32 tty_fd = open("/dev/tty0", O_RDWR);
-
-    if (tty_fd == -1 || kbd_fd == -1 || mouse_fd == -1) {
-        exit(0);
-    }
-
-    int_32 fds[2] = {kbd_fd, mouse_fd};
-    struct timeval t2 = {.tv_sec = 0, .tv_usec = 20};
 
     poudland_globals_t *global = malloc(sizeof(poudland_globals_t));
     global->backend_ctx = init_gfx_fullscreen_double_buffer();
-    ioctl(tty_fd, IO_CONSOLE_SET, &global->backend_ctx);
-
-    // draw background
-    uint_32 status_bar_color = 0x88131313;
-    point_t top_left = {.X = 0, .Y = 0};
-    point_t down_right = {.X = global->backend_ctx->width, .Y = 34};
-
-    clear_screen(global->backend_ctx, FSK_DARK_BLUE);
-    fill_rect_solid(global->backend_ctx, top_left, down_right,
-                    status_bar_color);
-    flip(global->backend_ctx);
+    char *server_name = "compositor";
+    global->server_ident = malloc(strlen(server_name));
+    memcpy(global->server_ident, server_name, strlen(server_name));
 
     {
         struct timeval t;
@@ -584,14 +568,70 @@ int main(int argc, char *argv[])
     INIT_LIST_HEAD(&global->windows);
     INIT_LIST_HEAD(&global->mid_zs);      /* regular windows list */
     INIT_LIST_HEAD(&global->update_list); /* damage rect list */
-    INIT_LIST_HEAD(&global->menu_zs);     // not used yet
+    INIT_LIST_HEAD(&global->menu_zs);     // not used yet menu layers windows
     INIT_LIST_HEAD(&global->overlay_zs);  // not used yet
-                                          //
-    // test code
-    /* poudland_server_window_t *w1 = */
-    /*     quick_create_window(global, 0, 0, global->width, global->height, */
-    /*                         FSK_WHITE); */
+    INIT_LIST_HEAD(&global->clients);     // all clients connect to this server
 
+    /* set tty to backend_ctx*/
+    ioctl(tty_fd, IO_CONSOLE_SET, &global->backend_ctx);
+
+    int_32 serverfd = pkx_bind(global->server_ident);
+    if (serverfd == -1) {
+        exit(0);
+    }
+    global->server_fd = serverfd;
+
+    if (!fork()) {
+        int cfd = pkx_connect(global->server_ident);
+
+        bool has_write = 0;
+        while (!has_write) {
+            /* poudland_msg_t *msg = malloc(sizeof(poudland_msg_t)); */
+            /* msg->type = PL_MSG_HELLO; */
+            /* sprintf(msg->body, "message from client"); */
+            /* msg->size = sizeof(poudland_msg_t) + 20; */
+            /* msg->magic = PL_MSG__MAGIC; */
+            /* pkx_reply(cfd, msg->size, msg); */
+            /* has_write = 1; */
+
+            poudland_msg_t *msg = malloc(sizeof(poudland_msg_t));
+            msg->magic = PL_MSG__MAGIC;
+            msg->type = PL_MSG_WINDOW_NEW;
+            uint_32 size_msg = sizeof(struct poudland_msg_window_new);
+            struct poudland_msg_window_new *m = malloc(size_msg);
+            m->width = 400;
+            m->height = 200;
+            memcpy(msg->body, m, size_msg);
+            msg->size = sizeof(poudland_msg_t) + size_msg;
+
+            pkx_reply(cfd, msg->size, msg);
+            has_write = 1;
+        }
+        while (1) {
+            if (pkx_query(cfd)) {
+                char *pkg = malloc(PACKET_SIZE);
+                pkx_recv(cfd, pkg);
+                poudland_msg_t *m = (poudland_msg_t *) pkg;
+                if (m->type == PL_MSG_WELCOME) {
+                    printf("XServer say: Welcome body:%s.\n", m->body);
+                }
+            }
+        }
+    }
+
+
+    int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
+    int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);
+    int_32 aux_fd = open("/dev/input/event2", O_RDONLY);
+
+    if (tty_fd == -1 || kbd_fd == -1 || mouse_fd == -1) {
+        exit(0);
+    }
+
+    int_32 fds[2] = {kbd_fd, mouse_fd};
+    struct timeval t2 = {.tv_sec = 0, .tv_usec = 20};
+
+    // test code
     poudland_server_window_t *w1 =
         server_window_create(global, global->width, global->height, NULL, 0);
     w1->hidden = 0;
@@ -606,17 +646,15 @@ int main(int argc, char *argv[])
     ioctl(tty_fd, IO_CONSOLE_SET, &w_ctx);
     uint_32 set_color = FSK_CYAN;
     ioctl(tty_fd, IO_CONSOLE_COLOR, &set_color);
-    printf("test");
 
     poudland_server_window_t *w2 =
-        quick_create_window(global, 50, 50, 200, 200, FSK_DARK_OLIVE_GREEN);
+        quick_create_window(global, 50, 50, 200, 200, FSK_DARK_OLIVE_GREEN, NULL);
     poudland_server_window_t *w3 =
-        quick_create_window(global, 100, 100, 200, 200, FSK_DARK_CYAN);
+        quick_create_window(global, 100, 100, 200, 200, FSK_DARK_CYAN, NULL);
 
-    // load bmp image
+    // load bmp image as cursor
     char *filename = "/b.bmp";
     int_32 img_fd = open(filename, O_RDONLY);
-    /* int_32 image_fd = open("/b.jpg", O_RDONLY); */
     int meta[8] = {0};
     int a = bmp_meta(img_fd, meta);
     int imagesz = meta[1];
@@ -624,6 +662,8 @@ int main(int argc, char *argv[])
     uint_32 *image = malloc(imagesz);
     int_32 width = meta[3];
     int_32 height = meta[4];
+
+    /* load_bmp_image(filename, image); */
 
     lseek(img_fd, img_offset, SEEK_SET);
     read(img_fd, image, imagesz);
@@ -636,15 +676,17 @@ int main(int argc, char *argv[])
         for (uint_32 w = 0; w < width; w++) {
             uint_32 color;
             color = image[w + width * h];
-            /* draw_pixel(w3, w, h, color); */
             global->mouse_sprite.bitmap[w + width * h] = color;
         }
     }
 
     close(img_fd);
     free(image);
-
     // end test code
+
+    char *buf = malloc(1);
+    mouse_device_packet_t *mbuf = malloc(sizeof(mouse_device_packet_t));
+    uint_32 pkg_size = sizeof(mouse_device_packet_t);
 
     uint_32 last_redraw = 0;
     while (1) {
@@ -657,30 +699,66 @@ int main(int argc, char *argv[])
         }
 
         int_32 idx = wait2(2, fds, &t2);
-        if (idx == -1)
+        if (idx == -1) {
+            if (pkx_query(serverfd)) {
+                packetx_t *packet = malloc(PACKET_SIZE);
+                pkx_listen(serverfd, packet);
+                poudland_msg_t *m = (poudland_msg_t *) packet->data;
+                if (m->magic != PL_MSG__MAGIC) {
+                    // some thing goes wrong.
+                    exit(0);
+                }
+                switch (m->type) {
+                case PL_MSG_HELLO: {
+                    // 1.add this client address to global->clients
+                    poudland_msg_t *msg = malloc(sizeof(poudland_msg_t));
+                    msg->type = PL_MSG_WELCOME;
+                    sprintf(msg->body, "message from server");
+                    msg->size = sizeof(poudland_msg_t) + 20;
+                    pkx_send(serverfd, packet->source, msg->size, msg);
+                    break;
+                }
+                case PL_MSG_WINDOW_NEW: {
+                    // 1. get width and height from client
+                    struct poudland_msg_window_new *msg =
+                        (struct poudland_msg_window_new *) m->body;
+                    poudland_server_window_t *w3 = quick_create_window(
+                        global, 600, 600, msg->width, msg->height, FSK_GOLD, packet->source);
+                    /* server_window_create(global, msg->width, msg->height, packet->source, 0); */
+                    break;
+                }
+                case PL_MSG_WINDOW_MOVE: {
+                    /* window_move(global,); */
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
             continue;
+        }
         int_32 selected_fd = fds[idx];
         if (selected_fd == kbd_fd) {
             int step = 30;
             read(kbd_fd, buf, 1);
             // kbd_handler
-            if (buf[0] == 'j') {
-                int_32 y = w2->y;
-                y += step;
-                window_move(global, w2, w2->x, y);
-            } else if (buf[0] == 'k') {
-                int_32 y = w2->y;
-                y -= step;
-                window_move(global, w2, w2->x, y);
-            } else if (buf[0] == 'h') {
-                int_32 x = w2->x;
-                x -= step;
-                window_move(global, w2, x, w2->y);
-            } else if (buf[0] == 'l') {
-                int_32 x = w2->x;
-                x += step;
-                window_move(global, w2, x, w2->y);
-            }
+            /* if (buf[0] == 'j') { */
+            /*     int_32 y = w2->y; */
+            /*     y += step; */
+            /*     window_move(global, w2, w2->x, y); */
+            /* } else if (buf[0] == 'k') { */
+            /*     int_32 y = w2->y; */
+            /*     y -= step; */
+            /*     window_move(global, w2, w2->x, y); */
+            /* } else if (buf[0] == 'h') { */
+            /*     int_32 x = w2->x; */
+            /*     x -= step; */
+            /*     window_move(global, w2, x, w2->y); */
+            /* } else if (buf[0] == 'l') { */
+            /*     int_32 x = w2->x; */
+            /*     x += step; */
+            /*     window_move(global, w2, x, w2->y); */
+            /* } */
             /* printf("key event %c key press\n", buf[0]); */
         } else if (selected_fd == mouse_fd) {
             read(mouse_fd, mbuf, pkg_size);

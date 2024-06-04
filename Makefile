@@ -6,8 +6,8 @@ LOADER = loader.img
 CORE   = core.img
 CORESYM   = core_symbol.img
 FONT   = hankaku_font.img
-# TEST_PROC = core/apps/build/compositor
-TEST_PROC = core/apps/build/ls
+TEST_PROC = core/apps/build/compositor
+# TEST_PROC = core/apps/build/ls
 TEST_IMG= core/apps/test/b.bmp
 
 # Use ELF format

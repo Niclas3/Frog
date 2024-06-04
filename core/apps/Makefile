@@ -10,7 +10,7 @@ OBJS= ../build/stdio.o ../lib/oslib.o ../build/string.o \
       ../build/usr.o ../build/libdebug.o \
       ../build/list.o
 # sys_OBJS = ../build/memory.o
-sys_OBJS =
+sys_OBJS = ../build/packetx.o
 gua_OBJS = ../build/2d_graphics.o ../build/poudland.o
 
 BUILD =./build

@@ -147,7 +147,7 @@ void UkiMain(void)
 
 struct disk *disk0 = &channels[0].devices[0];
     /************************load test programe*******************************/
-#if 0
+#if 1
     char *app_path = "/cor";
     char *argv[2] = {"a", "b"};
     uint_32 file_sz = 94 * 1024;
@@ -173,12 +173,14 @@ struct disk *disk0 = &channels[0].devices[0];
 
 
     /************************load ls code *****************************/
+#if 0
     {
         char *prog_path = "/ls";
         uint_32 prog_sz = 34 * 1024;
         uint_32 prog_offset = 3000;
         load_file_from_disk0(prog_path, prog_sz, disk0, prog_offset);
     }
+#endif
     /*****************************************************************/
     /************************load test jpeg image file******************/
     /* char *jpeg_path = "/b.jpg"; */
@@ -498,8 +500,8 @@ void u_fung(int a)
 void u_fune(int a)
 {
     char *argv[2] = {"a", "b"};
-    /* execv("/cor", argv); */
-    execv("/ls", argv);
+    execv("/cor", argv);
+    /* execv("/ls", argv); */
 }
 
 
@@ -544,16 +546,16 @@ BOOT_GFX_MODE_t boot_graphics_mode(void)
 void init(void)
 {
     while(1);
-    /* uint_32 ret_pid = fork(); */
-    /* if (ret_pid) { */
-    /*     uint_32 ppid = getpid(); */
-    /*     #<{(| printf("init pid is %d\n", getpid()); |)}># */
-    /*     while (1) */
-    /*         ; */
-    /* } else { */
-    /*     uint_32 cpid = getpid(); */
-    /*     #<{(| printf("child pid is %d, ret id is %d\n", getpid(), ret_pid); |)}># */
-    /*     while (1) */
-    /*         ; */
-    /* } */
+    uint_32 ret_pid = fork();
+    if (ret_pid) {
+        uint_32 ppid = getpid();
+        /* printf("init pid is %d\n", getpid()); */
+        while (1)
+            ;
+    } else {
+        uint_32 cpid = getpid();
+        /* printf("child pid is %d, ret id is %d\n", getpid(), ret_pid); */
+        while (1)
+            ;
+    }
 }
