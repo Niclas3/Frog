@@ -1,10 +1,3 @@
-# Use The Eisenhower Matrix
-    IU Important & urgent: Implement all modules described in a specification.
-    IN Important & not urgent: Adjust it for user needs, based on the user story.
-    NU Not important & urgent: Fill up the specification (use markdown syntax).
-    NN Not important & not urgent: Add some extra features.
-    *Urgent means that there's 3 days (72 hours) to deadline at least.*
-
 # TODO list
 - [x] IU support qemu
     - [x] IU ata-ida support
@@ -16,33 +9,34 @@
 - [ ] IN GUI things
   - [x] IU VBE support at qemu
   - [x] IU support 8 bits ascii fonts at VBE mode 
-  - [ ] NN support bdf foramt font at VBE mode
-  - [ ] IN GUI Components
+  - [x] NN support bdf foramt font at VBE mode
+  - [x] IU GUI Components
     - [ ] IN UIControler
     - [ ] IN Label
     - [ ] IN Buttons
     - [ ] IN Windows
     - [ ] IN Input_components
-    - [ ] IN mouse GUI (ps/2 mouse)
+    - [x] IN mouse GUI (ps/2 mouse)
+    - [ ] IU Task bar
   - [ ] IN console over windows
   - [ ] NN openGL support
 
 - [ ] IN thread things
-    - [ ] IN user process fork()
-  - [ ] IN user process wait()
-  - [ ] IN user process exec*()
-  - [ ] IN user process kill()
+    - [x] IN user process fork()
+  - [x] IN user process wait()
+  - [x] IN user process exec*()
+  - [x] IN user process kill()
 
-- [ ] IN PIC things
-    - [ ] IN pipe
+- [x] IN PIC things
+    - [x] IN pipe
 
 - [ ] NN ATA
     - [ ] NN support DMA
   - [ ] IN impl identify disk function
 
 - [ ] NN Fundamental structures
-    - [ ] IU ioqueue.c support different type data struct which works at PS2 hid device
-  - [ ] IN impl hashmap for configure file
+    - [X] IU ioqueue.c support different type data struct which works at PS2 hid device
+  - [ ] IU impl hashmap for configure file
 
 - [ ] NN etc
   - [ ] IN GDT & IDT layout
@@ -51,10 +45,11 @@
 
 # Feature list
   - [ ] Allows raw physical memory blocks provided by the loader to be used like a block file. Used to provide multiboot payloads as /dev/ram* files.
+  - [ ] Support Network
+  - [ ] A useful terminal
 
 
 # Tips
-
 If you want to enlarge core.img size ,should change 3 places
 1. Makefile
    1. To change `dd` seek option size.
