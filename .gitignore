@@ -4,6 +4,7 @@ build/
 core/apps/build/
 *.bin
 .ccls-cache
+.cache
 *.sys
 *.o
 *.bmp

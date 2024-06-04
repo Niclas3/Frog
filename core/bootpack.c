@@ -415,7 +415,7 @@ void u_fund(int a)
                 pex_header_t *head =
                     malloc(sizeof(pex_header_t) + strlen(sbuf));
                 head->target = NULL;
-                strcpy(head->data, sbuf);
+                strcpy((char *)head->data, sbuf);
                 write(sfd, head,
                       sizeof(pex_header_t) + strlen(sbuf));  // reply to client
             }
@@ -499,7 +499,7 @@ void u_fung(int a)
 // Real app
 void u_fune(int a)
 {
-    char *argv[2] = {"a", "b"};
+    const char *argv[2] = {"a", "b"};
     execv("/cor", argv);
     /* execv("/ls", argv); */
 }
