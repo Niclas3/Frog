@@ -103,6 +103,9 @@ typedef struct poudland_globals {
     unsigned int height;
     uint_32 stride;
 
+    /*server fd*/
+    uint_32 server_fd;
+
     /* Core graphics context */
     void *backend_framebuffer;
     gfx_context_t *backend_ctx;
@@ -125,6 +128,10 @@ typedef struct poudland_globals {
     /* Hash of window IDs to their objects */
     uint_32 *wids_to_windows;
 
+    /* Map of clients to their windows */
+    // contains all clients on this server.
+    struct list_head clients;
+
     /*
      * Window stacking information
      * TODO: Support multiple top and bottom windows.
@@ -138,7 +145,7 @@ typedef struct poudland_globals {
     poudland_server_window_t * top_z;
 
     /* Damage region list */
-    struct list_head update_list;  /* rect_t windows list */
+    struct list_head update_list;  /* damage_region_target  windows list */
 
     /* Mouse cursors */
     sprite_t mouse_sprite;
@@ -210,8 +217,6 @@ typedef struct poudland_globals {
     // yutani_t *host_context;
     // yutani_window_t *host_window;
 
-    /* Map of clients to their windows */
-    // hashmap_t *clients_to_windows;
 
     /* Toggles for debugging window locations */
     int debug_bounds;
