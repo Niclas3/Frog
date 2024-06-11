@@ -1,9 +1,9 @@
 target remote localhost:1234
 
-file core/build/core_symbol.img
+# file core/build/core_symbol.img
 
 # set architecture i386
-# file core/apps/build/compositor
+file core/apps/build/compositor
 # file core/apps/build/ls
 tui en
 # if GDB7.0
@@ -17,9 +17,12 @@ b *0xc0070000
 # b ioqueue_put_data
 # b ioqueue_get_data
 # b u_fund
+# b u_fung
 
 ### debug compositor
-# b main
+b main
+# b 584
+b 711
 # b compositor.c:606
 # b info_JPEG
 # b quick_create_window

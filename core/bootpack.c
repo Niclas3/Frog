@@ -145,7 +145,7 @@ void UkiMain(void)
 
     packagefs_init(); /* "/dev/pkg" */
 
-struct disk *disk0 = &channels[0].devices[0];
+    struct disk *disk0 = &channels[0].devices[0];
     /************************load test programe*******************************/
 #if 1
     char *app_path = "/cor";
@@ -217,8 +217,8 @@ struct disk *disk0 = &channels[0].devices[0];
 
         /* printf("-<zm@k:%s>-", path); */
 
-        /* process_execute(u_fung, "T"); */
         process_execute(u_fune, "app-com");  // Real app
+        /* process_execute(u_fung, "T"); */
 
         /* process_execute(u_fund, "server");  // pid 5 */
         /* process_execute(u_funf, "s2_t");  // pid 4 */
@@ -390,6 +390,7 @@ void u_fund(int a)
 {
 #define MAX_PACKET_SIZE 1024
     int_32 sfd = open("/dev/pkg/server", O_CREAT);
+    /* int_32 sfd = open("/dev/pkg/compositor", O_CREAT); */
     int pid = fork();
     if (pid) {
         typedef struct pex_header {
@@ -415,7 +416,7 @@ void u_fund(int a)
                 pex_header_t *head =
                     malloc(sizeof(pex_header_t) + strlen(sbuf));
                 head->target = NULL;
-                strcpy((char *)head->data, sbuf);
+                strcpy((char *) head->data, sbuf);
                 write(sfd, head,
                       sizeof(pex_header_t) + strlen(sbuf));  // reply to client
             }
@@ -486,12 +487,20 @@ void u_funf(int a)
 // client2
 void u_fung(int a)
 {
-    if(fork()){
-        printf("parent\n");
-        while(1);
-    } else {
-        printf("child\n");
-        while(1);
+    int_32 cfd = pkx_connect("compositor");
+
+    bool has_write = 0;
+    while (1) {
+        poudland_msg_t *msg = malloc(sizeof(poudland_msg_t));
+        msg->magic = PL_MSG__MAGIC;
+        msg->type = PL_MSG_HELLO;
+        uint_32 size_msg = 48;
+        char *buf = malloc(size_msg);
+        sprintf(buf, "Hi! server I'am client pid is %d", getpid());
+        memcpy(msg->body, buf, size_msg);
+        msg->size = sizeof(poudland_msg_t) + size_msg;
+        pkx_reply(cfd, msg->size, (char *) msg);
+        has_write = 1;
     }
 }
 
@@ -545,7 +554,8 @@ BOOT_GFX_MODE_t boot_graphics_mode(void)
 
 void init(void)
 {
-    while(1);
+    while (1)
+        ;
     uint_32 ret_pid = fork();
     if (ret_pid) {
         uint_32 ppid = getpid();

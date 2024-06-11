@@ -131,13 +131,21 @@ typedef struct poudland_window {
 } poudland_window_t;
 
 struct poudland_msg_window_new {
+    uint_32 pos_x;
+    uint_32 pos_y;
     uint_32 width;
     uint_32 height;
+    uint_32 color;
 };
 
 struct poudland_msg_mouse_event {
     mouse_device_packet_t event;
     // int_32 type;                // mouse event type
+};
+struct poudland_msg_win_move {
+    uint_32 win_id;
+    uint_32 x;
+    uint_32 y;
 };
 
 gfx_context_t *init_graphics_poudland_double_buffer(poudland_window_t *window);
