@@ -37,8 +37,8 @@ hashmap_t *hashmap_init(int_32 size)
     map->size = size;
     map->hash_func = hash_function;
     map->hash_compare = hash_int_compare;
-    map->entry = malloc(size * sizeof(struct hashmap_entry));
-    memset(map->entry, 0, size * (sizeof(struct hashmap_entry)));
+    map->entry = malloc(size * sizeof(struct hashmap_entry *));
+    memset(map->entry, 0, size * (sizeof(struct hashmap_entry *)));
     return map;
 }
 
