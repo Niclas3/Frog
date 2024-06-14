@@ -142,8 +142,8 @@ uint_32 ioqueue_put_data(CircleQueue *queue, char *data, uint_32 count)
             TCB_t *cur = running_thread();
             add_to_waiting_list(cur, &queue->producer_waiting_list);
             enum intr_status old_status = intr_disable();
-            thread_block(THREAD_TASK_WAITING);
             lock_release(&queue->queue_lock);
+            thread_block(THREAD_TASK_WAITING);
             intr_set_status(old_status);
         } else {
             lock_release(&queue->queue_lock);
@@ -174,8 +174,10 @@ uint_32 ioqueue_get_data(CircleQueue *queue, char *data, uint_32 count)
             // add this process to queue->producer_waiting_list
             TCB_t *cur = running_thread();
             add_to_waiting_list(cur, &queue->consumor_waiting_list);
+            enum intr_status old_status = intr_disable();
             lock_release(&queue->queue_lock);
             thread_block(THREAD_TASK_WAITING);
+            intr_set_status(old_status);
         } else {
             lock_release(&queue->queue_lock);
         }
