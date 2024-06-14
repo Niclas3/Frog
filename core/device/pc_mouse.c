@@ -43,19 +43,17 @@ struct mouse_raw_data {
 static struct mouse_raw_data mdata = {0};
 
 
-static mouse_device_packet_t get_from_queue(void)
+static void get_from_queue(mouse_device_packet_t *packet)
 {
-    mouse_device_packet_t packet;
 
     enum intr_status old_status = intr_disable();
 
     uint_32 packet_size = sizeof(mouse_device_packet_t);
-    memcpy(&packet, &queue->buf[queue->tail], packet_size);
+    memcpy(packet, &queue->buf[queue->tail], packet_size);
 
     queue->tail = (queue->tail + packet_size) & (MOUSE_PKG_BUF_SIZE - 1);
 
     intr_set_status(old_status);
-    return packet;
 }
 
 static inline bool queue_empty()
@@ -261,7 +259,7 @@ uint_32 read_pcmouse(struct file *file, void *buf, uint_32 count)
     ASSERT(count % sizeof(mouse_device_packet_t) == 0);
     TCB_t *cur = running_thread();
     DECLARE_WAITQUEUE(wait, cur);
-    uint_32 index = count;
+    uint_32 index = count / sizeof(mouse_device_packet_t);
     mouse_device_packet_t packet;
     if (queue_empty()) {
         if (file->fd_flag & O_NONBLOCK)
@@ -279,7 +277,7 @@ uint_32 read_pcmouse(struct file *file, void *buf, uint_32 count)
         intr_set_status(old_status);
     }
     while (index > 0 && !queue_empty()) {
-        packet = get_from_queue();
+        get_from_queue(&packet);
         memcpy(buf, &packet, sizeof(packet));
         buf += sizeof(packet);
         index--;
