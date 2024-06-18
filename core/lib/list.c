@@ -98,6 +98,59 @@ struct list_head *list_walker(struct list_head *head,
 }
 
 /**
+ * list_walkerv2() walk through list find one return
+ *
+ * @param param write here
+ * @return return Comments write here
+ *****************************************************************************/
+
+struct list_head *list_walkerv2(struct list_head *head,
+                                bool func(struct list_head *cur, void *value),
+                                void *value)
+{
+    if (list_is_empty(head)) {
+        return NULL;
+    }
+
+    struct list_head *next = head->next;
+    while (next != head) {  // go though all list
+        bool test = func(next, value);
+        if (test) {
+            return next;
+        }
+        next = next->next;
+    }
+    return NULL;
+}
+
+/**
+ * list_walkerv2_prev() walk through list find one return
+ *
+ * @param param write here
+ * @return return Comments write here
+ *****************************************************************************/
+
+struct list_head *list_walkerv2_prev(struct list_head *head,
+                                     bool func(struct list_head *cur,
+                                               void *value),
+                                     void *value)
+{
+    if (list_is_empty(head)) {
+        return NULL;
+    }
+
+    struct list_head *prev = head->prev;
+    while (prev != head) {  // go though all list
+        bool test = func(prev, value);
+        if (test) {
+            return prev;
+        }
+        prev = prev->prev;
+    }
+    return NULL;
+}
+
+/**
  * list_length() - count lenght of giving list
  * @head: pointer of head
  */

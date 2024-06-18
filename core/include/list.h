@@ -35,7 +35,7 @@ struct list_head {
  * @type: type of member
  * @member: member name
  * */
-#define offsetof(type, member) ((uint_32) &((type *) 0)->member)
+#define offsetof(type, member) ((uint_32) & ((type *) 0)->member)
 
 /**
  * container_of() - Calculate address of structure that contains address ptr
@@ -69,14 +69,18 @@ struct list_head {
 #endif
 
 
-#define LIST_HEAD_INIT(name) { &(name), &(name) }
+#define LIST_HEAD_INIT(name) \
+    {                        \
+        &(name), &(name)     \
+    }
 
-#define LIST_HEAD(name) \
-	struct list_head name = LIST_HEAD_INIT(name)
+#define LIST_HEAD(name) struct list_head name = LIST_HEAD_INIT(name)
 
-#define INIT_LIST_HEAD(ptr) do { \
-	(ptr)->next = (ptr); (ptr)->prev = (ptr); \
-} while (0)
+#define INIT_LIST_HEAD(ptr)  \
+    do {                     \
+        (ptr)->next = (ptr); \
+        (ptr)->prev = (ptr); \
+    } while (0)
 
 /**
  * list_for_each	-	iterate over a list
@@ -84,14 +88,14 @@ struct list_head {
  * @head:	the head for your list.
  */
 #define list_for_each(pos, head) \
-	for (pos = (head)->next; pos != (head); pos = pos->next)
+    for (pos = (head)->next; pos != (head); pos = pos->next)
 /**
  * list_for_each_rear  -	rear iterate over a list
  * @pos:	the &struct list_head to use as a loop counter.
  * @head:	the head for your list.
  */
 #define list_for_each_rear(pos, head) \
-	for (pos = (head)->prev; pos != (head); pos = pos->prev)
+    for (pos = (head)->prev; pos != (head); pos = pos->prev)
 
 /**
  * INIT_LIST_HEAD() - Initialize empty list head
@@ -114,15 +118,15 @@ struct list_head {
  * list_find_element(struct list_head *head,)
  * @node: pointer to the new node
  * @head: pointer to the head of the list
- * return 0 == not find 
+ * return 0 == not find
  * other find
  * */
-int list_find_element(struct list_head *node , struct list_head *head);
+int list_find_element(struct list_head *node, struct list_head *head);
 
 /**
  * list_map(struct list_head *head, function func, uint_32 arg)
  * @head: pointer to the head of the list
- * @res : res of list 
+ * @res : res of list
  * @func: test function
  * @arg : arg for function
  *
@@ -131,17 +135,26 @@ int list_find_element(struct list_head *node , struct list_head *head);
  * */
 
 int list_map(struct list_head *head,
-                        struct list_head *res,
-                        struct list_head* (*func)(struct list_head *));
+             struct list_head *res,
+             struct list_head *(*func)(struct list_head *) );
 /**
  * list_filter()
  *
  * @param param write here
  * @return return Comments write here
  *****************************************************************************/
-struct list_head* list_walker(struct list_head *head,
-              bool func(struct list_head *cur, int value),
-              int value);
+struct list_head *list_walker(struct list_head *head,
+                              bool func(struct list_head *cur, int value),
+                              int value);
+
+struct list_head *list_walkerv2(struct list_head *head,
+                                bool func(struct list_head *cur, void *value),
+                                void *value);
+
+struct list_head *list_walkerv2_prev(struct list_head *head,
+                                     bool func(struct list_head *cur,
+                                               void *value),
+                                     void *value);
 
 /**
  * list_length() - count lenght of giving list
@@ -167,7 +180,7 @@ void list_add_tail(struct list_head *node, struct list_head *head);
  * list_pop() - pop element from a list node the head of the list
  * @head: pointer to the head of the list
  */
-struct list_head* list_pop(struct list_head *head);
+struct list_head *list_pop(struct list_head *head);
 
 /**
  * list_del() - Remove a list node from the list
@@ -203,13 +216,13 @@ void list_del_init(struct list_head *node);
  * @param head list head
  * @return !0 success/ 0 failed
  *****************************************************************************/
-int list_destory(struct list_head* head);
+int list_destory(struct list_head *head);
 
 /**
  * list_empty() - Check if list head has no nodes attached
  * @head: pointer to the head of the list
  *
- * Return: 0 false - list is not empty 
+ * Return: 0 false - list is not empty
  *        !0  true - list is empty
  *
  */
@@ -219,7 +232,7 @@ int list_is_empty(const struct list_head *head);
  * list_is_singular() - Check if list head has exactly one node attached
  * @head: pointer to the head of the list
  *
- * Return: 0 - list is not singular 
+ * Return: 0 - list is not singular
  *        !0 - list has exactly one entry
  */
 int list_is_singular(const struct list_head *head);
@@ -274,8 +287,7 @@ void list_append_init(struct list_head *list, struct list_head *head);
  * list_splice. Instead the @list is initialized again to the an empty
  * list/unlinked state.
  */
-void list_append_tail_init(struct list_head *list,
-                                  struct list_head *head);
+void list_append_tail_init(struct list_head *list, struct list_head *head);
 
 /**
  * list_cut_position() - Move beginning of a list to another list
@@ -290,8 +302,8 @@ void list_append_tail_init(struct list_head *list,
  * list node from @head_from or the behavior is undefined.
  */
 void list_cut_position(struct list_head *head_to,
-                              struct list_head *head_from,
-                              struct list_head *node);
+                       struct list_head *head_from,
+                       struct list_head *node);
 
 /**
  * list_move() - Move a list node to the beginning of the list
