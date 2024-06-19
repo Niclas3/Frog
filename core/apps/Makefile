@@ -8,7 +8,7 @@ LD_FLAG := -m elf_i386
 CINCLUDE= -I../include
 OBJS= ../build/stdio.o ../lib/oslib.o ../build/string.o \
       ../build/usr.o ../build/libdebug.o \
-      ../build/list.o
+      ../build/list.o 
 # sys_OBJS = ../build/memory.o
 sys_OBJS = ../build/packetx.o
 gua_OBJS = ../build/2d_graphics.o ../build/poudland.o
@@ -38,10 +38,13 @@ bmp.o: bmp.c
 jpeg.o: jpeg.c
 	gcc $(CFLAGS) $^ -o $@
 
+hashmap.o: ../lib/hashmap.c
+	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
+
 compositor.o: compositor.c
 	gcc $(CFLAGS) $(CINCLUDE) -I. $^ -o $@
 
-compositor: compositor.o crt.o bmp.o jpeg.o
+compositor: compositor.o crt.o bmp.o jpeg.o hashmap.o
 	ld $(LD_FLAG) $^ $(OBJS) $(gua_OBJS) $(sys_OBJS) -o $(BUILD)/$@
 
 all: compositor ls

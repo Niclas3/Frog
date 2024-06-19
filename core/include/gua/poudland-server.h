@@ -2,14 +2,15 @@
 #include <ostype.h>
 #include <gua/2d_graphics.h>
 #include <gua/poudland.h>
+#include <hashmap.h>
 
 /* Mouse resolution scaling */
 #define MOUSE_SCALE 3
 #define INCOMING_MOUSE_SCALE * 3
 
 /* Mouse cursor hotspot */
-#define MOUSE_OFFSET_X 26
-#define MOUSE_OFFSET_Y 26
+#define MOUSE_OFFSET_X 24
+#define MOUSE_OFFSET_Y 23
 
 /* Mouse cursor size */
 #define MOUSE_WIDTH 64
@@ -97,6 +98,7 @@ typedef struct poudland_server_window {
 	int_32 icon_x, icon_y, icon_w, icon_h;
 } poudland_server_window_t;
 
+// lots of server things in server side
 typedef struct poudland_globals {
     /* Display resolution */
     unsigned int width;
@@ -126,7 +128,7 @@ typedef struct poudland_globals {
     struct list_head windows;
 
     /* Hash of window IDs to their objects */
-    uint_32 *wids_to_windows;
+    hashmap_t *wids_to_windows;
 
     /* Map of clients to their windows */
     // contains all clients on this server.

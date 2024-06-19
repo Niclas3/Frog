@@ -3,7 +3,7 @@
 include ../../Makefile.os_rules
 INCLUDE = ../include
 # OUT_FILE= bitmap.o debug.o ioqueue.o fifo.o list.o oslib.o stdio.o string.o print.o
-OUT_FILE= oslib.o print.o fifo.o
+OUT_FILE= oslib.o print.o fifo.o hashmap.o
 
 # bitmap.o: bitmap.c
 # 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
@@ -21,6 +21,9 @@ oslib.o: oslib.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 fifo.o: fifo.c
+	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+
+hashmap.o: hashmap.c
 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
 # stdio.o: stdio.c

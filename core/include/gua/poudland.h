@@ -1,5 +1,6 @@
 #pragma once
 #include <gua/2d_graphics.h>
+#include <hashmap.h>
 #include <hid/mouse.h>
 #include <list.h>
 #include <ostype.h>
@@ -61,18 +62,64 @@ typedef uint_32 poudland_wid_t;
 #define PL_MSG_SPECIAL_REQUEST 0x00000100
 
 /* Server responses */
-#define PL_MSG_WELCOME 0x00010001
-#define PL_MSG_WINDOW_INIT 0x00010002
+#define PL_MSG_WELCOME 0x00010001      // response client PL_MSG_HELLO
+#define PL_MSG_WINDOW_INIT 0x00010002  // response client PL_MSG_WINDOW_NEW
+
+
+// Mouse click define
+
+#define POUDLAND_MOUSE_LEFT_CLICK      LEFT_CLICK 
+#define POUDLAND_MOUSE_RIGHT_CLICK     RIGHT_CLICK 
+#define POUDLAND_MOUSE_MIDDLE_CLICK    MIDDLE_CLICK
+#define POUDLAND_MOUSE_SCROLL_UP       MOUSE_SCROLL_UP
+#define POUDLAND_MOUSE_SCROLL_DOWN     MOUSE_SCROLL_DOWN
+
+// Mouse status
+/*
+ * MOUSE_EVENT
+ *
+ * Mouse events have different types.
+ *
+ * Most of these should be self-explanatory.
+ *
+ * CLICK: A down-up click has occured.
+ * DRAG: The mouse is down and moving.
+ * RAISE: A mouse button was released.
+ * DOWN: A mouse button has been pressed.
+ * MOVE: The mouse has moved without a mouse button pressed.
+ * LEAVE: The mouse has left the given window.
+ * ENTER: The mouse has entered the given window.
+ */
+#define POUDLAND_MOUSE_EVENT_CLICK 0
+#define POUDLAND_MOUSE_EVENT_DRAG  1
+#define POUDLAND_MOUSE_EVENT_RAISE 2
+#define POUDLAND_MOUSE_EVENT_DOWN  3
+#define POUDLAND_MOUSE_EVENT_MOVE  4
+#define POUDLAND_MOUSE_EVENT_LEAVE 5
+#define POUDLAND_MOUSE_EVENT_ENTER 6
+
+// Mouse states
+// Normal stands for still mouse 
+// Moving stands for moving mouse but no click
+// Dragging stands for moving mouse with click
+// Resizing and Rotating are not support now
+#define POUDLAND_MOUSE_STATE_NORMAL     0
+#define POUDLAND_MOUSE_STATE_MOVING     1
+#define POUDLAND_MOUSE_STATE_DRAGGING   2
+#define POUDLAND_MOUSE_STATE_RESIZING   3
+#define POUDLAND_MOUSE_STATE_ROTATING   4
 
 typedef struct poudland_message {
     uint_32 magic;
     uint_32 type;
     uint_32 size;
+    struct list_head target;
     uint_8 body[];
 } poudland_msg_t;
 
 /*
- * Server connection context.
+ * Server connection context for each client
+ * like a session
  */
 typedef struct poudland_context {
     void *sock;
@@ -82,10 +129,11 @@ typedef struct poudland_context {
     uint_32 display_height;
 
     /* Hash of window IDs to window objects */
-    // hashmap_t * windows;
+    // all windows in clients session
+    hashmap_t *windows;
 
     /* queued events */
-    struct list_head equeue;
+    struct list_head equeue;  // a message list
 
     /* server identifier string */
     char *server_ident;
@@ -130,6 +178,11 @@ typedef struct poudland_window {
     int_32 mouse_state;
 } poudland_window_t;
 
+struct poudland_hello_msg_t {
+    uint_32 width;
+    uint_32 height;
+};
+
 struct poudland_msg_window_new {
     uint_32 pos_x;
     uint_32 pos_y;
@@ -138,9 +191,22 @@ struct poudland_msg_window_new {
     uint_32 color;
 };
 
+struct poudland_msg_window_new_init {
+    uint_32 wid;
+    uint_32 pos_x;
+    uint_32 pos_y;
+    uint_32 width;
+    uint_32 height;
+    uint_32 color;
+};
+
+
 struct poudland_msg_mouse_event {
-    mouse_device_packet_t event;
-    // int_32 type;                // mouse event type
+    poudland_wid_t wid;
+    uint_32 x;
+    uint_32 y;
+    uint_32 mouse_event_type;
+    uint_32 button_down;   // which button down
 };
 struct poudland_msg_win_move {
     uint_32 win_id;
@@ -148,4 +214,16 @@ struct poudland_msg_win_move {
     uint_32 y;
 };
 
+poudland_msg_t *poudland_wait_for(poudland_t *p, uint_32 type);
+poudland_t *poudland_init_context(const char *server);
 gfx_context_t *init_graphics_poudland_double_buffer(poudland_window_t *window);
+
+poudland_wid_t poudland_create_window(poudland_t *ctx,
+                                      int_32 fd,
+                                      int_32 color,
+                                      int_32 x,
+                                      int_32 y,
+                                      int_32 width,
+                                      int_32 height);
+
+void poudland_move_window(int_32 serverfd, int wid, int x, int y);

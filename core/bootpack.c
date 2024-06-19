@@ -150,7 +150,7 @@ void UkiMain(void)
 #if 1
     char *app_path = "/cor";
     char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 94 * 1024;
+    uint_32 file_sz = 95 * 1024;
     char *ls_buf = sys_malloc(file_sz);
     uint_32 sectors = DIV_ROUND_UP(file_sz, 512);
     ide_read(disk0, 3000, ls_buf, sectors);

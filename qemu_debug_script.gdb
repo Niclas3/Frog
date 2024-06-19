@@ -1,7 +1,7 @@
 target remote localhost:1234
 
-# file core/build/core_symbol.img
 
+# file core/build/core_symbol.img
 # set architecture i386
 file core/apps/build/compositor
 # file core/apps/build/ls
@@ -10,7 +10,8 @@ tui en
 # layout asm
 # set disassemble-next-line on
 
-b *0xc0070000
+# b *0xc0070000
+b pc_mouse_init
 # b exception_handler
 # b panic_print
 
@@ -21,8 +22,11 @@ b *0xc0070000
 
 ### debug compositor
 b main
+b poudland_move_window
 # b 584
-b 711
+# b 711
+# b window_top_of
+# b send_move_window_massage
 # b compositor.c:606
 # b info_JPEG
 # b quick_create_window

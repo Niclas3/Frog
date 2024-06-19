@@ -1,6 +1,7 @@
 #include <device/console.h>  // for ioctl(port_num)
 #include <gua/2d_graphics.h>
 #include <gua/poudland-server.h>
+#include <hashmap.h>
 #include <hid/mouse.h>
 #include <list.h>
 #include <math.h>
@@ -61,17 +62,23 @@ bool point_in_rect(point_t point, rect_t rect)
     return true;
 }
 
-static bool in_window(poudland_server_window_t *w, point_t point)
+static bool in_window(rect_t *w, point_t *point)
 {
     int x_max = w->x + w->width;
     int y_max = w->y + w->height;
 
-    if ((point.X > x_max || point.X < w->x) ||
-        (point.Y > y_max || point.Y < w->y)) {
+    if ((point->X > x_max || point->X < w->x) ||
+        (point->Y > y_max || point->Y < w->y)) {
         return false;
     } else {
         return true;
     }
+}
+
+static poudland_wid_t next_wid()
+{
+    static poudland_wid_t win_id_count = 1;
+    return win_id_count++;
 }
 
 
@@ -88,10 +95,12 @@ static poudland_server_window_t *server_window_create(poudland_globals_t *pg,
 {
     poudland_server_window_t *win = malloc(sizeof(poudland_server_window_t));
 
-    /* win->wid = next_wid(); */
+    win->wid = next_wid();
     win->owner = owner;
     list_add_tail(&win->server_w_target, &pg->windows);
-    /* hashmap_set(yg->wids_to_windows, (void *) (uintptr_t) win->wid, win); */
+    // add to mid_zs
+    list_add_tail(&win->server_w_mid_target, &pg->mid_zs);
+    hashmap_set(pg->wids_to_windows, (void *) win->wid, win);
     /* list_t *client_list = hashmap_get(yg->clients_to_windows, (void *)
      * owner); */
     /* list_insert(client_list, win); */
@@ -125,8 +134,6 @@ static poudland_server_window_t *server_window_create(poudland_globals_t *pg,
     win->buffer = malloc(size);
     memset(win->buffer, 0, size);
 
-    // add to mid_zs
-    list_add_tail(&win->server_w_mid_target, &pg->mid_zs);
 
     return win;
 }
@@ -141,8 +148,11 @@ static void draw_mouse(poudland_globals_t *pg,
     point_t downright = {.X = pos_x + size.X, .Y = pos_y + size.Y};
     argb_t defalut_cursor_color = FSK_SANDY_BROWN;
     if (color) {
-        draw_sprite(ctx, &pg->mouse_sprite, pos_x, pos_y);
-        if (pg->mouse_state == LEFT_CLICK) {
+        if (pg->mouse_state == POUDLAND_MOUSE_STATE_NORMAL ||
+            pg->mouse_state == POUDLAND_MOUSE_STATE_MOVING ||
+            pg->mouse_state == POUDLAND_MOUSE_STATE_DRAGGING) {
+            draw_sprite(ctx, &pg->mouse_sprite, pos_x, pos_y);
+        } else {
             fill_rect_solid(ctx, topleft, downright, *color);
         }
     } else {
@@ -434,8 +444,7 @@ static void redraw_windows(struct poudland_globals *pg)
     gfx_clear_clip(pg->backend_ctx);
 
     // Add damage region mouse damage region
-    if (pg->last_mouse_x != tmp_mouse_x || pg->last_mouse_y != tmp_mouse_y ||
-        pg->mouse_state == LEFT_CLICK) {
+    if (pg->last_mouse_x != tmp_mouse_x || pg->last_mouse_y != tmp_mouse_y) {
         need_update = 2;
 
         gfx_add_clip(pg->backend_ctx, pg->last_mouse_x, pg->last_mouse_y,
@@ -509,8 +518,8 @@ poudland_server_window_t *quick_create_window(poudland_globals_t *global,
     w->hidden = 0;
     w->x = x;
     w->y = y;
-    gfx_context_t *w_ctx = init_gfx_poudland_swindow(w);
 
+    gfx_context_t *w_ctx = init_gfx_poudland_swindow(w);
     // fill window backgroud color to w->buffer
     draw_fill(w_ctx, color);
 #if 0
@@ -526,6 +535,69 @@ poudland_server_window_t *quick_create_window(poudland_globals_t *global,
     return w;
 }
 
+bool is_target_window_in_all_windows(struct list_head *cur, void *value)
+{
+    point_t *p = malloc(sizeof(point_t));
+    memcpy(p, value, sizeof(point_t));
+
+    poudland_server_window_t *w =
+        container_of(cur, poudland_server_window_t, server_w_target);
+    rect_t r = {.x = w->x, .y = w->y, .width = w->width, .height = w->height};
+
+    if (in_window(&r, p)) {
+        return true;
+    }
+
+    return false;
+}
+
+bool is_in_mid_sz(struct list_head *cur, void *value)
+{
+    point_t *p = malloc(sizeof(point_t));
+    memcpy(p, value, sizeof(point_t));
+
+    poudland_server_window_t *w =
+        container_of(cur, poudland_server_window_t, server_w_mid_target);
+    rect_t r = {.x = w->x, .y = w->y, .width = w->width, .height = w->height};
+
+    if (in_window(&r, p)) {
+        return true;
+    }
+
+    return false;
+}
+
+static poudland_server_window_t *window_top_of(poudland_globals_t *global,
+                                               uint_32 x,
+                                               uint_32 y)
+{
+    if (global->focused_window) {
+        rect_t focused_win = {.x = global->focused_window->x,
+                              .y = global->focused_window->y,
+                              .width = global->focused_window->width,
+                              .height = global->focused_window->height};
+        if (in_window(&focused_win, &(point_t){.X = x, .Y = y})) {
+            return global->focused_window;
+        }
+    }
+    // First search mid_zs
+    /* global->mid_zs; */
+
+    // Second menu_zs
+    /* global->menu_zs; */
+
+    // Third overlay_zs
+    /* global->overlay_zs; */
+
+    // final
+    point_t p = {.X = x, .Y = y};
+    struct list_head *target =
+        list_walkerv2_prev(&global->mid_zs, is_in_mid_sz, &p);
+    poudland_server_window_t *win =
+        container_of(target, poudland_server_window_t, server_w_mid_target);
+    return win;
+}
+
 static void window_move(poudland_globals_t *pg,
                         poudland_server_window_t *window,
                         int x,
@@ -537,37 +609,147 @@ static void window_move(poudland_globals_t *pg,
     mark_window(pg, window);
 }
 
-/* static mouse_handler(poudland_globals_t *pg, ){ */
-/* } */
-static void send_hello_message(int_32 sfd)
+// set target window to top
+static void set_focus_window(poudland_globals_t *pg,
+                             poudland_server_window_t *win)
 {
-    poudland_msg_t *msg = malloc(sizeof(poudland_msg_t));
-    msg->type = PL_MSG_HELLO;
-    sprintf((char *) msg->body, "message from client");
-    msg->size = sizeof(poudland_msg_t) + 20;
-    msg->magic = PL_MSG__MAGIC;
-    pkx_reply(sfd, msg->size, (char *) msg);
+    pg->focused_window = win;
+    pg->top_z = win;
+    list_del_init(&win->server_w_mid_target);
+    list_add_tail(&win->server_w_mid_target, &pg->mid_zs);
+    mark_window(pg, win);
 }
-static void send_create_window_massage(int_32 sfd,
-                                       int_32 color,
-                                       int_32 x,
-                                       int_32 y,
-                                       int_32 width,
-                                       int_32 height)
+
+static poudland_server_window_t *get_focus_window(poudland_globals_t *global)
 {
-    uint_32 size_body = sizeof(struct poudland_msg_window_new);
-    poudland_msg_t *msg = malloc(sizeof(poudland_msg_t) + size_body);
+    if (!global->focused_window) {
+        return global->bottom_z;
+    } else {
+        return global->focused_window;
+    }
+}
+
+static void keyboard_handler(poudland_globals_t *global,
+                             mouse_device_packet_t *package)
+{
+    /* if (buf[0] == 'j') { */
+    /*     int_32 y = w2->y; */
+    /*     y += step; */
+    /*     window_move(global, w2, w2->x, y); */
+    /* } else if (buf[0] == 'k') { */
+    /*     int_32 y = w2->y; */
+    /*     y -= step; */
+    /*     window_move(global, w2, w2->x, y); */
+    /* } else if (buf[0] == 'h') { */
+    /*     int_32 x = w2->x; */
+    /*     x -= step; */
+    /*     window_move(global, w2, x, w2->y); */
+    /* } else if (buf[0] == 'l') { */
+    /*     int_32 x = w2->x; */
+    /*     x += step; */
+    /*     window_move(global, w2, x, w2->y); */
+    /* } */
+    /* printf("key event %c key press\n", buf[0]); */
+}
+
+void send_mouse_event_massage(uint_32 fd,
+                              poudland_server_window_t *w,
+                              uint_32 x,
+                              uint_32 y,
+                              uint_32 mouse_events,
+                              uint_32 mouse_button)
+{
+    poudland_msg_t *msg = malloc(sizeof(poudland_msg_t) +
+                                 sizeof(struct poudland_msg_mouse_event));
+    msg->type = PL_MSG_MOUSE_EVENT;
     msg->magic = PL_MSG__MAGIC;
-    msg->type = PL_MSG_WINDOW_NEW;
-    struct poudland_msg_window_new *m =
-        (struct poudland_msg_window_new *) msg->body;
-    m->width = width;
-    m->height = height;
-    m->pos_x = x;
-    m->pos_y = y;
-    m->color = color;
-    msg->size = sizeof(poudland_msg_t) + size_body;
-    pkx_reply(sfd, msg->size, (char *) msg);
+    msg->size =
+        sizeof(poudland_msg_t) + sizeof(struct poudland_msg_mouse_event);
+    struct poudland_msg_mouse_event *body =
+        (struct poudland_msg_mouse_event *) msg->body;
+
+    body->x = x;
+    body->y = y;
+    body->button_down = mouse_button;
+    body->mouse_event_type = mouse_events;
+    body->wid = w->wid;
+
+    pkx_send(fd, w->owner, msg->size, (char *) msg);
+}
+
+static void mouse_handler(poudland_globals_t *global,
+                          mouse_device_packet_t *package)
+{
+    global->mouse_x += package->x_difference;
+    global->mouse_y -= package->y_difference;
+    if (global->mouse_x < -MOUSE_OFFSET_X) {
+        global->mouse_x = -MOUSE_OFFSET_X;
+    }
+    if (global->mouse_y < -MOUSE_OFFSET_Y) {
+        global->mouse_y = -MOUSE_OFFSET_Y;
+    }
+
+    int_32 real_mouse_x = global->mouse_x + MOUSE_OFFSET_X;
+    int_32 real_mouse_y = global->mouse_y + MOUSE_OFFSET_Y;
+
+    int_32 real_last_mouse_x = global->last_mouse_x + MOUSE_OFFSET_X;
+    int_32 real_last_mouse_y = global->last_mouse_y + MOUSE_OFFSET_Y;
+
+    poudland_server_window_t *w =
+        window_top_of(global, real_mouse_x, real_mouse_y);
+
+    bool is_move = !((real_mouse_x == real_last_mouse_x) &&
+                     (real_mouse_y == real_last_mouse_y));
+
+    static uint_32 win_x_offset, win_y_offset;
+    switch (global->mouse_state) {
+    case POUDLAND_MOUSE_STATE_NORMAL: {
+        if (!package->buttons && is_move) {
+            global->mouse_state = POUDLAND_MOUSE_STATE_MOVING;
+        } else if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK && is_move) {
+            global->mouse_state = POUDLAND_MOUSE_STATE_DRAGGING;
+            if (w) {
+                set_focus_window(global, w);
+                global->mouse_window = w;
+                win_x_offset = real_mouse_x - w->x;
+                win_y_offset = real_mouse_y - w->y;
+            }
+
+        } else {
+            if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK) {
+                if (w) {
+                    set_focus_window(global, w);
+                }
+            }
+            send_mouse_event_massage(global->server_fd, w, real_mouse_x,
+                                     real_mouse_y, POUDLAND_MOUSE_EVENT_CLICK,
+                                     package->buttons);
+        }
+
+        break;
+    }
+    case POUDLAND_MOUSE_STATE_MOVING: {
+        global->mouse_state = POUDLAND_MOUSE_STATE_NORMAL;
+        send_mouse_event_massage(global->server_fd, w, real_mouse_x,
+                                 real_mouse_y, POUDLAND_MOUSE_EVENT_MOVE,
+                                 package->buttons);
+        break;
+    }
+    case POUDLAND_MOUSE_STATE_DRAGGING: {
+        // if mouse was not holding left button, then mouse_state sets to NORMAL
+        if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK) {
+            window_move(global, global->mouse_window, 
+                        real_mouse_x - win_x_offset,
+                        real_mouse_y - win_y_offset);
+        } else {
+            global->mouse_state = POUDLAND_MOUSE_STATE_NORMAL;
+        }
+        break;
+    }
+    default: {
+        break;
+    }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -595,8 +777,10 @@ int main(int argc, char *argv[])
     /* inital poudland globals variables */
     global->last_mouse_x = 0;
     global->last_mouse_y = 0;
-    global->mouse_x = global->width / 2;
-    global->mouse_y = global->height / 2;
+    global->mouse_x = 0;
+    global->mouse_y = 0;
+
+    global->wids_to_windows = hashmap_init(20);
 
     INIT_LIST_HEAD(&global->windows);
     INIT_LIST_HEAD(&global->mid_zs);      /* regular windows list */
@@ -615,29 +799,54 @@ int main(int argc, char *argv[])
     global->server_fd = serverfd;
 
     // this is test client thread
+#define COMPOSITOR_SERVER "compositor"
     if (!fork()) {
-        int cfd = pkx_connect(global->server_ident);
-        bool has_write = 0;
-        while (!has_write) {
-            send_create_window_massage(cfd, FSK_ORANGE, 400, 500, 400, 200);
-            has_write = 1;
-        }
+        poudland_t *ctx = poudland_init_context(COMPOSITOR_SERVER);
+        int cfd = (int) ctx->sock;
+
+        int win1 =
+            poudland_create_window(ctx, cfd, FSK_ORANGE, 200, 200, 100, 100);
+        int win2 =
+            poudland_create_window(ctx, cfd, FSK_GREEN, 220, 200, 800, 400);
+        int win3 =
+            poudland_create_window(ctx, cfd, FSK_DARK_RED, 420, 200, 200, 800);
+
+        uint_32 last_redraw = 0;
+        bool haschange = false;
+        /* while (1) { */
+        /*     unsigned long frameTime = poudland_time_since(global,
+         * last_redraw); */
+        /*     if (frameTime > 1000) { */
+        /*         if (!haschange) { */
+        /*             send_move_window_massage(cfd, win1, 200, 200); */
+        /*             haschange = true; */
+        /*         } else { */
+        /*             send_move_window_massage(cfd, win1, 400, 400); */
+        /*             haschange = false; */
+        /*         } */
+        /*         last_redraw = poudland_current_time(global); */
+        /*         frameTime = 0; */
+        /*     } */
+        /* } */
+
         while (1) {
             if (pkx_query(cfd)) {
                 char *pkg = malloc(PACKET_SIZE);
                 pkx_recv(cfd, pkg);
                 poudland_msg_t *m = (poudland_msg_t *) pkg;
                 switch (m->type) {
-                case PL_MSG_WELCOME: {
-                    printf("XServer say: Welcome body:%s.\n", m->body);
-                    break;
-                }
                 case PL_MSG_MOUSE_EVENT: {
                     struct poudland_msg_mouse_event *msg =
                         (struct poudland_msg_mouse_event *) m->body;
-                    send_create_window_massage(cfd, FSK_BLUE,
-                                               msg->event.x_difference,
-                                               msg->event.y_difference, 20, 20);
+                    if (msg->mouse_event_type == POUDLAND_MOUSE_EVENT_DRAG) {
+                        poudland_move_window(cfd, msg->wid, msg->x, msg->y);
+                    }
+                    break;
+                }
+                case PL_MSG_WINDOW_MOVE: {
+                    struct poudland_msg_win_move *msg =
+                        (struct poudland_msg_win_move *) m->body;
+
                     break;
                 }
                 defalut : {
@@ -663,30 +872,22 @@ int main(int argc, char *argv[])
     struct timeval t2 = {.tv_sec = 0, .tv_usec = 20};
 
     // test code
-    poudland_server_window_t *w1 =
+    poudland_server_window_t *bg =
         server_window_create(global, global->width, global->height, NULL, 0);
-    w1->hidden = 0;
-    w1->x = 0;
-    w1->y = 0;
-    gfx_context_t *w_ctx = init_gfx_poudland_swindow(w1);
+    bg->hidden = 0;
+    bg->x = 0;
+    bg->y = 0;
+    gfx_context_t *w_ctx = init_gfx_poudland_swindow(bg);
     draw_fill(w_ctx, FSK_WHITE);
     draw_pixel(w_ctx, 4, 4, FSK_CORN_SILK);
     rect_t _rect = {.x = 10, .y = 10, .width = 20, .height = 20};
     draw_rect_solid(w_ctx, _rect, FSK_RED);
-    mark_window(global, w1);
+    mark_window(global, bg);
+    /* global->bottom_z = bg; */
 
     ioctl(tty_fd, IO_CONSOLE_SET, &w_ctx);
-    uint_32 set_color = FSK_CYAN;
+    uint_32 set_color = FSK_BLACK;
     ioctl(tty_fd, IO_CONSOLE_COLOR, &set_color);
-
-    /* poudland_server_window_t *w1 = quick_create_window( */
-    /*     global, 0, 0, global->width, global->height, FSK_DARK_OLIVE_GREEN,
-     * NULL); */
-
-    poudland_server_window_t *w2 = quick_create_window(
-        global, 50, 50, 200, 200, FSK_BLANCHED_ALMOND, NULL);
-    poudland_server_window_t *w3 =
-        quick_create_window(global, 100, 100, 200, 200, FSK_DARK_CYAN, NULL);
 
     // load bmp image as cursor
     char *filename = "/b.bmp";
@@ -707,7 +908,7 @@ int main(int argc, char *argv[])
     global->mouse_sprite.bitmap = malloc(width * height * 4);
     global->mouse_sprite.width = width;
     global->mouse_sprite.height = height;
-    global->mouse_sprite.alpha = ALPHA_OPAQUE;
+    global->mouse_sprite.alpha = ALPHA_EMBEDDED;
     for (uint_32 h = 0; h < height; h++) {
         for (uint_32 w = 0; w < width; w++) {
             uint_32 color;
@@ -720,9 +921,8 @@ int main(int argc, char *argv[])
     free(image);
     // end test code
 
-    char *buf = malloc(1);
+    char *kbuf = malloc(1);
     mouse_device_packet_t *mbuf = malloc(sizeof(mouse_device_packet_t));
-    uint_32 pkg_size = sizeof(mouse_device_packet_t);
 
     uint_32 last_redraw = 0;
     while (1) {
@@ -747,11 +947,16 @@ int main(int argc, char *argv[])
                 }
                 switch (m->type) {
                 case PL_MSG_HELLO: {
-                    // 1.add this client address to global->clients
-                    poudland_msg_t *msg = malloc(sizeof(poudland_msg_t));
+                    poudland_msg_t *msg =
+                        malloc(sizeof(poudland_msg_t) +
+                               (sizeof(struct poudland_hello_msg_t)));
                     msg->type = PL_MSG_WELCOME;
-                    sprintf((char *) msg->body, "message from server");
-                    msg->size = sizeof(poudland_msg_t) + 20;
+                    msg->size = sizeof(poudland_msg_t) +
+                                sizeof(struct poudland_hello_msg_t);
+                    struct poudland_hello_msg_t *hm =
+                        (struct poudland_hello_msg_t *) &msg->body;
+                    hm->width = global->width;
+                    hm->height = global->height;
                     pkx_send(serverfd, (uint_32 *) packet->source, msg->size,
                              (char *) msg);
                     break;
@@ -760,16 +965,41 @@ int main(int argc, char *argv[])
                     // 1. get width and height from client
                     struct poudland_msg_window_new *msg =
                         (struct poudland_msg_window_new *) m->body;
-                    quick_create_window(
-                        global, msg->pos_x + 50, msg->pos_y + 50, msg->width,
-                        msg->height, msg->color, packet->source);
-
+                    struct poudland_server_window *w = quick_create_window(
+                        global, msg->pos_x, msg->pos_y, msg->width, msg->height,
+                        msg->color, packet->source);
+                    poudland_msg_t *pm =
+                        malloc(sizeof(poudland_msg_t) +
+                               sizeof(struct poudland_msg_window_new_init));
+                    pm->size = sizeof(poudland_msg_t) +
+                               sizeof(struct poudland_msg_window_new_init);
+                    pm->magic = PL_MSG__MAGIC;
+                    pm->type = PL_MSG_WINDOW_INIT;
+                    struct poudland_msg_window_new_init *m =
+                        (struct poudland_msg_window_new_init *) pm->body;
+                    m->wid = w->wid;
+                    m->width = msg->width;
+                    m->height = msg->height;
+                    m->color = msg->color;
+                    m->pos_x = msg->pos_x;
+                    m->pos_y = msg->pos_y;
+                    pkx_send(serverfd, (uint_32 *) packet->source, pm->size,
+                             (char *) pm);
                     break;
                 }
                 case PL_MSG_WINDOW_MOVE: {
-                    /* window_move(global, win, x, y); */
                     struct poudland_msg_win_move *msg =
                         (struct poudland_msg_win_move *) m->body;
+                    if (msg->x > (int) global->width ||
+                        msg->y > (int) global->height || msg->x < 0 ||
+                        msg->y < 0) {
+                        break;
+                    }
+                    poudland_server_window_t *w =
+                        hashmap_get(global->wids_to_windows, msg->win_id);
+                    if (w) {
+                        window_move(global, w, msg->x, msg->y);
+                    }
                     break;
                 }
                 case PL_MSG_WINDOW_MOUSE_EVENT: {
@@ -785,67 +1015,13 @@ int main(int argc, char *argv[])
         int_32 selected_fd = fds[idx];
         if (selected_fd == kbd_fd) {
             int step = 30;
-            read(kbd_fd, buf, 1);
-            // kbd_handler
-            /* if (buf[0] == 'j') { */
-            /*     int_32 y = w2->y; */
-            /*     y += step; */
-            /*     window_move(global, w2, w2->x, y); */
-            /* } else if (buf[0] == 'k') { */
-            /*     int_32 y = w2->y; */
-            /*     y -= step; */
-            /*     window_move(global, w2, w2->x, y); */
-            /* } else if (buf[0] == 'h') { */
-            /*     int_32 x = w2->x; */
-            /*     x -= step; */
-            /*     window_move(global, w2, x, w2->y); */
-            /* } else if (buf[0] == 'l') { */
-            /*     int_32 x = w2->x; */
-            /*     x += step; */
-            /*     window_move(global, w2, x, w2->y); */
-            /* } */
-            printf("key event %c key press\n", buf[0]);
+            if (read(kbd_fd, kbuf, 1) > 0) {
+                keyboard_handler(global, kbuf);
+            }
+
         } else if (selected_fd == mouse_fd) {
-            read(mouse_fd, mbuf, pkg_size);
-            global->mouse_state = mbuf->buttons;
-            global->mouse_x += mbuf->x_difference;
-            global->mouse_y -= mbuf->y_difference;
-            // mouse_handler
-            if (global->mouse_x < 0) {
-                global->mouse_x = 0;
-            }
-            if (global->mouse_y < 0) {
-                global->mouse_y = 0;
-            }
-            point_t p = {.X = global->mouse_x, .Y = global->mouse_y};
-            // TODO: send mouse event to client
-            //  check mouse position to test which window  below it and send
-            //  PL_MSG_MOUSE_EVENT to this window
-            uint_32 *target_win = NULL;
-
-            poudland_msg_t *msg =
-                malloc(sizeof(poudland_msg_t) +
-                       sizeof(struct poudland_msg_mouse_event));
-            msg->type = PL_MSG_MOUSE_EVENT;
-            msg->size = sizeof(poudland_msg_t) +
-                        sizeof(struct poudland_msg_mouse_event);
-            struct poudland_msg_mouse_event *body =
-                (struct poudland_msg_mouse_event *) msg->body;
-            body->event.magic = PL_MSG__MAGIC;
-            body->event.buttons = global->mouse_state;
-            body->event.x_difference = global->mouse_x;
-            body->event.y_difference = global->mouse_y;
-
-            pkx_send(global->server_fd, target_win, msg->size, (char *) msg);
-
-            /* if (in_window(w2, p)) { */
-            /*     if (mbuf->buttons == LEFT_CLICK) { */
-            /*         window_move(global, w2, global->mouse_x - 50, */
-            /*                     global->mouse_y - 50); */
-            /*     } else { */
-            /*         printf("(%d,%d)  ", p.X, p.Y); */
-            /*     } */
-            /* } */
+            read(mouse_fd, mbuf, sizeof(mouse_device_packet_t));
+            mouse_handler(global, mbuf);
         }
     }
 }
