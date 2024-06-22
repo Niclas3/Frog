@@ -1,5 +1,5 @@
 # CFLAGS= -g -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers -m32 -fno-stack-protector
-CFLAGS := -g -c -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
+CFLAGS := -g -c -O1 -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
 
 # -s --strip-all
 #     Omit all symbol information from the output
