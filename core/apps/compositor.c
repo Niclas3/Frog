@@ -13,6 +13,9 @@
 #include <device/console.h>
 #include "bmp.h"
 
+static void mark_window(poudland_globals_t *pg,
+                        poudland_server_window_t *window);
+
 static uint_32 poudland_current_time(poudland_globals_t *pg)
 {
     struct timeval t;
@@ -137,6 +140,25 @@ static poudland_server_window_t *server_window_create(poudland_globals_t *pg,
 
     return win;
 }
+
+void server_window_close(poudland_globals_t *global, poudland_wid_t wid)
+{
+    poudland_server_window_t *w =
+        hashmap_get(global->wids_to_windows, (const void *) wid);
+    if (w) {
+        if (w == global->focused_window) {
+            global->focused_window = NULL;
+        }
+        mark_window(global, w);
+        list_del_init(&w->server_w_target);
+        list_del_init(&w->server_w_mid_target);
+        hashmap_remove(global->wids_to_windows, (void *) w->wid);
+        free(w->buffer);
+        free(w);
+    }
+}
+
+
 static void draw_mouse(poudland_globals_t *pg,
                        uint_32 pos_x,
                        uint_32 pos_y,
@@ -469,6 +491,7 @@ static void redraw_windows(struct poudland_globals *pg)
         free(rect);
     }
 
+
     /* Render */
     if (need_update) {
         // 1.Go through all windows and blit all windows to backer_buffer
@@ -478,6 +501,15 @@ static void redraw_windows(struct poudland_globals *pg)
         draw_mouse(pg, pg->mouse_x, pg->mouse_y, &col);
         flip(pg->backend_ctx);
     }
+
+    /* struct list_head *node; */
+    /* list_for_each (node, &pg->windows_to_remove) { */
+    /*     poudland_server_window_t *w = */
+    /*         list_entry(node, poudland_server_window_t, remove_target); */
+    /*     if (w) { */
+    /*         server_window_remove(pg, w); */
+    /*     } */
+    /* } */
 }
 
 /**
@@ -613,6 +645,9 @@ static void window_move(poudland_globals_t *pg,
 static void set_focus_window(poudland_globals_t *pg,
                              poudland_server_window_t *win)
 {
+/* FIXME: wid == 1 is background temp */
+    if (win->wid <= 1)
+        return;
     pg->focused_window = win;
     pg->top_z = win;
     list_del_init(&win->server_w_mid_target);
@@ -738,9 +773,15 @@ static void mouse_handler(poudland_globals_t *global,
     case POUDLAND_MOUSE_STATE_DRAGGING: {
         // if mouse was not holding left button, then mouse_state sets to NORMAL
         if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK) {
-            window_move(global, global->mouse_window, 
-                        real_mouse_x - win_x_offset,
-                        real_mouse_y - win_y_offset);
+            if (global->mouse_window->wid > 1) { // FIXME: wid == 1 is background temp
+                window_move(global, global->mouse_window,
+                            real_mouse_x - win_x_offset,
+                            real_mouse_y - win_y_offset);
+                send_mouse_event_massage(
+                    global->server_fd, w, real_mouse_x - win_x_offset,
+                    real_mouse_y - win_y_offset, POUDLAND_MOUSE_EVENT_DRAG,
+                    package->buttons);
+            }
         } else {
             global->mouse_state = POUDLAND_MOUSE_STATE_NORMAL;
         }
@@ -811,23 +852,24 @@ int main(int argc, char *argv[])
         int win3 =
             poudland_create_window(ctx, cfd, FSK_DARK_RED, 420, 200, 200, 800);
 
+        poudland_remove_window(cfd, win3);
         uint_32 last_redraw = 0;
-        bool haschange = false;
+        bool is_removed = false;
+        /* while (1) */
+        /*     ; */
         /* while (1) { */
         /*     unsigned long frameTime = poudland_time_since(global,
          * last_redraw); */
-        /*     if (frameTime > 1000) { */
-        /*         if (!haschange) { */
-        /*             send_move_window_massage(cfd, win1, 200, 200); */
-        /*             haschange = true; */
-        /*         } else { */
-        /*             send_move_window_massage(cfd, win1, 400, 400); */
-        /*             haschange = false; */
+        /*     if (frameTime > 60000) { */
+        /*         if (!is_removed) { */
+        /*             poudland_remove_window(cfd, win3); */
+        /*             is_removed = true; */
         /*         } */
         /*         last_redraw = poudland_current_time(global); */
         /*         frameTime = 0; */
         /*     } */
         /* } */
+
 
         while (1) {
             if (pkx_query(cfd)) {
@@ -838,9 +880,19 @@ int main(int argc, char *argv[])
                 case PL_MSG_MOUSE_EVENT: {
                     struct poudland_msg_mouse_event *msg =
                         (struct poudland_msg_mouse_event *) m->body;
-                    if (msg->mouse_event_type == POUDLAND_MOUSE_EVENT_DRAG) {
-                        poudland_move_window(cfd, msg->wid, msg->x, msg->y);
-                    }
+                    /* if (msg->mouse_event_type == POUDLAND_MOUSE_EVENT_CLICK
+                     * && */
+                    /*     msg->wid > 1) { */
+                    /*     if (!is_removed) { */
+                    /*         poudland_remove_window(cfd, msg->wid); */
+                    /*         is_removed = true; */
+                    /*     } */
+                    /* } */
+                    /* if (msg->mouse_event_type == POUDLAND_MOUSE_EVENT_DRAG) {
+                     */
+                    /*     poudland_move_window(cfd, msg->wid, msg->x, msg->y);
+                     */
+                    /* } */
                     break;
                 }
                 case PL_MSG_WINDOW_MOVE: {
@@ -1003,6 +1055,14 @@ int main(int argc, char *argv[])
                     break;
                 }
                 case PL_MSG_WINDOW_MOUSE_EVENT: {
+                    break;
+                }
+                case PL_MSG_WINDOW_CLOSE: {
+                    struct poudland_msg_window_close *mm =
+                        (struct poudland_msg_window_close *) m->body;
+                    if (hashmap_has(global->wids_to_windows, mm->wid)) {
+                        server_window_close(global, mm->wid);
+                    }
                     break;
                 }
                 default:

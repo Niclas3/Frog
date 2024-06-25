@@ -150,7 +150,8 @@ void UkiMain(void)
 #if 1
     char *app_path = "/cor";
     char *argv[2] = {"a", "b"};
-    uint_32 file_sz = 146 * 1024;
+    /* uint_32 file_sz = 146 * 1024; */
+    uint_32 file_sz = 117 * 1024;
     /* uint_32 file_sz = 108 * 1024; */
     /* uint_32 file_sz = 95 * 1024; */
     char *ls_buf = sys_malloc(file_sz);

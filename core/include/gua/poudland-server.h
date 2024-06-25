@@ -213,7 +213,7 @@ typedef struct poudland_globals {
     // hashmap_t *key_binds;
 
     /* Windows to remove after the end of the rendering pass */
-    struct list_head *windows_to_remove;
+    // struct list_head windows_to_remove;
 
     /* For nested mode, the host Yutani context and window */
     // yutani_t *host_context;

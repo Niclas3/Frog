@@ -11,7 +11,7 @@ tui en
 # set disassemble-next-line on
 
 # b *0xc0070000
-b pc_mouse_init
+# b pc_mouse_init
 # b exception_handler
 # b panic_print
 
@@ -21,8 +21,9 @@ b pc_mouse_init
 # b u_fung
 
 ### debug compositor
-b main
-b poudland_move_window
+# b main
+b poudland_remove_window
+b server_window_close
 # b 584
 # b 711
 # b window_top_of
