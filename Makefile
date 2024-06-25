@@ -84,10 +84,12 @@ bootloader: $(BOOTER)
 	# -rtc base=localtime,clock=host \
 	# -audiodev id=alsa,driver=alsa \
 	# -machine pcspk-audiodev=alsa
+	
 	# qemu-system-i386 \
 	# -S -s \
 	# -monitor stdio \
 	# -m 128m \
+	# -enable-kvm \
 	# -drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
 	# -drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
 	# -rtc base=localtime,clock=host \
@@ -105,11 +107,11 @@ run:
 	-audiodev id=alsa,driver=alsa \
 	-machine pcspk-audiodev=alsa
 
-shell:
+debug_run:
 	qemu-system-i386 \
 	-S -s \
-	-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
-	-m 128m \
+	-monitor stdio \
+	-m 1G \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
 	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
 	-rtc base=localtime,clock=host \
@@ -132,4 +134,5 @@ clean:
 clean-all: clean
 	cd ./booter && $(MAKE) clean
 	cd ./core   && $(MAKE) clean
+	cd ./core/apps && $(MAKE) clean
 	# cd ./tools  && $(MAKE) clean
