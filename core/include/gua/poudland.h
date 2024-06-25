@@ -46,9 +46,7 @@ typedef uint_32 poudland_wid_t;
 #define PL_MSG_WINDOW_SHOW_MOUSE 0x00000028
 #define PL_MSG_WINDOW_RESIZE_START 0x00000029
 #define PL_MSG_WINDOW_PANEL_SIZE 0x0000002a
-
 #define PL_MSG_SESSION_END 0x00000030
-
 #define PL_MSG_KEY_BIND 0x00000040
 
 #define PL_MSG_WINDOW_UPDATE_SHAPE 0x00000050
@@ -200,6 +198,10 @@ struct poudland_msg_window_new_init {
     uint_32 color;
 };
 
+struct poudland_msg_window_close{
+    uint_32 wid;
+};
+
 
 struct poudland_msg_mouse_event {
     poudland_wid_t wid;
@@ -225,5 +227,6 @@ poudland_wid_t poudland_create_window(poudland_t *ctx,
                                       int_32 y,
                                       int_32 width,
                                       int_32 height);
+void poudland_remove_window(int_32 fd, int_32 wid);
 
 void poudland_move_window(int_32 serverfd, int wid, int x, int y);

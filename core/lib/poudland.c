@@ -152,3 +152,16 @@ poudland_wid_t poudland_create_window(poudland_t *ctx,
     free(win_msg);
     return win_init_msg->wid;
 }
+
+void poudland_remove_window(int_32 fd, int_32 wid)
+{
+    uint_32 size_body = sizeof(struct poudland_msg_window_close);
+    poudland_msg_t *msg = malloc(sizeof(poudland_msg_t) + size_body);
+    msg->magic = PL_MSG__MAGIC;
+    msg->type = PL_MSG_WINDOW_CLOSE;
+    msg->size = sizeof(poudland_msg_t) + size_body;
+    struct poudland_msg_window_close *m =
+        (struct poudland_msg_window_close *) msg->body;
+    m->wid = wid;
+    pkx_reply(fd, msg->size, (char *) msg);
+}
