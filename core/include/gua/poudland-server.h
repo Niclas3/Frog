@@ -1,7 +1,6 @@
 #include <list.h>
 #include <ostype.h>
 #include <gua/2d_graphics.h>
-#include <gua/poudland.h>
 #include <hashmap.h>
 
 /* Mouse resolution scaling */
@@ -25,12 +24,13 @@ typedef struct {
     uint_32 height;
 } damage_rect_t;
 
+// typedef uint_32 poudland_wid_t;
 /*
  * Server window definitions
  */
 typedef struct poudland_server_window {
 	/* Window identifier number */
-	poudland_wid_t wid;
+	uint_32 wid;
 
 	/* Window location */
 	signed long x;

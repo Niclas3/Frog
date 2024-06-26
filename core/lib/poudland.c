@@ -137,7 +137,7 @@ void send_create_window_massage(int_32 sfd,
     pkx_reply(sfd, msg->size, (char *) msg);
 }
 
-poudland_wid_t poudland_create_window(poudland_t *ctx,
+uint_32 poudland_create_window(poudland_t *ctx,
                                       int_32 fd,
                                       int_32 color,
                                       int_32 x,

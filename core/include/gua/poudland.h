@@ -4,7 +4,8 @@
 #include <hid/mouse.h>
 #include <list.h>
 #include <ostype.h>
-typedef uint_32 poudland_wid_t;
+
+// typedef uint_32 poudland_wid_t;
 
 /* Magic value */
 #define PL_MSG__MAGIC 0xABAD1DEA
@@ -139,7 +140,7 @@ typedef struct poudland_context {
 
 typedef struct poudland_window {
     /* Server window identifier, unique to each window */
-    poudland_wid_t wid;
+    uint_32 wid;
 
     /* Window size */
     uint_32 width;
@@ -204,7 +205,7 @@ struct poudland_msg_window_close{
 
 
 struct poudland_msg_mouse_event {
-    poudland_wid_t wid;
+    uint_32 wid;
     uint_32 x;
     uint_32 y;
     uint_32 mouse_event_type;
@@ -220,7 +221,7 @@ poudland_msg_t *poudland_wait_for(poudland_t *p, uint_32 type);
 poudland_t *poudland_init_context(const char *server);
 gfx_context_t *init_graphics_poudland_double_buffer(poudland_window_t *window);
 
-poudland_wid_t poudland_create_window(poudland_t *ctx,
+uint_32 poudland_create_window(poudland_t *ctx,
                                       int_32 fd,
                                       int_32 color,
                                       int_32 x,

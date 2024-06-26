@@ -1,6 +1,7 @@
 #include <device/console.h>  // for ioctl(port_num)
 #include <gua/2d_graphics.h>
 #include <gua/poudland-server.h>
+#include <gua/poudland.h>
 #include <hashmap.h>
 #include <hid/mouse.h>
 #include <list.h>
@@ -78,9 +79,9 @@ static bool in_window(rect_t *w, point_t *point)
     }
 }
 
-static poudland_wid_t next_wid()
+static uint_32 next_wid()
 {
-    static poudland_wid_t win_id_count = 1;
+    static uint_32 win_id_count = 1;
     return win_id_count++;
 }
 
@@ -141,7 +142,7 @@ static poudland_server_window_t *server_window_create(poudland_globals_t *pg,
     return win;
 }
 
-void server_window_close(poudland_globals_t *global, poudland_wid_t wid)
+void server_window_close(poudland_globals_t *global, uint_32 wid)
 {
     poudland_server_window_t *w =
         hashmap_get(global->wids_to_windows, (const void *) wid);
