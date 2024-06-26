@@ -47,7 +47,14 @@ compositor.o: compositor.c
 compositor: compositor.o crt.o bmp.o jpeg.o hashmap.o
 	ld $(LD_FLAG) $^ $(OBJS) $(gua_OBJS) $(sys_OBJS) -o $(BUILD)/$@
 
-all: compositor ls
+# desktop
+desktop.o: desktop.c
+	gcc $(CFLAGS) $(CINCLUDE) -I. $^ $@
+
+desktop: desktop.o crt.o hashmap.o 
+	ld $(LD_FLAG) $^ $(OBJS) $(gua_OBJS) $(sys_OBJS) -o $(BUILD)/$@
+
+all: compositor ls desktop
 
 load: compositor
 	dd if=$(BUILD)/$^ of=$(DISK) bs=512 count=300 seek=384 conv=notrunc
