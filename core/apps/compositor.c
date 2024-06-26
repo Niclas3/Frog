@@ -161,8 +161,8 @@ void server_window_close(poudland_globals_t *global, uint_32 wid)
 
 
 static void draw_mouse(poudland_globals_t *pg,
-                       uint_32 pos_x,
-                       uint_32 pos_y,
+                       int_32 pos_x,
+                       int_32 pos_y,
                        argb_t *color)
 {
     gfx_context_t *ctx = pg->backend_ctx;
@@ -604,6 +604,8 @@ static poudland_server_window_t *window_top_of(poudland_globals_t *global,
                                                uint_32 x,
                                                uint_32 y)
 {
+    if (x < 0 || y < 0 || x > global->width || y > global->height)
+        return NULL;
     if (global->focused_window) {
         rect_t focused_win = {.x = global->focused_window->x,
                               .y = global->focused_window->y,
@@ -690,8 +692,8 @@ static void keyboard_handler(poudland_globals_t *global,
 
 void send_mouse_event_massage(uint_32 fd,
                               poudland_server_window_t *w,
-                              uint_32 x,
-                              uint_32 y,
+                              int_32 x,
+                              int_32 y,
                               uint_32 mouse_events,
                               uint_32 mouse_button)
 {
@@ -718,12 +720,6 @@ static void mouse_handler(poudland_globals_t *global,
 {
     global->mouse_x += package->x_difference;
     global->mouse_y -= package->y_difference;
-    if (global->mouse_x < -MOUSE_OFFSET_X) {
-        global->mouse_x = -MOUSE_OFFSET_X;
-    }
-    if (global->mouse_y < -MOUSE_OFFSET_Y) {
-        global->mouse_y = -MOUSE_OFFSET_Y;
-    }
 
     int_32 real_mouse_x = global->mouse_x + MOUSE_OFFSET_X;
     int_32 real_mouse_y = global->mouse_y + MOUSE_OFFSET_Y;
@@ -731,6 +727,23 @@ static void mouse_handler(poudland_globals_t *global,
     int_32 real_last_mouse_x = global->last_mouse_x + MOUSE_OFFSET_X;
     int_32 real_last_mouse_y = global->last_mouse_y + MOUSE_OFFSET_Y;
 
+    if (global->mouse_x < -MOUSE_OFFSET_X) {
+        global->mouse_x = -MOUSE_OFFSET_X;
+        real_mouse_x = 0;
+    } else if (real_mouse_x >= global->width) {
+        // minus 1 pixel for pretty
+        global->mouse_x = global->width - MOUSE_OFFSET_X - 1;
+        real_mouse_x = global->width - 1;
+    }
+
+    if (global->mouse_y < -MOUSE_OFFSET_Y) {
+        global->mouse_y = -MOUSE_OFFSET_Y;
+        real_mouse_y = 0;
+    } else if (real_mouse_y >= global->height) {
+        // minus 1 pixel for pretty
+        global->mouse_y = global->height - MOUSE_OFFSET_Y - 1;
+        real_mouse_y = global->height - 1;
+    }
 
     bool is_move = !((real_mouse_x == real_last_mouse_x) &&
                      (real_mouse_y == real_last_mouse_y));
@@ -928,7 +941,6 @@ int main(int argc, char *argv[])
         }
     }
     // end test thread
-
 
     int_32 kbd_fd = open("/dev/input/event0", O_RDONLY);
     int_32 mouse_fd = open("/dev/input/event1", O_RDONLY);

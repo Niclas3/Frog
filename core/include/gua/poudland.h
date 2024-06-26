@@ -67,11 +67,11 @@
 
 // Mouse click define
 
-#define POUDLAND_MOUSE_LEFT_CLICK      LEFT_CLICK 
-#define POUDLAND_MOUSE_RIGHT_CLICK     RIGHT_CLICK 
-#define POUDLAND_MOUSE_MIDDLE_CLICK    MIDDLE_CLICK
-#define POUDLAND_MOUSE_SCROLL_UP       MOUSE_SCROLL_UP
-#define POUDLAND_MOUSE_SCROLL_DOWN     MOUSE_SCROLL_DOWN
+#define POUDLAND_MOUSE_LEFT_CLICK LEFT_CLICK
+#define POUDLAND_MOUSE_RIGHT_CLICK RIGHT_CLICK
+#define POUDLAND_MOUSE_MIDDLE_CLICK MIDDLE_CLICK
+#define POUDLAND_MOUSE_SCROLL_UP MOUSE_SCROLL_UP
+#define POUDLAND_MOUSE_SCROLL_DOWN MOUSE_SCROLL_DOWN
 
 // Mouse status
 /*
@@ -90,23 +90,23 @@
  * ENTER: The mouse has entered the given window.
  */
 #define POUDLAND_MOUSE_EVENT_CLICK 0
-#define POUDLAND_MOUSE_EVENT_DRAG  1
+#define POUDLAND_MOUSE_EVENT_DRAG 1
 #define POUDLAND_MOUSE_EVENT_RAISE 2
-#define POUDLAND_MOUSE_EVENT_DOWN  3
-#define POUDLAND_MOUSE_EVENT_MOVE  4
+#define POUDLAND_MOUSE_EVENT_DOWN 3
+#define POUDLAND_MOUSE_EVENT_MOVE 4
 #define POUDLAND_MOUSE_EVENT_LEAVE 5
 #define POUDLAND_MOUSE_EVENT_ENTER 6
 
 // Mouse states
-// Normal stands for still mouse 
+// Normal stands for still mouse
 // Moving stands for moving mouse but no click
 // Dragging stands for moving mouse with click
 // Resizing and Rotating are not support now
-#define POUDLAND_MOUSE_STATE_NORMAL     0
-#define POUDLAND_MOUSE_STATE_MOVING     1
-#define POUDLAND_MOUSE_STATE_DRAGGING   2
-#define POUDLAND_MOUSE_STATE_RESIZING   3
-#define POUDLAND_MOUSE_STATE_ROTATING   4
+#define POUDLAND_MOUSE_STATE_NORMAL 0
+#define POUDLAND_MOUSE_STATE_MOVING 1
+#define POUDLAND_MOUSE_STATE_DRAGGING 2
+#define POUDLAND_MOUSE_STATE_RESIZING 3
+#define POUDLAND_MOUSE_STATE_ROTATING 4
 
 typedef struct poudland_message {
     uint_32 magic;
@@ -199,17 +199,17 @@ struct poudland_msg_window_new_init {
     uint_32 color;
 };
 
-struct poudland_msg_window_close{
+struct poudland_msg_window_close {
     uint_32 wid;
 };
 
 
 struct poudland_msg_mouse_event {
     uint_32 wid;
-    uint_32 x;
-    uint_32 y;
+    int_32  x;
+    int_32  y;
     uint_32 mouse_event_type;
-    uint_32 button_down;   // which button down
+    uint_32 button_down;  // which button down
 };
 struct poudland_msg_win_move {
     uint_32 win_id;
@@ -222,12 +222,12 @@ poudland_t *poudland_init_context(const char *server);
 gfx_context_t *init_graphics_poudland_double_buffer(poudland_window_t *window);
 
 uint_32 poudland_create_window(poudland_t *ctx,
-                                      int_32 fd,
-                                      int_32 color,
-                                      int_32 x,
-                                      int_32 y,
-                                      int_32 width,
-                                      int_32 height);
+                               int_32 fd,
+                               int_32 color,
+                               int_32 x,
+                               int_32 y,
+                               int_32 width,
+                               int_32 height);
 void poudland_remove_window(int_32 fd, int_32 wid);
 
 void poudland_move_window(int_32 serverfd, int wid, int x, int y);
