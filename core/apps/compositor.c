@@ -645,7 +645,7 @@ static void window_move(poudland_globals_t *pg,
 static void set_focus_window(poudland_globals_t *pg,
                              poudland_server_window_t *win)
 {
-/* FIXME: wid == 1 is background temp */
+    /* FIXME: wid == 1 is background temp */
     if (win->wid <= 1)
         return;
     pg->focused_window = win;
@@ -730,8 +730,6 @@ static void mouse_handler(poudland_globals_t *global,
     int_32 real_last_mouse_x = global->last_mouse_x + MOUSE_OFFSET_X;
     int_32 real_last_mouse_y = global->last_mouse_y + MOUSE_OFFSET_Y;
 
-    poudland_server_window_t *w =
-        window_top_of(global, real_mouse_x, real_mouse_y);
 
     bool is_move = !((real_mouse_x == real_last_mouse_x) &&
                      (real_mouse_y == real_last_mouse_y));
@@ -742,6 +740,8 @@ static void mouse_handler(poudland_globals_t *global,
         if (!package->buttons && is_move) {
             global->mouse_state = POUDLAND_MOUSE_STATE_MOVING;
         } else if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK && is_move) {
+            poudland_server_window_t *w =
+                window_top_of(global, real_mouse_x, real_mouse_y);
             global->mouse_state = POUDLAND_MOUSE_STATE_DRAGGING;
             if (w) {
                 set_focus_window(global, w);
@@ -749,8 +749,9 @@ static void mouse_handler(poudland_globals_t *global,
                 win_x_offset = real_mouse_x - w->x;
                 win_y_offset = real_mouse_y - w->y;
             }
-
         } else {
+            poudland_server_window_t *w =
+                window_top_of(global, real_mouse_x, real_mouse_y);
             if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK) {
                 if (w) {
                     set_focus_window(global, w);
@@ -764,7 +765,18 @@ static void mouse_handler(poudland_globals_t *global,
         break;
     }
     case POUDLAND_MOUSE_STATE_MOVING: {
-        global->mouse_state = POUDLAND_MOUSE_STATE_NORMAL;
+        poudland_server_window_t *w =
+            window_top_of(global, real_mouse_x, real_mouse_y);
+        if (package->buttons) {
+            if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK && w) {
+                set_focus_window(global, w);
+            }
+            global->mouse_state = POUDLAND_MOUSE_STATE_NORMAL;
+            send_mouse_event_massage(global->server_fd, w, real_mouse_x,
+                                     real_mouse_y, POUDLAND_MOUSE_EVENT_CLICK,
+                                     package->buttons);
+            break;
+        }
         send_mouse_event_massage(global->server_fd, w, real_mouse_x,
                                  real_mouse_y, POUDLAND_MOUSE_EVENT_MOVE,
                                  package->buttons);
@@ -772,8 +784,11 @@ static void mouse_handler(poudland_globals_t *global,
     }
     case POUDLAND_MOUSE_STATE_DRAGGING: {
         // if mouse was not holding left button, then mouse_state sets to NORMAL
+        poudland_server_window_t *w =
+            window_top_of(global, real_mouse_x, real_mouse_y);
         if (package->buttons & POUDLAND_MOUSE_LEFT_CLICK) {
-            if (global->mouse_window->wid > 1) { // FIXME: wid == 1 is background temp
+            // FIXME: wid == 1 is background temp
+            if (global->mouse_window->wid > 1) {
                 window_move(global, global->mouse_window,
                             real_mouse_x - win_x_offset,
                             real_mouse_y - win_y_offset);
@@ -784,6 +799,9 @@ static void mouse_handler(poudland_globals_t *global,
             }
         } else {
             global->mouse_state = POUDLAND_MOUSE_STATE_NORMAL;
+            send_mouse_event_massage(global->server_fd, w, real_mouse_x,
+                                     real_mouse_y, POUDLAND_MOUSE_EVENT_RAISE,
+                                     package->buttons);
         }
         break;
     }
@@ -888,11 +906,10 @@ int main(int argc, char *argv[])
                     /*         is_removed = true; */
                     /*     } */
                     /* } */
-                    /* if (msg->mouse_event_type == POUDLAND_MOUSE_EVENT_DRAG) {
-                     */
-                    /*     poudland_move_window(cfd, msg->wid, msg->x, msg->y);
-                     */
-                    /* } */
+                    if (msg->mouse_event_type == POUDLAND_MOUSE_EVENT_DRAG) {
+                        /* poudland_move_window(cfd, msg->wid, msg->x, msg->y);
+                         */
+                    }
                     break;
                 }
                 case PL_MSG_WINDOW_MOVE: {
