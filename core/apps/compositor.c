@@ -628,9 +628,12 @@ static poudland_server_window_t *window_top_of(poudland_globals_t *global,
     point_t p = {.X = x, .Y = y};
     struct list_head *target =
         list_walkerv2_prev(&global->mid_zs, is_in_mid_sz, &p);
-    poudland_server_window_t *win =
-        container_of(target, poudland_server_window_t, server_w_mid_target);
-    return win;
+    if (target) {
+        return container_of(target, poudland_server_window_t,
+                            server_w_mid_target);
+    } else {
+        return NULL;
+    }
 }
 
 static void window_move(poudland_globals_t *pg,
