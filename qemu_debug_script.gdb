@@ -1,16 +1,17 @@
 target remote localhost:1234
 
 
-# file core/build/core_symbol.img
-# set architecture i386
-file core/apps/build/compositor
+file core/build/core_symbol.img
+# file core/apps/build/compositor
 # file core/apps/build/ls
 tui en
 # if GDB7.0
-# layout asm
-# set disassemble-next-line on
+layout asm
+set architecture i386
+set disassemble-next-line on
 
-# b *0xc0070000
+b *0xc400
+b *0xc0070000
 # b pc_mouse_init
 # b exception_handler
 # b panic_print
