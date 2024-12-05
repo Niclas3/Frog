@@ -1,7 +1,7 @@
 # 🐸 Frog
 Frog is a project that aims to build an operating system for self-teaching OS technology
 
-Currently Frog only support X86 PC.
+Currently Frog only support x86 PC.
 
 The Frog includes a kernel, bootloader and a compositor for desktop.
 
@@ -20,6 +20,9 @@ The Frog includes a kernel, bootloader and a compositor for desktop.
 We need two *.img files hd.img and hd80M.img at home directory. You can create it by
 `bximage`.
 > hd.img size should over 10m. and hd80M should be 80M.
-run ./build.sh
+run `./scripts/build.sh`
+
+## Debug
+run `./scripts/qemu.sh`
 
 ## Project Layout

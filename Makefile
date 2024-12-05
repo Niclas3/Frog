@@ -108,13 +108,13 @@ run:
 	-machine pcspk-audiodev=alsa \
 
 	#hints -s shorthand for -gdb tcp::1234
+	#-enable-kvm
 debug_run:
 	qemu-system-i386 \
 	-S \
 	-s \
 	-monitor stdio \
 	-m 1G \
-	-enable-kvm \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
 	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
 	-rtc base=localtime,clock=host \
