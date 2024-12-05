@@ -125,6 +125,9 @@ void UkiMain(void)
 
     clock_init();
 
+    spin_lock(spin_lock);
+    spin_unlock(spin_lock);
+
     init_idt_gdt_tss();
 
     mem_init();  // mem_init must early that thread_init beause thread_init need

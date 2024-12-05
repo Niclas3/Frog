@@ -107,9 +107,11 @@ run:
 	-audiodev id=alsa,driver=alsa \
 	-machine pcspk-audiodev=alsa \
 
+	#hints -s shorthand for -gdb tcp::1234
 debug_run:
 	qemu-system-i386 \
-	-S -s \
+	-S \
+	-s \
 	-monitor stdio \
 	-m 1G \
 	-enable-kvm \
