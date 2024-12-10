@@ -74,27 +74,7 @@ bootloader: $(BOOTER)
 # NOTE: Remove driftfix=slew if not needed
 # -rtc base=localtime,clock=host,driftfix=slew \
 # NOTE: -enable-kvm makes RTC and disk accesses slow for me, but can be better accuracy
-#
-	# qemu-system-i386 \
-	# -S -s \
-	# -monitor stdio \
-	# -m 128m \
-	# -drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	# -drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
-	# -rtc base=localtime,clock=host \
-	# -audiodev id=alsa,driver=alsa \
-	# -machine pcspk-audiodev=alsa
-	
-	# qemu-system-i386 \
-	# -S -s \
-	# -monitor stdio \
-	# -m 128m \
-	# -enable-kvm \
-	# -drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	# -drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
-	# -rtc base=localtime,clock=host \
-	# -audiodev id=alsa,driver=alsa \
-	# -machine pcspk-audiodev=alsa
+#      
 run:
 	qemu-system-i386 \
 	-S -s \
@@ -109,6 +89,13 @@ run:
 
 	#hints -s shorthand for -gdb tcp::1234
 	#-enable-kvm
+
+# NOTE:
+#  -netdev the host OS must has a tap type interface named 'tap0'
+#  If you don't have it, you can create it use `sudo tuncrl -t tap0 -u `whoami``
+#  to create a tap0 interface.
+#  I used bridge to exchange network packages.
+#  for more infomation please check this (url)[https://niclas3.github.io/2024/12/09/network_bridging_with_qemu.html]
 debug_run:
 	qemu-system-i386 \
 	-S \
@@ -117,6 +104,8 @@ debug_run:
 	-m 1G \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
 	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
+	-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
+	-device e1000,netdev=net0 \
 	-rtc base=localtime,clock=host \
 	-audiodev id=alsa,driver=alsa \
 	-machine pcspk-audiodev=alsa \
