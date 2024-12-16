@@ -73,8 +73,4 @@ enum intr_status intr_set_status(enum intr_status status);
 enum intr_status intr_enable(void);
 enum intr_status intr_disable(void);
 
-//-----------------------------------------------------------------------------
-//                     Interrupt Callback function 
-//-----------------------------------------------------------------------------
-void exception_handler(int vec_no,int err_code,int eip,int cs,int eflags);
 #endif

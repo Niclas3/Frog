@@ -97,7 +97,7 @@ _asm_inthandler%1:
     call [intr_table+%1*4]
     jmp intr_exit
 section .data
-    dd _asm_inthandler%1 ;; each interrupt entry 
+    dd _asm_inthandler%1 ;; each interrupt entry address
 %endmacro
 
 
@@ -111,7 +111,7 @@ _asm_exceptionhandler%1:
 	add	esp, 4*2
 	hlt
 section .data
-    dd _asm_exceptionhandler%1 ;; each exception entry 
+    dd _asm_exceptionhandler%1 ;; each exception entry address
 %endmacro
 
 
