@@ -10,9 +10,9 @@ void init_8259A()
     _io_delay();
 
     // Set ICW2
-    _io_out8(PIC0_ICW2, 0x20);
+    _io_out8(PIC0_ICW2, 0x20); // set master interrupt number as 0x20
     _io_delay();
-    _io_out8(PIC1_ICW2, 0x28);
+    _io_out8(PIC1_ICW2, 0x28); // set slave interrupt number as 0x28
     _io_delay();
 
     // Set ICW3

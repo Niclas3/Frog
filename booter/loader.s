@@ -948,6 +948,11 @@ skip_copymem:
 ;; ebp+12 ---> count: number of program headers
 ;; ebp+16---> offset: start of program headers aka program_table
 ;===============================================================================
+; Funtion:
+; according to program table record to load .text section to right place of
+; memory
+;===============================================================================
+; // this is the C presu-code
 ; void copymem(int baseaddress, int size, int desaddress);
 ; char *ELF_BIN_BASE = 0x90000;
 ; int program_entry_sz = program_size / program_number;

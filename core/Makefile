@@ -194,7 +194,7 @@ $(BUILD_DIR)/core: $(C_OBJS)
 $(BUILD_DIR)/core_symbol: $(C_OBJS)
 	ld $(LD_DEBUG_FLAG) -M -o $@.img $^ 
 
-.PHONY : clean mk_dir move
+.PHONY : clean mk_dir move move_symbol build build_symbol export_symbol all debug build_apps_test
 mk_dir:
 	@mkdir -p $(BUILD_DIR)
 

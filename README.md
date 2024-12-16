@@ -26,3 +26,7 @@ run `./scripts/build.sh`
 run `./scripts/qemu.sh`
 
 ## Project Layout
+
+## feature support
+[] support PCI
+[] support TCP/IP stack

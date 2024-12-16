@@ -55,6 +55,9 @@ struct context_registers {
     uint_32 ds;
     // ring3->ring0
     uint_32 err_code;
+    //Automatically push below registers to stack when invoking Interrupt Gate by
+    //CPU when from ring3 to ring0 for recover context when return ring3 from 
+    //ring0
     void (*eip)(void);
     uint_32 cs;
     uint_32 eflags;

@@ -110,6 +110,7 @@ static void init_idt(void)
      * Register all exception and all outer interrupt
      * IDT_DESC_CNT is 0x30
      * all vector number are defined at <sys/int.h>
+     * ONLY INIT first 0x30 interrupts for CPU request
      *****************************************************************************/
     for (int vec_nr = 0; vec_nr < IDT_DESC_CNT; vec_nr++) {
         register_ring0_INT(vec_nr);

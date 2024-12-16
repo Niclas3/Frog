@@ -54,7 +54,7 @@ section .data
 ;; save all context
 section .text
 _asm_inthandler%1:
-    %2     ;; error code
+    %2     ;;push error code
     push ds
     push es
     push fs
