@@ -62,9 +62,6 @@ _asm_inthandler%1:
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push %1; ;; push interrupt number
 
-    mov al, %3
-    out 0x20, al  ;; send ack to master
-
     call [intr_table+%1*4]
     jmp intr_exit
 section .data
@@ -88,12 +85,6 @@ _asm_inthandler%1:
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push %1; ;; push interrupt number
-
-    mov al, %4
-    out 0xa0, al  ;; send ack to slaver
-    mov al, %3
-    out 0x20, al  ;; send ack to master
-
     call [intr_table+%1*4]
     jmp intr_exit
 section .data

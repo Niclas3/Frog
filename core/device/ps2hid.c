@@ -157,6 +157,8 @@ static inline void handle_mouse_event(char scancode)
 void inthandler2C(void)
 {
     char scancode = inb(PS2_DATA);
+    ack(INT_VECTOR_PS2_MOUSE);
+
     // send scancode to make mouse package
     handle_ps2_mouse_scancode(scancode);
     // send scancode to this file queue
@@ -175,6 +177,7 @@ void inthandler21(void)
         scan_code = ps2_read_byte();  // get scan_code
     }
     handle_keyboard_event(scan_code);
+    ack(INT_VECTOR_KEYBOARD);
 }
 
 

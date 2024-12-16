@@ -73,4 +73,9 @@ enum intr_status intr_set_status(enum intr_status status);
 enum intr_status intr_enable(void);
 enum intr_status intr_disable(void);
 
+#include <ostype.h>
+// Send EOI to interrupt controller 
+// @intno number of int vector what interrupt call it
+void ack(uint_32 intno);
+
 #endif

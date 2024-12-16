@@ -739,4 +739,6 @@ void intr_hd_handler(uint_8 irq_no)
         // ack disk to clear interrupt flag
         /* inb(reg_status(channel)); */
     }
+
+    ack(irq_no);
 }
