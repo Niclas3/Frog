@@ -8,7 +8,7 @@ tui en
 # if GDB7.0
 layout asm
 set architecture i386
-set disassemble-next-line on
+# set disassemble-next-line on
 
 b *0xc400
 b *0xc0070000
@@ -23,8 +23,8 @@ b *0xc0070000
 
 ### debug compositor
 # b main
-b poudland_remove_window
-b server_window_close
+# b poudland_remove_window
+# b server_window_close
 # b 584
 # b 711
 # b window_top_of
