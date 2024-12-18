@@ -741,4 +741,5 @@ void intr_hd_handler(uint_8 irq_no)
     }
 
     ack(irq_no);
+    irq_exit();
 }

@@ -129,6 +129,7 @@ void inthandler20(void)
 {
     timer_bh();
     ack(INT_VECTOR_INNER_CLOCK);
+    /* irq_exit(); */
 
     TCB_t *cur_thread = running_thread();
     ASSERT(cur_thread->stack_magic == 0x19900921);

@@ -163,7 +163,8 @@ void inthandler2C(void)
     handle_ps2_mouse_scancode(scancode);
     // send scancode to this file queue
     handle_mouse_event(scancode);
-    return;
+
+    irq_exit();
 }
 
 /*
@@ -178,7 +179,9 @@ void inthandler21(void)
     }
     handle_keyboard_event(scan_code);
     ack(INT_VECTOR_KEYBOARD);
+    irq_exit();
 }
+
 
 
 bool is_char_file(struct partition *part, int_32 inode_nr)

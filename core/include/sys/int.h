@@ -1,5 +1,7 @@
 #ifndef __SYS_INT_H
 #define __SYS_INT_H
+#include <ostype.h>
+#include <sys/softirq.h>
 
 // Interrupt 0 -- Divide Error Exception (#DE) (fault)
 #define INT_VECTOR_DIVIDE 0x0
@@ -16,8 +18,7 @@
 // Interrupt 6 -- Invalid Opcode Exception (#UD) (falut)
 #define INT_VECTOR_INVAL_OP 0x6
 // Interrupt 7 -- Device Not Available Exception (#NM) (fault)
-#define INT_VECTOR_DEV_NOT_AVA 0x7
-// Interrupt 8 -- Double Fault Exception (#DF) (abort)
+#define INT_VECTOR_DEV_NOT_AVA 0x7 // Interrupt 8 -- Double Fault Exception (#DF) (abort)
 #define INT_VECTOR_DOUBLE_FAULT 0x8
 // Interrupt 9 -- Coprocessor Segment Overrun (abort)
 #define INT_VECTOR_COP_SEG_OVERRUN 0x9
@@ -73,9 +74,27 @@ enum intr_status intr_set_status(enum intr_status status);
 enum intr_status intr_enable(void);
 enum intr_status intr_disable(void);
 
-#include <ostype.h>
 // Send EOI to interrupt controller 
 // @intno number of int vector what interrupt call it
 void ack(uint_32 intno);
+
+// exit ISR
+void irq_exit(void);
+
+//Softirq
+// this function to pick a softirq action and invoke it.
+void do_softirq(void);
+
+// register a function when a type of softirq raised invoke that function by
+// do_softirq()
+
+void register_softirq(uint_32 type, void (*handler)(struct softirq_action *));
+
+// raise a softirq at a ISR when it should be mark as panding.
+void raise_softirq(uint_32 type);
+
+// clear typical softirq type marked bits
+void clear_softirq(uint_32 type);
+
 
 #endif
