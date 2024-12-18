@@ -8,11 +8,11 @@ NIC="enp0s31f6"
 brctl addbr br0
 tunctl -t tap0 -u `whoami`
 
-brctl addif br0 tap0 $(NIC)
+brctl addif br0 tap0 $NIC
 
 ip link set up br0
 ip link set up tap0
 
-ip link set promisc dev br0
-ip link set promisc dev tap0
+ip link set promisc on dev br0
+ip link set promisc on dev tap0
 
