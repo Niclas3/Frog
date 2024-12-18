@@ -50,6 +50,8 @@ void irq_exit(void)
         do_softirq();
         intr_set_status(old_status);
     }
+
+    //test TIF_NEED_RESCHED
 }
 
 

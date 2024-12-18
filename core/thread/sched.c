@@ -17,7 +17,7 @@ extern struct list_head thread_ready_list;
 /**
  * Total ticks count since open timer interrupt
  */
-uint_32 volatile ticks = 0;
+volatile uint_32 ticks = 0;
 
 extern void schedule(void);
 extern void init_timervecs (void);
@@ -128,14 +128,12 @@ static void process_timeout(unsigned long __data)
 void inthandler20(void)
 {
     timer_bh();
-    ack(INT_VECTOR_INNER_CLOCK);
-    /* irq_exit(); */
 
     TCB_t *cur_thread = running_thread();
     ASSERT(cur_thread->stack_magic == 0x19900921);
     cur_thread->elapsed_ticks++;
-    /* ticks++; */
     (*(uint_32 *) &ticks)++;
+    ack(INT_VECTOR_INNER_CLOCK);
 
     if (cur_thread->ticks == 0) {
         schedule();
@@ -143,7 +141,7 @@ void inthandler20(void)
         cur_thread->ticks--;
     }
 
-    return;
+    irq_exit();
 }
 
 /**
