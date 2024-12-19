@@ -99,21 +99,22 @@ mount_debug: init_boot_code loader.img core_symbol.img font
 # Launch OS through qemu 
 # NOTE: Remove driftfix=slew if not needed
 # -rtc base=localtime,clock=host,driftfix=slew \
+# HINTS:
+# -S -s for debug
+# -s shorthand for -gdb tcp::1234
+# -enable-kvm
+# -enable-kvm \
 # NOTE: -enable-kvm makes RTC and disk accesses slow for me, but can be better accuracy
 run:
 	qemu-system-i386 \
-	-S -s \
 	-monitor stdio \
 	-m 1G \
-	-enable-kvm \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
 	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
 	-rtc base=localtime,clock=host \
 	-audiodev id=alsa,driver=alsa \
 	-machine pcspk-audiodev=alsa \
 
-	#hints -s shorthand for -gdb tcp::1234
-	#-enable-kvm
 
 # NOTE:
 #  -netdev the host OS must has a tap type interface named 'tap0'

@@ -1,1 +1,6 @@
-make clean-all && make newimg && make mount && bochs -q
+#!/bin/bash
+make clean-all && 
+make newimg && 
+make newhd80img && #FIX me free lfb <-- this is a bug 
+make mount && 
+make run
