@@ -1,7 +1,7 @@
 include ./Makefile.os_rules
 BOCHS := bochs -q
 DISK = hd.img
-BOOTER = MBR.bin
+INIT_BOOT_CODE = MBR.bin
 LOADER = loader.img
 CORE   = core.img
 CORESYM   = core_symbol.img
@@ -11,70 +11,95 @@ TEST_PROC = core/apps/build/compositor
 TEST_IMG= core/apps/test/b.bmp
 
 # Use ELF format
-# Real OS code ###########################
+#kernel code ###########################
 core.img:
 	cd ./core && $(MAKE) all
+
+# OS code with symbol for debug
 core_symbol.img:
 	cd ./core && $(MAKE) debug
 ##########################################
 
-# To protected mode ###############################
+#bootloader
 loader.img:                           #
 	cd ./booter && $(MAKE) $@
-###################################################
-
-# Build bootloader from floppy ###########################################
+#Initial Boot code for floppy
 ipl10.bin:
 	cd ./booter && $(MAKE) $@
-##############################################################
-# Build bootloader from hard disk ###########################################
+#Initial Boot code for hard disk
 MBR.bin:
 	cd ./booter && $(MAKE) $@
 ##############################################################
 
-.PHONY:clean clean-all font start reset newimg mount umount load_core bootloader
+.PHONY:clean clean-all font start reset newimg mount umount load_core init_boot_code 
 
-start: clean-all newimg mount
-	$(BOCHS)
+# Tools ###################################################### 
+# Generate homemade font
+font :
+	cd ./tools/ && $(MAKE) font
 
-reset:  clean umount newimg mount
-	$(BOCHS)
+clean:
+	rm -rf *.bin
+	rm -rf *.o
+	rm -rf *.lock
+	find . -type f -name "core.*" ! -name "core.s" -delete
+	find . -type f -name "*.img" ! -name "hd80M.img" -delete
 
+clean-all: clean
+	cd ./booter && $(MAKE) clean
+	cd ./core   && $(MAKE) clean
+	cd ./core/apps && $(MAKE) clean
+	# cd ./tools  && $(MAKE) clean
+
+# a new disk image for kernel install
 newimg:
 	cp ../hd.img ./$(DISK)
 
+# a new file 80M disk image
 newhd80img:
 	cp ../hd80M.img ./hd80M.img
 
-#C:10 H:2 S:18
-mount: bootloader loader.img core.img font
+umount:
+	sudo umount /mnt/floppy
+
+# load core for check kernel code
+load_core: core.img
+	sudo cp core.img /mnt/floppy -v
+	ls /mnt/floppy
+
+## BUILD commands
+
+# Burn `initial boot code` into first kernel disk.
+init_boot_code: $(INIT_BOOT_CODE)
+	dd if=$< of=$(DISK) bs=512 count=360 conv=notrunc
+
+# mount all things
+# mount_debug ONLY ONE difference is core_symbol.img were used.
+#
+# 1. Burn `bootloader code` 
+# 2. Burn `kernel code`
+# 3. Burn `font`
+# 4. Burn test things (programs)
+# 5. Burn test things (images)
+mount: init_boot_code loader.img core.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
 	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 122k (blank is 1M)
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=2048 conv=notrunc #font.img for now size 4k place to offset 1M
 	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=3000 conv=notrunc
 	dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place to 3M img size < 150k
 
-mount_debug: bootloader loader.img core_symbol.img font
+mount_debug: init_boot_code loader.img core_symbol.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
 	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 122k (blank is 1M)
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=2048 conv=notrunc #font.img for now size 4k
 	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=3000 conv=notrunc
 	dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place at 3M, img size < 150k
-umount:
-	sudo umount /mnt/floppy
 
-load_core: core.img
-	sudo cp core.img /mnt/floppy -v
-	ls /mnt/floppy
-
-bootloader: $(BOOTER)
-	dd if=$< of=$(DISK) bs=512 count=360 conv=notrunc
 
 # Launch OS through qemu 
 # NOTE: Remove driftfix=slew if not needed
 # -rtc base=localtime,clock=host,driftfix=slew \
 # NOTE: -enable-kvm makes RTC and disk accesses slow for me, but can be better accuracy
-#      
 run:
 	qemu-system-i386 \
 	-S -s \
@@ -109,22 +134,3 @@ debug_run:
 	-rtc base=localtime,clock=host \
 	-audiodev id=alsa,driver=alsa \
 	-machine pcspk-audiodev=alsa \
-
-
-# Tools ###################################################### 
-# Generate font
-font :
-	cd ./tools/ && $(MAKE) font
-############################################################## 
-
-clean:
-	rm -rf *.bin
-	rm -rf *.o
-	rm -rf *.lock
-	find . -type f -name "core.*" ! -name "core.s" -delete
-	find . -type f -name "*.img" ! -name "hd80M.img" -delete
-clean-all: clean
-	cd ./booter && $(MAKE) clean
-	cd ./core   && $(MAKE) clean
-	cd ./core/apps && $(MAKE) clean
-	# cd ./tools  && $(MAKE) clean
