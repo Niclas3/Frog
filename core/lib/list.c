@@ -1,7 +1,6 @@
-#include <const.h>
 #include <debug.h>
-#include <list.h>
-#include <stdbool.h>
+#include <frog/list.h>
+#include <frog/types.h>
 /**
  * INIT_LIST_HEAD() - Initialize empty list head
  * @head: pointer to list head
@@ -32,11 +31,11 @@
  * */
 int list_find_element(struct list_head *node, struct list_head *head)
 {
-    struct list_head *next = head->next;
-    for (; next != node && next != head->prev;) {
-        next = next->next;
-    }
-    return (next != head->prev);
+        struct list_head *next = head->next;
+        for (; next != node && next != head->prev;) {
+                next = next->next;
+        }
+        return (next != head->prev);
 }
 
 /**
@@ -53,22 +52,22 @@ int list_map(struct list_head *head,
              struct list_head *res,
              struct list_head *func(struct list_head *cur))
 {
-    if (list_is_empty(head)) {
-        return 0;
-    }
-    if (!list_is_empty(res)) {
-        return 0;
-    }
-
-    struct list_head *next = head->next;
-    while (next != head->prev) {  // go though all list
-        struct list_head *res_node = func(next);
-        if (res_node) {
-            list_add_tail(res_node, res);
+        if (list_is_empty(head)) {
+                return 0;
         }
-        next = next->next;
-    }
-    return 1;
+        if (!list_is_empty(res)) {
+                return 0;
+        }
+
+        struct list_head *next = head->next;
+        while (next != head->prev) {  // go though all list
+                struct list_head *res_node = func(next);
+                if (res_node) {
+                        list_add_tail(res_node, res);
+                }
+                next = next->next;
+        }
+        return 1;
 }
 
 /**
@@ -82,19 +81,19 @@ struct list_head *list_walker(struct list_head *head,
                               bool func(struct list_head *cur, int value),
                               int value)
 {
-    if (list_is_empty(head)) {
-        return NULL;
-    }
-
-    struct list_head *next = head->next;
-    while (next != head) {  // go though all list
-        bool test = func(next, value);
-        if (test) {
-            return next;
+        if (list_is_empty(head)) {
+                return NULL;
         }
-        next = next->next;
-    }
-    return NULL;
+
+        struct list_head *next = head->next;
+        while (next != head) {  // go though all list
+                bool test = func(next, value);
+                if (test) {
+                        return next;
+                }
+                next = next->next;
+        }
+        return NULL;
 }
 
 /**
@@ -108,19 +107,19 @@ struct list_head *list_walkerv2(struct list_head *head,
                                 bool func(struct list_head *cur, void *value),
                                 void *value)
 {
-    if (list_is_empty(head)) {
-        return NULL;
-    }
-
-    struct list_head *next = head->next;
-    while (next != head) {  // go though all list
-        bool test = func(next, value);
-        if (test) {
-            return next;
+        if (list_is_empty(head)) {
+                return NULL;
         }
-        next = next->next;
-    }
-    return NULL;
+
+        struct list_head *next = head->next;
+        while (next != head) {  // go though all list
+                bool test = func(next, value);
+                if (test) {
+                        return next;
+                }
+                next = next->next;
+        }
+        return NULL;
 }
 
 /**
@@ -135,19 +134,19 @@ struct list_head *list_walkerv2_prev(struct list_head *head,
                                                void *value),
                                      void *value)
 {
-    if (list_is_empty(head)) {
-        return NULL;
-    }
-
-    struct list_head *prev = head->prev;
-    while (prev != head) {  // go though all list
-        bool test = func(prev, value);
-        if (test) {
-            return prev;
+        if (list_is_empty(head)) {
+                return NULL;
         }
-        prev = prev->prev;
-    }
-    return NULL;
+
+        struct list_head *prev = head->prev;
+        while (prev != head) {  // go though all list
+                bool test = func(prev, value);
+                if (test) {
+                        return prev;
+                }
+                prev = prev->prev;
+        }
+        return NULL;
 }
 
 /**
@@ -156,16 +155,16 @@ struct list_head *list_walkerv2_prev(struct list_head *head,
  */
 int list_length(struct list_head *head)
 {
-    if ((head->next == head->prev) && head->next == head)
-        return 0;
-    ASSERT(head->next != 0 && head->prev != 0);
-    int length = 1;
-    struct list_head *iter = head->next;
-    for (; iter != head->prev;) {
-        length++;
-        iter = iter->next;
-    }
-    return length;
+        if ((head->next == head->prev) && head->next == head)
+                return 0;
+        ASSERT(head->next != 0 && head->prev != 0);
+        int length = 1;
+        struct list_head *iter = head->next;
+        for (; iter != head->prev;) {
+                length++;
+                iter = iter->next;
+        }
+        return length;
 }
 
 /**
@@ -175,11 +174,11 @@ int list_length(struct list_head *head)
  */
 void list_add(struct list_head *node, struct list_head *head)
 {
-    struct list_head *first_node = head->next;
-    first_node->prev = node;
-    node->next = first_node;
-    node->prev = head;
-    head->next = node;
+        struct list_head *first_node = head->next;
+        first_node->prev = node;
+        node->next = first_node;
+        node->prev = head;
+        head->next = node;
 }
 
 /**
@@ -189,11 +188,11 @@ void list_add(struct list_head *node, struct list_head *head)
  */
 void list_add_tail(struct list_head *node, struct list_head *head)
 {
-    struct list_head *last_node = head->prev;
-    last_node->next = node;
-    node->next = head;
-    node->prev = last_node;
-    head->prev = node;
+        struct list_head *last_node = head->prev;
+        last_node->next = node;
+        node->next = head;
+        node->prev = last_node;
+        head->prev = node;
 }
 
 /**
@@ -202,9 +201,9 @@ void list_add_tail(struct list_head *node, struct list_head *head)
  */
 struct list_head *list_pop(struct list_head *head)
 {
-    struct list_head *target = head->next;
-    list_del_init(target);
-    return target;
+        struct list_head *target = head->next;
+        list_del_init(target);
+        return target;
 }
 
 /**
@@ -221,13 +220,13 @@ struct list_head *list_pop(struct list_head *head)
  */
 void list_del(struct list_head *node)
 {
-    struct list_head *next = node->next;
-    struct list_head *prev = node->prev;
-    next->prev = prev;
-    prev->next = next;
+        struct list_head *next = node->next;
+        struct list_head *prev = node->prev;
+        next->prev = prev;
+        prev->next = next;
 
-    node->next = (void *) 0;
-    node->prev = (void *) 0;
+        node->next = (void *) 0;
+        node->prev = (void *) 0;
 }
 
 /**
@@ -239,8 +238,8 @@ void list_del(struct list_head *node)
  */
 void list_del_init(struct list_head *node)
 {
-    list_del(node);
-    INIT_LIST_HEAD(node);
+        list_del(node);
+        INIT_LIST_HEAD(node);
 }
 
 /**
@@ -252,16 +251,16 @@ void list_del_init(struct list_head *node)
  *****************************************************************************/
 int list_destory(struct list_head *head)
 {
-    if (list_is_empty(head)) {
+        if (list_is_empty(head)) {
+                return -1;
+        }
+        struct list_head *iter = head->next;
+        for (; iter != head->prev;) {
+                iter = iter->next;
+                list_del(iter);
+        }
+        INIT_LIST_HEAD(head);
         return -1;
-    }
-    struct list_head *iter = head->next;
-    for (; iter != head->prev;) {
-        iter = iter->next;
-        list_del(iter);
-    }
-    INIT_LIST_HEAD(head);
-    return -1;
 }
 
 /**
@@ -273,7 +272,7 @@ int list_destory(struct list_head *head)
  */
 int list_is_empty(const struct list_head *head)
 {
-    return (head->next == head);
+        return (head->next == head);
 }
 
 /**
@@ -284,7 +283,8 @@ int list_is_empty(const struct list_head *head)
  */
 int list_is_singular(const struct list_head *head)
 {
-    return list_length(head) == 1 ? 1 : 0;
+        struct list_head *t = (struct list_head *) head;
+        return list_length(t) == 1 ? 1 : 0;
 }
 
 /**
@@ -299,18 +299,18 @@ int list_is_singular(const struct list_head *head)
  */
 void list_append(struct list_head *list, struct list_head *head)
 {
-    if (list_is_empty(list)) {
-        return;
-    }
-    struct list_head *h_next = head->next;
-    struct list_head *l_next = list->next;
-    struct list_head *l_prev = list->prev;
+        if (list_is_empty(list)) {
+                return;
+        }
+        struct list_head *h_next = head->next;
+        struct list_head *l_next = list->next;
+        struct list_head *l_prev = list->prev;
 
-    head->next = l_next;
-    h_next->prev = l_prev;
+        head->next = l_next;
+        h_next->prev = l_prev;
 
-    l_next->prev = head;
-    l_prev->next = h_next;
+        l_next->prev = head;
+        l_prev->next = h_next;
 }
 
 /**
@@ -325,16 +325,16 @@ void list_append(struct list_head *list, struct list_head *head)
  */
 void list_append_tail(struct list_head *list, struct list_head *head)
 {
-    if (list_is_empty(list)) {
-        return;
-    }
-    struct list_head *h_prev = head->prev;
-    struct list_head *l_next = list->next;
-    struct list_head *l_prev = list->prev;
-    head->prev = l_prev;
-    h_prev->next = l_next;
-    l_next->prev = h_prev;
-    l_prev->next = head;
+        if (list_is_empty(list)) {
+                return;
+        }
+        struct list_head *h_prev = head->prev;
+        struct list_head *l_next = list->next;
+        struct list_head *l_prev = list->prev;
+        head->prev = l_prev;
+        h_prev->next = l_next;
+        l_next->prev = h_prev;
+        l_prev->next = head;
 }
 
 /**
@@ -351,8 +351,8 @@ void list_append_tail(struct list_head *list, struct list_head *head)
  */
 void list_append_init(struct list_head *list, struct list_head *head)
 {
-    list_append(list, head);
-    INIT_LIST_HEAD(list);
+        list_append(list, head);
+        INIT_LIST_HEAD(list);
 }
 
 /**
@@ -369,8 +369,8 @@ void list_append_init(struct list_head *list, struct list_head *head)
  */
 void list_append_tail_init(struct list_head *list, struct list_head *head)
 {
-    list_append_tail(list, head);
-    INIT_LIST_HEAD(list);
+        list_append_tail(list, head);
+        INIT_LIST_HEAD(list);
 }
 
 /**
@@ -401,8 +401,8 @@ void list_cut_position(struct list_head *head_to,
  */
 void list_move(struct list_head *node, struct list_head *head)
 {
-    list_del(node);
-    list_add(node, head);
+        list_del(node);
+        list_add(node, head);
 }
 
 /**
@@ -414,6 +414,6 @@ void list_move(struct list_head *node, struct list_head *head)
  */
 void list_move_tail(struct list_head *node, struct list_head *head)
 {
-    list_del(node);
-    list_add_tail(node, head);
+        list_del(node);
+        list_add_tail(node, head);
 }

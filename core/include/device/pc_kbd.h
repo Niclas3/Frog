@@ -1,6 +1,6 @@
 #ifndef __DEVICE_PC_KBD_H
 #define __DEVICE_PC_KBD_H
-#include <ostype.h>
+#include <frog/types.h>
 
 #define KBD_BUF_SIZE 2048
 struct file;

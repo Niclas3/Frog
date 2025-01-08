@@ -1,7 +1,7 @@
 #ifndef __DEVICE_PC_MOUSE_H
 #define __DEVICE_PC_MOUSE_H
 #include <hid/mouse.h>
-#include <ostype.h>
+#include <frog/types.h>
 
 #define MOUSE_DEFAULT 0
 #define MOUSE_SCROLLWHEEL 1

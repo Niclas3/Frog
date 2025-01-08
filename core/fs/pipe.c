@@ -1,8 +1,7 @@
-#include <fs/file.h>
-#include <fs/pipe.h>
-#include <ioqueue.h>
-#include <math.h>
-#include <sys/memory.h>
+#include <frog/ioqueue.h>
+#include <frog/math.h>
+#include <frog/memory.h>
+#include <frog/fs.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
 

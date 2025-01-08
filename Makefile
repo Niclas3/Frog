@@ -4,7 +4,7 @@ DISK = hd.img
 INIT_BOOT_CODE = MBR.bin
 LOADER = loader.img
 CORE   = core.img
-CORESYM   = core_symbol.img
+CORESYM   = $(BUILD_DIR)/core_symbol.img
 FONT   = hankaku_font.img
 TEST_PROC = core/apps/build/compositor
 # TEST_PROC = core/apps/build/ls
@@ -13,7 +13,7 @@ TEST_IMG= core/apps/test/b.bmp
 # Use ELF format
 #kernel code ###########################
 core.img:
-	cd ./core && $(MAKE) all
+	cd ./core && $(MAKE) core
 
 # OS code with symbol for debug
 core_symbol.img:
@@ -90,10 +90,10 @@ mount: init_boot_code loader.img core.img font
 
 mount_debug: init_boot_code loader.img core_symbol.img font
 	dd if=$(LOADER) of=$(DISK) bs=512 count=300 seek=2 conv=notrunc #loader
-	dd if=$(CORE) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 122k (blank is 1M)
+	dd if=$(CORESYM) of=$(DISK) bs=512 count=300 seek=13 conv=notrunc  #core 122k (blank is 1M)
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=2048 conv=notrunc #font.img for now size 4k
-	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=3000 conv=notrunc
-	dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place at 3M, img size < 150k
+	# dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=3000 conv=notrunc
+	# dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place at 3M, img size < 150k
 
 
 # Launch OS through qemu 
@@ -122,7 +122,7 @@ run:
 #  to create a tap0 interface.
 #  I used bridge to exchange network packages.
 #  for more infomation please check this (url)[https://niclas3.github.io/2024/12/09/network_bridging_with_qemu.html]
-debug_run:
+debug_run: mount_debug
 	qemu-system-i386 \
 	-S \
 	-s \

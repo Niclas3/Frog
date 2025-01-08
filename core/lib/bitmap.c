@@ -1,4 +1,4 @@
-#include <bitmap.h>
+#include <frog/bitmap.h>
 #include <debug.h>
 
 void init_bitmap(struct bitmap *bmap)

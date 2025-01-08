@@ -1,0 +1,55 @@
+AS := nasm
+CC := gcc
+LD := ld
+
+# -c   do not link
+# -m32 outfile format is elf_i386
+# -lc  link with libc
+# -fno-stack-protector Do not check stack at gcc stage instead of ld
+# -fno-builtin
+C_FLAG := -c -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
+
+# -f elf   outfile format is elf_i386
+AS_FLAG := -f elf
+
+AS_INCLUDE := boot.inc
+
+# -s strip-all Omit all symbol information from the output file.
+# -m Emulate the mulation linker. You can list the available emulations
+#    with the --verbose or -V options.
+#         GNU ld (GNU Binutils for Ubuntu) 2.38
+#             Supported emulations:
+#              elf_x86_64
+#              elf32_x86_64
+#              elf_i386
+#              elf_iamcu
+#              elf_l1om
+#              elf_k1om
+#              i386pep
+#              i386pe
+# -lc link libc use dynamic linking
+# -Ttext set start virtual address
+# -M print a map
+CORE_VADDR := 0xc0070000
+LD_FLAG := -s -m elf_i386 -Ttext $(CORE_VADDR) 
+# LD_FLAG := -s -m elf_i386 -Ttext 0x00080000
+# LD_DEBUG_FLAG := -m elf_i386 -Ttext 0xc0080000
+LD_DEBUG_FLAG := -m elf_i386 -Ttext $(CORE_VADDR)
+
+BUILD_DIR = ./
+C_INCLUDE := -I./include
+
+Q :=
+obj-y := 
+obj :=
+src :=
+
+# $(foreach o,$(obj-y), $(Q)$(MAKE) -f ./Makefile.build obj=$(obj)/$(o) src=$(src)/$(o))
+
+# C rules
+%.o : %.c
+	$(CC) $(C_INCLUDE) $(C_FLAG) -o $@ $<
+
+# nasm rules
+%.o : %.s
+	$(AS) $(AS_FLAG) -o $@ $<

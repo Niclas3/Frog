@@ -1,6 +1,6 @@
 #ifndef __DEVICE_CONSOLE_C
 #define __DEVICE_CONSOLE_C
-#include <ostype.h>
+#include <frog/types.h>
 
 struct file;
 struct partition;

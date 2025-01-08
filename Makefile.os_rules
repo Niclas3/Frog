@@ -4,40 +4,67 @@ LD := ld
 
 OUTBIN := out.bin
 
-# -c   do not link
-# -m32 outfile format is elf_i386
-# -lc  link with libc
-# -fno-stack-protector Do not check stack at gcc stage instead of ld
-# -fno-builtin
-C_FLAG := -c -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
 
 # -f elf   outfile format is elf_i386
 A_FLAG := -f elf
 
 AS_INCLUDE := boot.inc
 
+# --------------------
+# C options
+# -c   do not link
+# -m32 outfile format is elf_i386
+# -lc  link with libc
+# -fno-stack-protector Do not check stack at gcc stage instead of ld
+# -fno-builtin
+C_WARNG += -Wstrict-prototypes 
+C_WARNG += -Wmissing-prototypes
+C_OUT_FMT += -m32
+C_FNO_FLAG += -fno-stack-protector 
+C_FNO_FLAG += -fno-builtin
+C_NO_LINK += -c
+C_DEBUG := -g
+# generate files that encode make rules for the .h dependencies
+# more -M* things please `man gcc`
+# -MT: Name of the target
+# -MMD: List user header files
+# -MD : list all header files include system header files
+# -MP : add phony targets
+# -MF : Name of the file
+DEPDIR=$(abs-src)/.deps
+DEPFLAGS=-MMD -MF
+
+-include $(DEPDIR)/*.d
+
+abs-src := /home/zm/Development/C/Frog/src/core
+
+# this variable is for choosing target arch, like arm, x86 etc..
+ARCH_CUR := x86
+# all include dirs
+# Main include header files
+INCLUDES += $(abs-src)/include
+# Arch include header files
+INCLUDES += $(abs-src)/arch/$(ARCH_CUR)/include
+
+BUILD := ..
+BUILD_DIR = $(abs-src)/build
+
+C_OPT := $(C_NO_LINK) $(C_WARNG) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG)
+C_FLAG := $(C_OPT) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
+
+# ld things 
+#
 # -s strip-all Omit all symbol information from the output file.
 # -m Emulate the mulation linker. You can list the available emulations
 #    with the --verbose or -V options.
 #         GNU ld (GNU Binutils for Ubuntu) 2.38
 #             Supported emulations:
-#              elf_x86_64
-#              elf32_x86_64
-#              elf_i386
-#              elf_iamcu
-#              elf_l1om
-#              elf_k1om
-#              i386pep
-#              i386pe
+#              elf_x86_64 elf32_x86_64 elf_i386 elf_iamcu elf_l1om
+#              elf_k1om i386pep i386pe
 # -lc link libc use dynamic linking
 # -Ttext set start virtual address
 # -M print a map
 CORE_VADDR := 0xc0070000
 LD_FLAG := -s -m elf_i386 -Ttext $(CORE_VADDR) 
-# LD_FLAG := -s -m elf_i386 -Ttext 0x00080000
-# LD_DEBUG_FLAG := -m elf_i386 -Ttext 0xc0080000
-LD_DEBUG_FLAG := -m elf_i386 -Ttext $(CORE_VADDR)
+LD_DEBUG_FLAG := -M -m elf_i386 -Ttext $(CORE_VADDR)
 
-BUILD := ..
-BUILD_DIR = ./build
-INCLUDE := ./include

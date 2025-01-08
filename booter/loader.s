@@ -126,10 +126,10 @@ section .s16
 [bits 16]
 loadermsg: db 'loader in real.'
            db 0
-.len equ ($-loadermsg)
+loadermsg_len equ ($-loadermsg)
 loaderGUImsg: db 'loader with GUI.'
          db 0
-.len equ ($-loaderGUImsg)
+loaderGUImsg_len equ ($-loaderGUImsg)
 ;; just for test
 vbe_info_block:		; 'Sector' 2
 	.vbe_signature: db 'VBE2'
@@ -224,9 +224,8 @@ print_string:
     ret
 
 loader_start:
-
     mov si, loadermsg
-    mov cx, loadermsg.len
+    mov cx, loadermsg_len
     call print_string
 
 ;skip the VBE setting
@@ -320,7 +319,7 @@ scr_320:
     mov al, 0Dh
     int 10h
     mov si, loaderGUImsg
-    mov cx, loaderGUImsg.len
+    mov cx, loaderGUImsg_len
     call print_string
     xor ax, ax
     int 16h

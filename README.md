@@ -10,6 +10,7 @@ The Frog includes a kernel, bootloader and a compositor for desktop.
 ## Goals
 - support network
 - more GUI
+- support POSIX.1-2017
 - support X86-64 and more arch
 
 ## Build&Run at unix-like system

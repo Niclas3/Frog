@@ -1,12 +1,8 @@
 #include <debug.h>
 #include <device/ide.h>
-#include <fs/dir.h>
-#include <fs/file.h>
-#include <fs/fs.h>
-#include <fs/inode.h>
-#include <fs/super_block.h>
-#include <string.h>
-#include <sys/memory.h>
+#include <frog/fs.h>
+#include <frog/string.h>
+#include <frog/memory.h>
 
 struct dir root_dir;  // global variable for root directory
 

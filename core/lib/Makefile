@@ -1,39 +1,24 @@
- # use ELF format
- # Real OS code ###########################
+# Lib
 include ../../Makefile.os_rules
-INCLUDE = ../include
-# OUT_FILE= bitmap.o debug.o ioqueue.o fifo.o list.o oslib.o stdio.o string.o print.o
-OUT_FILE= oslib.o print.o fifo.o hashmap.o
 
-# bitmap.o: bitmap.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+obj-y += string.o
+obj-y += list.o
+obj-y += bitmap.o
+obj-y += stdio.o
+# obj-y += ioqueue.o
 
-# debug.o: debug.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+# fifo.o just be used by fsk_mouse.c
+# obj-y += fifo.o
+# hashmap.o just used by apps/compositor
+# obj-y += hashmap.o
+# stdio.o
 
-# ioqueue.o: ioqueue.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
 
-# list.o: list.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+.PHONY = all
+all: $(obj-y)
 
-oslib.o: oslib.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
-
-fifo.o: fifo.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
-
-hashmap.o: hashmap.c
-	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
-
-# stdio.o: stdio.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
-
-print.o: print.s
-	$(AS) $(A_FLAG) -o $@ $<
-
-lib.o: $(OUT_FILE)
-	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
+$(obj-y) : %.o : %.c
+	$(CC) $(C_FLAG) $(DEPDIR)/$(@:.o=.d) -o $(BUILD_DIR)/$@  $<
 
 clean:
-	rm -rf *.o
+	rm -rf ./*.o

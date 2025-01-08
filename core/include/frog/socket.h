@@ -2,7 +2,7 @@
 //
 //
 #ifndef __FROG_SOCKET_H
-#include <ostype.h>
+#include <frog/types.h>
 
 void socket_initialize(void);
 

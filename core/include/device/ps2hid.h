@@ -1,6 +1,6 @@
 #ifndef __SYS_PS2_HID_H
 #define __SYS_PS2_HID_H
-#include <ostype.h>
+#include <frog/types.h>
 #include <fs/fs.h>
 #include <fs/file.h>
 

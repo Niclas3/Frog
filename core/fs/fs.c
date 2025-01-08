@@ -1,10 +1,9 @@
+#include <frog/fcntl.h>
+#include <frog/fs.h>
+
+/* #include <fs/packagefs.h> */
+/* #include <fs/super_block.h> */
 #include <frog/poll.h>  // for poll_table
-#include <fs/dir.h>
-#include <fs/fcntl.h>
-#include <fs/fs.h>
-#include <fs/inode.h>
-#include <fs/packagefs.h>
-#include <fs/super_block.h>
 
 #include <device/devno-base.h>
 #include <device/ide.h>
@@ -12,16 +11,14 @@
 #include <device/pc_kbd.h>
 #include <device/pc_mouse.h>
 #include <device/ps2hid.h>
-#include <fs/file.h>
-#include <fs/pipe.h>
-
-#include <math.h>
-#include <string.h>
-#include <sys/memory.h>
-#include <sys/threads.h>
-
 #include <device/console.h>
-#include <ioqueue.h>
+
+#include <frog/math.h>
+#include <frog/string.h>
+#include <frog/memory.h>
+#include <frog/threads.h>
+
+#include <frog/ioqueue.h>
 
 #include <debug.h>
 
@@ -142,6 +139,7 @@ static void partition_format(struct partition *part)
     memset(sb.pad, 0, sizeof(sb.pad));
     // 1. Write super blocks to disk
     // 512bytes
+    // bio_write(disk, lba, buf, count)
     ide_write(part->my_disk, part->start_lba + 1, &sb, 1);
 
     uint_32 buf_sz =

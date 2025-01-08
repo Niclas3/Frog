@@ -1,6 +1,6 @@
 #ifndef __FROG_POLL_H
 #define __FROG_POLL_H
-#include <sys/wait.h>
+#include <frog/wait.h>
 /* These are specified by iBCS2 */
 #define POLLIN		0x0001
 #define POLLPRI		0x0002

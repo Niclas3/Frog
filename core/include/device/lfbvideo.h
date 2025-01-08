@@ -1,6 +1,6 @@
 #ifndef __DEVICE_LFBVIDEO_H
 #define __DEVICE_LFBVIDEO_H
-#include <ostype.h>
+#include <frog/types.h>
 
 struct file;
 struct partition;

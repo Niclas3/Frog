@@ -1,6 +1,6 @@
 #ifndef __FROG_TIMER_H
 #define __FROG_TIMER_H
-#include <ostype.h>
+#include <frog/types.h>
 #include <list.h>
 
 struct timer_list {
