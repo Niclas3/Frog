@@ -13,6 +13,13 @@
 #define __always_inline         inline __attribute__((__always_inline__))
 
 /*
+ *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-noreturn-function-attribute
+ * clang: https://clang.llvm.org/docs/AttributeReference.html#noreturn
+ * clang: https://clang.llvm.org/docs/AttributeReference.html#id1
+ */
+#define __noreturn                      __attribute__((__noreturn__))
+
+/*
  * Optional: not supported by clang
  *
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-externally_005fvisible-function-attribute

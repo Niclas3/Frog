@@ -46,7 +46,7 @@ put_char:
    mov dx, 0x03d4
    mov al, 0x0f
    out dx, al
-   mov dx, 0x03d5 
+   mov dx, 0x03d5
    in al, dx
 
    mov bx, ax

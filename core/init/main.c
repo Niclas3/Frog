@@ -5,13 +5,9 @@
 
 #include <frog/printk.h>
 
-__visible void start_kernel(void)
+__visible void __noreturn start_kernel(void)
 {
-        int b = 0;
-        for (int i = 0; i< 10; i++){
-                b += i;
-        }
-        /* printk("test"); */
+        printk("test");
         /* clock_init(); */
         /* mem_init();  // mem_init must early that thread_init beause
          * thread_init */
