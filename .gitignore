@@ -12,3 +12,4 @@ core/apps/build/
 *.gdb
 compile_commands.json
 tags
+.deps
