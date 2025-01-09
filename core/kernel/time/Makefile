@@ -1,8 +1,5 @@
-# init
-include ../../Makefile.os_rules
-
-obj-y += main.o
-obj-y += init.o
+include ../../../Makefile.os_rules
+obj-y += timer.o
 
 .PHONY = all
 all: $(obj-y)

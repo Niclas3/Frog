@@ -12,4 +12,15 @@
  */
 #define __always_inline         inline __attribute__((__always_inline__))
 
+/*
+ * Optional: not supported by clang
+ *
+ *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-externally_005fvisible-function-attribute
+ */
+#if __has_attribute(__externally_visible__)
+# define __visible                      __attribute__((__externally_visible__))
+#else
+# define __visible
+#endif
+
 #endif

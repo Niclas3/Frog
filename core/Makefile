@@ -3,14 +3,26 @@
 include ../Makefile.os_rules
 CORE = core
 
-obj-y  = $(BUILD_DIR)/main.o \
-	 $(BUILD_DIR)/debug.o $(BUILD_DIR)/printk.o\
-	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/string.o \
-	 $(BUILD_DIR)/controller.o $(BUILD_DIR)/irq.o \
-	 $(BUILD_DIR)/boot.o $(BUILD_DIR)/syscall-init.o $(BUILD_DIR)/descriptor.o \
-	 $(BUILD_DIR)/exceptions.o $(BUILD_DIR)/head32.o $(BUILD_DIR)/idt.o \
+# $(BUILD_DIR)/exec.o
+# $(BUILD_DIR)/exit.o
+# $(BUILD_DIR)/fork.o
+
+obj-y  = $(BUILD_DIR)/head32.o  \
+	 $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o \
+	 $(BUILD_DIR)/process.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/semaphore.o \
+	 $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o \
+	 $(BUILD_DIR)/timer.o \
+	 $(BUILD_DIR)/controller.o $(BUILD_DIR)/irq.o $(BUILD_DIR)/softirq.o \
+	 $(BUILD_DIR)/syscall-init.o $(BUILD_DIR)/descriptor.o \
+	 $(BUILD_DIR)/exceptions.o $(BUILD_DIR)/idt.o \
 	 $(BUILD_DIR)/i8253.o $(BUILD_DIR)/i8259a.o $(BUILD_DIR)/segment.o \
 	 $(BUILD_DIR)/tss.o \
+	 $(BUILD_DIR)/memory.o \
+	 $(BUILD_DIR)/panic.o \
+	 $(BUILD_DIR)/debug.o $(BUILD_DIR)/printk.o $(BUILD_DIR)/print.o \
+	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/string.o \
+	 $(BUILD_DIR)/boot.o \
+
 
 # obj-y = $(BUILD_DIR)/*.o
 
@@ -25,12 +37,13 @@ core_symbol.img: $(obj-y)
 	ld $(LD_DEBUG_FLAG) -o $(BUILD_DIR)/$@ $^
 
 core.img: $(obj-y)
-	ld $(LD_FLAG) -o $(BUILD_DIR)/$@ $^
+	ld $(LD_FLAG) -o $(BUILD_DIR)/$@  $^
 
 $(obj-y):
 	$(MAKE) -C ./arch/x86/
 	$(MAKE) -C ./lib/
 	$(MAKE) -C ./init/
+	$(MAKE) -C ./mm/
 	$(MAKE) -C ./kernel/
 
 sb:

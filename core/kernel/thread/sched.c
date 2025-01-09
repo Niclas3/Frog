@@ -111,7 +111,7 @@ void __wake_up(wait_queue_head_t *q, unsigned int mode, int nr)
         }
 }
 
-inline uint_32 wake_up_process(TCB_t *p)
+static inline uint_32 wake_up_process(TCB_t *p)
 {
         return try_to_wake_up(p, 0);
 }

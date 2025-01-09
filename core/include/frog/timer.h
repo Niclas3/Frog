@@ -1,7 +1,7 @@
 #ifndef __FROG_TIMER_H
 #define __FROG_TIMER_H
 #include <frog/types.h>
-#include <list.h>
+#include <frog/list.h>
 
 struct timer_list {
 	struct list_head list;

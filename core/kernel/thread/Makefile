@@ -6,7 +6,7 @@ include ../../../Makefile.os_rules
 obj-y += process.o
 obj-y += sched.o
 obj-y += semaphore.o
-obj-y += thread.o
+obj-y += threads.o
 
 .PHONY = all
 all: $(obj-y) switch.o

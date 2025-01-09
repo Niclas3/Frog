@@ -14,7 +14,7 @@ int printk(const char *fmt, ...)
         char buf[1024] = {0};
         vsprintf(buf, fmt, args);
         va_end(args);
-        /* put_str(buf); */
+        put_str(buf);
         return 0;
 }
 
