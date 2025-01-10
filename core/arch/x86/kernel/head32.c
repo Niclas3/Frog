@@ -16,7 +16,6 @@ __visible void __noreturn i386_start_kernel(void)
         create_tss();
 
         init_8259A();
-        /* _io_sti(); */
         init_PIT8253();
         start_kernel();
 
