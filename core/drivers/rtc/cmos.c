@@ -1,7 +1,7 @@
+#include <asm/io.h>
 #include <const.h>
 #include <device/cmos.h>
 #include <frog/irqflags.h>
-#include <io.h>
 
 uint_32 tsc_mhz = 3000;
 uint_32 tsc_basis_time = 0;
