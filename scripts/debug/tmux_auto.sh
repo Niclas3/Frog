@@ -12,9 +12,6 @@ if [ "$CURRENT_SESSION" = $session_name ]; then
         echo "run ./scripts/debug.sh AGAIN!!"
         tmux new-session -d  # make sure at least 2 sessions
         exit 1
-        # echo "this session name is $CURRENT_SESSION"
-        # tmux switch-client -t new_tmp_session  # switch to next session
-        # tmux kill-session -t $session_name
 fi
 
 if tmux has-session -t $session_name 2>/dev/null; then
@@ -24,8 +21,9 @@ fi
 tmux new-session -d -s $session_name
 tmux rename-window -t qemu_session:1 'QEMU-monitor'
 tmux send-keys -t qemu_session:1 'sudo ./scripts/debug/make_kernel_and_debug_run.sh' C-m
-tmux split-window -v -t qemu_session:1
+tmux split-window -h -p 67 -t qemu_session:1
 tmux send-keys -t qemu_session:1 './scripts/debug/gdb_qemu.sh' C-m
 
 # switch to qemu session 
 tmux switch-client -t qemu_session
+tmux rename-session -t $session_name ' '
