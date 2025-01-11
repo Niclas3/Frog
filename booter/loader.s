@@ -11,7 +11,6 @@ GLOBAL_STACK:
     times 256 db 0
 GLOBAL_STACK_TOP equ $
 
-
 ;; memory descriptor
 ;; GDT 8 bytes
 
@@ -127,7 +126,7 @@ section .s16
 loadermsg: db 'loader in real.'
            db 0
 loadermsg_len equ ($-loadermsg)
-loaderGUImsg: db 'loader with GUI.'
+loaderGUImsg: db 'SET VIDEO MODE: VGA'
          db 0
 loaderGUImsg_len equ ($-loaderGUImsg)
 ;; just for test
@@ -215,21 +214,39 @@ mode: dw 0
 memmap: times 256 db 0
 memmap_cnt: dd 0
 
+; ;; print a string
+;    start at `si`
+;    count at `cx`
 print_string:
-    mov ah, 0eh
+    mov ah, 0Eh
     .ps_loop:
         lodsb
         int 10h
     loop .ps_loop
     ret
+;; print hex char at `al`
+;;
+print_hex_char:
+        add al, '0'
+        cmp al, '9'
+        jbe .print_hex_char_done
+        add al, 7
+        .print_hex_char_done:
+        mov ah, 0x0E
+        int 0x10
+        ret
+
 
 loader_start:
     mov si, loadermsg
     mov cx, loadermsg_len
     call print_string
 
+
 ;skip the VBE setting
-; jmp scr_320
+%ifdef VGA_ENABLE
+jmp scr_320
+%endif
 ;----------------------------------------------------
 ; VBE setting
 ;----------------------------------------------------
@@ -321,12 +338,16 @@ scr_320:
     mov si, loaderGUImsg
     mov cx, loaderGUImsg_len
     call print_string
-    xor ax, ax
-    int 16h
-    cmp al, 'y'
-    jne set_boot_gfx_cga
+    ; mov ah, 0x1A        ; function number : loopup monitor video type
+    ; mov al, 0x00        ; sub function numeber : current video type
+    ; int 0x10
+    ; xor ax, ax          ; wait a input key into `al`
+    ; int 16h
+    ; cmp al, 'y'
+    ; jne set_boot_gfx_cga
+    jmp set_boot_gfx_cga  ; don't set VGA video mode only use text mode
 
-    mov al,0x13
+    mov al,0x13           ; set VGA video mode as 320x200, 256 colors
     mov ah,0x00
     int 0x10
     mov dword [VBE_MODE_INFO_POINTER], 0
@@ -1035,4 +1056,3 @@ clearmem:
     inc esi
     loop .clear_mem
     ret
-

@@ -1,8 +1,9 @@
 include ../Makefile.os_rules
-
+AD_FLAG += -DVGA_ENABLE
+# AD_FLAG +=
 # To protected mode ###############################
 loader.img: loader.s                          #
-	$(AS) -p $(AS_INCLUDE) -f bin -o $(BUILD)/$@ $<
+	$(AS) $(AD_FLAG) -p $(AS_INCLUDE) -f bin -o $(BUILD)/$@ $<
 ### For test  #####################################                                                  
 naskfunc.o: loader.s                            #
 	$(AS) $(A_FLAG) -p $(AS_INCLUDE) -f bin -o $@ $<
