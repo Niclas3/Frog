@@ -9,6 +9,7 @@ OUTBIN := out.bin
 A_FLAG := -f elf
 
 AS_INCLUDE := boot.inc
+AS_DEBUG_FLAG += -g
 
 # --------------------
 # C options
