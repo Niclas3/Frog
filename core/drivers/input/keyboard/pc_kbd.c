@@ -10,7 +10,7 @@
 #include <fs/fs.h>
 #include <fs/inode.h>
 
-#include <errno-base.h>
+#include <forg/errno.h>
 
 #include <frog/irqflags.h>
 #include <frog/poll.h>

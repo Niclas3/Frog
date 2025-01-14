@@ -2,7 +2,7 @@
 #include <debug.h>
 #include <device/devno-base.h>
 #include <device/lfbvideo.h>
-#include <errno-base.h>
+#include <forg/errno.h>
 #include <fs/fs.h>
 #include <fs/inode.h>
 #include <fs/file.h>

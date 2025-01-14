@@ -2,7 +2,7 @@
 #include <debug.h>
 #include <device/devno-base.h>
 #include <device/ide.h>
-#include <errno-base.h>
+#include <forg/errno.h>
 #include <frog/irqflags.h>
 #include <fs/dir.h>
 #include <fs/fcntl.h>

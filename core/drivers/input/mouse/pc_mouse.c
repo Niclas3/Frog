@@ -1,5 +1,5 @@
 #include <device/pc_mouse.h>
-#include <errno-base.h>
+#include <forg/errno.h>
 #include <string.h>
 #include <math.h>
 

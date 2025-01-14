@@ -11,7 +11,7 @@
 
 #include <const.h>
 #include <debug.h>
-#include <errno-base.h>
+#include <forg/errno.h>
 
 #include <frog/time.h>
 

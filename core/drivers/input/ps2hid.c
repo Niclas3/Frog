@@ -10,7 +10,7 @@
 #include <frog/irqflags.h>
 #include <protect.h>
 
-#include <errno-base.h>
+#include <forg/errno.h>
 
 #include <debug.h>
 /* #include <gua/2d_graphics.h> */

@@ -1,7 +1,7 @@
 #include <device/console.h>
 #include <device/devno-base.h>
 #include <device/ide.h>
-#include <errno-base.h>
+#include <forg/errno.h>
 #include <fs/dir.h>
 #include <fs/file.h>
 #include <fs/fs.h>
