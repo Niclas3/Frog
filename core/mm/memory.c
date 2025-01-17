@@ -279,7 +279,7 @@ static void mem_pool_init(uint_32 all_mem)
 }
 
 // Return a mem_block from a arena[idx]
-static struct mem_block *arena2block(struct arena *a, uint_32 idx)
+static inline struct mem_block *arena2block(struct arena *a, uint_32 idx)
 {
         return (struct mem_block *) ((uint_32) a + sizeof(struct arena) +
                                      idx * a->desc->block_size);
