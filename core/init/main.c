@@ -3,23 +3,50 @@
 #include <frog/irqflags.h>
 #include <frog/syscall-init.h>
 
+#include <frog/memory.h>
 #include <frog/printk.h>
+#include <frog/threads.h>
 
-__visible void __noreturn start_kernel(void)
+extern void init(void);
+extern void cpu_idle(void);
+extern void process_execute(void *, char *);
+
+
+static void do_basic_setup(void)
 {
-        printk("test");
-        /* clock_init(); */
-        /* mem_init();  // mem_init must early that thread_init beause
-         * thread_init */
-        /*              // need alloc memory use memory */
-        /* thread_init(); */
-        /* syscall_init(); */
+        /* blk_init(); */
+        /* driver_init(); */
+
+        // old version
+        /* clock_init();// drivers */
         /* ide_init(); */
         /* fs_init(); */
         /* ps2hid_init(); */
         /* packagefs_init(); #<{(| "/dev/pkg" |)}># */
+}
+static void rest_init(void)
+{
+        // init thread pid = 1
+        // dive into user mode, start first process init.
+        process_execute(init, "init");
+        //start a kernel thread like `kthreadd`;  we don't have it yet.
+        cpu_idle();
+}
 
-        for (;;) {
-                safe_halt();
-        }
+__visible void __noreturn start_kernel(void)
+{
+        printk_with_cls("test cls");
+        /* setup_arch(); */
+        mem_init();
+        thread_init();
+
+        syscall_init();
+
+        do_basic_setup();
+
+        rest_init();
+
+        /* for (;;) { */
+        /*         safe_halt(); */
+        /* } */
 }

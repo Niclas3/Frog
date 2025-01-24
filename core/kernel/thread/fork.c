@@ -1,12 +1,12 @@
+#include <debug.h>
 #include <frog/bitmap.h>
 #include <frog/irqflags.h>
-#include <debug.h>
 
-#include <frog/math.h>
-#include <frog/string.h>
 #include <frog/fork.h>
+#include <frog/math.h>
 #include <frog/memory.h>
 #include <frog/process.h>
+#include <frog/string.h>
 #include <frog/threads.h>
 
 #include <asm/page.h>
@@ -75,9 +75,9 @@ static void copy_body_stack3(TCB_t *child_thread,
                         while (idx_bit < 8) {
                                 if ((FULL_MASK << idx_bit) &
                                     vaddr_btmp[idx_byte]) {
-                                        prog_vaddr =
-                                            (idx_byte * 8 + idx_bit) * PAGE_SIZE +
-                                            vaddr_start;
+                                        prog_vaddr = (idx_byte * 8 + idx_bit) *
+                                                         PAGE_SIZE +
+                                                     vaddr_start;
                                         // copy to kernel memory first
                                         memcpy(buf_page, (void *) prog_vaddr,
                                                PAGE_SIZE);

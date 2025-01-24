@@ -1,12 +1,12 @@
 #include <asm/page.h>  // for PAGE_SIZE
-#include <frog/irqflags.h>
-#include <frog/types.h>
-#include <frog/string.h>
 #include <frog/fork.h>
+#include <frog/irqflags.h>
 #include <frog/memory.h>
 #include <frog/process.h>
-#include <frog/threads.h>
 #include <frog/semaphore.h>
+#include <frog/string.h>
+#include <frog/threads.h>
+#include <frog/types.h>
 
 #include <debug.h>
 
@@ -40,14 +40,13 @@ static struct list_head *thread_tag;
 static pid_t allocate_pid(void);
 
 extern void switch_to(TCB_t *cur, TCB_t *next);
-extern void init(void);
 
 // a thread when os is idle, block itself
 static void idle(void *arg)
 {
         while (1) {
                 thread_block(THREAD_TASK_BLOCKED);
-                __asm__ volatile("sti; hlt" : : : "memory");
+                safe_halt();
         }
 }
 
@@ -78,7 +77,7 @@ TCB_t *running_thread(void)
 
 static void init_pid_bitmap(uint_32 length)
 {
-        pid_pool.pid_start = 1;
+        pid_pool.pid_start = 0;
         pid_pool.pid_bm.bits = pid_bitmap;
         pid_pool.pid_bm.map_bytes_length = length;
         lock_init(&pid_pool.pid_lock);
@@ -119,10 +118,10 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
 {
         // Set all 0 for thread memory
         memset(thread, 0, sizeof(*thread));
-        // Set default stdio
-        // fd stdio input  0
-        // fd stdio output 1
-        // fd stdio error  2
+        /* Set default stdio
+         * fd stdio input  0
+         * fd stdio output 1
+         * fd stdio error  2 */
         thread->fd_table[0] = 0;
         thread->fd_table[1] = 1;
         thread->fd_table[2] = 2;
@@ -133,7 +132,6 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
                 fd_idx++;
         }
 
-        /* thread->tid = allocate_tid(); */
         thread->pid = allocate_pid();
         strcpy(thread->name, name);
         if (thread == main_thread) {
@@ -145,10 +143,9 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
         thread->priority = priority;
         thread->ticks = priority;
         thread->elapsed_ticks = 0;
-        thread->pgdir = NULL;
-        thread->cwd_inode_nr =
-            0;  // current working directory to root_dir default
-        thread->parent_pid = -1;  // default parent_pid is -1 -> no parent pid
+        thread->pgdir = NULL;//pgdir == NULL indicate this is kernel thread
+        thread->cwd_inode_nr = 0;//current working directory to root_dir default
+        thread->parent_pid = -1; // default parent_pid is -1 -> no parent pid
 
         thread->stack_magic = 0x19900921;
 }
@@ -363,6 +360,11 @@ TCB_t *pid2thread(pid_t pid)
         return thread;
 }
 
+// enter into idle mode
+void cpu_idle(void)
+{
+        idle((void *) 0);
+}
 
 /* Init all things that thread need
  * before all things start
@@ -380,10 +382,8 @@ void thread_init(void)
                 PANIC("thread init error when alloc pid bitmap");
         }
         init_pid_bitmap(4096);
-        // init thread pid = 1
-        process_execute(init, "init");
-        // main thread pid = 2
-        make_main_thread();
-        // idle thread pid = 3
+        // first kernel thread pid = 2
+        /* make_main_thread(); //maybe main thread not start here */
+        // idle thread pid = 0
         idle_thread = thread_start("idle", 10, idle, 0);
 }

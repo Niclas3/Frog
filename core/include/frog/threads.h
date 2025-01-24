@@ -85,7 +85,7 @@ typedef struct thread_control_block {
     pid_t pid;             // process id
     tid_t tid;             // thread id for each thread(do not use yet)
     int_32 exit_status;     // exit() arguments status
-    task_status_t status;
+    task_status_t status;   // this thread running status
     uint_32 priority;
     char name[TASK_NAME_LEN];
     uint_32 ticks;                   // working on CPU ticks
