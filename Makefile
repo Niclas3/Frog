@@ -122,6 +122,8 @@ run:
 #  to create a tap0 interface.
 #  I used bridge to exchange network packages.
 #  for more infomation please check this (url)[https://niclas3.github.io/2024/12/09/network_bridging_with_qemu.html]
+#⚠️ WARNING: This rule disables KVM so GDB can safely insert breakpoints and observe real-mode / protected-mode transitions.
+#  Do NOT add -enable-kvm here, or breakpoints may silently fail.
 debug_run: mount_debug
 	qemu-system-i386 \
 	-S \
