@@ -7,7 +7,6 @@ core/apps/build/
 .cache
 *.sys
 *.o
-*.bmp
 *.lock
 *.gdb
 compile_commands.json
