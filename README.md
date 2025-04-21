@@ -24,7 +24,7 @@ We need two *.img files hd.img and hd80M.img at home directory. You can create i
 run `./scripts/build.sh`
 
 ## Debug
-run `./scripts/qemu.sh`
+run ` sudo ./scripts/qemu.sh`
 
 ## Project Layout
 
