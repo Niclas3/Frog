@@ -7,6 +7,8 @@
 #include <frog/printk.h>
 #include <frog/threads.h>
 
+/* #include <frog/block.h> */
+
 extern void init(void);
 extern void cpu_idle(void);
 extern void process_execute(void *, char *);
@@ -15,6 +17,8 @@ extern void process_execute(void *, char *);
 static void do_basic_setup(void)
 {
         /* blk_init(); */
+
+        //module init
         /* driver_init(); */
 
         // old version

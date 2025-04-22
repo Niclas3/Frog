@@ -2,9 +2,14 @@
  * MBR
  *
  *****************************************************************************/
-#include "mbr.h"
+#include <assert.h>
 #include <frog/blk_types.h>
+#include <frog/block.h>
+#include <frog/list.h>
 #include <frog/string.h>
+#include <stdio.h>
+#include "mbr.h"
+
 
 static void copy_entry(struct partition_table_entry *des,
                        struct partition_table_entry *src)
@@ -20,7 +25,6 @@ static void copy_entry(struct partition_table_entry *des,
         des->sec_cnt = src->sec_cnt;
         des->offset_lba = src->offset_lba;
 }
-
 static void copy_4_entries(struct partition_table_entry *des,
                            struct partition_table_entry *src)
 {
@@ -42,9 +46,9 @@ static void move_4_entries(struct partition_table_entry *des,
  * @param entries entries for return
  * @return 0 success
  *****************************************************************************/
-static uint_32 get_dpt(struct disk *hd,
-                uint_32 offset_lba,
-                struct partition_table_entry *entries)
+static uint_32 get_dpt(struct gendisk *hd,
+                       uint_32 offset_lba,
+                       struct partition_table_entry *entries)
 {
         struct boot_sector sector;
         /*
@@ -54,7 +58,7 @@ static uint_32 get_dpt(struct disk *hd,
          * partition entry at 0x01be, size 16 bytes. There are 4 same partition
          * entries
          * * */
-        ide_read(hd, offset_lba, &sector, 1);
+        bio_read(hd, offset_lba, &sector, 1);
         copy_4_entries(entries,
                        (struct partition_table_entry *) &sector.tables);
         ASSERT(sector.signature == 0xaa55);
@@ -70,9 +74,9 @@ static uint_32 get_dpt(struct disk *hd,
  *****************************************************************************/
 
 static uint_32 g_ext_base_offset = 0;  // in lba type
-static uint_32 next_dpt(struct disk *hd,
-                 struct partition_table_entry *entries,
-                 struct partition_table_entry *next)
+static uint_32 next_dpt(struct gendisk *hd,
+                        struct partition_table_entry *entries,
+                        struct partition_table_entry *next)
 {
         for (uint_32 i = 0; i < 4; i++) {
                 struct partition_table_entry entry = entries[i];
@@ -99,7 +103,7 @@ static uint_32 next_dpt(struct disk *hd,
  * @param ext_lba first is 0
  * @return
  *****************************************************************************/
-void scan_partitions(struct disk *hd)
+void msdos_scan_partitions(struct gendisk *hd)
 {
         // TODO: maybe should use mm/sys_malloc()
         struct partition_table_entry entries[4] = {0};

@@ -42,6 +42,7 @@ struct partition_table_entry {
         uint_32 sec_cnt;     // all sector counts
 } __attribute__((packed));
 
+// MBR boot sector
 struct boot_sector {
         uint_8 code_area[446];                   // Bootstrap code area
         struct partition_table_entry tables[4];  // primary partition table
