@@ -28,7 +28,10 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 
 
 # link object files, the final file of kernel is named `core.img`
-core: core.img
+prepare_build:
+	@mkdir -p $(DEPDIR)
+
+core:prepare_build core.img
 
 debug: core_symbol.img
 
