@@ -188,7 +188,8 @@ static bool busy_wait(struct disk *hd)
         return false;
 }
 
-// read 1 sector from ide to buf
+// read 1 sector from ide to buf 
+// 1 sector is 512 bytes
 static void ide_read_sector(struct disk *hd, uint_32 lba, void *buf)
 {
         lock_fetch(&hd->my_channel->lock);
@@ -213,6 +214,7 @@ static void ide_read_sector(struct disk *hd, uint_32 lba, void *buf)
         lock_release(&hd->my_channel->lock);
         return;
 }
+
 
 void ide_read(struct disk *hd, uint_32 lba, void *buf, uint_32 sec_cnt)
 {
