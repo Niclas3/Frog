@@ -25,6 +25,9 @@ typedef char int_8;
 typedef uint_32 time_t;
 typedef uint_32 suseconds_t;
 
+typedef unsigned int size_t;
+typedef unsigned int dev_t;
+
 typedef void* (Inthandle_t)(void*);
 
 typedef struct {
