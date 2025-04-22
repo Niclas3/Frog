@@ -39,6 +39,12 @@ core_symbol.img: $(obj-y)
 core.img: $(obj-y)
 	ld $(LD_FLAG) -o $(BUILD_DIR)/$@  $^
 
+# $(MAKE) -C ./fs/
+# $(MAKE) -C ./block/
+# $(MAKE) -C ./drivers/
+
+# $(MAKE) -C ./ipc/
+# $(MAKE) -C ./net/
 $(obj-y):
 	$(MAKE) -C ./arch/x86/
 	$(MAKE) -C ./lib/
