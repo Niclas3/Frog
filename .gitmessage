@@ -1,0 +1,18 @@
+type(subsystem): short summary
+
+WHY:
+- Why was this change made? What context or problem led to it?
+
+WHAT:
+- What specific changes were introduced?
+- Which modules/functions/files were affected?
+- Is there any interface or behavior change?
+
+HOW TESTED:
+- Can the system still boot?
+- Did you verify output (e.g. DEBUG, VGA)?
+- Did you test edge cases or downstream components?
+- 
+
+tags: []
+
