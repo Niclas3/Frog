@@ -1,5 +1,5 @@
 #include <frog/bitmap.h>
-#include <debug.h>
+#include <kernel/assert.h>
 
 void init_bitmap(struct bitmap *bmap)
 {

@@ -1,4 +1,5 @@
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 #include <frog/ioqueue.h>
 #include <frog/irqflags.h>
 #include <frog/math.h>

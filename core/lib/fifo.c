@@ -1,4 +1,4 @@
-#include <fifo.h>
+#include <frog/fifo.h>
 
 void init_fifo(FIFO *fifo_queue, uint_32 size, char *buf)
 {
