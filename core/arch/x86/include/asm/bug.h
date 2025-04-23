@@ -7,6 +7,8 @@
                 __asm__ volatile("ud2"); \
         } while (0)
 
+#define BUG_ON(condition) do {if(condition) BUG(); }while(0)
+
 #ifndef HAVE_ARCH_BUG
 #include <asm-generic/bug.h>
 #endif
