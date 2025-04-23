@@ -1,4 +1,5 @@
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 #include <device/ide.h>
 #include <frog/interrupt.h>
 #include <frog/irqflags.h>
@@ -480,8 +481,7 @@ bool partitions_info(struct list_head *p_list, int arg)
 {
         struct partition *part =
             container_of(p_list, struct partition, part_tag);
-        printf("partition: %s capacity:%x start:%x\n", part->name,
-               part->sec_cnt, part->start_lba);
+        /* sprintf("partition: %s capacity:%x start:%x\n", part->name, part->sec_cnt, part->start_lba); */
         return false;
 }
 

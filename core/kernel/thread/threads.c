@@ -8,7 +8,8 @@
 #include <frog/threads.h>
 #include <frog/types.h>
 
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 
 struct pid_pool {
         struct bitmap pid_bm;

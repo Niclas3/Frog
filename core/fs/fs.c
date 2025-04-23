@@ -20,7 +20,8 @@
 
 #include <frog/ioqueue.h>
 
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 
 // keyboard queue for reading from stdin
 /* extern CircleQueue keyboard_queue; */

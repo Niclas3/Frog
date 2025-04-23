@@ -1,6 +1,11 @@
 #ifndef __LIB_HASHMAP
 #define __LIB_HASHMAP
 
+#ifndef __COMPOSITOR_C__
+#warning "hashmap.h is internal to compositor. Refactor before using elsewhere!"
+#endif
+
+
 #include <frog/types.h>
 
 typedef uint_32 (*hash_func_t)(const void *, uint_32);
@@ -19,6 +24,7 @@ typedef struct hashmap {
     struct hashmap_entry **entry;  // hashmap
 } hashmap_t;
 
+__attribute__((deprecated("Do not use hashmap_init() outside compositor")))
 hashmap_t *hashmap_init(int_32 size);
 void hashmap_free(hashmap_t *map);
 

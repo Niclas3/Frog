@@ -1,4 +1,5 @@
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 #include <device/ide.h>
 #include <frog/fs.h>
 #include <frog/string.h>

@@ -1,4 +1,4 @@
-#include <debug.h>
+#include <kernel/assert.h>
 #include <packetx.h>
 #include <stdio.h>
 #include <string.h>

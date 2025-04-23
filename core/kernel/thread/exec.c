@@ -6,7 +6,8 @@
 #include <frog/string.h>
 #include <asm/page.h>
 
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 
 #include <fs/fs.h>
 extern void intr_exit(void);

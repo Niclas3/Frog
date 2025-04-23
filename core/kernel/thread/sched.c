@@ -6,7 +6,7 @@
 #include <frog/irqflags.h>
 #include <frog/timer.h>
 
-#include <debug.h>
+#include <kernel/assert.h>
 #include <const.h>
 
 

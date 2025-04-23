@@ -1,4 +1,4 @@
-#include <debug.h>
+#include <kernel/assert.h>
 #include <frog/bitmap.h>
 #include <frog/irqflags.h>
 

@@ -1,4 +1,4 @@
-#include <debug.h>
+#include <kernel/assert.h>
 #include <frog/irqflags.h>
 #include <frog/math.h>
 #include <frog/string.h>

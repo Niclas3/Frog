@@ -10,7 +10,7 @@
 #include <asm/page.h>
 
 #include <const.h>
-#include <debug.h>
+#include <kernel/assert.h>
 #include <forg/errno.h>
 
 #include <frog/time.h>

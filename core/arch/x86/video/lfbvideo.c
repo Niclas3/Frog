@@ -1,5 +1,6 @@
 #include <const.h>
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 #include <device/devno-base.h>
 #include <device/lfbvideo.h>
 #include <forg/errno.h>

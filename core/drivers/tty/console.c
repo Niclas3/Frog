@@ -7,7 +7,7 @@
 #include <fs/fs.h>
 #include <fs/inode.h>
 
-#include <debug.h>
+#include <kernel/assert.h>
 #include <gua/2d_graphics.h>
 #include <print.h>
 #include <stdio.h>

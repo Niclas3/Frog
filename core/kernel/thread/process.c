@@ -5,7 +5,7 @@
 #include <frog/threads.h>
 
 #include <const.h>
-#include <debug.h>
+#include <kernel/assert.h>
 
 #include <asm/processor-flags.h> // FOR EFLAGS
 #include <asm/tss.h>

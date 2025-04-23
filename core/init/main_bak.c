@@ -14,7 +14,8 @@
 #include <device/ps2hid.h>
 
 #include <const.h>
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 #include <global.h>
 #include <oslib.h>
 #include <protect.h>

@@ -20,7 +20,7 @@
 
 #include <frog/poll.h>
 
-#include <debug.h>
+#include <kernel/assert.h>
 
 extern struct file g_file_table[MAX_FILE_OPEN];
 extern struct lock g_ft_lock;

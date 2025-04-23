@@ -1,7 +1,7 @@
 #ifndef _ASM_GENERIC_BUG_H
 #define _ASM_GENERIC_BUG_H
 
-#include <frog/panic.h>
+#include <kernel/panic.h>
 #include <frog/printk.h>
 #ifndef HAVE_ARCH_BUG
 #define BUG() do { \

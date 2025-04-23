@@ -12,7 +12,7 @@
 
 #include <forg/errno.h>
 
-#include <debug.h>
+#include <kernel/assert.h>
 /* #include <gua/2d_graphics.h> */
 
 #include <device/ide.h>

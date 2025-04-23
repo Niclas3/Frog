@@ -6,7 +6,8 @@
 #include <asm/page.h>
 
 #include <frog/math.h>    // for DIV_ROUND_UP
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 
 #include "ARDS.h"  // for Address Range Descriptor Structure at mem_init()
 

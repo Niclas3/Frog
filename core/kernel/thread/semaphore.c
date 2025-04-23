@@ -1,5 +1,6 @@
 #include <const.h>
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 
 #include <frog/irqflags.h>
 #include <frog/semaphore.h>

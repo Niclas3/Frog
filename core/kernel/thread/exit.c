@@ -1,7 +1,8 @@
 #include <fs/pipe.h>
 
 #include <frog/fs.h>
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 #include <frog/math.h>
 #include <frog/exit.h>
 #include <frog/threads.h>

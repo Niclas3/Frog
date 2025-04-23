@@ -1,7 +1,8 @@
 #include <gua/2d_graphics.h>
 
 #include <const.h>
-#include <debug.h>
+#include <kernel/panic.h>
+#include <kernel/assert.h>
 #include <global.h>
 #include <kernel/video.h>
 #include <math.h>

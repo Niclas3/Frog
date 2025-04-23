@@ -1,5 +1,5 @@
 // For client - server IPC
-#include <debug.h>
+#include <kernel/assert.h>
 #include <device/devno-base.h>
 #include <device/ide.h>
 #include <forg/errno.h>
