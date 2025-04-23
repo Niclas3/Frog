@@ -1,6 +1,5 @@
 include ../../../Makefile.os_rules
 
-obj-y += debug.o
 obj-y += printk.o
 
 .PHONY = all

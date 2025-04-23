@@ -1,7 +1,10 @@
 #include <frog/printk.h>
 #include <frog/stdarg.h>
 #include <stdio.h>
-#include <print.h>
+#include "./print.h"
+
+#include <kernel/debug.h>
+#include <frog/irqflags.h>
 
 #define DEMSG_LEN 1024
 
@@ -29,3 +32,25 @@ int printk_with_cls(const char *fmt, ...)
         put_str(buf);
         return 0;
 }
+
+
+void printk_hlt(char *filename,
+                 int line,
+                 const char *func,
+                 const char *condition)
+{
+        local_irq_disable();
+
+        printk("filename: %s\n", filename);
+
+        printk("line: %d\n", line);
+
+        printk("func: %s\n", func);
+
+        printk("case: %s\n", condition);
+        while (1) {
+                safe_halt();
+        };
+}
+
+

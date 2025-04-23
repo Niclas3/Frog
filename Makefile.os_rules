@@ -53,8 +53,13 @@ INCLUDES += $(abs-src)/arch/$(ARCH_CUR)/include
 BUILD := ..
 BUILD_DIR = $(abs-src)/build
 
+#gcc compile time Macro
+MACRO_DEBUG := CONFIG_DEBUG
+C_DMACRO := -D$(MACRO_DEBUG)
+
 C_OPT := $(C_NO_LINK) $(C_WARNG) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM)
-C_FLAG := $(C_OPT) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
+C_FLAG := $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
+
 
 # ld things 
 #
