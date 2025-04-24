@@ -1,6 +1,5 @@
 subdir += boot/
 subdir += entry/
-# subdir += video/
 subdir += irq/
 subdir += kernel/
 subdir += platform/
