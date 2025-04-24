@@ -3,6 +3,7 @@ subdir += entry/
 # subdir += video/
 subdir += irq/
 subdir += kernel/
+subdir += platform/
 
 all: $(subdir)
 

@@ -12,6 +12,7 @@
 extern void init(void);
 extern void cpu_idle(void);
 extern void process_execute(void *, char *);
+extern void platform_init(void);
 
 
 static void do_basic_setup(void)
@@ -41,6 +42,7 @@ __visible void __noreturn start_kernel(void)
 {
         printk_with_cls("test cls");
         /* setup_arch(); */
+        platform_init();
         mem_init();
         thread_init();
 

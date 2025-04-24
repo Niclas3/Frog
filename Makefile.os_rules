@@ -44,11 +44,14 @@ abs-src := /home/zm/Development/C/Frog/src/core
 
 # this variable is for choosing target arch, like arm, x86 etc..
 ARCH_CUR := x86
+PLTF_CUR := pc
 # all include dirs
 # Main include header files
 INCLUDES += $(abs-src)/include
 # Arch include header files
 INCLUDES += $(abs-src)/arch/$(ARCH_CUR)/include
+# Platform include header files
+INCLUDES += $(abs-src)/arch/$(PLTF_CUR)/include
 
 BUILD := ..
 BUILD_DIR = $(abs-src)/build

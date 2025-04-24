@@ -4,9 +4,8 @@
 
 #include <asm/bootpack.h>
 #include <asm/descriptor.h>
-#include <asm/i8253.h>   // PIT
-#include <asm/i8259a.h>  // PIC
 #include <frog/compiler.h>
+
 extern void start_kernel(void);
 
 __visible void __noreturn i386_start_kernel(void)
@@ -15,8 +14,5 @@ __visible void __noreturn i386_start_kernel(void)
         init_idt();
         create_tss();
 
-        init_8259A();
-        init_PIT8253();
         start_kernel();
-
 }

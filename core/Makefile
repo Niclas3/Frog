@@ -16,7 +16,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/syscall-init.o $(BUILD_DIR)/descriptor.o \
 	 $(BUILD_DIR)/exceptions.o $(BUILD_DIR)/idt.o \
 	 $(BUILD_DIR)/i8253.o $(BUILD_DIR)/i8259a.o $(BUILD_DIR)/segment.o \
-	 $(BUILD_DIR)/tss.o \
+	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o \
 	 $(BUILD_DIR)/memory.o \
 	 $(BUILD_DIR)/panic.o \
 	 $(BUILD_DIR)/printk.o $(BUILD_DIR)/print.o \
