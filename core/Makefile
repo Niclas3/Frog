@@ -21,7 +21,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/panic.o \
 	 $(BUILD_DIR)/printk.o $(BUILD_DIR)/print.o \
 	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/fifo.o $(BUILD_DIR)/string.o $(BUILD_DIR)/ioqueue.o \
-	 $(BUILD_DIR)/boot.o \
+	 $(BUILD_DIR)/cpu.o $(BUILD_DIR)/boot.o \
 
 
 # obj-y = $(BUILD_DIR)/*.o
