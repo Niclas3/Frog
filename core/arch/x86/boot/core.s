@@ -96,7 +96,6 @@ section .data
 %macro EXCEPTION_HANDLER 2
 section .text
 _asm_exceptionhandler%1:
-        xchg bx, bx
 	%2              ; err code
 	push	%1              ; vector_no 
 	call	exception_handler
