@@ -9,56 +9,69 @@ put_int_buffer    dq    0
 section .text
 
 global put_str
+; ---
+; void put_str(char *buf){
+;    char *a = buf;
+;      while(*a){
+;         put_char(a);
+;         a++;
+;   }
+;}
+
 put_str:
    push ebx
    push ecx
    xor ecx, ecx		      
-   mov ebx, [esp + 12]	      
+   mov ebx, [esp + 12]	; buf move to ebx      
 .goon:
-   mov cl, [ebx]
-   cmp cl, 0		      
-   jz .str_over
-   push ecx		
-   call put_char
-   add esp, 4		      
-   inc ebx		      
-   jmp .goon
+   mov cl, [ebx]        ; move first char to cl(8 bits) == char (1 byte)
+   cmp cl, 0		; test if this char is end-of-line aka \0
+   jz .str_over         ; if cl == 0 then jmp to .str_over
+   push ecx             ; pass ecx aka char to put_char
+   call put_char        ; put_char(ecx)
+   add esp, 4		; clear params / for push ecx
+   inc ebx		; ebx contains buf address it mean buf++;
+   jmp .goon            ; 
 .str_over:
    pop ecx
    pop ebx
    ret
 
 ;------------------------   put_char   -----------------------------
+; void put_char(char c){
+; }
 ;-------------------------------------------------------------------   
 global put_char
 put_char:
-   pushad	  
-   mov ax, SELECTOR_VIDEO
-   mov gs, ax
+   pushad	           ; save all register (EAX ~ EDI)
+   push gs
+   mov ax, SELECTOR_VIDEO  ; 
+   mov gs, ax              ; set gs to SELECTOR_VIDEO
 
-   mov dx, 0x03d4  
-   mov al, 0x0e	  
+   mov dx, 0x03d4          ; read current cursor position from IO port 0x03d4
+   mov al, 0x0e	           ; read high-byte 
+   out dx, al              ; tell VGA i want to read number 0x0E register
+   mov dx, 0x03d5          ;
+   in al, dx               ; read numebr 0x0E register data from 0x03D5
+   mov ah, al              ; save al to ah
+
+   mov dx, 0x03d4          ; 
+   mov al, 0x0f            ; same things but 0x0f means read low-byte
    out dx, al
    mov dx, 0x03d5
-   in al, dx	
-   mov ah, al
-
-   mov dx, 0x03d4
-   mov al, 0x0f
-   out dx, al
-   mov dx, 0x03d5
-   in al, dx
+   in al, dx               ; data save in al so the ax has all data
 
    mov bx, ax
-   mov ecx, [esp + 36]
-   cmp cl, 0xd	
-   jz .is_carriage_return
-   cmp cl, 0xa
+   mov ecx, [esp + 40]     ; pushad==32bytes push gs == 4 bytes + params 4bytes 32+4+4 == 40 bytes
+                           ; get params to ecx
+   cmp cl, 0xd	           ; test CR (Carriage Return) \r
+   jz .is_carriage_return  ; 
+   cmp cl, 0xa             ; test is it is LF (line feed) \n
    jz .is_line_feed
 
-   cmp cl, 0x8	
+   cmp cl, 0x8	           ; test BS (Backspace) \b
    jz .is_backspace
-   jmp .put_other	   
+   jmp .put_other
 
  .is_backspace:		      
    dec bx
@@ -70,13 +83,14 @@ put_char:
    jmp .set_cursor
 
  .put_other:
-   shl bx, 1
+   shl bx, 1               ; in VGA every character has 2 bytes the first is
+                           ; ASCII character; the second is attribute (color, bright, blink)
    mov [gs:bx], cl
    inc bx
    mov byte [gs:bx],0x07
    shr bx, 1
    inc bx
-   cmp bx, 2000
+   cmp bx, 2000            ; 80 col x 25 lines == 2000 char
    jl .set_cursor
  .is_line_feed:
  .is_carriage_return:
@@ -93,15 +107,15 @@ put_char:
 
  .roll_screen:
    cld  
-   mov ecx, 960
+   mov ecx, 960         ; ready to copy 80 col x 24 lines == 1920 bytes == 960 double bytes(64 bits)
    mov esi, 0xc00b80a0
    mov edi, 0xc00b8000
    rep movsd
 
-   mov ebx, 3840
-   mov ecx, 80
+   mov ebx, 3840        ; 24 lines * 80 col * 2 (bytes) last line start
+   mov ecx, 80          ; cols number
  .cls
-   mov word [gs:ebx], 0x0720		  
+   mov word [gs:ebx], 0x0720  ; space + write
    add ebx, 2
    loop .cls 
    mov bx,1920				 
@@ -121,6 +135,7 @@ put_char:
    mov al, bl
    out dx, al
  .put_char_done: 
+   pop gs
    popad
    ret
 
