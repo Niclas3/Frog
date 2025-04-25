@@ -1,4 +1,5 @@
 #include <frog/types.h>
+#include <kernel/debug.h>
 
 /*     Interrupt handler function Usage
  * !Check Init8259A setting interrupt is opened or not!
@@ -47,9 +48,15 @@ void exception_handler(int vec_no, int err_code, int eip, int cs, int eflags)
         "#PF Page Fault",
         "--  (Intel reserved. Do not use.)",
         "#MF x87 FPU Floating-Point Error (Math Fault)",
-        /* "#AC Alignment Check", */
-        /* "#MC Machine Check", */
-        /* "#XF SIMD Floating-Point Exception" */
+        "#AC Alignment Check",
+        "#MC Machine Check",
+        "#XF SIMD Floating-Point Exception"
     };
+    if(vec_no == 0xe) {
+            uint_32 cr2;
+
+            __asm__ volatile ("mov %%cr2, %0": "=r"(cr2));
+            printk("CR2 = 0x%x\n", cr2);
+    }
     return;
 }
