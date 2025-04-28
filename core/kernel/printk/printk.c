@@ -5,6 +5,7 @@
 
 #include <frog/irqflags.h>
 #include <frog/threads.h>
+#include <kernel/cpu.h>
 #include <kernel/debug.h>
 #define DEMSG_LEN 1024
 
@@ -12,7 +13,8 @@ char __ringbuf[DEMSG_LEN];  // a ring buffer for printk
 
 int printk(const char *fmt, ...)
 {
-        if (!running_thread()->pgdir) {
+        TCB_t *cur = this_cpu()->current_thread;
+        if (!cur->pgdir) {
                 va_list args;
                 va_start(args, fmt);
                 char buf[1024] = {0};
