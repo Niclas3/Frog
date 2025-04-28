@@ -14,6 +14,9 @@
 // for kernel test
 #include <frog/printk.h>
 
+// init per local cpu interrupt stack
+#include <kernel/cpu.h>
+
 // Assume that core.o is 70kb aka 0x11800
 // and start at 0x80000
 // so the end is 0x80000 + 0x11800 = 0x91800
@@ -749,4 +752,13 @@ void mem_init()
 
         mem_pool_init(mem_bytes_total);
         block_desc_init(k_block_descs);
+
+        // init local_cpu
+        struct cpu_local *cpu = NULL;
+        each_cpu(cpu) {
+                char* vaddr = malloc_page(MP_KERNEL, 2);
+                cpu->irq_stack_top = vaddr + 1024 * 2;
+                ASSERT(cpu->irq_stack_top != NULL);
+        }
+
 }
