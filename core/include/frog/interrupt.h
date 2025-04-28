@@ -3,6 +3,7 @@
 #include <frog/types.h>
 #include <asm/int.h>
 #include <frog/softirq.h>
+#include <kernel/cpu.h>
 
 extern void register_intr_handler(uint_32 int_vector_code, Inthandle_t handler);
 
@@ -11,5 +12,7 @@ static inline void register_r0_intr_handler(uint_32 int_vector_code,
 {
         register_intr_handler(int_vector_code, handler);
 }
+#define in_interrupt() \
+        this_cpu()->in_irq > 0
 
 #endif
