@@ -1,6 +1,7 @@
 #ifndef _ASM_INTERRUPT_H
 #define _ASM_INTERRUPT_H
 #include <frog/compiler.h>
+#include <kernel/cpu.h>
 
 static __always_inline void arch_ack(unsigned int intno)
 {
@@ -20,5 +21,24 @@ static __always_inline void arch_ack(unsigned int intno)
         // send to master PIC
         __asm__ volatile("out %0, %1" ::"a"(0x20), "Nd"(0x20));
 };
+
+static __always_inline void ____enter_intr_stack(void)
+{
+        struct cpu_local *cpu = this_cpu();
+        __asm__ volatile("movl %%esp, %0\n\t"
+                         "movl %1, %%esp\n\t"
+                         :"=m" (cpu->saved_esp)
+                         :"r" (cpu->irq_stack_top)
+                         );
+}
+
+static __always_inline void ____exit_intr_stack(void)
+{
+
+        struct cpu_local *cpu = this_cpu();
+        __asm__ volatile("movl %0, %%esp\n\t"
+                        :
+                        : "m" (cpu->saved_esp));
+}
 
 #endif
