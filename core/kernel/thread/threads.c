@@ -8,8 +8,8 @@
 #include <frog/threads.h>
 #include <frog/types.h>
 
-#include <kernel/panic.h>
 #include <kernel/assert.h>
+#include <kernel/panic.h>
 
 struct pid_pool {
         struct bitmap pid_bm;
@@ -144,9 +144,10 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
         thread->priority = priority;
         thread->ticks = priority;
         thread->elapsed_ticks = 0;
-        thread->pgdir = NULL;//pgdir == NULL indicate this is kernel thread
-        thread->cwd_inode_nr = 0;//current working directory to root_dir default
-        thread->parent_pid = -1; // default parent_pid is -1 -> no parent pid
+        thread->pgdir = NULL;  // pgdir == NULL indicate this is kernel thread
+        thread->cwd_inode_nr =
+            0;  // current working directory to root_dir default
+        thread->parent_pid = -1;  // default parent_pid is -1 -> no parent pid
 
         thread->stack_magic = 0x19900921;
 }
@@ -204,9 +205,8 @@ static void make_main_thread(void)
         list_add_tail(&main_thread->all_list_tag, &thread_all_list);
 }
 
-void schedule(void)
+static inline void append_readylist(TCB_t *cur)
 {
-        TCB_t *cur = running_thread();
         if (cur->status == THREAD_TASK_RUNNING) {
                 ASSERT(
                     !list_find_element(&cur->general_tag, &thread_ready_list));
@@ -219,9 +219,18 @@ void schedule(void)
                     !list_find_element(&cur->general_tag, &thread_ready_list));
                 list_add_tail(&cur->general_tag, &thread_ready_list);
         }
+}
+
+void schedule(void)
+{
+        TCB_t *cur = running_thread();
         if (list_is_empty(&thread_ready_list)) {
                 thread_unblock(idle_thread);
+                append_readylist(cur);
+        } else {
+                append_readylist(cur);
         }
+
         thread_tag = NULL;
         thread_tag = list_pop(&thread_ready_list);
         TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
@@ -364,7 +373,9 @@ TCB_t *pid2thread(pid_t pid)
 // enter into idle mode
 void cpu_idle(void)
 {
-        idle((void *) 0);
+        // block this boot_init create by bootloader.s
+        thread_block(THREAD_TASK_BLOCKED);
+        /* idle((void *) 0); */
 }
 
 /* Init all things that thread need
