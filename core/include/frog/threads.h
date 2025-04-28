@@ -90,6 +90,7 @@ typedef struct thread_control_block {
     char name[TASK_NAME_LEN];
     uint_32 ticks;                   // working on CPU ticks
     uint_32 elapsed_ticks;           // containing how many ticks passed
+    bool need_schedule;         // if set this mean this thread need schedule
     struct list_head general_tag;    // set this tag to thread_ready_list
     struct list_head all_list_tag;   // for thread_all_list
     struct list_head proc_list_tag;  // for process_all_list

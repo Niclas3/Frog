@@ -6,8 +6,11 @@
 #include <frog/irqflags.h>
 #include <frog/timer.h>
 
-#include <kernel/assert.h>
 #include <const.h>
+#include <kernel/assert.h>
+#include <kernel/debug.h>
+
+#include <kernel/cpu.h>
 
 
 extern struct list_head thread_ready_list;
@@ -21,11 +24,14 @@ volatile uint_32 ticks = 0;
 
 extern void schedule(void);
 extern void init_timervecs(void);
+void timer_softirq_handler(struct softirq_action *action);
 
 void init_timer_manager(void)
 {
         // init timer resource
         init_timervecs();
+
+        register_softirq(TIMER_SOFTIRQ, timer_softirq_handler);
         // register timer interrupt handler
         register_r0_intr_handler(INT_VECTOR_INNER_CLOCK,
                                  (Inthandle_t *) inthandler20);
@@ -128,21 +134,30 @@ static void process_timeout(unsigned long __data)
  **/
 void inthandler20(void)
 {
-        timer_bh();
+        /* TCB_t *cur_thread = running_thread(); */
+        TCB_t *cur_thread = this_cpu()->current_thread;
 
-        TCB_t *cur_thread = running_thread();
         ASSERT(cur_thread->stack_magic == 0x19900921);
         cur_thread->elapsed_ticks++;
         (*(uint_32 *) &ticks)++;
-        ack(INT_VECTOR_INNER_CLOCK);
+        raise_softirq(TIMER_SOFTIRQ);
 
         if (cur_thread->ticks == 0) {
-                schedule();
+                cur_thread->need_schedule = true;
         } else {
                 cur_thread->ticks--;
         }
 
+        ack(INT_VECTOR_INNER_CLOCK);
+
+        irq_enter();
         irq_exit();
+
+}
+
+void timer_softirq_handler(struct softirq_action *action)
+{
+        timer_bh();  // timer queue
 }
 
 /**

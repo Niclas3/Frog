@@ -9,6 +9,8 @@
 
 /* #include <frog/block.h> */
 
+#include <kernel/debug.h>
+
 extern void init(void);
 extern void cpu_idle(void);
 extern void process_execute(void *, char *);
@@ -40,7 +42,7 @@ static void rest_init(void)
 
 __visible void __noreturn start_kernel(void)
 {
-        printk_with_cls("test cls");
+        printk_with_cls("");
         /* setup_arch(); */
         platform_init();
         mem_init();
