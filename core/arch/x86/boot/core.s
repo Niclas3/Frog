@@ -8,6 +8,7 @@ extern i386_start_kernel  ;start symbol of C file
 ; register C function into this global table*/
 ; intr_table at kernel/irq/controller.c
   extern intr_table
+  extern do_isr
 ;---------------------------------------------------------------
 
 ;---------------------------------------------------------------
@@ -63,7 +64,7 @@ _asm_inthandler%1:
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push %1; ;; push interrupt number
 
-    call [intr_table+%1*4]
+    call do_isr
     jmp intr_exit
 section .data
     dd _asm_inthandler%1 ;; each interrupt entry 
@@ -86,7 +87,7 @@ _asm_inthandler%1:
     push gs
     pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
     push %1; ;; push interrupt number
-    call [intr_table+%1*4]
+    call do_isr
     jmp intr_exit
 section .data
     dd _asm_inthandler%1 ;; each interrupt entry address
