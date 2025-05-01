@@ -8,6 +8,10 @@ obj-y += softirq.o
 obj-y += panic.o
 obj-y += ioqueue.o
 obj-y += cpu.o
+obj-y += bus.o
+obj-y += device.o
+obj-y += driver.o
+
 # obj-y += syscall.o
 
 all: $(subdir) $(obj-y)
