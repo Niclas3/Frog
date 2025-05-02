@@ -6,6 +6,7 @@
 #include <frog/memory.h>
 #include <frog/printk.h>
 #include <frog/threads.h>
+#include <kernel/bus.h>
 
 /* #include <frog/block.h> */
 
@@ -47,6 +48,11 @@ __visible void __noreturn start_kernel(void)
         platform_init();
         mem_init();
         thread_init();
+
+        struct bus_type *isa_bus = isa_bus_init();
+        struct bus_type *platform_bus = platform_bus_init();
+        register_bus(isa_bus);
+        register_bus(platform_bus);
 
         syscall_init();
 

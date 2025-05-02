@@ -19,6 +19,8 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o \
 	 $(BUILD_DIR)/memory.o \
 	 $(BUILD_DIR)/panic.o \
+	 $(BUILD_DIR)/isa_bus_core.o $(BUILD_DIR)/plt_bus_core.o $(BUILD_DIR)/bus.o $(BUILD_DIR)/device.o \
+	 $(BUILD_DIR)/driver.o \
 	 $(BUILD_DIR)/printk.o $(BUILD_DIR)/print.o \
 	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/fifo.o $(BUILD_DIR)/string.o $(BUILD_DIR)/ioqueue.o \
 	 $(BUILD_DIR)/cpu.o $(BUILD_DIR)/boot.o \
@@ -44,7 +46,6 @@ core.img: $(obj-y)
 
 # $(MAKE) -C ./fs/
 # $(MAKE) -C ./block/
-# $(MAKE) -C ./drivers/
 
 # $(MAKE) -C ./ipc/
 # $(MAKE) -C ./net/
@@ -54,6 +55,7 @@ $(obj-y):
 	$(MAKE) -C ./init/
 	$(MAKE) -C ./mm/
 	$(MAKE) -C ./kernel/
+	$(MAKE) -C ./drivers/
 
 sb:
 	@ls build

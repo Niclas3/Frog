@@ -16,4 +16,7 @@ struct bus_type {
 
 int register_bus(struct bus_type *bus);
 
+extern struct bus_type *platform_bus_init(void);
+extern struct bus_type *isa_bus_init(void);
+
 #endif
