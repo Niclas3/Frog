@@ -47,7 +47,7 @@ void raise_softirq(uint_32 type)
 void irq_enter(void)
 {
         struct cpu_local *cur_cpu = this_cpu();
-        INFO("interrupt stack top: %x\n", cur_cpu->irq_stack_top);
+        /* INFO("interrupt stack top: %x\n", cur_cpu->irq_stack_top); */
 
         //!! enter interrupt stack CPU per stack
 }

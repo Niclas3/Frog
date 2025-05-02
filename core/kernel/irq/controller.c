@@ -5,6 +5,8 @@
 #include <frog/threads.h>
 #include <frog/types.h>
 
+#include <kernel/debug.h>
+
 extern void do_isr(int int_nr);
 /**
  *  All interrupt real handlers table
@@ -23,16 +25,19 @@ extern void do_isr(int int_nr)
         if (in_interrupt()) {
                 this_cpu()->in_irq++;  // for now no need to add spinlock
                 ISR_handler((void *) int_nr);
+                this_cpu()->in_irq--;
         } else {
                 this_cpu()->in_irq++;  // for now no need to add spinlock
                 this_cpu()->current_thread = running_thread();
                 ____enter_intr_stack();
                 ISR_handler((void *) int_nr);
                 ____exit_intr_stack();
+
                 if (((TCB_t *) this_cpu()->current_thread)->need_schedule == true) {
+                        this_cpu()->in_irq--;
                         schedule();
+                } else {
+                        this_cpu()->in_irq--;
                 }
         }
-
-        this_cpu()->in_irq--;
 }
