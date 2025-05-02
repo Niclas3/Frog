@@ -1,7 +1,12 @@
-subdir += ide/
-subdir += input/
-subdir += rtc/
-subdir += tty/
+# subdir += block/
+# subdir += input/
+# subdir += rtc/
+# subdir += tty/
+
+subdir += base/
+subdir += isa/
+subdir += platform/
+
 
 all: $(subdir)
 
