@@ -7,7 +7,7 @@ int register_device(struct device *dev)
         struct list_head *frog_dev_list = &dev->bus->device_list;
         struct bus_type *bus = dev->bus;
 
-        list_append_tail(frog_dev_list, &dev->node);
+        list_add_tail(&dev->node, frog_dev_list);
 
         // for-each driver_list in this bus
         struct list_head *pos;

@@ -5,7 +5,7 @@
 int register_driver(struct driver *drv)
 {
         struct list_head *frog_driver_list = &drv->bus->driver_list;
-        list_append_tail(frog_driver_list, &drv->bus->driver_list);
+        list_add_tail(&drv->bus->driver_list, frog_driver_list);
 
         // for-each driver_list in this bus
         struct bus_type *bus = drv->bus;

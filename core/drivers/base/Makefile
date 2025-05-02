@@ -1,13 +1,7 @@
-include ../../Makefile.os_rules
-subdir += printk/
-subdir += irq/
-subdir += thread/
-subdir += time/
-
-obj-y += softirq.o
-obj-y += panic.o
-obj-y += ioqueue.o
-obj-y += cpu.o
+include ../../../Makefile.os_rules
+obj-y += bus.o
+obj-y += device.o
+obj-y += driver.o
 
 # obj-y += syscall.o
 
