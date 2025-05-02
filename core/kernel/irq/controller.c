@@ -33,6 +33,7 @@ extern void do_isr(int int_nr)
                 ISR_handler((void *) int_nr);
                 ____exit_intr_stack();
 
+                INFO("%s interrupt stack top: %x\n",((TCB_t *)this_cpu()->current_thread)->name, this_cpu()->irq_stack_top);
                 if (((TCB_t *) this_cpu()->current_thread)->need_schedule == true) {
                         this_cpu()->in_irq--;
                         schedule();
@@ -40,4 +41,5 @@ extern void do_isr(int int_nr)
                         this_cpu()->in_irq--;
                 }
         }
+
 }

@@ -754,10 +754,11 @@ void mem_init()
         block_desc_init(k_block_descs);
 
         // init local_cpu
+        #define INTR_STACK_SIZE 4     // 2 times page size
         struct cpu_local *cpu = NULL;
         each_cpu(cpu) {
-                char* vaddr = malloc_page(MP_KERNEL, 2);
-                cpu->irq_stack_top = vaddr + 1024 * 2;
+                char* vaddr = malloc_page(MP_KERNEL, INTR_STACK_SIZE);
+                cpu->irq_stack_top = vaddr + 1024 * INTR_STACK_SIZE;
                 ASSERT(cpu->irq_stack_top != NULL);
         }
 
