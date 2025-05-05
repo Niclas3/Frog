@@ -1,5 +1,4 @@
 include ../../../Makefile.os_rules
-obj-y += ps2hid.o
 subdir += keyboard/
 subdir += mouse/
 

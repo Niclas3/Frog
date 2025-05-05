@@ -1,7 +1,7 @@
 # subdir += block/
-# subdir += input/
 # subdir += rtc/
 # subdir += tty/
+subdir += input/
 
 subdir += base/
 subdir += isa/

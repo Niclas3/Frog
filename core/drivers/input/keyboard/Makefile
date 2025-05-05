@@ -1,5 +1,5 @@
 include ../../../../Makefile.os_rules
-obj-y += pc_kbd.o
+obj-y += ps2_kbd_driver.o
 
 .PHONY = all
 all: $(obj-y)
