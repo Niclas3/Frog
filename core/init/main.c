@@ -8,6 +8,7 @@
 #include <frog/threads.h>
 #include <kernel/bus.h>
 #include <kernel/cpu.h>
+#include <kernel/device.h>
 
 /* #include <frog/block.h> */
 
@@ -17,6 +18,12 @@ extern void init(void);
 extern void cpu_idle(void);
 extern void process_execute(void *, char *);
 extern void platform_init(void);
+
+// test code
+extern uint_32 ps2_mouse_driver_init(void);
+extern uint_32 ps2_kbd_driver_init(void);
+
+// end test
 
 
 static void do_basic_setup(void)
@@ -45,6 +52,32 @@ static void rest_init(void)
         cpu_idle();
 }
 
+static void isa_device_init(struct bus_type *isa_bus)
+{
+        // 1. init mouse device
+        static struct device ps2_mouse_dev = {
+            .name = "ps2-mouse",
+            .io_base = 0x60,
+            .irq_nr = 12,
+        };
+        ps2_mouse_dev.bus = isa_bus;
+
+        // 2. init keyboard device
+        static struct device ps2_kbd_dev = {
+                .name = "ps2-kbd",
+                .io_base = 0x60,
+                .irq_nr = 1,
+        };
+        ps2_kbd_dev.bus = isa_bus;
+
+        // 3. init disk device
+
+        // 4. init rtc device (?)
+
+        register_device(&ps2_mouse_dev);
+        register_device(&ps2_kbd_dev);
+}
+
 static inline void setup_local_cpus(void)
 {
         this_cpu()->current_thread = running_thread();
@@ -64,6 +97,15 @@ __visible void __noreturn start_kernel(void)
         register_bus(isa_bus);
         register_bus(platform_bus);
 
+        isa_device_init(isa_bus);
+
+        // module init : to init all module that register to module.
+        // But now I simulate it by call xxx_xxx_init().
+        /* moudule_init(); */
+
+        ps2_kbd_driver_init();
+        ps2_mouse_driver_init();
+        /****************************************/
 
         syscall_init();
 
