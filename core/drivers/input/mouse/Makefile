@@ -1,5 +1,6 @@
 include ../../../../Makefile.os_rules
-obj-y += pc_mouse.o
+
+obj-y += ps2_mouse_driver.o
 
 .PHONY = all
 all: $(obj-y)
