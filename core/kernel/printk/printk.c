@@ -14,7 +14,7 @@ char __ringbuf[DEMSG_LEN];  // a ring buffer for printk
 int printk(const char *fmt, ...)
 {
         TCB_t *cur = this_cpu()->current_thread;
-        // only call printk() at kernel thread
+        // only call printk() at kernel thread and interrupt context
         if (cur && !cur->pgdir) {
                 va_list args;
                 va_start(args, fmt);

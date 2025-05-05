@@ -395,7 +395,7 @@ void thread_init(void)
         }
         init_pid_bitmap(4096);
         // first kernel thread pid = 2
-        /* make_main_thread(); //maybe main thread not start here */
+        make_main_thread(); //maybe main thread not start here
         // idle thread pid = 0
         idle_thread = thread_start("idle", 10, idle, 0);
 }

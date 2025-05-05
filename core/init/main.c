@@ -7,6 +7,7 @@
 #include <frog/printk.h>
 #include <frog/threads.h>
 #include <kernel/bus.h>
+#include <kernel/cpu.h>
 
 /* #include <frog/block.h> */
 
@@ -22,7 +23,7 @@ static void do_basic_setup(void)
 {
         /* blk_init(); */
 
-        //module init
+        // module init
         /* driver_init(); */
 
         // old version
@@ -37,14 +38,23 @@ static void rest_init(void)
         // init thread pid = 1
         // dive into user mode, start first process init.
         process_execute(init, "init");
-        //start a kernel thread like `kthreadd`;  we don't have it yet.
+        // start a kernel thread like `kthreadd`;  we don't have it yet.
+        // TODO:
+        // Here is a problem, The every-early kernel thread 'unknow name' thread
+        // needs to be dropped.
         cpu_idle();
+}
+
+static inline void setup_local_cpus(void)
+{
+        this_cpu()->current_thread = running_thread();
 }
 
 __visible void __noreturn start_kernel(void)
 {
         printk_with_cls("");
         /* setup_arch(); */
+        setup_local_cpus();
         platform_init();
         mem_init();
         thread_init();
@@ -53,6 +63,7 @@ __visible void __noreturn start_kernel(void)
         struct bus_type *platform_bus = platform_bus_init();
         register_bus(isa_bus);
         register_bus(platform_bus);
+
 
         syscall_init();
 

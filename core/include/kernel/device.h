@@ -3,11 +3,13 @@
 #include <frog/list.h>
 
 struct bus_type;
+struct driver;
 
 struct device {
         char *name;
         struct bus_type *bus;
-        struct list_head node;
+        struct list_head node;            // target attach to bus list
+        struct driver *driver;            // when match a driver will set dirver
 };
 
 int register_device(struct device *dev);
