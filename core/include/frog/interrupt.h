@@ -12,6 +12,9 @@ static inline void register_r0_intr_handler(uint_32 int_vector_code,
 {
         register_intr_handler(int_vector_code, handler);
 }
+
+extern void ack(uint_32 intno);
+
 #define in_interrupt() \
         this_cpu()->in_irq > 0
 
