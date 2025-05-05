@@ -6,8 +6,13 @@
 
 #define MAX_CPU 1
 
-/* I map irq_stack at mem_init() in file mm/memory.c
+/* Map `irq_stack` at mem_init() in file mm/memory.c
+ *
+ * ABOUT current_thread, there are 2 place to assign variable.
+ * 1. In very-early init start_kernel(), I set current_thread to main kernel thread
+ * 2. In each interrupt happened (not nested interrput)
  * */
+
 struct cpu_local {
         uint_32 in_irq;           // current layer of interrupts
         uint_32 softirq_pending;  // are there softirq need execute
