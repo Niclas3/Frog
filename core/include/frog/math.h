@@ -2,6 +2,7 @@
 #define _FROG_MATH_H
 
 #define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
+#define CEIL(n, d) (((n) + (d) - 1) / (d))
 
 #define MAX(a,b) \
    ({ __typeof__ (a) _a = (a); \
