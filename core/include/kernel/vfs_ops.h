@@ -14,8 +14,8 @@ struct page;
 struct file_operations {
         int_32 (*open)(struct inode *inode, struct file *file);
         int_32 (*close)(struct file *file);
-        int_32 (*read)(struct file *file, const void *buf, uint_32 count);
-        int_32 (*write)(struct file *file, void *buf, uint_32 count);
+        int_32 (*read)(struct file *file, void *buf, uint_32 count);
+        int_32 (*write)(struct file *file, const void *buf, uint_32 count);
         int_32 (*lseek)(struct file *file, int_32 offset, uint_8 whence);
         uint_32 (*poll)(struct file *file, struct poll_table_struct *wait);
         int_32 (*ioctl)(struct file *file, uint_32 request, void *argp);
