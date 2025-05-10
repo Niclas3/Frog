@@ -578,6 +578,159 @@ void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt)
         }
 }
 
+static void *malloc_internal(uint_32 size, pool_type pool_t)
+{
+        struct pool *mem_pool;
+        uint_32 pool_size;
+        struct mem_block_desc *descs;
+        TCB_t *cur = running_thread();
+        // Kernel
+        if (pool_t == MP_KERNEL) {
+                mem_pool = &kernel_pool;
+                pool_size = kernel_pool.pool_size;
+                descs = k_block_descs;
+        } else if(pool_t == MP_USER) {
+                // User
+                mem_pool = &user_pool;
+                pool_size = user_pool.pool_size;
+                descs = cur->u_block_descs;
+        } else{
+                PANIC("[WORNG:mm] pool type at malloc");
+        }
+
+        if (!(size > 0 && size < pool_size)) {
+                return NULL;
+        }
+
+        struct arena *area;
+        struct mem_block *block;
+        lock_fetch(&mem_pool->lock);
+        // If be allocated size is over 1024B return a whole arena
+        if (size > 1024) {
+                uint_32 page_cnt =
+                    DIV_ROUND_UP(size + sizeof(struct arena), PAGE_SIZE);
+                area = malloc_page(pool_t, page_cnt);
+
+                if (area != NULL) {
+                        memset(area, 0, PAGE_SIZE * page_cnt);
+                        area->desc = NULL;
+                        area->cnt = page_cnt;
+                        area->large = true;
+                        lock_release(&mem_pool->lock);
+                        return (void *) (area + 1);
+                } else {
+                        // maybe not enough memory
+                        lock_release(&mem_pool->lock);
+                        return NULL;
+                }
+        } else {  // require memory equal and less than 1024B
+                uint_8 desc_idx;
+                for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
+                        if (size <= descs[desc_idx].block_size) {
+                                // from small to large
+                                break;
+                        }
+                }
+                // Alloc 1 page for arena if descriptor free list is empty
+                if (list_is_empty(&descs[desc_idx].free_list)) {
+                        area = malloc_page(pool_t, 1);
+                        if (area == NULL) {
+                                lock_release(&mem_pool->lock);
+                                return NULL;
+                        }
+                        memset(area, 0, PAGE_SIZE);
+
+                        area->desc = &descs[desc_idx];
+                        area->large = false;
+                        area->cnt = descs[desc_idx].blocks_per_arena;
+                        uint_32 block_idx;
+                        unsigned long flags;
+                        local_irq_save(flags);
+                        for (block_idx = 0;
+                             block_idx < descs[desc_idx].blocks_per_arena;
+                             block_idx++) {
+                                block = arena2block(area, block_idx);
+                                list_add_tail(&block->free_elem,
+                                              &area->desc->free_list);
+                        }
+                        local_irq_restore(flags);
+                } else {
+                }
+
+                // alloc block
+                block = container_of(list_pop(&(descs[desc_idx].free_list)),
+                                     struct mem_block, free_elem);
+                memset(block, 0, descs[desc_idx].block_size);
+                area = block2arena(block);
+                area->cnt--;
+                lock_release(&mem_pool->lock);
+                return (void *) block;
+        }
+        return 0;
+}
+
+void *kmalloc(uint_32 size)
+{
+        return malloc_internal(size, MP_KERNEL);
+}
+
+void *umalloc(uint_32 size)
+{
+        return malloc_internal(size, MP_USER);
+}
+
+static void free_internal(void *ptr, pool_type p_type)
+{
+        struct pool *mem_pool;
+        if (ptr != NULL) {
+                if (p_type== MP_KERNEL) {
+                        ASSERT((uint_32) ptr >= K_HEAP_START);
+                        mem_pool = &kernel_pool;
+                } else if(p_type == MP_USER){  // is process
+                        mem_pool = &user_pool;
+                } else {
+                        PANIC("[WORNG:mm]: at free pool type");
+                }
+                lock_fetch(&mem_pool->lock);
+                // Get target pointer arena get metadate
+                struct mem_block *block = ptr;
+                struct arena *a = block2arena(block);
+                ASSERT(a->large == 0 || a->large == 1);
+                if (a->desc == NULL &&
+                    a->large == true) {  // arena is equal or over 1024B
+                        mfree_page(p_type, a, a->cnt);
+                } else {
+                        /* If less than 1024B, first free memory to
+                         * desc->free_list
+                         * */
+                        list_add_tail(&block->free_elem, &a->desc->free_list);
+                        // Test all arena free_list are free, if true release
+                        // arena
+                        if (++a->cnt == a->desc->blocks_per_arena) {
+                                uint_32 block_idx;
+                                for (block_idx = 0;
+                                     block_idx < a->desc->blocks_per_arena;
+                                     block_idx++) {
+                                        struct mem_block *b =
+                                            arena2block(a, block_idx);
+                                        list_del_init(&b->free_elem);
+                                }
+                                mfree_page(p_type, a, 1);
+                        }
+                }
+                lock_release(&mem_pool->lock);
+        }
+}
+
+void kfree(void *ptr){
+        ASSERT(ptr != NULL);
+        free_internal(ptr, MP_KERNEL);
+}
+
+void ufree(void *ptr){
+        ASSERT(ptr != NULL);
+        free_internal(ptr, MP_USER);
+}
 // Alloc memory
 // alloc 'size' memory from memory
 // First we need know who want to alloc memory from mm, so test current process

@@ -99,4 +99,10 @@ uint_32 *pde_ptr(uint_32 vaddr);
 
 uint_32 *pte_ptr(uint_32 vaddr);
 
+void *kmalloc(uint_32 size);
+void kfree(void *ptr);
+void *umalloc(uint_32 size);
+void ufree(void *ptr);
+
+
 #endif
