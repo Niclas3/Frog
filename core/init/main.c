@@ -9,6 +9,7 @@
 #include <kernel/bus.h>
 #include <kernel/cpu.h>
 #include <kernel/device.h>
+#include <kernel/chardev.h>
 
 /* #include <frog/block.h> */
 
@@ -19,11 +20,17 @@ extern void cpu_idle(void);
 extern void process_execute(void *, char *);
 extern void platform_init(void);
 
+
+extern void vfs_init(void);
+extern int root_fs_init(void);
+extern int dev_fs_init(void);
 // test code
 extern uint_32 ps2_mouse_driver_init(void);
 extern uint_32 ps2_kbd_driver_init(void);
 
 // end test
+
+
 
 
 static void do_basic_setup(void)
@@ -83,14 +90,21 @@ static inline void setup_local_cpus(void)
         this_cpu()->current_thread = running_thread();
 }
 
+
 __visible void __noreturn start_kernel(void)
 {
         printk_with_cls("");
-        /* setup_arch(); */
         setup_local_cpus();
         platform_init();
         mem_init();
         thread_init();
+
+        chrdev_init();
+        /* blkdev_init(); */
+        vfs_init();
+
+        root_fs_init();
+        dev_fs_init();
 
         struct bus_type *isa_bus = isa_bus_init();
         struct bus_type *platform_bus = platform_bus_init();
