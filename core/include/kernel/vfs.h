@@ -4,6 +4,10 @@
 #include <frog/list.h>
 #include <frog/types.h>
 #include <kernel/vfs_ops.h>
+#include <kernel/mount.h>
+#include <frog/fcntl.h>
+
+#define FILE_NAME_MAX 255
 
 enum file_type {
         FT_UNKOWN = 0,
@@ -14,14 +18,18 @@ enum file_type {
         FT_REGULAR,
 };
 
+enum whence { SEEK_SET = 1, SEEK_CUR, SEEK_END };
+
+
 struct super_block {
-        uint_32 s_dev;                // dev number
+        uint_32 s_devno;              // dev number
         uint_32 s_block_size;         // logic block size (512)
         uint_32 s_magic;              // super block magic number
         struct dentry *s_mountpoint;  // mount path
         struct list_head s_inodes;    // active inode lists
         struct inode *s_root;
         struct super_operations *s_op;
+        struct device *s_dev;
         void *s_fs_info;
 };
 
@@ -73,26 +81,43 @@ struct inode {
         struct super_block *i_sb;
         struct inode_operations *i_op;
         struct file_operations *i_fop;
-        void *i_private;  // for inner real file vfstem
+        void *i_private;  // for inner real file system
 };
 
-// int_32 vfs_open(const char *pathname, uint_8 flags);
-// int_32 vfs_close(int_32 fd);
-// int_32 vfs_write(int_32 fd, const void *buf, uint_32 count);
-// int_32 vfs_read(int_32 fd, void *buf, uint_32 count);
-// int_32 vfs_lseek(int_32 fd, int_32 offset, uint_8 whence);
-// int_32 vfs_unlink(const char *pathname);
-// int_32 vfs_mkdir(const char *pathname);
-// struct dir *vfs_opendir(const char *name);
-// int_32 vfs_closedir(struct dir *dirp);
-// struct dir_entry *vfs_readdir(struct dir *dirp);
-// void vfs_rewinddir(struct dir *dirp);
-// int_32 vfs_rmdir(const char *pathname);
+struct dir_entry {
+        char name[FILE_NAME_MAX];
+        uint_32 inode_no;
+        uint_8 type;
+};
+
+// Init some vfs infrastructure like mount list, fs type list.
+int_32 vfs_init(void);
+
+struct dentry *vfs_lookup(const char *path);
+
+int_32 vfs_mount(const char *pathname,
+                 const char *fs_type,
+                 int flags,
+                 const char *dev_name,
+                 void *data);
+
+struct file* vfs_open(char *path, uint_8 flags);
+int_32 vfs_write(struct file*file , const void *buf, uint_32 count);
+int_32 vfs_read(struct file *file , void *buf, uint_32 count);
+int_32 vfs_lseek(struct file *file, int_32 offset, uint_8 whence);
+uint_32 vfs_poll(struct file *file, struct poll_table_struct *wait);
+uint_32 vfs_ioctl(struct file *file, uint_32 request, void* argp);
+int_32 vfs_close(struct file *file);
+
+int_32 vfs_mkdir(struct dentry *parent, struct dentry *child);
+int_32 vfs_unlink(struct dentry *dir);
+int_32 vfs_rmdir(struct dentry *dir);
+int_32 vfs_readdir(struct file *dir, struct dir_entry *entry_out);
+void vfs_rewinddir(struct file *dir);
+
 // char *vfs_getcwd(char *buf, int_32 size);
 // int_32 vfs_chdir(const char *pathname);
 // int_32 vfs_stat(const char *pathname, struct stat *statbuf);
-// int_32 vfs_mount_device(const char *pathname, uint_32 dev_no, void *file);
-// uint_32 vfs_poll(struct file *file, struct poll_table_struct *wait);
-// uint_32 vfs_ioctl(int_32 fd, uint_32 request, void* argp);
+
 
 #endif
