@@ -1,20 +1,22 @@
- # use ELF format
- # Real OS code ###########################
 include ../../Makefile.os_rules
-INCLUDE = ../include
+# subdir += frogfs/
+# subdir += packagefs/
+subdir += tmpfs/
+subdir += vfs/
+subdir += devfs/
 
-# OUT_FILE= main.o inode.o
-# OUT_FILE= main.o
-OUT_FILE=
 
-# main.o: main.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+obj-y += select.o
 
-# inode.o: inode.c
-# 	$(CC) -I $(INCLUDE) -o $@ $(C_FLAG) $<
+all: $(subdir) $(obj-y)
 
-fs.o: $(OUT_FILE)
-	ld -m elf_i386 -r -o ../$(BUILD_DIR)/$@ $^
+$(subdir): %:
+	$(MAKE) -C $@
 
+$(obj-y) : %.o : %.c
+	$(CC) $(C_FLAG) $(DEPDIR)/$(@:.o=.d) -o $(BUILD_DIR)/$@  $<
+
+.PHONY: $(subdir) clean
 clean:
-	rm -rf *.o
+	rm -rf ./*.o
+

@@ -2,8 +2,7 @@ include ../../../Makefile.os_rules
 obj-y += bus.o
 obj-y += device.o
 obj-y += driver.o
-
-# obj-y += syscall.o
+obj-y += chardev.o
 
 all: $(subdir) $(obj-y)
 
