@@ -11,7 +11,7 @@
 
 #include <const.h>
 #include <kernel/assert.h>
-#include <forg/errno.h>
+#include <frog/errno.h>
 
 #include <frog/time.h>
 
@@ -91,74 +91,74 @@ void poll_freewait(poll_table *pt)
 #define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR)
 #define POLLEX_SET (POLLPRI)
 
-static int_32 do_wait2(int n, int_32 *fds, uint_32 *timeout)
-{
-        unsigned long flags;
-        poll_table table, *wait;
-        int retval = 0;
-        int_32 __timeout = *timeout;
-
-        poll_initwait(&table);
-        wait = &table;
-        if (!__timeout)
-                wait = NULL;
-        retval = -1;
-        TCB_t *cur = running_thread();
-        for (;;) {
-                local_irq_save(flags);
-                cur->status = THREAD_TASK_WAITING;
-                for (int i = 0; i < n; i++) {
-                        uint_32 mask = DEFAULT_POLLMASK;
-                        // go through all file
-                        struct file *f = get_file(fds[i]);
-                        mask = sys_poll(f, wait);
-                        if ((mask & POLLIN_SET)) {
-                                retval = i;
-                                wait = NULL;
-                        }
-                }
-
-                wait = NULL;
-                if ((retval != -1) || !__timeout)
-                        break;
-                if (table.error) {
-                        retval = table.error;
-                        break;
-                }
-                __timeout = schedule_timeout(__timeout);
-                local_irq_restore(flags);
-        }
-
-        cur->status = THREAD_TASK_RUNNING;
-
-        local_irq_save(flags);
-        poll_freewait(&table);
-        local_irq_restore(flags);
-
-        /*
-         * Up-to-date the caller timeout.
-         */
-        *timeout = __timeout;
-        return retval;
-}
-
-#define MAX_SELECT_SECONDS ((uint_32) (MAX_SCHEDULE_TIMEOUT / HZ) - 1)
-uint_32 sys_wait2(int n, int_32 *fds, struct timeval *tvp)
-{
-        ASSERT(fds != NULL);
-        uint_32 wait_ticks = 0;
-        if (tvp) {
-                // covert seconds to ticks
-                // 1000000 micoseconds = 1 seconds
-                wait_ticks = (tvp->tv_sec + tvp->tv_usec / 1000000) * HZ;
-        }
-
-        // test all fd is fds must be char devices (for now)
-        for (int i = 0; i < n; i++) {
-                struct file *f = get_file(fds[i]);
-                ASSERT(IS_FT_CHAR(f->fd_inode));
-        }
-        int_32 res = do_wait2(n, fds, &wait_ticks);
-
-        return res;
-}
+/* static int_32 do_wait2(int n, int_32 *fds, uint_32 *timeout) */
+/* { */
+/*         unsigned long flags; */
+/*         poll_table table, *wait; */
+/*         int retval = 0; */
+/*         int_32 __timeout = *timeout; */
+/*  */
+/*         poll_initwait(&table); */
+/*         wait = &table; */
+/*         if (!__timeout) */
+/*                 wait = NULL; */
+/*         retval = -1; */
+/*         TCB_t *cur = running_thread(); */
+/*         for (;;) { */
+/*                 local_irq_save(flags); */
+/*                 cur->status = THREAD_TASK_WAITING; */
+/*                 for (int i = 0; i < n; i++) { */
+/*                         uint_32 mask = DEFAULT_POLLMASK; */
+/*                         // go through all file */
+/*                         struct file *f = get_file(fds[i]); */
+/*                         mask = sys_poll(f, wait); */
+/*                         if ((mask & POLLIN_SET)) { */
+/*                                 retval = i; */
+/*                                 wait = NULL; */
+/*                         } */
+/*                 } */
+/*  */
+/*                 wait = NULL; */
+/*                 if ((retval != -1) || !__timeout) */
+/*                         break; */
+/*                 if (table.error) { */
+/*                         retval = table.error; */
+/*                         break; */
+/*                 } */
+/*                 __timeout = schedule_timeout(__timeout); */
+/*                 local_irq_restore(flags); */
+/*         } */
+/*  */
+/*         cur->status = THREAD_TASK_RUNNING; */
+/*  */
+/*         local_irq_save(flags); */
+/*         poll_freewait(&table); */
+/*         local_irq_restore(flags); */
+/*  */
+/*         #<{(| */
+/*          * Up-to-date the caller timeout. */
+/*          |)}># */
+/*         *timeout = __timeout; */
+/*         return retval; */
+/* } */
+/*  */
+/* #define MAX_SELECT_SECONDS ((uint_32) (MAX_SCHEDULE_TIMEOUT / HZ) - 1) */
+/* uint_32 sys_wait2(int n, int_32 *fds, struct timeval *tvp) */
+/* { */
+/*         ASSERT(fds != NULL); */
+/*         uint_32 wait_ticks = 0; */
+/*         if (tvp) { */
+/*                 // covert seconds to ticks */
+/*                 // 1000000 micoseconds = 1 seconds */
+/*                 wait_ticks = (tvp->tv_sec + tvp->tv_usec / 1000000) * HZ; */
+/*         } */
+/*  */
+/*         // test all fd is fds must be char devices (for now) */
+/*         for (int i = 0; i < n; i++) { */
+/*                 struct file *f = get_file(fds[i]); */
+/*                 ASSERT(IS_FT_CHAR(f->fd_inode)); */
+/*         } */
+/*         int_32 res = do_wait2(n, fds, &wait_ticks); */
+/*  */
+/*         return res; */
+/* } */
