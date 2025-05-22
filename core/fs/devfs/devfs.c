@@ -93,6 +93,7 @@ struct dentry *make_dev_node(struct dentry *current,
 
 int devfs_create_node(char *pathname, int type, int major, int minor)
 {
+        ASSERT(pathname[0]!= '/');
         struct dentry *current = find_mount_entry("dev")->mount_point;
         if (!current) {
                 DEBUG("[devfs]: can not find dev mount entry when create node");
