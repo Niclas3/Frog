@@ -1,11 +1,12 @@
 #include <frog/bitmap.h>
+#include <frog/math.h>
 #include <frog/memory.h>
 #include <frog/types.h>
+#include <kernel/assert.h>
 #include <kernel/chardev.h>
-#include <kernel/vfs_ops.h>
-#include <frog/math.h>
-#include <kernel/panic.h>
 #include <kernel/debug.h>
+#include <kernel/panic.h>
+#include <kernel/vfs_ops.h>
 
 static const struct file_operations *chrdev_table[MAX_CHARDEV];
 static struct bitmap *chrdev_bitmap;
@@ -19,6 +20,12 @@ static bool is_avalible_major(uint_32 major)
 {
         uint_32 value = get_value_bitmap(chrdev_bitmap, major);
         return !!value;
+}
+
+const struct file_operations *get_chardev_fop(int major)
+{
+        ASSERT(major < MAX_CHARDEV && major >= 0);
+        return chrdev_table[major];
 }
 
 int register_chrdev(uint_32 major, const struct file_operations *fops)
