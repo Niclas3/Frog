@@ -44,24 +44,27 @@ int register_fs(struct fs_type *fs_type)
         return 0;
 }
 
-static boolean is_same_path(struct dentry *left, struct dentry *right)
+boolean __is_same_path_indeed(struct dentry *left, struct dentry *right)
 {
-        struct dentry *cursor_left = left;
-        struct dentry *cursor_right = right;
-        while (cursor_left && cursor_right) {
-                if (!strcmp(cursor_right->d_name, cursor_left->d_name)) {
-                        cursor_left = cursor_left->d_parent;
-                        cursor_right = cursor_right->d_parent;
-                        continue;
-                } else {
-                        return false;
+        struct dentry *c_l = left;
+        struct dentry *c_r = right;
+        for (; strcmp(c_l->d_name, "/") && strcmp(c_r->d_name, "/");) {
+                if (strlen(c_r->d_name) == strlen(c_l->d_name) &&
+                    !strncmp(c_r->d_name, c_l->d_name, strlen(c_l->d_name))) {
+                        c_l = c_l->d_parent;
+                        c_r = c_r->d_parent;
                 }
         }
-        if (strcmp(cursor_left->d_name, "/") &&
-            strcmp(cursor_right->d_name, "/")) {
+        return (!strcmp(c_r->d_name, c_l->d_name) && strcmp(c_r->d_name, "/"));
+}
+
+static boolean is_same_path(struct dentry *left, struct dentry *right)
+{
+        if (left == right) {
                 return true;
+        } else {
+                return __is_same_path_indeed(left, right);
         }
-        return false;
 }
 
 /**
