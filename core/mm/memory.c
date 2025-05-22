@@ -723,11 +723,13 @@ static void free_internal(void *ptr, pool_type p_type)
 }
 
 void kfree(void *ptr){
+        if(ptr == NULL) return;
         ASSERT(ptr != NULL);
         free_internal(ptr, MP_KERNEL);
 }
 
 void ufree(void *ptr){
+        if(ptr == NULL) return;
         ASSERT(ptr != NULL);
         free_internal(ptr, MP_USER);
 }
