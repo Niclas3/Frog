@@ -149,13 +149,16 @@ static int search_from_dentry(struct dentry *root,
 // - dir: temporary lookup container, freed manually
 // - dir->d_name: kmalloc'd each round, must free
 // - res: real dentry returned from filesystem, owned by VFS/cache, DO NOT free
-struct dentry *do_loopup(const char *path)
+// /dev/input/event0
+static struct dentry *do_loopup(const char *path)
 {
         ASSERT(path);
         struct dentry *current = global_root_dentry;
-        char *component[FILE_NAME_MAX] = {0};
+        char *component = kmalloc(FILE_NAME_MAX);
+        memset(component, 0, FILE_NAME_MAX);
         char **path_rst =
             next_path_components((char **) &path, (char *) component);
+        path_rst = next_path_components(path_rst, component);
 
         if (current->d_inode && current->d_inode->i_op) {
                 struct dentry *dir = kmalloc(sizeof(struct dentry));
@@ -165,8 +168,14 @@ struct dentry *do_loopup(const char *path)
                         memcpy(name, component, FILE_NAME_MAX);
                         dir->d_name = name;
 
-                        struct dentry *res = current->d_inode->i_op->lookup(
-                            current->d_inode, dir);
+                        // Search dentry first if nothing get then call
+                        // xxxfs->lookup()
+                        // if find target dentry then set res
+                        struct dentry *res = NULL;
+                        if (!search_from_dentry(current, dir, &res)) {
+                                res = current->d_inode->i_op->lookup(
+                                    current->d_inode, dir);
+                        }
 
                         if (res != NULL) {
                                 if (res->d_mounted) {
@@ -180,14 +189,27 @@ struct dentry *do_loopup(const char *path)
                                         }
 
                                         mp->d_parent = current;
-                                        list_add_tail(&mp->d_child_node,
-                                                      &current->d_subdirs);
+                                        if (list_find_element( &mp->d_child_node, &current->d_subdirs)) {
+
+                                        } else {
+                                                list_add_tail(
+                                                    &mp->d_child_node,
+                                                    &current->d_subdirs);
+                                        }
                                         current = mp;
                                 } else {
                                         // 2. not a mounted point
                                         res->d_parent = current;
-                                        list_add_tail(&res->d_child_node,
-                                                      &current->d_subdirs);
+
+                                        if (list_find_element(
+                                                &res->d_child_node,
+                                                &current->d_subdirs)) {
+
+                                        } else {
+                                                list_add_tail(
+                                                    &res->d_child_node,
+                                                    &current->d_subdirs);
+                                        }
                                         current = res;
                                 }
                                 path_rst = next_path_components(
@@ -200,7 +222,7 @@ struct dentry *do_loopup(const char *path)
                                 return NULL;
                         }
                         kfree(name);
-                } while (*path_rst != NULL);
+                } while (strcmp(component, ""));
                 kfree(dir);
         }
 
