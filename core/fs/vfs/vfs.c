@@ -102,6 +102,44 @@ static char *path_pop_tail(char *path, char *last_name)
 }
 
 
+void dentry_add_child(struct dentry *parent, struct dentry *child)
+{
+        ASSERT(parent && child);
+        child->d_parent = parent;
+        list_add_tail(&child->d_child_node, &parent->d_subdirs);
+}
+
+
+static bool is_same_dir_name(char *name, char *name2)
+{
+        return strcmp(name, name2) == 0;
+}
+
+
+// Search dentry tree, from root dentry, if find target dentry return pointer to
+// res variable.
+// Only search one layer under root dentry.
+static int search_from_dentry(struct dentry *root,
+                              struct dentry *target,
+                              struct dentry **res)
+{
+        struct list_head *pos;
+        list_for_each (pos, &root->d_subdirs) {
+                struct dentry *d =
+                    container_of(pos, struct dentry, d_child_node);
+                if (d) {
+                        if (is_same_dir_name(d->d_name, target->d_name)) {
+                                *res = d;
+                                return 1;
+                        } else {
+                                continue;
+                        }
+                }
+        }
+        *res = NULL;
+        return 0;
+}
+
 // NOTE:
 // - dir: temporary lookup container, freed manually
 // - dir->d_name: kmalloc'd each round, must free
@@ -176,6 +214,24 @@ struct dentry *vfs_lookup(const char *path)
         return d;
 }
 
+
+/**
+ * lookup some path in some dir
+ *
+. *****************************************************************************/
+struct dentry *dentry_lookup(struct dentry *parent, char *name)
+{
+        struct dentry *target = kmalloc(sizeof(struct dentry));
+        target->d_name = name;
+        struct dentry *res;
+        if (search_from_dentry(parent, target, &res)) {
+                kfree(target);
+                return res;
+        } else {
+                kfree(target);
+                return NULL;
+        }
+}
 
 static struct file *open_filep(struct dentry *d, uint_8 flags)
 {
