@@ -37,10 +37,15 @@ int register_chrdev(uint_32 major, const struct file_operations *fops)
                         return -1;
                 } else {
                         chrdev_table[new_major] = fops;
+                        return new_major;
                 }
         } else {
                 if (is_avalible_major(major)) {
                         chrdev_table[major] = fops;
+                        return major;
+                } else {
+                        WARN("[chardev]: %d is exist", major);
+                        return -1;
                 }
         }
         return 0;
