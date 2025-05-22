@@ -35,22 +35,6 @@ struct fs_type *find_fs_type(const char *name)
         return NULL;
 }
 
-struct mount_entry *find_mount_entry(const char *mount_point)
-{
-        struct dentry *mp = vfs_lookup(mount_point);
-        if (!mp) {
-                return NULL;
-        }
-        struct list_head *pos;
-        list_for_each (pos, &fs_type_list) {
-                struct mount_entry *target =
-                    container_of(pos, struct mount_entry, mount_node);
-                if (target && target->mount_point == mp) {
-                        return target;
-                }
-        }
-        return NULL;
-}
 
 
 int register_fs(struct fs_type *fs_type)
@@ -95,6 +79,20 @@ struct dentry *find_mounted_dentry(struct dentry *dir)
                 struct dentry *mp = entry->mount_point;
                 if (is_same_path(dir, mp)) {
                         return mp;
+                }
+        }
+        return NULL;
+}
+
+struct mount_entry *find_mount_entry(const char *mount_point)
+{
+        struct list_head *pos;
+        list_for_each (pos, &mount_list) {
+                struct mount_entry *target =
+                    container_of(pos, struct mount_entry, mount_node);
+                if (target && target->mount_point &&
+                    !strcmp(target->mount_point->d_name, mount_point)) {
+                        return target;
                 }
         }
         return NULL;
