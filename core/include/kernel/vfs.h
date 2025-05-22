@@ -74,7 +74,7 @@ struct inode {
         uint_32 i_nlink;
         uint_32 i_uid, i_gid;  // user infomations
         uint_32 i_atime, i_ctime, i_mtime;
-        uint_32 i_dev;                   // for char device
+        uint_32 i_dev;                   // for char device and block device
         struct list_head i_active_node;  // this a list node add to super block
                                          // active inode lists
 
@@ -89,6 +89,12 @@ struct dir_entry {
         uint_32 inode_no;
         uint_8 type;
 };
+
+// vfs helper functions
+struct dentry *dentry_lookup(struct dentry *parent, char *name);
+void dentry_add_child(struct dentry *parent, struct dentry *child);
+char *path_pop_tail(char *path, char *last_name);
+char **next_path_components(char **p_path, char *component);
 
 // Init some vfs infrastructure like mount list, fs type list.
 int_32 vfs_init(void);

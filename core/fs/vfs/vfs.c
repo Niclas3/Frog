@@ -14,8 +14,12 @@ static inline bool validate_path(char *path)
 }
 
 // /home/zm/a/test.md
-static char **next_path_components(char **p_path, char *component)
+char **next_path_components(char **p_path, char *component)
 {
+        if (*p_path == NULL) {
+                memset(component, 0, FILE_NAME_MAX);
+                return NULL;
+        }
         char *path = *p_path;
         int path_len = strlen(path);
         char *path_head = path;
@@ -43,6 +47,7 @@ static char **next_path_components(char **p_path, char *component)
         }
 
         if (path_len == name_len) {
+                kfree(*p_path);
                 *p_path = NULL;
         } else {
                 *p_path = (path_head + name_len);
@@ -65,7 +70,7 @@ static char **next_path_components(char **p_path, char *component)
  * @param last_name last file(or directory) name
  * @return anther path without last_name
  *****************************************************************************/
-static char *path_pop_tail(char *path, char *last_name)
+char *path_pop_tail(char *path, char *last_name)
 {
         int path_len = strlen(path);
         char *path_head = path;
