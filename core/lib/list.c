@@ -35,7 +35,8 @@ int list_find_element(struct list_head *node, struct list_head *head)
         for (; next != node && next != head->prev;) {
                 next = next->next;
         }
-        return (next != head->prev);
+
+        return next == node;
 }
 
 /**
