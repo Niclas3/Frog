@@ -5,9 +5,10 @@
 #include <kernel/driver.h>
 
 #include <frog/irqflags.h>
+#include <kernel/assert.h>
 #include <kernel/chardev.h>
 #include <kernel/debug.h>
-#include <kernel/assert.h>
+#include <kernel/dev.h>
 #include <kernel/panic.h>
 #include <kernel/vfs.h>
 
@@ -266,8 +267,11 @@ int ps2_kbd_probe(struct device *dev)
         register_r0_intr_handler(INT_VECTOR_KEYBOARD,
                                  (Inthandle_t *) ps2_kbd_ISR);
         // add this ps2 kbd to chrdev list
-        int res = register_chrdev(0, &ps2_kbd_file_operations);
-        ASSERT(res != -1);
+        int major = register_chrdev(0, &ps2_kbd_file_operations);
+        ASSERT(major != -1);
+        if (devfs_create_node("input/event0",DEV_TYPE_CHAR, major, 0) == -1) {
+                WARN("[ps2/kbd driver]: some wrong at create a devfs node.");
+        }
 
         // init kbd_queue
         queue = (struct ps2kbd_queue *) kmalloc(sizeof(*queue));
@@ -278,6 +282,7 @@ int ps2_kbd_probe(struct device *dev)
         memset(queue, 0, sizeof(*queue));
         queue->head = queue->tail = 0;
         init_waitqueue_head(&queue->proc_list);
+
 
         return 0;
 }
