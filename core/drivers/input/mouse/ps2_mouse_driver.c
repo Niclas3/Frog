@@ -10,6 +10,9 @@
 #include <kernel/panic.h>
 #include <kernel/vfs.h>
 
+#include <kernel/chardev.h>
+#include <kernel/dev.h>
+
 #include <frog/errno.h>
 #include <frog/fork.h>
 #include <frog/irqflags.h>
@@ -297,8 +300,12 @@ int ps2_mouse_probe(struct device *dev)
         queue->head = queue->tail = 0;
         init_waitqueue_head(&queue->proc_list);
         // add to chardev
-        int res = register_chrdev(0, &ps2_mouse_fop);
-        ASSERT(!res);
+        int major = register_chrdev(0, &ps2_mouse_fop);
+
+        if (devfs_create_node("input/event1", DEV_TYPE_CHAR, major, 0)) {
+                WARN("[ps2/mouse driver]: some wrong at create a devfs node.");
+        }
+
         return 0;
 }
 
