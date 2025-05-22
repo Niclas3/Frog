@@ -370,21 +370,22 @@ int_32 vfs_mount(const char *pathname,
 {
         struct fs_type *fstype = find_fs_type(fs_type);
 
-        if (fs_type) {
+        if (fstype) {
                 struct super_block *sb =
                     fstype->mount(fstype, flags, dev_name, data);
 
                 struct mount_entry *entry = kmalloc(sizeof(struct mount_entry));
                 struct dentry *mp = vfs_lookup(pathname);
                 if (!mp) {
-                        WARN("Not find this mount point %s:pathname ", fs_type,
-                             pathname);
+                        WARN("Not find this mount point %s:pathname %s",
+                             fs_type, pathname);
                         return -1;
                 }
 
                 entry->sb = sb;
                 entry->mount_point = mp;
 
+                mp->d_mounted = true;
                 add_mount_list(&entry->mount_node);
                 return 0;
         } else {
