@@ -111,7 +111,10 @@ void dentry_add_child(struct dentry *parent, struct dentry *child)
 {
         ASSERT(parent && child);
         child->d_parent = parent;
-        list_add_tail(&child->d_child_node, &parent->d_subdirs);
+
+        if (!list_find_element(&child->d_child_node, &parent->d_subdirs)) {
+                list_add_tail(&child->d_child_node, &parent->d_subdirs);
+        }
 }
 
 
@@ -187,29 +190,9 @@ static struct dentry *do_loopup(const char *path)
                                                     "[vfs]: cannot find mount "
                                                     "point from mount list.");
                                         }
-
-                                        mp->d_parent = current;
-                                        if (list_find_element( &mp->d_child_node, &current->d_subdirs)) {
-
-                                        } else {
-                                                list_add_tail(
-                                                    &mp->d_child_node,
-                                                    &current->d_subdirs);
-                                        }
                                         current = mp;
                                 } else {
                                         // 2. not a mounted point
-                                        res->d_parent = current;
-
-                                        if (list_find_element(
-                                                &res->d_child_node,
-                                                &current->d_subdirs)) {
-
-                                        } else {
-                                                list_add_tail(
-                                                    &res->d_child_node,
-                                                    &current->d_subdirs);
-                                        }
                                         current = res;
                                 }
                                 path_rst = next_path_components(
@@ -385,6 +368,8 @@ int_32 vfs_mkdir(struct dentry *parent, struct dentry *child)
         if (!parent || !child || !parent->d_inode || !child->d_inode ||
             !parent->d_inode->i_op || !parent->d_inode->i_op->mkdir)
                 return -1;
+
+        dentry_add_child(parent, child);
 
         return parent->d_inode->i_op->mkdir(parent->d_inode, child,
                                             FT_DIRECTORY);
