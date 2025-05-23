@@ -1,19 +1,35 @@
 #include <frog/memory.h>
+#include <frog/string.h>
+#include <kernel/debug.h>
 #include <kernel/vfs.h>
 
 #define TMPFS_MAGIC 0xefeefeff
 
 struct dentry *rootfs_lookup(struct inode *dir, struct dentry *target);
+int_32 rootfs_mkdir(struct inode *dir, struct dentry *target, uint_32 mode);
 
 static struct file_operations rootfs_fops = {0};
-static struct inode_operations rootfs_ops = {.lookup = rootfs_lookup};
+static struct inode_operations rootfs_ops = {.lookup = rootfs_lookup,
+                                             .mkdir = rootfs_mkdir};
 
+extern struct dentry *global_root_dentry;
+
+// TODO: on process
+// lookup in `layer_search`
 struct dentry *rootfs_lookup(struct inode *dir, struct dentry *target)
 {
+        struct dentry *current = find_mount_entry("rootfs")->mount_point;
+
         return NULL;
 }
 
-struct inode *tmpfs_create_root_inode(struct super_block *sb)
+int_32 rootfs_mkdir(struct inode *dir, struct dentry *target, uint_32 mode)
+{
+        return 0;
+}
+
+
+static struct inode *tmpfs_create_root_inode(struct super_block *sb)
 {
         struct inode *root_inode = kmalloc(sizeof(struct inode));
         if (!root_inode) {
@@ -28,7 +44,7 @@ struct inode *tmpfs_create_root_inode(struct super_block *sb)
         return root_inode;
 }
 
-struct super_block *rootfs_mount(struct fs_type *fs,
+static struct super_block *rootfs_mount(struct fs_type *fs,
                                  int flags,
                                  const char *dev,
                                  void *data)
@@ -55,11 +71,10 @@ struct super_block *rootfs_mount(struct fs_type *fs,
 
 static struct fs_type rootfs_type = {.name = "rootfs", .mount = rootfs_mount};
 
-extern struct dentry *global_root_dentry;
 
 static struct dentry *dentry_alloc_root(struct inode *root_inode)
 {
-        struct dentry *d = kmalloc(sizeof(*d));
+        struct dentry *d = kmalloc(sizeof(struct dentry));
         d->d_inode = root_inode;
         d->d_parent = d;
         d->d_name = "/";
@@ -72,7 +87,10 @@ int root_fs_init(void)
         register_fs(&rootfs_type);
         // set global root dentry
         struct super_block *sb = rootfs_mount(NULL, 0, NULL, NULL);
+        struct mount_entry *mentry = kmalloc(sizeof(struct mount_entry));
         global_root_dentry = dentry_alloc_root(sb->s_root);
-        /* vfs_mount("/", "rootfs", 0, "", NULL); */
+        mentry->sb = sb;
+        mentry->mount_point = global_root_dentry;
+        add_mount_list(&mentry->mount_node);
         return 0;
 }
