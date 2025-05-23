@@ -212,7 +212,7 @@ void ps2_mouse_ISR(void)
 
 int_32 ps2_mouse_open(struct inode *inode, struct file *file)
 {
-        return -1;
+        return 0;
 }
 int_32 ps2_mouse_close(struct file *file)
 {
