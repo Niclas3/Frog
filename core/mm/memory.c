@@ -200,6 +200,49 @@ void block_desc_init(struct mem_block_desc *desc_array)
         }
 }
 
+// Covert paddress to position
+static int_32 paddress2position(uintptr_t paddress, struct pool *pool)
+{
+        return (paddress - pool->phy_addr_start) / PAGE_SIZE;
+}
+
+static bool is_in_pool_range(uintptr_t paddress, struct pool *pool)
+{
+        return (pool->phy_addr_start >= paddress) ||
+               (paddress < pool->pool_size * PAGE_SIZE + pool->phy_addr_start);
+}
+
+// mark a range of physical address used
+static int __mark_physical_page_reserved(pool_type type, uintptr_t paddress)
+{
+        struct pool *pool;
+        int_32 pos;
+        if (type == MP_KERNEL) {
+                pool = &kernel_pool;
+        } else if (type == MP_USER) {
+                pool = &user_pool;
+        } else {
+                PANIC("[mm]: Error memory pool type");
+                return -1;
+        }
+
+        if (!is_in_pool_range(paddress, pool)) {
+                PANIC("[mm]: paddress is not in available range");
+                return -1;
+        }
+
+        pos = paddress2position(paddress, pool);
+        set_value_bitmap(&pool->pool_bitmap, pos, PG_OCCUPIED);
+
+        return 0;
+}
+
+static int mark_kpage_reserved(pool_type type, uintptr_t paddress)
+{
+        return __mark_physical_page_reserved(MP_KERNEL, paddress);
+}
+
+
 static void mem_pool_init(uint_32 all_mem)
 {
         // 1 page dir table and 254 page table
