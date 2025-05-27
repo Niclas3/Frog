@@ -2,6 +2,7 @@
 #define _FROG_TYPES_H
 
 #include <stdbool.h>
+#include <asm/bitsperlong.h>
 
 // sizeof(uint_32); // 0x4
 typedef unsigned int uint_32;
@@ -28,10 +29,16 @@ typedef uint_32 suseconds_t;
 typedef unsigned int size_t;
 typedef unsigned int dev_t;
 
-typedef void* (Inthandle_t)(void*);
+#if BITS_PER_LONG == 32
+        typedef unsigned int uintptr_t;
+#elif BITS_PER_LONG == 64
+        typedef unsigned long uintptr_t;
+#endif
+
+typedef void *(Inthandle_t) (void *);
 
 typedef struct {
-    unsigned int value: 4;
+        unsigned int value : 4;
 } half_byte;
 
 #ifndef NULL
@@ -52,7 +59,7 @@ typedef unsigned char boolean;
  */
 #ifndef __bool_true_false_are_defined
 #define bool boolean
-#define false 0 
+#define false 0
 #define true 1
 #define __bool_true_false_are_defined 1
 #endif /* __bool_true_false_are_defined */
