@@ -20,11 +20,17 @@ AS_DEBUG_FLAG += -g
 # -fno-builtin
 C_WARNG += -Wstrict-prototypes 
 C_WARNG += -Wmissing-prototypes
+C_WARNG += -Wextra
+C_WARNG += -Wall
 C_OUT_FMT += -m32
 C_FNO_FLAG += -fno-stack-protector 
 C_FNO_FLAG += -fno-builtin
 C_NO_LINK += -c
+C_NO_GOT += -fno-pie
 C_DEBUG := -g
+# C_ASAN += -fsanitize=address
+C_ASAN +=
+
 # C_OPTIM += -O1
 # C_OPTIM += -Og
 C_OPTIM += -O0
@@ -60,7 +66,7 @@ BUILD_DIR = $(abs-src)/build
 MACRO_DEBUG := CONFIG_DEBUG
 C_DMACRO := -D$(MACRO_DEBUG)
 
-C_OPT := $(C_NO_LINK) $(C_WARNG) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM)
+C_OPT := $(C_NO_LINK) $(C_NO_GOT) $(C_WARNG) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM) $(C_ASAN)
 C_FLAG := $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
 
 
