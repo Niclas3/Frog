@@ -62,27 +62,34 @@ static void rest_init(void)
 static void isa_device_init(struct bus_type *isa_bus)
 {
         // 1. init mouse device
-        static struct device ps2_mouse_dev = {
-            .name = "ps2-mouse",
-            .io_base = 0x60,
-            .irq_nr = 12,
-        };
-        ps2_mouse_dev.bus = isa_bus;
+        struct device *ps2_mouse_dev = kmalloc(sizeof(struct device));
+        if (!ps2_mouse_dev) {
+                DEBUG("[isa_dev]: cannot create ps2 mouse dev");
+                return;
+        }
+        ps2_mouse_dev->name = "ps2-mouse";
+        ps2_mouse_dev->io_base = 0x60;
+        ps2_mouse_dev->irq_nr = 12;
+        ps2_mouse_dev->bus = isa_bus;
 
         // 2. init keyboard device
-        static struct device ps2_kbd_dev = {
-                .name = "ps2-kbd",
-                .io_base = 0x60,
-                .irq_nr = 1,
-        };
-        ps2_kbd_dev.bus = isa_bus;
+
+        struct device *ps2_kbd_dev = kmalloc(sizeof(struct device));
+        if (!ps2_kbd_dev) {
+                DEBUG("[isa_dev]: cannot create ps2 kbd dev");
+                return;
+        }
+        ps2_kbd_dev->name = "ps2-kbd";
+        ps2_kbd_dev->io_base = 0x60;
+        ps2_kbd_dev->irq_nr = 1;
+        ps2_kbd_dev->bus = isa_bus;
 
         // 3. init disk device
 
         // 4. init rtc device (?)
 
-        register_device(&ps2_mouse_dev);
-        register_device(&ps2_kbd_dev);
+        register_device(ps2_mouse_dev);
+        register_device(ps2_kbd_dev);
 }
 
 static inline void setup_local_cpus(void)
