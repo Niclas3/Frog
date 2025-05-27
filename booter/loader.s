@@ -550,6 +550,8 @@ LABEL_SEG_CODE32:
     E_PHOFF_OFFSET     equ 28   ; 4 bytes
     E_PHENTSIZE_OFFSET equ 42   ; 2 bytes
     E_PHNUM_OFFSET     equ 44   ; 2 bytes
+    E_ENTRY_OFFSET     equ 24   ; 4 bytes
+
 
     ; BASE_OF_SECTION = KERNELBIN_START + eax
     ; int HEADER_NAME_TEXT = 0x0000000b
@@ -607,7 +609,12 @@ LABEL_SEG_CODE32:
     ; mov esp, 0x80000  ;set kernel stack
     mov esp, 0xc009f000  ;set kernel stack
 
-    jmp dword SELECTOR_CODE: KERNEL_START
+    ; mov dword eax, [KERNELBIN_START+E_ENTRY_OFFSET]; entry
+    KERNEL_START_ENTRY equ KERNELBIN_START+E_ENTRY_OFFSET
+    mov eax, [KERNEL_START_ENTRY]
+    jmp dword  eax
+
+    ; jmp dword SELECTOR_CODE: KERNEL_START
 
 ;===============================================================================
 ; dumb handler for interrupt handler 
@@ -705,7 +712,7 @@ PG_MSIZE_4M   equ 1024
 
 ;; init page directory entries
     mov eax, PAGE_DIR_START
-    add eax, 0x2000                  ; .pg2 
+    add eax, 0x2000                  ; .pg1
     or  eax, PG_US_U | PG_RW_W | PG_P
     mov ebx, PAGE_DIR_START
     mov ecx, 254
@@ -896,71 +903,6 @@ read_hard_disk_32:
     loop .go_on_read
     ret
 
-;===============================================================================
-;void load_text_sections(section_offset, count, size)
-;; NO USED
-;; ebp+4 ---> size   0x0028          ebx 3
-;; ebp+8 ---> count  0x0007          ecx 2
-;; ebp+12---> section_offset 0x3070  eax 1
-;===============================================================================
-load_text_sections:
-    mov ebp, esp
-    ; Getting the values of section_offset array
-    mov eax, ELF_BASE
-    add eax, [ebp+12]
-    mov ebx, eax        ;Start of section
-
-; Initializing loop counter
-    mov esi, 0
-section_loop:
-    mov edx, [ebp+4]    ; Size of section entry
-    imul edx, esi ; (size * i)
-    add  edx, ebx
-    mov eax, [edx]; name start pointer 
-    push eax            ;name string pointer [ebp-4]
-    ;-------------------------------------------
-    xor eax, eax
-    mov eax, [edx +16]   ; offset 2 byte
-    push eax                   ; [ebp-8]
-    ;--------------------------------------------
-    xor eax, eax
-    mov eax, [edx +20]   ; section size 4 byte
-    push eax                   ; [ebp-12]
-    ;-------------------------------------------
-    ;     if(name == HEADER_NAME_TEXT){
-    ;         copymem(elf_base+sh_offset,size, 0x80000 )
-    ;     }
-    ; Compare the name with HEADER_NAME_TEXT (0x0000000b)
-    cmp dword [ebp-4], HEADER_NAME_TEXT
-    jne skip_copymem
-    mov eax, [ebp-8]
-    add eax, ELF_BASE  ;eax -> source address
-
-    push eax
-    ; push 0x4000        ; The size of code you want to load
-    ; push 0x5000        ; The size of code you want to load
-    ; push 0x6000        ; The size of code you want to load
-    push 0x8000        ; The size of code you want to load
-    push KERNEL_START  ;0x80000 -> target address
-
-    ; Call copymem(elf_base + sh_offset, size, 0x80000)
-    call copyMem
-    add esp, 12   ; Clean up the stack after the function call
-    add esp, 12   ; Clean all local var stack up
-    ret
-skip_copymem:
-    ;-------------------------------
-    mov eax, esp  ;pop 3 useless data
-    add eax, 12
-    mov esp, eax
-    ;-------------------------------
-    mov eax, esi
-    inc eax
-    mov esi, eax
-    mov ecx, [ebp+8]
-    cmp esi, ecx
-    jl section_loop
-    ret
 
 ;===============================================================================
 ;void load_program(program_table, count, program_size)
