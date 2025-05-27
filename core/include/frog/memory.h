@@ -5,6 +5,14 @@
 #include <frog/types.h>
 #include <frog/bug.h>
 
+
+// Top of the PDE[1023] (4MB) virtual address space
+#define K_STACK_START 0xFFBFFFFFUL
+#define K_THREAD_MAX 10
+#define K_STACKSZ_IN_PAGE 1
+
+#define INTR_STACKSZ_PAGE 2  // 2 times page size 8kb
+
 typedef struct _virtual_addr {
     struct bitmap vaddr_bitmap;
     uint_32 vaddr_start;

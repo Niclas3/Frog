@@ -130,7 +130,27 @@ static void *get_free_page(struct pool *mpool)
         return (void *) (start_pos * PAGE_SIZE + mpool->phy_addr_start);
 }
 
+
 // Picking a pool return a free v_address
+// Over all 80kb kernel stack
+// 2 page per thread
+// FrogOS support 10 kernel threads for now
+static void alloc_kstack_pool(int page_count)
+{
+        ASSERT(page_count <= (K_THREAD_MAX * K_STACKSZ_IN_PAGE) &&
+               page_count > 0);
+        uintptr_t alloc_start = K_STACK_START & ~0xFFFUL;
+        uintptr_t paddress;
+
+        while (page_count--) {
+                paddress = get_free_page(&kernel_pool);
+                PANIC_IF(!paddress, "[mm]: not enough physical memory");
+                put_page(alloc_start, paddress);
+                alloc_start -= 0x1000UL;
+        }
+}
+
+
 static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
 {
         uint_32 v_start_addr = 0;
@@ -878,13 +898,14 @@ void mem_init()
         mem_pool_init(mem_bytes_total);
         block_desc_init(k_block_descs);
 
+        alloc_kstack_pool(K_THREAD_MAX * K_STACKSZ_IN_PAGE);
+
         // init local_cpu
-        #define INTR_STACK_SIZE 4     // 2 times page size
         struct cpu_local *cpu = NULL;
-        each_cpu(cpu) {
-                char* vaddr = malloc_page(MP_KERNEL, INTR_STACK_SIZE);
-                cpu->irq_stack_top = vaddr + 1024 * INTR_STACK_SIZE;
+        each_cpu(cpu)
+        {
+                char *vaddr = malloc_page(MP_KERNEL, INTR_STACKSZ_PAGE);
+                cpu->irq_stack_top = vaddr + (PAGE_SIZE << 1);
                 ASSERT(cpu->irq_stack_top != NULL);
         }
-
 }
