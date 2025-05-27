@@ -47,7 +47,6 @@ char **next_path_components(char **p_path, char *component)
         }
 
         if (path_len == name_len) {
-                kfree(*p_path);
                 *p_path = NULL;
         } else {
                 *p_path = (path_head + name_len);
@@ -217,7 +216,7 @@ struct dentry *vfs_lookup(const char *path)
         if (!path || !validate_path((char *) path))
                 return NULL;
         int len = strlen(path);
-        char *mpath = kmalloc(len);
+        char *mpath = kmalloc(len + 1);
         strncpy(mpath, path, len);
         struct dentry *d = do_loopup(mpath);
         kfree(mpath);
