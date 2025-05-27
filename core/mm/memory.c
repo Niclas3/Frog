@@ -10,6 +10,7 @@
 #include <kernel/debug.h>
 #include <kernel/panic.h>
 
+#include <frog/linker.h>  // fetch runtime elf section bounds
 #include "ARDS.h"  // for Address Range Descriptor Structure at mem_init()
 
 // for kernel test
@@ -18,25 +19,33 @@
 // init per local cpu interrupt stack
 #include <kernel/cpu.h>
 
-// Assume that core.o is 70kb aka 0x11800
-// and start at 0x80000
-// so the end is 0x80000 + 0x11800 = 0x91800
-/* #define K_HEAP_START 0x00092000 */
-/* #define K_HEAP_START 0xc0100000 + (PAGE_SIZE * (PDT_COUNT + PGT_COUNT)) */
-#define K_HEAP_START 0xc0100000
-// from 0x92000 to 0xa0000 aka 0xe000 => 12 threads
-// 14 pages aka 14 * 4kb = 0xe000
-/* #define K_HEAP_START 0x00100000 */
 
-#define MEM_BITMAP_BASE 0xc0060000
-/* #define MEM_BITMAP_BASE 0xc009a000 */
-/* #define MEM_BITMAP_BASE 0xc002e000 */
-/* #define MEM_BITMAP_BASE 0xc000e800 */
+// Kernel heap start after linker symbol `char _end[]`
+// _end is defined at ld scripts which at./core/scripts/kernel_dbg.ld
+#define K_HEAP_START ((uintptr_t) _end & ~0xfffUL) + 0x1000UL
+
+#define K_STACK_POOL_BOTTOM 0xFF800000UL
+
+#define MEM_BITMAP_BASE 0xc0060000UL
 
 // 1 page dir table
-#define PDT_COUNT 1
-// 254 is upper 1G memory start at 0xc0000000
-#define PGT_COUNT 254 + 1 + 1
+#define PDT_COUNT 1UL
+// no.254 is upper 1G memory start at 0xc000_0000
+//
+// [PDE no.768       map-> pg0 address ] represents size 4MB
+// 0xc000_0000
+//
+// [PDE no.769       ~ no.1023 pde -> pg1 2nd page address] represent size 1GB
+// 0xc040_0000       ~ 0xFFC0_0000 : virtual address range
+
+#define KPT_COUNT 255
+
+#define PG0_COUNT 1
+// In real world Frog don't need all Upper vaddress I will give it 4MB
+#define PGT_COUNT (KPT_COUNT / 255 + PG0_COUNT)
+
+#define PG_OCCUPIED 1
+#define PG_VACANT 0
 
 /*  If struct arena's attribute large is true cnt stand for page_frame cnt,
  *  if not for mem_block count.
@@ -246,27 +255,43 @@ static int mark_kpage_reserved(pool_type type, uintptr_t paddress)
 }
 
 
+/* Kernel pool and user pool manage physical memory.
+ *
+ * */
 static void mem_pool_init(uint_32 all_mem)
 {
-        // 1 page dir table and 254 page table
-        //                      769 ~ 1022 pde
-        //                      768 and 0 pg
+        // 1 page dir table and 255 page table
+        //                      no.769 ~ no.1022 pde
+        //                      no.768 and no.0 pg
         uint_32 page_table_size = PAGE_SIZE * (PDT_COUNT + PGT_COUNT);
         /*
-         *  Page table start at 0x100000
-         *  used_mem = page_table_size + 1MB + 8M(graphic)
-         *  1MB includes 0xa000 and 0xb800
+         *  Page table start at 0x0010_0000
          **/
-        /* uint_32 used_mem = page_table_size + 0x100000;
-         * I put page table at 0x10_0000
-         * 0x80000 ~ 0x94000    kernel code
-         * 0xa0000              vga
-         * 0xb8000              text view
-         * 0x100000             end of used memory
-         * 0x100000 ~ 4kb * (PDT_COUNT + PGT_COUNT)   page table
-         * physical memory usage
+        // clang-format off
+        /* uint_32 used_mem = page_table_size + 0x0010_0000;
+         * I put page table at    0x0010_0000
+         * MEM_BITMAP_BASE at 0xc0060000
+         *                    0x0006_0000
+         * +-----------------------+------------------+----------------+
+         * |      address          |   name           |     size       |
+         * +-----------------------+------------------+----------------+
+         *       0x0000_c508       |   GDT            |   100bytes     |
+         *       0x0000_c588       |   IDT            |   255 * 8bytes |
+         *       0x0006_0000       | MEM_BITMAP_BASE  |
+         *[0x0007_0000,0x0007cfcc] |   kernel code    |   20 pages     |
+         *       0x000a_0000       |   vga            |   x pages      |
+         *       0x000b_8000       |   text view      |   x pages      |
+         *--------------------------------------------+----------------+
+         *[0x0010_0000, PG_SZ *    |                  |
+         * (PDT_COUNT+PGT_COUNT)]  |                  |
+         *                         |   page table     |   3 pages
+         *                         |                  |
+         * ------------------------+------------------+-----------------
+         * physical memory available usage
+         *
          * */
-        uint_32 used_mem = page_table_size + 0x100000;
+        // clang-format on
+        uint_32 used_mem = page_table_size + KPAGE_TABLE_START;
         /*
          *  all_mem for now is loading at loader.s use BIOS int.
          *  It must be calculate by loader.s before entering protected mode
