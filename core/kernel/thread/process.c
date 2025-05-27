@@ -99,7 +99,7 @@ static void start_process_ring1(void *filename)
  */
 void page_dir_activate(TCB_t *thread)
 {
-        uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address is 0x0
+        uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address 
         if (thread->pgdir != NULL) {
                 pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
         }

@@ -132,6 +132,36 @@ static void *get_free_page(struct pool *mpool)
 
 
 // Picking a pool return a free v_address
+// clang-format off
+//  Kernel virtual address space
+//                          +-------------------------------------+
+// 0xC000_0000              |                                     |
+//                          |                                     |
+//                          |                                     |
+//                          |                                     |
+// 0xC007_0000              +-------------------------------------+ kernel code
+//                          |                                     |
+//                          |                                     |
+//                          |                                     |
+// 0xC007_CFCC              +-------------------------------------+ _end
+//                          |                                     |
+// (_end & ~0xfff) + 0x1000 +-------------------------------------+ kernel heap
+// bottom
+//                          |                                     |
+//                          |                                     |
+                                        /* ... */
+//                          |                                     |
+//                          |                                     |
+// 0xFF80_0000              +-------------------------------------+ kernel stack pool start
+//                          |                                     |
+//                          |                                     | reserver by kernel stack  / 1 pagesize 5page
+// 0xFFBF_FFFF              +-------------------------------------+
+// 0xFFC0_0000              +-------------------------------------+ Page table
+// Directory start
+//                          |                                     |
+//                          |                                     |
+// 0xFFFF_FFFF              +-------------------------------------+
+// clang-format on
 // Over all 80kb kernel stack
 // 2 page per thread
 // FrogOS support 10 kernel threads for now
