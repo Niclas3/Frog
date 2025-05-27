@@ -105,6 +105,7 @@ static void flush_cr3(uint_32 *pgdir)
 static void invalidate(void)
 {
         TCB_t *thread = running_thread();
+        ASSERT(thread);
         uint_32 pagedir_phy_addr =
             0x100000;  // default pagedir address is 0x100000
         if (thread->pgdir != NULL) {
