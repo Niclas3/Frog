@@ -748,6 +748,9 @@ static void free_internal(void *ptr, pool_type p_type)
                         /* If less than 1024B, first free memory to
                          * desc->free_list
                          * */
+                        memset(block, 0, sizeof(struct list_head));
+                        INIT_LIST_HEAD(&block->free_elem);
+
                         list_add_tail(&block->free_elem, &a->desc->free_list);
                         // Test all arena free_list are free, if true release
                         // arena
