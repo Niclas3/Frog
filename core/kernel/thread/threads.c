@@ -10,6 +10,7 @@
 
 #include <kernel/assert.h>
 #include <kernel/panic.h>
+#include <frog/compiler.h>
 
 struct pid_pool {
         struct bitmap pid_bm;
@@ -190,9 +191,12 @@ TCB_t *thread_start(char *name, int priority, __routine_t func, void *arg)
         return thread;
 }
 
-static void make_main_thread(void)
+void make_main_thread(void)
 {
-        main_thread = running_thread();
+        uintptr_t main_tcb = K_STACK_START & ~0xFFFUL;
+        TCB_t *current = running_thread();
+        memcpy((void *)main_tcb, current, PAGE_SIZE * K_STACKSZ_IN_PAGE);
+        main_thread = (TCB_t *) main_tcb;
         init_thread(main_thread, "main", 42);
 
         main_thread->pid = 0;
@@ -200,9 +204,30 @@ static void make_main_thread(void)
          * &process_all_list)); */
         /* list_add_tail(&main_thread->proc_list_tag, &process_all_list); */
 
-        ASSERT(
-            !list_find_element(&main_thread->all_list_tag, &thread_all_list));
+        ASSERT(!list_find_element(&main_thread->all_list_tag, &thread_all_list));
         list_add_tail(&main_thread->all_list_tag, &thread_all_list);
+
+        uintptr_t esp;
+        __asm__ volatile ("movl %%esp, %0"
+                         : "=r"(esp)
+                         : 
+                         :);
+        uintptr_t new_esp = main_tcb | (esp & 0xFFFUL);
+        __asm__ volatile ("movl %0, %%esp"
+                         :
+                         : "r"(new_esp)
+                         : "%esp");
+
+        uintptr_t ebp;
+        __asm__ volatile ("movl %%ebp, %0"
+                         : "=r"(ebp)
+                         : 
+                         :);
+        uintptr_t new_ebp = main_tcb | (ebp & 0xFFFUL);
+        __asm__ volatile ("movl %0, %%ebp"
+                         :
+                         : "r"(new_ebp)
+                         : "%esp");
 }
 
 static inline void append_readylist(TCB_t *cur)
@@ -395,7 +420,7 @@ void thread_init(void)
         }
         init_pid_bitmap(4096);
         // first kernel thread pid = 2
-        make_main_thread(); //maybe main thread not start here
+        /* make_main_thread();  // maybe main thread not start here */
         // idle thread pid = 0
         idle_thread = thread_start("idle", 10, idle, 0);
 }

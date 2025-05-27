@@ -97,7 +97,9 @@ __visible void __noreturn start_kernel(void)
         setup_local_cpus();
         platform_init();
         mem_init();
+
         thread_init();
+        make_main_thread();
 
         chrdev_init();
         /* blkdev_init(); */

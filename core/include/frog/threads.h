@@ -142,4 +142,6 @@ void thread_exit(TCB_t *discard_thread, bool need_schedule);
 TCB_t *pid2thread(pid_t pid);
 
 void schedule(void);
+
+void make_main_thread(void);
 #endif
