@@ -1,13 +1,14 @@
-#include <frog/irqflags.h>
-#include <frog/string.h>
-#include <frog/memory.h>
-#include <frog/threads.h>
-#include <frog/semaphore.h>
 #include <asm/page.h>
+#include <frog/irqflags.h>
+#include <frog/memory.h>
+#include <frog/semaphore.h>
+#include <frog/string.h>
+#include <frog/threads.h>
 
-#include <frog/math.h>    // for DIV_ROUND_UP
-#include <kernel/panic.h>
+#include <frog/math.h>  // for DIV_ROUND_UP
 #include <kernel/assert.h>
+#include <kernel/debug.h>
+#include <kernel/panic.h>
 
 #include "ARDS.h"  // for Address Range Descriptor Structure at mem_init()
 
@@ -58,13 +59,13 @@ struct arena {
 };
 
 struct pool {
-    struct bitmap pool_bitmap;
-    struct lock lock;
-    uint_32 phy_addr_start;  // pool must at a phy address
-    uint_32 pool_size;
+        struct bitmap pool_bitmap;
+        struct lock lock;
+        uint_32 phy_addr_start;  // pool must at a phy address
+        uint_32 pool_size;
 };
 
-/* 
+/*
  * kernel block descriptions.
  * */
 struct mem_block_desc k_block_descs[DESC_CNT];
@@ -72,6 +73,7 @@ struct mem_block_desc k_block_descs[DESC_CNT];
 struct pool kernel_pool;
 struct pool user_pool;
 struct _virtual_addr kernel_viraddr;
+
 
 // upper 10 bits pde
 #define PDE_IDX(addr) ((addr & 0xffc00000) >> 22)
@@ -134,7 +136,8 @@ static void *get_free_vaddress(pool_type poolt, uint_32 pg_cnt)
                         set_value_bitmap(&kernel_viraddr.vaddr_bitmap,
                                          start_pos + i, 1);
                 }
-                v_start_addr = start_pos * PAGE_SIZE + kernel_viraddr.vaddr_start;
+                v_start_addr =
+                    start_pos * PAGE_SIZE + kernel_viraddr.vaddr_start;
                 return (void *) v_start_addr;
         } else if (poolt == MP_USER) {
                 start_pos = find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap,
@@ -287,11 +290,8 @@ static void mem_pool_init(uint_32 all_mem)
 
         // Kernel pool start
         // First address of free memory
-        // kp_start = 0x0100000;  //1M
         uint_32 kp_start = used_mem;
         // User pool start
-        // up_start  = 0x1080000;  // 15.5Mb kernel physical memory
-        // free_page = 0xf80; // 3968
         uint_32 up_start = kp_start + kernel_free_page * PAGE_SIZE;
 
         kernel_pool.phy_addr_start = kp_start;
@@ -319,9 +319,7 @@ static void mem_pool_init(uint_32 all_mem)
         kernel_viraddr.vaddr_bitmap.map_bytes_length = kbm_length;
         kernel_viraddr.vaddr_bitmap.bits =
             (void *) (MEM_BITMAP_BASE + kbm_length + ubm_length);
-        kernel_viraddr.vaddr_start =
-            K_HEAP_START;  // when kernel call sys_malloc()
-                           // variable start address
+        kernel_viraddr.vaddr_start = K_HEAP_START;
         init_bitmap(&kernel_viraddr.vaddr_bitmap);
 }
 
@@ -346,9 +344,9 @@ static void free_addr_bitmap(struct bitmap *map,
                              uint_32 pg_cnt)
 {
         if (addr < addr_start)
-                PANIC("free bad phy address");
+                PANIC("[mm]:free bad phy address");
         if (pos > map->map_bytes_length * 8)
-                PANIC("free bad address over length");
+                PANIC("[mm]:free bad address over length");
         for (int i = 0; i < pg_cnt; i++) {
                 set_value_bitmap(map, pos + i, 0);
         }
@@ -358,14 +356,15 @@ static void free_addr_bitmap(struct bitmap *map,
 static void free_vaddress(pool_type poolt, uint_32 vaddress, uint_32 pg_cnt)
 {
         if (poolt == MP_KERNEL) {
-                uint_32 pos = (vaddress - kernel_viraddr.vaddr_start) / PAGE_SIZE;
+                uint_32 offset = (vaddress - kernel_viraddr.vaddr_start);
+                uint_32 pos = offset / PAGE_SIZE;
                 free_addr_bitmap(&kernel_viraddr.vaddr_bitmap,
                                  kernel_viraddr.vaddr_start, vaddress, pos,
                                  pg_cnt);
         } else {
                 TCB_t *cur = running_thread();
-                uint_32 pos =
-                    (vaddress - cur->progress_vaddr.vaddr_start) / PAGE_SIZE;
+                uint_32 offset = (vaddress - cur->progress_vaddr.vaddr_start);
+                uint_32 pos = offset / PAGE_SIZE;
                 free_addr_bitmap(&cur->progress_vaddr.vaddr_bitmap,
                                  cur->progress_vaddr.vaddr_start, vaddress, pos,
                                  pg_cnt);
@@ -536,18 +535,21 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
         struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
         int_32 bit_idx = -1;
         TCB_t *cur = running_thread();
+        uint_32 offset;
         if (cur->pgdir == NULL && poolt == MP_KERNEL) {
-                bit_idx = (vaddr_start - kernel_viraddr.vaddr_start) / PAGE_SIZE;
+                offset = (vaddr_start - kernel_viraddr.vaddr_start);
+                bit_idx = offset / PAGE_SIZE;
                 ASSERT(bit_idx >= 0);
                 set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, 1);
         } else if (cur->pgdir != NULL && poolt == MP_USER) {
-                bit_idx =
-                    (vaddr_start - cur->progress_vaddr.vaddr_start) / PAGE_SIZE;
+                offset = (vaddr_start - cur->progress_vaddr.vaddr_start);
+                bit_idx = offset / PAGE_SIZE;
                 ASSERT(bit_idx >= 0);
                 set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1);
         } else {
                 PANIC(
-                    "get_free_vaddress: not allow kernel alloc userspace or "
+                    "get_free_vaddress: "
+                    "not allow kernel alloc userspace or "
                     "user alloc "
                     "kernel space.");
         }
@@ -572,7 +574,6 @@ void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
                 lock_fetch(&mem_pool->lock);
                 return NULL;
         }
-        /* put_page((void *) vaddr, page_phyaddr); */
         put_page_and_flush((void *) vaddr, page_phyaddr, child_pgdir);
         lock_release(&mem_pool->lock);
         return (void *) vaddr;
@@ -612,9 +613,10 @@ void mfree_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt)
         uint_32 vaddr = (uint_32) _vaddr;
         struct pool *mem_pool = poolt & MP_KERNEL ? &kernel_pool : &user_pool;
         free_vaddress(poolt, vaddr, pg_cnt);
+
+        uint_32 phy_addr;
         for (int i = 0; i < pg_cnt; i++) {
-                uint_32 phy_addr =
-                    virtual_addr_to_physical_addr((void *) vaddr);
+                phy_addr = virtual_addr_to_physical_addr((void *) vaddr);
                 free_page(mem_pool, phy_addr);
                 remove_page((void *) vaddr);
                 vaddr += PAGE_SIZE;
@@ -626,18 +628,18 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
         struct pool *mem_pool;
         uint_32 pool_size;
         struct mem_block_desc *descs;
-        TCB_t *cur = running_thread();
         // Kernel
         if (pool_t == MP_KERNEL) {
                 mem_pool = &kernel_pool;
                 pool_size = kernel_pool.pool_size;
                 descs = k_block_descs;
-        } else if(pool_t == MP_USER) {
+        } else if (pool_t == MP_USER) {
                 // User
+                TCB_t *cur = running_thread();
                 mem_pool = &user_pool;
                 pool_size = user_pool.pool_size;
                 descs = cur->u_block_descs;
-        } else{
+        } else {
                 PANIC("[WORNG:mm] pool type at malloc");
         }
 
@@ -650,8 +652,7 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
         lock_fetch(&mem_pool->lock);
         // If be allocated size is over 1024B return a whole arena
         if (size > 1024) {
-                uint_32 page_cnt =
-                    DIV_ROUND_UP(size + sizeof(struct arena), PAGE_SIZE);
+                uint_32 page_cnt = CEIL(size + sizeof(struct arena), PAGE_SIZE);
                 area = malloc_page(pool_t, page_cnt);
 
                 if (area != NULL) {
@@ -698,6 +699,7 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
                         }
                         local_irq_restore(flags);
                 } else {
+                        // do nothing
                 }
 
                 // alloc block
@@ -726,10 +728,10 @@ static void free_internal(void *ptr, pool_type p_type)
 {
         struct pool *mem_pool;
         if (ptr != NULL) {
-                if (p_type== MP_KERNEL) {
+                if (p_type == MP_KERNEL) {
                         ASSERT((uint_32) ptr >= K_HEAP_START);
                         mem_pool = &kernel_pool;
-                } else if(p_type == MP_USER){  // is process
+                } else if (p_type == MP_USER) {  // is process
                         mem_pool = &user_pool;
                 } else {
                         PANIC("[WORNG:mm]: at free pool type");
@@ -765,14 +767,18 @@ static void free_internal(void *ptr, pool_type p_type)
         }
 }
 
-void kfree(void *ptr){
-        if(ptr == NULL) return;
+void kfree(void *ptr)
+{
+        if (ptr == NULL)
+                return;
         ASSERT(ptr != NULL);
         free_internal(ptr, MP_KERNEL);
 }
 
-void ufree(void *ptr){
-        if(ptr == NULL) return;
+void ufree(void *ptr)
+{
+        if (ptr == NULL)
+                return;
         ASSERT(ptr != NULL);
         free_internal(ptr, MP_USER);
 }
