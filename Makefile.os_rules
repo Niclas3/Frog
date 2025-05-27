@@ -78,5 +78,5 @@ C_FLAG := $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
 # -M print a map
 CORE_VADDR := 0xc0070000
 LD_FLAG := -s -m elf_i386 -Ttext $(CORE_VADDR) 
-LD_DEBUG_FLAG := -M -m elf_i386 -Ttext $(CORE_VADDR)
+LD_DEBUG_FLAG := -M -m elf_i386 -T ./scripts/kernel_dbg.ld
 
