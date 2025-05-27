@@ -11,7 +11,7 @@
 #define DEVFS_MAGIC 0xffaabbee
 
 struct dentry *devfs_lookup(struct inode *dir, struct dentry *target);
-struct inode_operations devfs_iop = {
+static struct inode_operations devfs_iop = {
     .lookup = devfs_lookup,
 };
 

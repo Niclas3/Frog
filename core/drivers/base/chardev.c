@@ -67,7 +67,7 @@ int chrdev_init(void)
 {
         chrdev_bitmap = kmalloc(sizeof(struct bitmap));
         chrdev_bitmap->bits = kmalloc(CEIL(MAX_CHARDEV, 8));
-        chrdev_bitmap->map_bytes_length = MAX_CHARDEV;
+        chrdev_bitmap->map_bytes_length = CEIL(MAX_CHARDEV, 8);
         init_bitmap(chrdev_bitmap);
 
         return 0;
