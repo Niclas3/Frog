@@ -152,7 +152,7 @@ static int search_from_dentry(struct dentry *root,
 // - dir->d_name: kmalloc'd each round, must free
 // - res: real dentry returned from filesystem, owned by VFS/cache, DO NOT free
 // /dev/input/event0
-static struct dentry *do_loopup(const char *path)
+static struct dentry *do_lookup(const char *path)
 {
         ASSERT(path);
         struct dentry *current = global_root_dentry;
@@ -218,7 +218,7 @@ struct dentry *vfs_lookup(const char *path)
         int len = strlen(path);
         char *mpath = kmalloc(len + 1);
         strncpy(mpath, path, len);
-        struct dentry *d = do_loopup(mpath);
+        struct dentry *d = do_lookup(mpath);
         kfree(mpath);
         return d;
 }
