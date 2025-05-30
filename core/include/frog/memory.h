@@ -3,7 +3,8 @@
 #include <frog/bitmap.h>
 #include <frog/list.h>
 #include <frog/types.h>
-#include <frog/bug.h>
+#include <asm/page.h>
+
 
 
 // Top of the PDE[1023] (4MB) virtual address space
@@ -19,10 +20,6 @@ typedef struct _virtual_addr {
 } virtual_addr;
 
 typedef enum mem_pool_type { MP_KERNEL = 1, MP_USER } pool_type;
-
-struct mem_block {
-    struct list_head free_elem;
-};
 
 // The largest size is 4KB
 // There are seven different descriptions
@@ -45,19 +42,6 @@ struct mem_block_desc {
 } while (0)
 
 #define DESC_CNT 7  // type counts of memory blocks
-
-/* P bit shows if or not this entry in memory
- * R/W W bit shows read / execute
- * R/W R bit shows read / execute
- */
-#define PG_P_SET 1
-#define PG_P_CLI 0
-
-#define PG_RW_W 2
-#define PG_RW_R 0
-#define PG_US_S 0  // supervisor
-#define PG_US_U 4  // user
-
 
 void mem_init(void);
 // alloc any size memory

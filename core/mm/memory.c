@@ -20,11 +20,7 @@
 #include <kernel/cpu.h>
 
 
-// Kernel heap start after linker symbol `char _end[]`
-// _end is defined at ld scripts which at./core/scripts/kernel_dbg.ld
-#define K_HEAP_START ((uintptr_t) _end & ~0xfffUL) + 0x1000UL
-
-#define K_STACK_POOL_BOTTOM 0xFF800000UL
+#include "./mem_egg.h"    // structure of small memory
 
 #define MEM_BITMAP_BASE 0xc0060000UL
 
@@ -46,33 +42,6 @@
 
 #define PG_OCCUPIED 1
 #define PG_VACANT 0
-
-/*  If struct arena's attribute large is true cnt stand for page_frame cnt,
- *  if not for mem_block count.
- *  there are 7 different description.
- *  1. 1024 B
- *  2. 512  B
- *  3. 256  B
- *  4. 128  B
- *  5. 64   B
- *  6. 32   B
- *  7. 16   B
- * Why we use 16B?
- * int -> 32bits -> 8B
- * So the smallest arena can hold 2 int numbers.
- */
-struct arena {
-        struct mem_block_desc *desc;
-        uint_32 cnt;
-        bool large;  // flag about this arena is over 1024b or not
-};
-
-struct pool {
-        struct bitmap pool_bitmap;
-        struct lock lock;
-        uint_32 phy_addr_start;  // pool must at a phy address
-        uint_32 pool_size;
-};
 
 /*
  * kernel block descriptions.
