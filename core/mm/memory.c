@@ -19,6 +19,7 @@
 // init per local cpu interrupt stack
 #include <kernel/cpu.h>
 
+#include <frog/shadowmem.h>
 
 #include "./mem_egg.h"    // structure of small memory
 
@@ -738,7 +739,17 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
                         for (block_idx = 0;
                              block_idx < descs[desc_idx].blocks_per_arena;
                              block_idx++) {
+#ifdef CONFIG_POSION_MEMORY
+                                block = kasan_posion_arena2block(
+                                    area, block_idx, KASAN_SAFE_REDZONE_SIZE);
+                                kasan_posion((uintptr_t) block,
+                                             descs[desc_idx].block_size,
+                                             KASAN_SAFE_REDZONE_SIZE,
+                                             (char) KASAN_KMALLOC_REDZONE);
+
+#else
                                 block = arena2block(area, block_idx);
+#endif
                                 list_add_tail(&block->free_elem,
                                               &area->desc->free_list);
                         }
@@ -785,6 +796,10 @@ static void free_internal(void *ptr, pool_type p_type)
                 // Get target pointer arena get metadate
                 struct mem_block *block = ptr;
                 struct arena *a = block2arena(block);
+
+#ifdef CONFIG_POSION_MEMORY
+                kasan_protect_free(a->desc->block_size, (uintptr_t) block);
+#endif
                 ASSERT(a->large == 0 || a->large == 1);
                 if (a->desc == NULL &&
                     a->large == true) {  // arena is equal or over 1024B
@@ -864,6 +879,19 @@ void sys_free(void *ptr)
         }
 }
 
+
+// only alloc 1 page
+static void alloc_shadow_memory()
+{
+        uintptr_t paddress = get_physical_page(&kernel_pool);
+        if (!paddress) {
+                PANIC("[mm]: not enough physical memory for shadow memory");
+                return;
+        }
+        // shadow memory controled address start at K_HEAP_START
+        put_page(KHEAP_SHA_MEM_START, paddress);
+}
+
 void mem_init()
 {
         struct memory_map_descriptor *mmap_desc =
@@ -897,6 +925,9 @@ void mem_init()
         mem_pool_init(mem_bytes_total);
         block_desc_init(k_block_descs);
 
+#ifdef CONFIG_POSION_MEMORY
+        alloc_shadow_memory();
+#endif
         alloc_kstack_pool(K_THREAD_MAX * K_STACKSZ_IN_PAGE);
 
         // init local_cpu
