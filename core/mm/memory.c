@@ -22,6 +22,7 @@
 #include <frog/shadowmem.h>
 
 #include "./mem_egg.h"    // structure of small memory
+#include "./mm_helper.h"  // helper on PTE/PDE etc
 
 #define MEM_BITMAP_BASE 0xc0060000UL
 
@@ -54,10 +55,6 @@ struct pool user_pool;
 struct _virtual_addr kernel_viraddr;
 
 
-// upper 10 bits pde
-#define PDE_IDX(addr) ((addr & 0xffc00000) >> 22)
-// mid   10 bits pte
-#define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
 
 static void flush_cr3(uint_32 *pgdir)
 {
@@ -437,29 +434,10 @@ void free_phy_page(uint_32 phy_addr_page)
         }
 }
 
-uint_32 *pte_ptr(uint_32 vaddr)
 {
-        // I set last PDE as PDT table address
-        // So the No.1023 pde to hex is 0x3ff
-        // when vaddress is 0xffc00000
-        // It will get pdt table address
-        // top    10 bits 0xffc    <--- this is the last PDE point to page aka
-        // PDT middle 10 bits (vaddr's top 10 bits which is original pde index)
-        uint_32 target_pte =
-            (0xffc00000 + ((vaddr & 0xffc00000) >> 10) + PTE_IDX(vaddr) * 4);
-        return (uint_32 *) target_pte;
 }
 
-uint_32 *pde_ptr(uint_32 vaddr)
 {
-        // the last page table address of main process
-        // The last page table address in PDE is
-        // 0xfffffxxx
-        // top    10 bits 0x3ff   <-- the last entry of PDT
-        // middle 10 bits 0x3ff   <-- pointer to self (same PDT) again
-        // bottom 12 pde_idx      <-- target entry
-        uint_32 *target_pde = (uint_32 *) (0xfffff000 + PDE_IDX(vaddr) * 4);
-        return target_pde;
 }
 
 // Only get page frame address.
