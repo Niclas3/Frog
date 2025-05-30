@@ -18,7 +18,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/i8253.o $(BUILD_DIR)/i8259a.o $(BUILD_DIR)/segment.o \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o \
 	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o \
-	 $(BUILD_DIR)/memory.o \
+	 $(BUILD_DIR)/kasan.o $(BUILD_DIR)/memory.o \
 	 $(BUILD_DIR)/panic.o \
 	 $(BUILD_DIR)/select.o $(BUILD_DIR)/fork.o \
 	 $(BUILD_DIR)/isa_bus_core.o $(BUILD_DIR)/plt_bus_core.o $(BUILD_DIR)/bus.o $(BUILD_DIR)/device.o \

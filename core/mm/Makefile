@@ -1,5 +1,6 @@
 include ../../Makefile.os_rules
 obj-y += memory.o
+obj-y += kasan.o
 
 .PHONY = all
 all: $(obj-y)
