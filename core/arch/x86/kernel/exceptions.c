@@ -25,6 +25,8 @@
  *   Finally, you finish the interrupt setting.
  **/
 
+
+extern void page_fault_handler(uint_32 cr2, uint_32 err_code);
 //-----------------------------------------------------------------------------
 //                     exception Callback function 
 //-----------------------------------------------------------------------------
@@ -54,9 +56,10 @@ void exception_handler(int vec_no, int err_code, int eip, int cs, int eflags)
     };
     if(vec_no == 0xe) {
             uint_32 cr2;
-
             __asm__ volatile ("mov %%cr2, %0": "=r"(cr2));
-            printk("CR2 = 0x%x\n", cr2);
+            page_fault_handler(cr2, err_code);
+            return;
+    } else {
+            __asm__ volatile ("hlt;");
     }
-    return;
 }

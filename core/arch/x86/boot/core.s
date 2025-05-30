@@ -97,11 +97,16 @@ section .data
 %macro EXCEPTION_HANDLER 2
 section .text
 _asm_exceptionhandler%1:
+        push ds
+        push es
+        push fs
+        push gs
+        pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
 	%2              ; err code
-	push	%1              ; vector_no 
-	call	exception_handler
-	add	esp, 4*2
-	hlt
+	push %1              ; vector_no 
+	call exception_handler
+        jmp intr_exit
+
 section .data
     dd _asm_exceptionhandler%1 ;; each exception entry address
 %endmacro
