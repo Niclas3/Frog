@@ -219,5 +219,5 @@ CircleQueue *init_ioqueue(uint_32 size)
 
 void destory_ioqueue(CircleQueue *queue)
 {
-        mfree_page(MP_KERNEL, queue, 1);
+        free_page(MP_KERNEL, queue, 1);
 }

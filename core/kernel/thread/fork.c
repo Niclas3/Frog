@@ -173,7 +173,7 @@ extern struct list_head thread_all_list;
 /*         // 5. create new child thread */
 /*         build_child_stack(child_thread, parent_thread); */
 /*         update_inode_open_cnts(child_thread); */
-/*         mfree_page(MP_KERNEL, buf_page, 1); */
+/*         free_page(MP_KERNEL, buf_page, 1); */
 /*         return 0; */
 /* } */
 /*  */

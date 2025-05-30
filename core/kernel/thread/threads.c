@@ -195,7 +195,8 @@ void make_main_thread(void)
 {
         uintptr_t main_tcb = K_STACK_START & ~0xFFFUL;
         TCB_t *current = running_thread();
-        memcpy((void *)main_tcb, current, PAGE_SIZE * K_STACKSZ_IN_PAGE);
+        uint_32 main_stack_pg_count = 1;
+        memcpy((void *)main_tcb, current, PAGE_SIZE * main_stack_pg_count);
         main_thread = (TCB_t *) main_tcb;
         init_thread(main_thread, "main", 42);
 
@@ -360,14 +361,14 @@ void thread_exit(TCB_t *discard_thread, bool need_schedule)
         }
         if (discard_thread
                 ->pgdir) {  // if this thread is progress release page table
-                mfree_page(MP_KERNEL, discard_thread->pgdir, 1);
+                free_page(MP_KERNEL, discard_thread->pgdir, 1);
         }
 
         // remove from all_thread_list
         list_del_init(&discard_thread->all_list_tag);
 
         if (discard_thread != main_thread) {
-                mfree_page(MP_KERNEL, discard_thread, 1);
+                free_page(MP_KERNEL, discard_thread, 1);
         }
 
         release_pid(discard_thread->pid);

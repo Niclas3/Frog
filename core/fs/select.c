@@ -83,7 +83,7 @@ void poll_freewait(poll_table *pt)
                 } while (entry > p->entries);
                 old = p;
                 p = p->next;
-                mfree_page(MP_KERNEL, old, 1);
+                free_page(MP_KERNEL, old, 1);
         }
 }
 

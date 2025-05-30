@@ -53,7 +53,7 @@ static void release_proc_resource(TCB_t *thread)
     uint_32 bitmap_len = thread->progress_vaddr.vaddr_bitmap.map_bytes_length;
     uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PAGE_SIZE);
     uint_8 *u_vaddr_pool_bm = thread->progress_vaddr.vaddr_bitmap.bits;
-    mfree_page(MP_KERNEL, u_vaddr_pool_bm, bitmap_pg_cnt);
+    free_page(MP_KERNEL, u_vaddr_pool_bm, bitmap_pg_cnt);
 
     // close file descriptor
     for (int fd_idx = 0; fd_idx < MAX_FILES_OPEN_PER_PROC; fd_idx++) {
@@ -62,7 +62,7 @@ static void release_proc_resource(TCB_t *thread)
                 uint_32 global_fd = fd_local2global(fd_idx);
                 if (--g_file_table[global_fd].fd_pos == 0) {
                     // release pipe
-                    mfree_page(MP_KERNEL, g_file_table[fd_idx].fd_inode, 1);
+                    free_page(MP_KERNEL, g_file_table[fd_idx].fd_inode, 1);
                     g_file_table[global_fd].fd_inode = NULL;
                 }
             } else {
