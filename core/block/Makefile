@@ -1,13 +1,7 @@
 include ../../Makefile.os_rules
-# subdir += frogfs/
-# subdir += packagefs/
-subdir += tmpfs/
-subdir += vfs/
-subdir += devfs/
+subdir += partitions/
 
-
-obj-y += select.o
-# obj-y += pipe.o
+obj-y += blk_core.o
 
 all: $(subdir) $(obj-y)
 
