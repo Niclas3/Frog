@@ -7,31 +7,12 @@
 #include <frog/spinlock.h>
 #include <frog/types.h>
 
-#define DISK_NAME_LEN 8
+#define DISK_NAME_LEN 16
 struct block_device;
 struct gendisk;
-struct io_scheduler;
-struct bio;
 
 typedef enum { BLK_RDONLY, BLK_WRONLY } fmode_t;
 
-struct request_queue {
-        struct list_head request_head;      // list of request
-        struct gendisk *disk;               // relative disk
-        struct io_scheduler *io_scheduler;  // io scheuler for feature
-        spinlock_t queue_lock;
-        unsigned int queue_depth;  // max requests number of this queue
-};
-
-
-struct request {
-        struct request_queue *queue;
-        struct list_head request_target;
-        struct bio *bio;
-        int sector;                 // start lba
-        unsigned int nr_sector;     // number of sector
-        unsigned int req_cmd_type;  // READ or WRITE
-};
 
 struct block_device_operations {
         int (*open)(struct block_device *bdev, fmode_t mode);
@@ -40,8 +21,14 @@ struct block_device_operations {
                      fmode_t mode,
                      unsigned cmd,
                      unsigned args);
-        void (*request)(struct request_queue *queue);
-        void (*submit_bio)(struct bio *bio);
+        int (*read)(struct block_device *bdev,
+                    uint_32 lba,
+                    uint_32 sec_cnt,
+                    void *buf);
+        int (*write)(struct block_device *bdev,
+                     uint_32 lba,
+                     uint_32 sec_cnt,
+                     void *buf);
 };
 
 struct block_partitions {
@@ -58,18 +45,25 @@ struct gendisk {
         int minors;                        // max number of sub-device
         char name[DISK_NAME_LEN];          // name of disk
         struct list_head partitions_list;  // partition tables
-        struct block_device_operations *fops;
+        struct block_device_operations *bdops;
         void *private_data;
-        struct request_queue *queue;
+        unsigned int lba_sectors;  // all sectors number
         struct list_head disk_target;
 };
 
-int register_blkdev(unsigned int major, const char *name);
-void unregister_blkdev(unsigned int major, const char *name);
-struct gendisk *alloc_disk(int part_cnt);
+int register_blkdev(unsigned int major, struct block_device_operations *bdop);
+int unregister_blkdev(unsigned int major);
+const struct block_device_operations *get_blkdev_bdev(int major);
+
+struct block_device *alloc_partation_bdev(struct block_device *hd,
+                                          uint_32 start_lba,
+                                          uint_32 sec_cnt,
+                                          int part_index);
+int add_partations_bdev(struct block_device *hd,
+                        struct block_device *part_bdev);
+
+struct gendisk *alloc_disk(void);
 void free_disk(struct gendisk *disk);
-struct request_queue *blk_init_queue(void(req_fn)(struct request_queue *q),
-                                     spinlock_t lock);
 // add disk to global block disk table
 void add_disk(struct gendisk *disk);
 

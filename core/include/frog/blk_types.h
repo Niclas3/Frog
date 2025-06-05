@@ -3,6 +3,7 @@
 #include <frog/blkdevice.h>
 #include <frog/list.h>
 #include <frog/types.h>
+#include <kernel/dev.h>
 
 
 // struct block_device is a abstruct for a partition
@@ -16,10 +17,6 @@ struct block_device {
         struct gendisk *bd_disk;  // disk of this partition
 };
 
-// first 16bits is major number
-#define DEV_MAJOR(dev_nr) ((dev_nr) & (0xffff << 16)) >> 16
-// second 16bits is minor number
-#define DEV_MINOR(dev_nr) (dev_nr) & 0xffff
 #define DEV_NR(major, minor) (major << 16) | (minor & 0xffff)
 
 #endif

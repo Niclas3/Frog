@@ -2,6 +2,7 @@
 #define _FS_PART_MBR_H_
 #include <frog/types.h>
 
+// clang-format off
 /*
  * partition_table_entry
  *-----------------------------------------------------------------------------
@@ -28,6 +29,7 @@
  *|   12   |     4       | capacity of sectors
  *-----------------------------------------------------------------------------
  **/
+// clang-format on
 struct partition_table_entry {
         uint_8 bootable;     // 0x80 is bootable
         uint_8 start_head;
@@ -37,7 +39,7 @@ struct partition_table_entry {
         uint_8 end_head;
         uint_8 end_sec;      // sector
         uint_8 end_chs;      // cylinder
-        uint_32 offset_lba;  // this offset in sector lba so you need to times
+        uint_32 start_lba;  // this offset in sector lba so you need to times
                              // 512 to covert to xxx bytes
         uint_32 sec_cnt;     // all sector counts
 } __attribute__((packed));
@@ -49,15 +51,27 @@ struct boot_sector {
         uint_16 signature;                       // 0xaa55
 } __attribute__((packed));
 
+//MBR ebr
+struct ebr{
+        uint_8 code_area[446];                   // Bootstrap code area
+        struct partition_table_entry tables[2];  // primary partition table
+        uint_16 signature;                       // 0xaa55
+} __attribute__((packed));
+
 // System file type ID fs_type
 enum dpt_fs_t {
         DPT_FILE_SYSTEM_TYPE_UNKNOW = 0x0,
         DPT_FILE_SYSTEM_TYPE_EXT = 0x5,
-        DPT_FILE_SYSTEM_TYPE_LINUX = 0x83
+        DPT_FILE_SYSTEM_TYPE_LBA = 0x0F,           // logic partations
+        DPT_FILE_SYSTEM_TYPE_LINUX = 0x83,
+        DPT_FILE_SYSTEM_TYPE_GPT_PROTECTED = 0xEE, 
+        DPT_FILE_SYSTEM_TYPE_LINUX_SWAP = 0x82,
 };
 
 #define IS_NULL_ENTRY(entry)                                 \
         ((entry).end_head == 0) && ((entry).end_sec == 0) && \
             ((entry).end_chs == 0)
+
+#define MAX_LOGICAL_PARTATIONS 63
 
 #endif
