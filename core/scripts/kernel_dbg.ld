@@ -7,7 +7,6 @@ SECTIONS {
                 *(.text.*)
         }
 
-        . = 0xc007a000;
         .rodata : {
                 __rodata_start = .;
                 *(.rodata)
