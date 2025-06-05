@@ -8,9 +8,10 @@
 #include <frog/threads.h>
 #include <frog/types.h>
 
-#include <kernel/assert.h>
-#include <kernel/panic.h>
 #include <frog/compiler.h>
+#include <kernel/assert.h>
+#include <kernel/debug.h>
+#include <kernel/panic.h>
 
 struct pid_pool {
         struct bitmap pid_bm;
@@ -193,10 +194,11 @@ TCB_t *thread_start(char *name, int priority, __routine_t func, void *arg)
 
 void make_main_thread(void)
 {
-        uintptr_t main_tcb = K_STACK_START & ~0xFFFUL;
+        // 2 page size
+        uintptr_t main_tcb = (K_STACK_START & ~0xFFFUL) - 0x1000UL;
         TCB_t *current = running_thread();
         uint_32 main_stack_pg_count = 1;
-        memcpy((void *)main_tcb, current, PAGE_SIZE * main_stack_pg_count);
+        memcpy((void *) main_tcb, current, PAGE_SIZE * main_stack_pg_count);
         main_thread = (TCB_t *) main_tcb;
         init_thread(main_thread, "main", 42);
 
@@ -205,30 +207,19 @@ void make_main_thread(void)
          * &process_all_list)); */
         /* list_add_tail(&main_thread->proc_list_tag, &process_all_list); */
 
-        ASSERT(!list_find_element(&main_thread->all_list_tag, &thread_all_list));
+        ASSERT(
+            !list_find_element(&main_thread->all_list_tag, &thread_all_list));
         list_add_tail(&main_thread->all_list_tag, &thread_all_list);
 
         uintptr_t esp;
-        __asm__ volatile ("movl %%esp, %0"
-                         : "=r"(esp)
-                         : 
-                         :);
+        __asm__ volatile("movl %%esp, %0" : "=r"(esp) : :);
         uintptr_t new_esp = main_tcb | (esp & 0xFFFUL);
-        __asm__ volatile ("movl %0, %%esp"
-                         :
-                         : "r"(new_esp)
-                         : "%esp");
+        __asm__ volatile("movl %0, %%esp" : : "r"(new_esp) : "%esp");
 
         uintptr_t ebp;
-        __asm__ volatile ("movl %%ebp, %0"
-                         : "=r"(ebp)
-                         : 
-                         :);
+        __asm__ volatile("movl %%ebp, %0" : "=r"(ebp) : :);
         uintptr_t new_ebp = main_tcb | (ebp & 0xFFFUL);
-        __asm__ volatile ("movl %0, %%ebp"
-                         :
-                         : "r"(new_ebp)
-                         : "%esp");
+        __asm__ volatile("movl %0, %%ebp" : : "r"(new_ebp) : "%esp");
 }
 
 static inline void append_readylist(TCB_t *cur)
@@ -251,18 +242,22 @@ void schedule(void)
 {
         TCB_t *cur = running_thread();
         if (list_is_empty(&thread_ready_list)) {
-                thread_unblock(idle_thread);
+                if (idle_thread->status != THREAD_TASK_RUNNING) {
+                        thread_unblock(idle_thread);
+                }
                 append_readylist(cur);
         } else {
                 append_readylist(cur);
         }
 
-        thread_tag = NULL;
         thread_tag = list_pop(&thread_ready_list);
         TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
-        next->status = THREAD_TASK_RUNNING;
-        process_activate(next);
-        switch_to(cur, next);
+
+        if (cur != next) {
+                next->status = THREAD_TASK_RUNNING;
+                process_activate(next);
+                switch_to(cur, next);
+        }
 }
 
 
@@ -319,6 +314,7 @@ void thread_block(task_status_t status)
 // add thread to head of tread_ready_list
 void thread_unblock(TCB_t *thread)
 {
+        /* DEBUG("%s: %d", thread->name, thread->status); */
         ASSERT((thread->status == THREAD_TASK_HANGING) ||
                (thread->status == THREAD_TASK_WAITING) ||
                (thread->status == THREAD_TASK_BLOCKED));
