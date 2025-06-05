@@ -6,6 +6,7 @@
 #include <kernel/vfs_ops.h>
 #include <kernel/mount.h>
 #include <frog/fcntl.h>
+#include <frog/block.h>
 
 #define FILE_NAME_MAX 255
 
@@ -81,6 +82,7 @@ struct inode {
         struct super_block *i_sb;
         struct inode_operations *i_op;
         struct file_operations *i_fop;
+        struct block_device_operations *i_bdop;
         void *i_private;  // for inner real file system
 };
 

@@ -1,3 +1,4 @@
+#include <frog/block.h>
 #include <frog/errno.h>
 #include <frog/memory.h>
 #include <frog/string.h>
@@ -14,6 +15,19 @@ struct dentry *devfs_lookup(struct inode *dir, struct dentry *target);
 static struct inode_operations devfs_iop = {
     .lookup = devfs_lookup,
 };
+
+static struct inode *devfs_alloc_block_inode(
+    struct inode *parent,
+    struct block_device_operations *bop)
+{
+        struct inode *dev_inode = kmalloc(sizeof(struct inode));
+        if (!dev_inode)
+                return NULL;
+        dev_inode->i_sb = parent->i_sb;
+        dev_inode->i_bdop = bop;
+
+        return dev_inode;
+}
 
 static struct inode *devfs_alloc_inode(struct inode *parent,
                                        struct file_operations *fop)
@@ -33,7 +47,8 @@ struct dentry *devfs_lookup(struct inode *dir, struct dentry *target)
 {
         struct dentry *devfs_mount_point = find_mount_entry("dev")->mount_point;
         // return a dentry with target char driver fop inode
-        ASSERT(devfs_mount_point);
+        /* ASSERT(devfs_mount_point); */
+        DEBUG("[devfs]:look up %s", target->d_name);
         /* char *name ; */
         /* struct dentry *d = kmalloc(sizeof(struct dentry)); */
         /* d->d_inode = kmalloc(sizeof(struct inode)); */
@@ -82,8 +97,12 @@ struct dentry *make_dev_node(struct dentry *current,
 
         } else if (type == DEV_TYPE_BLOCK) {
                 d->d_type = FT_BLOCK;
-                // block device TODO
-
+                const struct block_device_operations *bdops =
+                    get_blkdev_bdev(major);
+                ASSERT(bdops);
+                struct inode *newi =
+                    devfs_alloc_block_inode(current->d_inode, bdops);
+                d->d_inode = newi;
         } else {
                 PANIC("[devfs]: Unknow device type ");
         }
@@ -93,7 +112,7 @@ struct dentry *make_dev_node(struct dentry *current,
 
 int devfs_create_node(char *pathname, int type, int major, int minor)
 {
-        ASSERT(pathname[0]!= '/');
+        ASSERT(pathname[0] != '/');
         struct dentry *current = find_mount_entry("dev")->mount_point;
         if (!current) {
                 DEBUG("[devfs]: can not find dev mount entry when create node");
