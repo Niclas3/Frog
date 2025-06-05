@@ -451,8 +451,17 @@ int_32 vfs_mount(const char *pathname,
 
                 entry->sb = sb;
                 entry->mount_point = mp;
+                if (mp->d_inode) {
+                        mp->d_inode->i_sb = sb;
+                        mp->d_inode->i_fop = sb->s_root->i_fop;
+                        mp->d_inode->i_op = sb->s_root->i_op;
+                        mp->d_inode->i_bdop = sb->s_root->i_bdop;
+                }else {
+                        mp->d_inode = sb->s_root;
+                }
 
                 mp->d_mounted = true;
+
                 add_mount_list(&entry->mount_node);
                 return 0;
         } else {

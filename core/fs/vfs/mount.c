@@ -36,7 +36,6 @@ struct fs_type *find_fs_type(const char *name)
 }
 
 
-
 int register_fs(struct fs_type *fs_type)
 {
         ASSERT(fs_type);
@@ -44,7 +43,7 @@ int register_fs(struct fs_type *fs_type)
         return 0;
 }
 
-boolean __is_same_path_indeed(struct dentry *left, struct dentry *right)
+static inline boolean __is_same_path_indeed(struct dentry *left, struct dentry *right)
 {
         struct dentry *c_l = left;
         struct dentry *c_r = right;
