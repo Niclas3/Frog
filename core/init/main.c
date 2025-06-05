@@ -7,13 +7,15 @@
 #include <frog/printk.h>
 #include <frog/threads.h>
 #include <kernel/bus.h>
+#include <kernel/chardev.h>
+#include <frog/block.h>
 #include <kernel/cpu.h>
 #include <kernel/device.h>
-#include <kernel/chardev.h>
 
 /* #include <frog/block.h> */
 
 #include <kernel/debug.h>
+#include <kernel/panic.h>
 
 extern void init(void);
 extern void cpu_idle(void);
@@ -27,14 +29,28 @@ extern int dev_fs_init(void);
 // test code
 extern uint_32 ps2_mouse_driver_init(void);
 extern uint_32 ps2_kbd_driver_init(void);
+extern uint_32 ata_ide_driver_init(void);
 
 // end test
 
 
-
+#include <frog/linker.h>
 
 static void do_basic_setup(void)
 {
+        /* DEBUG("rodata_start:%x", __rodata_start); */
+        /* DEBUG("__data_start:%x", __data_start); */
+        /* DEBUG("__data_end  :%x", __data_end); */
+        /* DEBUG("__bss_start :%x", __bss_start); */
+        /* DEBUG("_end        :%x", _end); */
+        /* int a = 10; */
+        /* struct file * test = kmalloc(24); */
+        struct file *f = vfs_open("/dev/sdb0p1", 123);  // ide
+                                                        
+        DEBUG("file:%x", f);
+
+        
+
         /* blk_init(); */
 
         // module init
@@ -47,6 +63,9 @@ static void do_basic_setup(void)
         /* ps2hid_init(); */
         /* packagefs_init(); #<{(| "/dev/pkg" |)}># */
 }
+
+
+
 static void rest_init(void)
 {
         // init thread pid = 1
@@ -85,11 +104,21 @@ static void isa_device_init(struct bus_type *isa_bus)
         ps2_kbd_dev->bus = isa_bus;
 
         // 3. init disk device
+        struct device *ata_dev = kmalloc(sizeof(struct device));
+        if(!ata_dev){
+                DEBUG("[isa_dev]: cannot create ata device.");
+                return;
+        }
+        ata_dev->name = "ata-ide";
+        ata_dev->irq_nr = 12;
+        ata_dev->io_base = 0x1f0;  // only for primary channel
+        ata_dev->bus = isa_bus;
 
         // 4. init rtc device (?)
 
         register_device(ps2_mouse_dev);
         register_device(ps2_kbd_dev);
+        register_device(ata_dev);
 }
 
 static inline void setup_local_cpus(void)
@@ -100,7 +129,7 @@ static inline void setup_local_cpus(void)
 
 __visible void __noreturn start_kernel(void)
 {
-        printk_with_cls("");
+        printk_with_cls("[main]: ready to init kernel...");
         setup_local_cpus();
         platform_init();
         mem_init();
@@ -109,7 +138,7 @@ __visible void __noreturn start_kernel(void)
         make_main_thread();
 
         chrdev_init();
-        /* blkdev_init(); */
+        block_init();
         vfs_init();
 
         root_fs_init();
@@ -124,10 +153,11 @@ __visible void __noreturn start_kernel(void)
 
         // module init : to init all module that register to module.
         // But now I simulate it by call xxx_xxx_init().
-        /* moudule_init(); */
+        /* module_init(); */
 
         ps2_kbd_driver_init();
         ps2_mouse_driver_init();
+        ata_ide_driver_init();
         /****************************************/
 
         syscall_init();
@@ -136,7 +166,4 @@ __visible void __noreturn start_kernel(void)
 
         rest_init();
 
-        /* for (;;) { */
-        /*         safe_halt(); */
-        /* } */
 }
