@@ -48,7 +48,7 @@ extern void switch_to(TCB_t *cur, TCB_t *next);
 static void idle(void *arg)
 {
         while (1) {
-                thread_block(THREAD_TASK_BLOCKED);
+                /* thread_block(THREAD_TASK_BLOCKED); */
                 safe_halt();
         }
 }
@@ -242,18 +242,18 @@ void schedule(void)
 {
         TCB_t *cur = running_thread();
         if (list_is_empty(&thread_ready_list)) {
-                if (idle_thread->status != THREAD_TASK_RUNNING) {
-                        thread_unblock(idle_thread);
+                /* append_readylist(cur); */
+                if (cur != idle_thread) {
+                        append_readylist(cur);
                 }
-                append_readylist(cur);
+                idle_thread->status = THREAD_TASK_RUNNING;
+                process_activate(idle_thread);
+                switch_to(cur, idle_thread);
         } else {
+                thread_tag = list_pop(&thread_ready_list);
+                TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
                 append_readylist(cur);
-        }
 
-        thread_tag = list_pop(&thread_ready_list);
-        TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
-
-        if (cur != next) {
                 next->status = THREAD_TASK_RUNNING;
                 process_activate(next);
                 switch_to(cur, next);
@@ -314,7 +314,7 @@ void thread_block(task_status_t status)
 // add thread to head of tread_ready_list
 void thread_unblock(TCB_t *thread)
 {
-        /* DEBUG("%s: %d", thread->name, thread->status); */
+        DEBUG("%s: %d", thread->name, thread->status);
         ASSERT((thread->status == THREAD_TASK_HANGING) ||
                (thread->status == THREAD_TASK_WAITING) ||
                (thread->status == THREAD_TASK_BLOCKED));
@@ -396,7 +396,7 @@ TCB_t *pid2thread(pid_t pid)
 void cpu_idle(void)
 {
         // block this boot_init create by bootloader.s
-        thread_block(THREAD_TASK_BLOCKED);
+        /* thread_block(THREAD_TASK_BLOCKED); */
         /* idle((void *) 0); */
 }
 

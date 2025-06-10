@@ -75,7 +75,8 @@ static void rest_init(void)
         // TODO:
         // Here is a problem, The every-early kernel thread 'unknow name' thread
         // needs to be dropped.
-        cpu_idle();
+        TCB_t *main = running_thread();
+        thread_exit(main,true);
 }
 
 static void isa_device_init(struct bus_type *isa_bus)

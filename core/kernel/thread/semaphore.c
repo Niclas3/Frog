@@ -7,6 +7,8 @@
 #include <frog/threads.h>
 #include <frog/list.h>
 
+#include <kernel/debug.h>
+
 // Init semaphore with value
 void semaphore_init(struct semaphore *sema, uint_32 value)
 {
@@ -74,6 +76,7 @@ void semaphore_up(struct semaphore *sema)
         if (!list_is_empty(&sema->waiting_queue)) {
                 struct list_head *tag = list_pop(&sema->waiting_queue);
                 TCB_t *blocked_thread = container_of(tag, TCB_t, general_tag);
+                DEBUG("sema up : %s", blocked_thread->name);
                 thread_unblock(blocked_thread);
         }
         sema->value++;

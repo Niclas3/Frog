@@ -11,11 +11,11 @@
 
 #include <asm/page.h>
 
-#include <frog/fs.h>
+#include <kernel/vfs.h>
 /* #include <fs/pipe.h> */
 
 extern void intr_exit(void);
-extern struct file g_file_table[MAX_FILE_OPEN];
+/* extern struct file g_file_table[MAX_FILE_OPEN]; */
 
 extern struct list_head thread_ready_list;
 extern struct list_head thread_all_list;
