@@ -1,0 +1,22 @@
+name: Kernel build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  kernel-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-multilib nasm
+
+      - name: Build kernel image
+        run: sudo ./scripts/CI.sh
