@@ -129,6 +129,21 @@ debug_run: mount_debug
 	-S \
 	-s \
 	-monitor stdio \
+	-cpu 486 \
+	-m 1G \
+	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
+	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
+	-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
+	-device e1000,netdev=net0 \
+	-rtc base=localtime,clock=host \
+	-audiodev id=alsa,driver=alsa \
+	-machine pcspk-audiodev=alsa \
+
+debug_runv1: mount_debug
+	qemu-system-i386 \
+	-no-reboot \
+	-d int,cpu_reset \
+	-monitor stdio \
 	-m 1G \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
 	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \

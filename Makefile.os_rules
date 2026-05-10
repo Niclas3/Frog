@@ -23,6 +23,7 @@ C_WARNG += -Wmissing-prototypes
 C_WARNG += -Wextra
 C_WARNG += -Wall
 C_OUT_FMT += -m32
+C_MARCH386 += -march=i386
 C_FNO_FLAG += -fno-stack-protector 
 C_FNO_FLAG += -fno-builtin
 C_NO_LINK += -c
@@ -67,7 +68,7 @@ MACRO_DEBUG := -DCONFIG_DEBUG
 MACRO_DEBUG += -DCONFIG_POSION_MEMORY
 C_DMACRO := $(MACRO_DEBUG)
 
-C_OPT := $(C_NO_LINK) $(C_NO_GOT) $(C_WARNG) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM) $(C_ASAN)
+C_OPT := $(C_NO_LINK) $(C_NO_GOT) $(C_WARNG) $(C_MARCH386) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM) $(C_ASAN)
 C_FLAG := $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
 
 
