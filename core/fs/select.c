@@ -1,5 +1,5 @@
 #include <frog/poll.h>
-#include <frog/fs.h>
+#include <kernel/vfs.h>
 
 #include <frog/fork.h>
 #include <frog/memory.h>

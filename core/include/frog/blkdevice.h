@@ -53,7 +53,7 @@ struct gendisk {
 
 int register_blkdev(unsigned int major, struct block_device_operations *bdop);
 int unregister_blkdev(unsigned int major);
-const struct block_device_operations *get_blkdev_bdev(int major);
+const struct block_device_operations *get_blkdev_operations(int major);
 
 struct block_device *alloc_partation_bdev(struct block_device *hd,
                                           uint_32 start_lba,

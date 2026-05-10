@@ -45,14 +45,20 @@ struct inode_operations {
                           const char *symname);
 };
 
+struct writeback_control {
+
+};
+
 struct super_operations {
-        // mount timing
-        int_32 (*read_super)(struct super_block *sb, void *data, int slient);
-        void (*put_super)(struct super_block *sb);  // unmount timing
+        void (*put_super)(struct super_block *sb);
         int_32 (*statfs)(struct super_block *sb, struct stat *buf);
         int_32 (*remount)(struct super_block *sb, uint_32 flags);
         struct inode *(*alloc_inode)(struct super_block *sb);
         void (*destory_inode)(struct super_block *sb, struct inode *target);
+
+        void (*write_inode)(struct inode *, struct writeback_control *);
+        void (*evict_inode)(struct inode *);
+        int  (*sync_fs)(struct super_block *sb, int wait);
 };
 
 struct dentry_operations {

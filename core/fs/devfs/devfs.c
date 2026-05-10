@@ -18,13 +18,15 @@ static struct inode_operations devfs_iop = {
 
 static struct inode *devfs_alloc_block_inode(
     struct inode *parent,
-    struct block_device_operations *bop)
+    struct block_device_operations *bop,
+    int_32 dev_no)
 {
         struct inode *dev_inode = kmalloc(sizeof(struct inode));
         if (!dev_inode)
                 return NULL;
         dev_inode->i_sb = parent->i_sb;
         dev_inode->i_bdop = bop;
+        dev_inode->i_dev = dev_no;
 
         return dev_inode;
 }
@@ -76,11 +78,12 @@ struct dentry *make_virtual_node(struct dentry *current, char *component)
 struct dentry *make_dev_node(struct dentry *current,
                              char *component,
                              int type,
-                             int major)
+                             int dev_no)
 {
         struct dentry *d = kmalloc(sizeof(struct dentry));
         if (!d)
                 return NULL;
+        int major = DEV_MAJOR(dev_no);
         d->d_parent = current;
         d->d_name = kmalloc(FILE_NAME_MAX);
         ASSERT(d->d_name);
@@ -98,10 +101,10 @@ struct dentry *make_dev_node(struct dentry *current,
         } else if (type == DEV_TYPE_BLOCK) {
                 d->d_type = FT_BLOCK;
                 const struct block_device_operations *bdops =
-                    get_blkdev_bdev(major);
+                    get_blkdev_operations(major);
                 ASSERT(bdops);
                 struct inode *newi =
-                    devfs_alloc_block_inode(current->d_inode, bdops);
+                    devfs_alloc_block_inode(current->d_inode, bdops, dev_no);
                 d->d_inode = newi;
         } else {
                 PANIC("[devfs]: Unknow device type ");
@@ -118,6 +121,7 @@ int devfs_create_node(char *pathname, int type, int major, int minor)
                 DEBUG("[devfs]: can not find dev mount entry when create node");
                 return -1;
         }
+        dev_t dev_no = DEV_NR(major, minor);
         char *component = kmalloc(FILE_NAME_MAX);
         int path_len = strlen(pathname);
         char *path = kmalloc(path_len);
@@ -134,7 +138,7 @@ int devfs_create_node(char *pathname, int type, int major, int minor)
                         // not last component
                         if (*p_path == NULL) {
                                 struct dentry *last = make_dev_node(
-                                    current, component, type, major);
+                                    current, component, type, dev_no);
                                 if (!last)
                                         goto create_node_fail;
                                 ASSERT(last);

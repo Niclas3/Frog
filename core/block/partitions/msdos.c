@@ -64,6 +64,7 @@ static inline uint_32 get_dpt(struct block_device *hd,
         bio_read(hd, start_lba, &sector, 1);
         copy_4_entries(entries,
                        (struct partition_table_entry *) &sector.tables);
+        PANIC_IF(sector.signature != 0xaa55, "[block]: Does not find MBR magic number");
         ASSERT(sector.signature == 0xaa55);
         return 0;
 }

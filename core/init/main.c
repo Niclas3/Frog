@@ -3,12 +3,12 @@
 #include <frog/irqflags.h>
 #include <frog/syscall-init.h>
 
+#include <frog/block.h>
 #include <frog/memory.h>
 #include <frog/printk.h>
 #include <frog/threads.h>
 #include <kernel/bus.h>
 #include <kernel/chardev.h>
-#include <frog/block.h>
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 
@@ -22,11 +22,17 @@ extern void cpu_idle(void);
 extern void process_execute(void *, char *);
 extern void platform_init(void);
 
-
 extern void vfs_init(void);
+
+// test code
 extern int root_fs_init(void);
 extern int dev_fs_init(void);
-// test code
+extern int frogfs_init(void);
+extern int_32 vfs_mount(const char *pathname,
+                        const char *fs_type,
+                        int flags,
+                        const char *dev_name,
+                        void *data);
 extern uint_32 ps2_mouse_driver_init(void);
 extern uint_32 ps2_kbd_driver_init(void);
 extern uint_32 ata_ide_driver_init(void);
@@ -45,11 +51,11 @@ static void do_basic_setup(void)
         /* DEBUG("_end        :%x", _end); */
         /* int a = 10; */
         /* struct file * test = kmalloc(24); */
-        struct file *f = vfs_open("/dev/sdb0p1", 123);  // ide
-                                                        
-        DEBUG("file:%x", f);
+        /* char *buf = kmalloc(300000 * 512); */
+        /* struct file *f = vfs_open("/dev/sdbp1", 123);  // ide */
 
-        
+        DEBUG("test??");
+        INFO("[INFO]: test");
 
         /* blk_init(); */
 
@@ -70,13 +76,13 @@ static void rest_init(void)
 {
         // init thread pid = 1
         // dive into user mode, start first process init.
-        process_execute(init, "init");
+        /* process_execute(init, "init"); */
         // start a kernel thread like `kthreadd`;  we don't have it yet.
         // TODO:
         // Here is a problem, The every-early kernel thread 'unknow name' thread
         // needs to be dropped.
         TCB_t *main = running_thread();
-        thread_exit(main,true);
+        thread_exit(main, true);
 }
 
 static void isa_device_init(struct bus_type *isa_bus)
@@ -106,7 +112,7 @@ static void isa_device_init(struct bus_type *isa_bus)
 
         // 3. init disk device
         struct device *ata_dev = kmalloc(sizeof(struct device));
-        if(!ata_dev){
+        if (!ata_dev) {
                 DEBUG("[isa_dev]: cannot create ata device.");
                 return;
         }
@@ -160,11 +166,12 @@ __visible void __noreturn start_kernel(void)
         ps2_mouse_driver_init();
         ata_ide_driver_init();
         /****************************************/
+        frogfs_init();
+        vfs_mount("/test", "frogfs", 0, "/dev/sdbp2", NULL);
 
         syscall_init();
 
         do_basic_setup();
 
         rest_init();
-
 }

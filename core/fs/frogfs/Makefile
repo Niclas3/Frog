@@ -1,13 +1,7 @@
-include ../../Makefile.os_rules
-subdir += frogfs/
-# subdir += packagefs/
-subdir += tmpfs/
-subdir += vfs/
-subdir += devfs/
-
-
-obj-y += select.o
-# obj-y += pipe.o
+include ../../../Makefile.os_rules
+obj-y += frogfs.o
+obj-y += ffs_utils.o
+obj-y += ffs_super_block.o
 
 all: $(subdir) $(obj-y)
 

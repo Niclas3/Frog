@@ -37,7 +37,7 @@ static struct inode *tmpfs_create_root_inode(struct super_block *sb)
         }
         root_inode->i_sb = sb;
         root_inode->i_mode = FT_DIRECTORY;
-        root_inode->i_no = 1;
+        root_inode->i_num = 0;
         root_inode->i_op = &rootfs_ops;
         root_inode->i_fop = &rootfs_fops;
 

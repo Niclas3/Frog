@@ -16,4 +16,7 @@
 /* test two types the same type */
 #define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
 
+#define STATIC_ASSERT(cond, msg) \
+    typedef char static_assertion_##msg[(cond) ? 1 : -1]
+
 #endif

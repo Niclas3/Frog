@@ -394,6 +394,21 @@ int_32 vfs_rmdir(struct dentry *dir)
         return p_inode->i_op->rmdir(p_inode, dir);
 }
 
+struct dentry *vfs_opendir(const char *name)
+{
+        return NULL;
+}
+
+int_32 vfs_closedir(struct dentry *dirp)
+{
+        return 0;
+}
+
+int_32 vfs_readdir(struct file *dir, struct dentry *entry_out)
+{
+        return 0;
+}
+
 
 /*
  * Recommended Mount Workflow (VFS-level perspective)
@@ -442,23 +457,26 @@ int_32 vfs_mount(const char *pathname,
                     fstype->mount(fstype, flags, dev_name, data);
 
                 struct mount_entry *entry = kmalloc(sizeof(struct mount_entry));
+                if (!entry) {
+                        WARN("No enough memory for mount entries");
+                        return -1;
+                }
                 struct dentry *mp = vfs_lookup(pathname);
                 if (!mp) {
                         WARN("Not find this mount point %s:pathname %s",
                              fs_type, pathname);
                         return -1;
                 }
+                sb->s_mountpoint = mp;
 
                 entry->sb = sb;
                 entry->mount_point = mp;
+
                 if (mp->d_inode) {
-                        mp->d_inode->i_sb = sb;
-                        mp->d_inode->i_fop = sb->s_root->i_fop;
-                        mp->d_inode->i_op = sb->s_root->i_op;
-                        mp->d_inode->i_bdop = sb->s_root->i_bdop;
-                }else {
-                        mp->d_inode = sb->s_root;
+                        kfree(mp->d_inode);
+                        mp->d_inode = NULL;
                 }
+                mp->d_inode = sb->s_root;
 
                 mp->d_mounted = true;
 

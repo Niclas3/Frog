@@ -13,7 +13,14 @@ static struct bitmap *chrdev_bitmap;
 
 static uint_32 get_avaliable_major()
 {
-        return find_block_bitmap(chrdev_bitmap, 1);
+        int idx = find_block_bitmap(chrdev_bitmap, 1);
+        set_value_bitmap(chrdev_bitmap, idx, 1);
+        return idx;
+}
+
+static uint_32 free_major(int idx){
+        set_value_bitmap(chrdev_bitmap, idx, 0);
+        return 0;
 }
 
 static bool is_avalible_major(uint_32 major)
@@ -59,6 +66,7 @@ int unregister_chrdev(uint_32 major)
         const struct file_operations *target = chrdev_table[major];
         if (target) {
                 chrdev_table[major] = NULL;
+                free_major(major);
         }
         return 0;
 }

@@ -56,7 +56,14 @@ int bio_read(struct block_device *hd,
 
 static uint_32 get_avaliable_major()
 {
-        return find_block_bitmap(blkdev_bitmap, 1);
+        int idx = find_block_bitmap(blkdev_bitmap, 1);
+        set_value_bitmap(blkdev_bitmap, idx, 1);
+        return idx;
+}
+
+static uint_32 free_major(int idx){
+        set_value_bitmap(blkdev_bitmap, idx, 0);
+        return 0;
 }
 
 static bool is_avalible_major(uint_32 major)
@@ -65,10 +72,23 @@ static bool is_avalible_major(uint_32 major)
         return !!value;
 }
 
-const struct block_device_operations *get_blkdev_bdev(int major)
+const struct block_device_operations *get_blkdev_operations(int major)
 {
         ASSERT(major < BLKDEV_TABLE_SIZE && major >= 0);
         return blkdev_table[major];
+}
+
+struct block_device *get_block_device(dev_t dev_no)
+{
+        struct list_head *pos;
+        list_for_each (pos, &g_blk_devs) {
+                struct block_device *target =
+                    container_of(pos, struct block_device, bd_target);
+                if (target && (target->bd_dev == dev_no)) {
+                        return target;
+                }
+        }
+        return NULL;
 }
 
 /**
@@ -117,6 +137,7 @@ int unregister_blkdev(unsigned int major)
         const struct block_device_operations *target = blkdev_table[major];
         if (target) {
                 blkdev_table[major] = NULL;
+                free_major(major);
         }
         return 0;
 }
@@ -228,9 +249,10 @@ int add_partations_bdev(struct block_device *hd, struct block_device *part_bdev)
         uint_32 major = DEV_MAJOR(part_bdev->bd_dev);
         uint_32 minor = DEV_MINOR(part_bdev->bd_dev);
         char *name = kmalloc(64);
-        sprintf(name, "%s%dp%d", part_bdev->bd_disk->name, major, minor);
+        sprintf(name, "%sp%d", part_bdev->bd_disk->name, minor);
         devfs_create_node(name, DEV_TYPE_BLOCK, major, minor);
-        DEBUG("[partation]: %s %d %d", name, part_bdev->bd_start_lba, part_bdev->bd_sec_cnt);
+        DEBUG("[partation]: %s %d %d", name, part_bdev->bd_start_lba,
+              part_bdev->bd_sec_cnt);
         kfree(name);
         return 0;
 }

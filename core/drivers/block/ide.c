@@ -697,7 +697,7 @@ void intr_hd_handler(uint_8 irq_no)
                 channel->expecting_intr = false;
                 semaphore_up(&channel->disk_done);
                 // ack disk to clear interrupt flag
-                /* inb(reg_status(channel)); */
+                inb(reg_status(channel));
         }
 
         ack(irq_no);

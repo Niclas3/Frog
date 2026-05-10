@@ -7,6 +7,7 @@ struct gendisk;
 
 extern void block_init(void);
 
+struct block_device *get_block_device(dev_t dev_no);
 extern int bio_write(struct block_device *hd,
               unsigned int lba,
               void *buf,
