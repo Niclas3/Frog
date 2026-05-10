@@ -278,10 +278,10 @@ static void *get_virtual_pages(pool_type poolt, uint_32 pg_cnt)
 }
 
 static void __free_addr_bitmap(struct bitmap *map,
-                             uint_32 addr_start,
-                             uint_32 addr,
-                             uint_32 pos,
-                             uint_32 pg_cnt)
+                               uint_32 addr_start,
+                               uint_32 addr,
+                               uint_32 pos,
+                               uint_32 pg_cnt)
 {
         if (addr < addr_start)
                 PANIC("[mm]:free bad phy address");
@@ -296,21 +296,23 @@ static void __free_addr_bitmap(struct bitmap *map,
  * Free a continued virtual address spaces/ which is genarated by
  * get_virtual_pages()
  *****************************************************************************/
-static void free_virtual_pages(pool_type poolt, uint_32 vaddress, uint_32 pg_cnt)
+static void free_virtual_pages(pool_type poolt,
+                               uint_32 vaddress,
+                               uint_32 pg_cnt)
 {
         if (poolt == MP_KERNEL) {
                 uint_32 offset = (vaddress - kernel_viraddr.vaddr_start);
                 uint_32 pos = offset / PAGE_SIZE;
                 __free_addr_bitmap(&kernel_viraddr.vaddr_bitmap,
-                                 kernel_viraddr.vaddr_start, vaddress, pos,
-                                 pg_cnt);
+                                   kernel_viraddr.vaddr_start, vaddress, pos,
+                                   pg_cnt);
         } else {
                 TCB_t *cur = running_thread();
                 uint_32 offset = (vaddress - cur->progress_vaddr.vaddr_start);
                 uint_32 pos = offset / PAGE_SIZE;
                 __free_addr_bitmap(&cur->progress_vaddr.vaddr_bitmap,
-                                 cur->progress_vaddr.vaddr_start, vaddress, pos,
-                                 pg_cnt);
+                                   cur->progress_vaddr.vaddr_start, vaddress,
+                                   pos, pg_cnt);
         }
 }
 
@@ -319,7 +321,8 @@ static void free_virtual_pages(pool_type poolt, uint_32 vaddress, uint_32 pg_cnt
 // 2. get free phy address from pool using get_physical_page(pool)
 // 3. put vaddress and paddress together using put_page(vaddr, paddr)
 /**
- * Allocating a continued virtual address spaces with (non-continued)physical address.
+ * Allocating a continued virtual address spaces with (non-continued)physical
+ *address.
  *
  * @param param write here param Comments write here
  * @return return Comments write here
@@ -536,6 +539,31 @@ void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
         return (void *) vaddr;
 }
 
+struct mem_block *set_posion_memory(struct arena *area,
+                                    struct mem_block_desc *descs,
+                                    uint_32 desc_idx)
+{
+        struct mem_block *block;
+        uint_32 block_idx;
+        unsigned long flags;
+        local_irq_save(flags);
+        for (block_idx = 0; block_idx < descs[desc_idx].blocks_per_arena;
+             block_idx++) {
+#ifdef CONFIG_POSION_MEMORY
+                block = kasan_posion_arena2block(area, block_idx,
+                                                 KASAN_SAFE_REDZONE_SIZE);
+                kasan_posion((uintptr_t) block, descs[desc_idx].block_size,
+                             KASAN_SAFE_REDZONE_SIZE,
+                             (char) KASAN_KMALLOC_REDZONE);
+#else
+                block = arena2block(area, block_idx);
+#endif
+                list_add_tail(&block->free_elem, &area->desc->free_list);
+        }
+        local_irq_restore(flags);
+        return block;
+}
+
 
 static void *malloc_internal(uint_32 size, pool_type pool_t)
 {
@@ -567,14 +595,17 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
                 uint_32 page_cnt = CEIL(size + sizeof(struct arena), PAGE_SIZE);
                 area = malloc_page(pool_t, page_cnt);
 
+
                 if (area != NULL) {
                         memset(area, 0, PAGE_SIZE * page_cnt);
                         area->desc = NULL;
                         area->cnt = page_cnt;
                         area->large = true;
                         lock_release(&mem_pool->lock);
-                        return (void *) (area +
-                                         1);  // pass ONE struct arena size
+
+                        /* block = set_posion_memory(area, descs, 6); */
+
+                        return (void *) area + 1;  // pass ONE struct arena size
                 } else {
                         // maybe not enough memory
                         lock_release(&mem_pool->lock);
@@ -613,7 +644,6 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
                                              descs[desc_idx].block_size,
                                              KASAN_SAFE_REDZONE_SIZE,
                                              (char) KASAN_KMALLOC_REDZONE);
-
 #else
                                 block = arena2block(area, block_idx);
 #endif
@@ -664,9 +694,12 @@ static void free_internal(void *ptr, pool_type p_type)
                 struct mem_block *block = ptr;
                 struct arena *a = block2arena(block);
 
+                if (a->desc) {
 #ifdef CONFIG_POSION_MEMORY
-                kasan_protect_free(a->desc->block_size, (uintptr_t) block);
+                        kasan_protect_free(a->desc->block_size,
+                                           (uintptr_t) block);
 #endif
+                }
                 ASSERT(a->large == 0 || a->large == 1);
                 if (a->desc == NULL &&
                     a->large == true) {  // arena is equal or over 1024B
