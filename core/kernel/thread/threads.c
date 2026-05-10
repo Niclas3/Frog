@@ -314,7 +314,7 @@ void thread_block(task_status_t status)
 // add thread to head of tread_ready_list
 void thread_unblock(TCB_t *thread)
 {
-        DEBUG("%s: %d", thread->name, thread->status);
+        /* DEBUG("%s: %d", thread->name, thread->status); */
         ASSERT((thread->status == THREAD_TASK_HANGING) ||
                (thread->status == THREAD_TASK_WAITING) ||
                (thread->status == THREAD_TASK_BLOCKED));
