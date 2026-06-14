@@ -605,7 +605,7 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
 
                         /* block = set_posion_memory(area, descs, 6); */
 
-                        return (void *) area + 1;  // pass ONE struct arena size
+                        return (void *)(area + 1);  // struct arena* + 1 = sizeof(arena) bytes
                 } else {
                         // maybe not enough memory
                         lock_release(&mem_pool->lock);
