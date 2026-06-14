@@ -125,9 +125,10 @@ int devfs_create_node(char *pathname, int type, int major, int minor)
         dev_t dev_no = DEV_NR(major, minor);
         char *component = kmalloc(FILE_NAME_MAX);
         int path_len = strlen(pathname);
-        char *path = kmalloc(path_len);
+        char *path = kmalloc(path_len + 1);
         char **p_path = &path;
         strncpy(path, pathname, path_len);
+        path[path_len] = '\0';
 
         p_path = next_path_components(p_path, component);
 

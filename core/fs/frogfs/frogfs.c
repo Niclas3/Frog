@@ -786,10 +786,10 @@ static struct super_block *frogfs_mount(struct fs_type *fs,
 
         struct inode *root_inode = frogfs_create_root_inode(frogfs_bdev, sb);
 
-        list_add_tail(&root_inode->i_active_node, &sb->s_inodes);
-
         if (!root_inode)
                 return NULL;
+
+        list_add_tail(&root_inode->i_active_node, &sb->s_inodes);
 
         sb->s_root = root_inode;
         return sb;
