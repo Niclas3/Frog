@@ -34,6 +34,7 @@ extern uint_32 ps2_kbd_driver_init(void);
 extern uint_32 ata_ide_driver_init(void);
 
 extern void vga_self_test(void);
+extern void mm_regression_test(void);
 
 // end test
 
@@ -245,6 +246,7 @@ static void do_basic_setup(void)
         /* packagefs_init(); #<{(| "/dev/pkg" |)}># */
 
         vga_self_test();
+        mm_regression_test();
         bare_disk_io_test();
         frogfs_basic_io_test();
         frogfs_unlink_test();

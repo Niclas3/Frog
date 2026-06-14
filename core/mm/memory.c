@@ -719,8 +719,14 @@ static void free_internal(void *ptr, pool_type p_type)
                                 for (block_idx = 0;
                                      block_idx < a->desc->blocks_per_arena;
                                      block_idx++) {
-                                        struct mem_block *b =
-                                            arena2block(a, block_idx);
+                                        struct mem_block *b;
+#ifdef CONFIG_POSION_MEMORY
+                                        b = kasan_posion_arena2block(
+                                            a, block_idx,
+                                            a->desc->redzone_size);
+#else
+                                        b = arena2block(a, block_idx);
+#endif
                                         list_del_init(&b->free_elem);
                                 }
                                 free_page(p_type, a, 1);
