@@ -18,7 +18,8 @@
  *****************************************************************************/
 int_32 alloc_inode_bitmap(struct super_block *sb)
 {
-        struct frogfs_super_block *fsb = (struct frogfs_super_block *) sb;
+        struct frogfs_super_block *fsb =
+            (struct frogfs_super_block *) sb->s_fs_info;
         int_32 idx = find_block_bitmap(fsb->i_bmap, 1);
         if (idx == -1) {
                 return -1;
@@ -30,7 +31,8 @@ int_32 alloc_inode_bitmap(struct super_block *sb)
 int_32 free_inode_bitmap(struct super_block *sb, int_32 index)
 {
         ASSERT(index >= 0);
-        struct frogfs_super_block *fsb = (struct frogfs_super_block *) sb;
+        struct frogfs_super_block *fsb =
+            (struct frogfs_super_block *) sb->s_fs_info;
         set_value_bitmap(fsb->i_bmap, index, 0);
         return 0;
 }
@@ -43,7 +45,8 @@ int_32 free_inode_bitmap(struct super_block *sb, int_32 index)
  *****************************************************************************/
 int_32 alloc_zone_bitmap(struct super_block *sb)
 {
-        struct frogfs_super_block *fsb = (struct frogfs_super_block *) sb;
+        struct frogfs_super_block *fsb =
+            (struct frogfs_super_block *) sb->s_fs_info;
         int_32 idx = find_block_bitmap(fsb->z_bmap, 1);
         if (idx == -1) {
                 return -1;
@@ -55,7 +58,8 @@ int_32 alloc_zone_bitmap(struct super_block *sb)
 int_32 free_znode_bitmap(struct super_block *sb, int_32 index)
 {
         ASSERT(index >= 0);
-        struct frogfs_super_block *fsb = (struct frogfs_super_block *) sb;
+        struct frogfs_super_block *fsb =
+            (struct frogfs_super_block *) sb->s_fs_info;
         set_value_bitmap(fsb->z_bmap, index, 0);
         return 0;
 }

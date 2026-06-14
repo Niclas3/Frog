@@ -223,6 +223,8 @@ void add_disk(struct gendisk *disk)
         diskdev->bd_start_lba = 0;
         diskdev->bd_sec_cnt = disk->lba_sectors;
         diskdev->bd_disk = disk;
+        INIT_LIST_HEAD(&diskdev->bd_target);
+        INIT_LIST_HEAD(&diskdev->bd_part_node);
         list_add_tail(&diskdev->bd_target, &g_blk_devs);
 
         disk_scan_partitions(diskdev);
@@ -238,6 +240,8 @@ struct block_device *alloc_partation_bdev(struct block_device *hd,
         bdev->bd_start_lba = start_lba;
         bdev->bd_sec_cnt = sec_cnt;
         bdev->bd_dev = DEV_NR(hd->bd_disk->major, part_index);
+        INIT_LIST_HEAD(&bdev->bd_target);
+        INIT_LIST_HEAD(&bdev->bd_part_node);
         return bdev;
 }
 
@@ -245,7 +249,7 @@ struct block_device *alloc_partation_bdev(struct block_device *hd,
 int add_partations_bdev(struct block_device *hd, struct block_device *part_bdev)
 {
         list_add_tail(&part_bdev->bd_target, &g_blk_devs);
-        list_add_tail(&part_bdev->bd_target, &hd->bd_disk->partitions_list);
+        list_add_tail(&part_bdev->bd_part_node, &hd->bd_disk->partitions_list);
         uint_32 major = DEV_MAJOR(part_bdev->bd_dev);
         uint_32 minor = DEV_MINOR(part_bdev->bd_dev);
         char *name = kmalloc(64);

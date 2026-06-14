@@ -47,17 +47,12 @@ static struct inode *devfs_alloc_inode(struct inode *parent,
 
 struct dentry *devfs_lookup(struct inode *dir, struct dentry *target)
 {
-        struct dentry *devfs_mount_point = find_mount_entry("dev")->mount_point;
-        // return a dentry with target char driver fop inode
-        /* ASSERT(devfs_mount_point); */
+        if (!dir || !target || !target->d_name || !target->d_parent)
+                return NULL;
+
         DEBUG("[devfs]:look up %s", target->d_name);
-        /* char *name ; */
-        /* struct dentry *d = kmalloc(sizeof(struct dentry)); */
-        /* d->d_inode = kmalloc(sizeof(struct inode)); */
 
-        /* struct file_operations *fop =  */
-
-        return NULL;
+        return dentry_lookup(target->d_parent, target->d_name);
 }
 struct dentry *make_virtual_node(struct dentry *current, char *component)
 {
@@ -70,8 +65,14 @@ struct dentry *make_virtual_node(struct dentry *current, char *component)
         ASSERT(d->d_name);
         strcpy(d->d_name, component);
         d->d_type = FT_DIRECTORY;
-        list_add_tail(&d->d_child_node, &current->d_subdirs);
         d->d_inode = devfs_alloc_inode(current->d_inode, NULL);
+        if (!d->d_inode) {
+                kfree(d->d_name);
+                kfree(d);
+                return NULL;
+        }
+        d->d_inode->i_op = &devfs_iop;
+        list_add_tail(&d->d_child_node, &current->d_subdirs);
         return d;
 }
 
@@ -214,9 +215,9 @@ static int make_mount_point(struct dentry *root, char *path)
         child->d_parent = root;
         child->d_mounted = false;
         child->d_type = FT_DIRECTORY;
-        child->d_inode = kmalloc(sizeof(struct inode));
+        child->d_inode = NULL;
         INIT_LIST_HEAD(&child->d_subdirs);
-        list_add_tail(&child->d_child_node, &root->d_subdirs);
+        INIT_LIST_HEAD(&child->d_child_node);
 
         if (vfs_mkdir(global_root_dentry, child) == -1) {
                 return -1;

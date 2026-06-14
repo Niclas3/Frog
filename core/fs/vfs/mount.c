@@ -47,14 +47,24 @@ static inline boolean __is_same_path_indeed(struct dentry *left, struct dentry *
 {
         struct dentry *c_l = left;
         struct dentry *c_r = right;
-        for (; strcmp(c_l->d_name, "/") && strcmp(c_r->d_name, "/");) {
-                if (strlen(c_r->d_name) == strlen(c_l->d_name) &&
-                    !strncmp(c_r->d_name, c_l->d_name, strlen(c_l->d_name))) {
-                        c_l = c_l->d_parent;
-                        c_r = c_r->d_parent;
-                }
+        while (c_l && c_r) {
+                if (!c_l->d_name || !c_r->d_name)
+                        return false;
+
+                if (strcmp(c_l->d_name, c_r->d_name))
+                        return false;
+
+                if (!strcmp(c_l->d_name, "/"))
+                        return true;
+
+                if (c_l == c_l->d_parent || c_r == c_r->d_parent)
+                        return false;
+
+                c_l = c_l->d_parent;
+                c_r = c_r->d_parent;
         }
-        return (!strcmp(c_r->d_name, c_l->d_name) && strcmp(c_r->d_name, "/"));
+
+        return false;
 }
 
 static boolean is_same_path(struct dentry *left, struct dentry *right)

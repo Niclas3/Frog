@@ -13,6 +13,7 @@ struct block_device {
         uint_32 bd_start_lba;  // start of sector
         uint_32 bd_sec_cnt;    // all sector count of this partition
         struct list_head bd_target;
+        struct list_head bd_part_node;
         dev_t bd_dev;             // contain major and minor number
         struct gendisk *bd_disk;  // disk of this partition
 };

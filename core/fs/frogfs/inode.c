@@ -40,8 +40,9 @@ static void locale_inode(struct super_block *sb,
         ipos->start_blk = inode_table + inode_blk_offset;
 
         ipos->is_crossed =
-            (ZONE_SIZE - inode_in_blk_offset) < sizeof(struct inode) ? true
-                                                                     : false;
+            (ZONE_SIZE - inode_in_blk_offset) < sizeof(struct frogfs_inode)
+                ? true
+                : false;
         ipos->offset = inode_in_blk_offset;
 }
 
@@ -247,8 +248,6 @@ void flush_inode(struct super_block *sb, struct inode *inode, void *io_buf)
         struct iposition pos = {0};
         struct frogfs_super_block *fsb =
             (struct frogfs_super_block *) sb->s_fs_info;
-        struct block_device *bdev = sb->s_bdev;
-
         uint_8 *buf = (uint_8 *) io_buf;
         locale_inode(sb, inode->i_num, &pos);
         ASSERT(pos.start_blk <= (fsb->disk_sb.s_inode_table_blk +
@@ -265,12 +264,12 @@ void flush_inode(struct super_block *sb, struct inode *inode, void *io_buf)
 
         if (pos.is_crossed) {
                 read_blocks(sb, pos.start_blk, 2, buf);
-                memcpy(&buf[pos.offset], &target_inode,
+                memcpy(&buf[pos.offset], target_inode,
                        sizeof(struct frogfs_inode));
                 write_blocks(sb, pos.start_blk, 2, buf);
         } else {
                 read_blocks(sb, pos.start_blk, 1, buf);
-                memcpy(&buf[pos.offset], &target_inode,
+                memcpy(&buf[pos.offset], target_inode,
                        sizeof(struct frogfs_inode));
                 write_blocks(sb, pos.start_blk, 1, buf);
         }

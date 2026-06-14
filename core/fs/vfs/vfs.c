@@ -169,6 +169,7 @@ static struct dentry *do_lookup(const char *path)
                         char *name = kmalloc(FILE_NAME_MAX + 1);
                         memcpy(name, component, FILE_NAME_MAX);
                         dir->d_name = name;
+                        dir->d_parent = current;
 
                         // Search dentry first if nothing get then call
                         // xxxfs->lookup()
@@ -274,10 +275,81 @@ static struct file *open_filep(struct dentry *d, uint_8 flags)
         return f;
 }
 
-static struct file *create_file(char *path, uint_8 flags)
+static struct dentry *create_file(char *path, uint_8 flags)
 {
-        // 1. find parents dir
-        return NULL;
+        if (!path || !(flags & O_CREAT))
+                return NULL;
+
+        int path_len = strlen(path);
+        if (path_len <= 1 || path[0] != '/' || path[path_len - 1] == '/')
+                return NULL;
+
+        const char *last_slash = NULL;
+        for (int i = 0; i < path_len; i++) {
+                if (path[i] == '/')
+                        last_slash = &path[i];
+        }
+        if (!last_slash)
+                return NULL;
+
+        int name_len = path_len - (last_slash - path) - 1;
+        if (name_len <= 0 || name_len > FILE_NAME_MAX)
+                return NULL;
+
+        char *name = kmalloc(name_len + 1);
+        if (!name)
+                return NULL;
+        memcpy(name, last_slash + 1, name_len);
+        name[name_len] = '\0';
+
+        int parent_len = (last_slash == path) ? 1 : (int) (last_slash - path);
+        char *parent_path = kmalloc(parent_len + 1);
+        if (!parent_path) {
+                kfree(name);
+                return NULL;
+        }
+        memcpy(parent_path, path, parent_len);
+        parent_path[parent_len] = '\0';
+
+        struct dentry *parent = vfs_lookup(parent_path);
+        kfree(parent_path);
+
+        if (!parent || !parent->d_inode || !parent->d_inode->i_op ||
+            !parent->d_inode->i_op->create) {
+                kfree(name);
+                return NULL;
+        }
+
+        struct dentry *existing = dentry_lookup(parent, name);
+        if (existing) {
+                kfree(name);
+                return (flags & O_EXCL) ? NULL : existing;
+        }
+
+        struct dentry *child = kmalloc(sizeof(struct dentry));
+        if (!child) {
+                kfree(name);
+                return NULL;
+        }
+        memset(child, 0, sizeof(struct dentry));
+        child->d_name = name;
+        child->d_parent = parent;
+        child->d_sb = parent->d_inode->i_sb;
+        child->d_type = FT_REGULAR;
+        child->d_mounted = false;
+        INIT_LIST_HEAD(&child->d_subdirs);
+        INIT_LIST_HEAD(&child->d_child_node);
+
+        int ret = parent->d_inode->i_op->create(parent->d_inode, child,
+                                                FT_REGULAR);
+        if (ret < 0) {
+                kfree(child);
+                kfree(name);
+                return NULL;
+        }
+
+        dentry_add_child(parent, child);
+        return child;
 }
 
 struct file *vfs_open(char *path, uint_8 flags)
@@ -285,11 +357,13 @@ struct file *vfs_open(char *path, uint_8 flags)
         struct dentry *d = vfs_lookup(path);
         if (!d) {
                 if (flags & O_CREAT) {
-                        create_file(path, flags);
+                        d = create_file(path, flags);
                 } else {
                         return NULL;
                 }
         }
+        if (!d)
+                return NULL;
         struct file *f = open_filep(d, flags);
         return f;
 }
@@ -364,14 +438,18 @@ uint_32 vfs_ioctl(struct file *file, uint_32 request, void *argp)
 
 int_32 vfs_mkdir(struct dentry *parent, struct dentry *child)
 {
-        if (!parent || !child || !parent->d_inode || !child->d_inode ||
-            !parent->d_inode->i_op || !parent->d_inode->i_op->mkdir)
+        if (!parent || !child || !parent->d_inode || !parent->d_inode->i_op ||
+            !parent->d_inode->i_op->mkdir)
                 return -1;
+
+        int_32 ret = parent->d_inode->i_op->mkdir(parent->d_inode, child,
+                                                  FT_DIRECTORY);
+        if (ret < 0)
+                return ret;
 
         dentry_add_child(parent, child);
 
-        return parent->d_inode->i_op->mkdir(parent->d_inode, child,
-                                            FT_DIRECTORY);
+        return 0;
 }
 
 int_32 vfs_unlink(struct dentry *dir)

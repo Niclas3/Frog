@@ -5,7 +5,7 @@
 int register_driver(struct driver *drv)
 {
         struct list_head *frog_driver_list = &drv->bus->driver_list;
-        list_add_tail(&drv->bus->driver_list, frog_driver_list);
+        list_add_tail(&drv->node, frog_driver_list);
 
         // for-each driver_list in this bus
         struct bus_type *bus = drv->bus;
@@ -15,7 +15,8 @@ int register_driver(struct driver *drv)
         list_for_each (pos, device_list) {
                 struct device *dev = container_of(pos, struct device, node);
                 if (bus->match(dev, drv)) {
-                        bus->probe(dev, drv);
+                        if (bus->probe(dev, drv) == 0)
+                                dev->driver = drv;
                         break;
                 }
         }

@@ -130,7 +130,8 @@ void msdos_scan_partitions(struct block_device *hd)
                         // logic partations
                         uint_32 ext_base = start_lba;
                         uint_32 logic_next_lba = 0;
-                        uint_32 count = 1;
+                        uint_32 logic_part_index = 5;
+                        uint_32 logic_part_count = 0;
 
                         struct block_device *extbdev = alloc_partation_bdev(
                             hd, ext_base, sec_cnt, i + 1);
@@ -145,16 +146,23 @@ void msdos_scan_partitions(struct block_device *hd)
                                                           logic_next_lba +
                                                           next[0].start_lba;
                                 uint_32 logic_sec_cnt = next[0].sec_cnt;
+                                if (IS_NULL_ENTRY(next[0]) || !logic_sec_cnt) {
+                                        is_end_of_logic_partation = true;
+                                        break;
+                                }
+
                                 struct block_device *pbdev =
                                     alloc_partation_bdev(hd, logic_start_lba,
                                                          logic_sec_cnt,
-                                                         i + count + 1);
+                                                         logic_part_index);
                                 add_partations_bdev(hd, pbdev);
+                                logic_part_index++;
+                                logic_part_count++;
                                 bool is_empty_next = IS_NULL_ENTRY(next[1]);
                                 if (!is_empty_next) {
                                         logic_next_lba = next[1].start_lba;
-                                        count++;
-                                        if (count >= MAX_LOGICAL_PARTATIONS) {
+                                        if (logic_part_count >=
+                                            MAX_LOGICAL_PARTATIONS) {
                                                 is_end_of_logic_partation =
                                                     true;
                                                 INFO(

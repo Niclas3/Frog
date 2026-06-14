@@ -16,7 +16,8 @@ int register_device(struct device *dev)
         list_for_each (pos, frog_driver_list) {
                 struct driver *drv = container_of(pos, struct driver, node);
                 if (bus->match(dev, drv)) {
-                        bus->probe(dev, drv);
+                        if (bus->probe(dev, drv) == 0)
+                                dev->driver = drv;
                         break;
                 }
         }

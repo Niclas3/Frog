@@ -1,5 +1,6 @@
 include ../../../Makefile.os_rules
 obj-y += frogfs.o
+obj-y += inode.o
 obj-y += ffs_utils.o
 obj-y += ffs_super_block.o
 
@@ -14,4 +15,3 @@ $(obj-y) : %.o : %.c
 .PHONY: $(subdir) clean
 clean:
 	rm -rf ./*.o
-
