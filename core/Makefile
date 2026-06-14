@@ -20,7 +20,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o \
 	 $(BUILD_DIR)/msdos.o \
 	 $(BUILD_DIR)/blk_core.o \
-	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/fd.o \
+	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o \
 	 $(BUILD_DIR)/frogfs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/ffs_utils.o $(BUILD_DIR)/ffs_super_block.o \
 	 $(BUILD_DIR)/kasan.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/mm_test.o \
 	 $(BUILD_DIR)/panic.o \

@@ -8,6 +8,7 @@ subdir += devfs/
 
 obj-y += select.o
 obj-y += fd.o
+obj-y += syscall_fs.o
 # obj-y += pipe.o
 
 all: $(subdir) $(obj-y)
