@@ -4,13 +4,16 @@
 #include <frog/syscall-init.h>
 
 #include <frog/block.h>
+#include <frog/fcntl.h>
 #include <frog/memory.h>
 #include <frog/printk.h>
+#include <frog/string.h>
 #include <frog/threads.h>
 #include <kernel/bus.h>
 #include <kernel/chardev.h>
 #include <kernel/cpu.h>
 #include <kernel/device.h>
+#include <kernel/vfs.h>
 
 /* #include <frog/block.h> */
 
@@ -22,25 +25,197 @@ extern void cpu_idle(void);
 extern void process_execute(void *, char *);
 extern void platform_init(void);
 
-extern void vfs_init(void);
-
 // test code
 extern int root_fs_init(void);
 extern int dev_fs_init(void);
 extern int frogfs_init(void);
-extern int_32 vfs_mount(const char *pathname,
-                        const char *fs_type,
-                        int flags,
-                        const char *dev_name,
-                        void *data);
 extern uint_32 ps2_mouse_driver_init(void);
 extern uint_32 ps2_kbd_driver_init(void);
 extern uint_32 ata_ide_driver_init(void);
+
+extern void vga_self_test(void);
 
 // end test
 
 
 #include <frog/linker.h>
+
+static void bare_disk_io_test(void)
+{
+        struct dentry *d = vfs_lookup("/dev/sdbp8");
+        if (!d || !d->d_inode) {
+                WARN("[bare-io]: cannot find /dev/sdbp8");
+                return;
+        }
+
+        struct block_device *bdev = get_block_device(d->d_inode->i_dev);
+        if (!bdev) {
+                WARN("[bare-io]: get_block_device returned NULL");
+                return;
+        }
+
+        uint_32 test_lba = bdev->bd_start_lba + bdev->bd_sec_cnt - 4;
+        uint_8 *wbuf = kmalloc(512);
+        uint_8 *rbuf = kmalloc(512);
+        if (!wbuf || !rbuf) {
+                WARN("[bare-io]: alloc fail");
+                return;
+        }
+
+        for (int i = 0; i < 512; i++)
+                wbuf[i] = (uint_8) (i ^ 0xA5);
+        memset(rbuf, 0, 512);
+
+        if (bio_write(bdev, test_lba, wbuf, 1) < 0) {
+                WARN("[bare-io]: bio_write fail at lba=%d", test_lba);
+                kfree(wbuf);
+                kfree(rbuf);
+                return;
+        }
+
+        if (bio_read(bdev, test_lba, rbuf, 1) < 0) {
+                WARN("[bare-io]: bio_read fail at lba=%d", test_lba);
+                kfree(wbuf);
+                kfree(rbuf);
+                return;
+        }
+
+        int mismatch_at = -1;
+        for (int i = 0; i < 512; i++) {
+                if (wbuf[i] != rbuf[i]) {
+                        mismatch_at = i;
+                        break;
+                }
+        }
+        if (mismatch_at >= 0) {
+                WARN("[bare-io]: round-trip mismatch at byte %d: w=%x r=%x",
+                     mismatch_at, wbuf[mismatch_at], rbuf[mismatch_at]);
+                kfree(wbuf);
+                kfree(rbuf);
+                return;
+        }
+
+        INFO("[bare-io]: bare disk round-trip passed lba=%d (partition end-4)",
+             test_lba);
+        kfree(wbuf);
+        kfree(rbuf);
+}
+
+static void frogfs_basic_io_test(void)
+{
+        char *paths[] = {
+            "/test/frogio0", "/test/frogio1", "/test/frogio2",
+            "/test/frogio3", "/test/frogio4", "/test/frogio5",
+            "/test/frogio6", "/test/frogio7",
+        };
+        char *path = NULL;
+        char payload[] = "frogfs basic io";
+        char read_buf[64];
+        uint_32 payload_len = strlen(payload);
+
+        struct file *file = NULL;
+        for (uint_32 idx = 0; idx < sizeof(paths) / sizeof(paths[0]); idx++) {
+                file = vfs_open(paths[idx], O_CREAT | O_RDWR);
+                if (file) {
+                        path = paths[idx];
+                        break;
+                }
+        }
+
+        if (!file) {
+                WARN("[frogfs-test]: create/open failed");
+                return;
+        }
+
+        int_32 written = vfs_write(file, payload, payload_len);
+        if (written != (int_32) payload_len) {
+                WARN("[frogfs-test]: write failed: %d/%d", written,
+                     payload_len);
+                vfs_close(file);
+                return;
+        }
+
+        if (vfs_lseek(file, 0, SEEK_SET) != 0) {
+                WARN("[frogfs-test]: seek failed");
+                vfs_close(file);
+                return;
+        }
+
+        memset(read_buf, 0, sizeof(read_buf));
+        int_32 read_size = vfs_read(file, read_buf, payload_len);
+        if (read_size != (int_32) payload_len ||
+            memcmp(read_buf, payload, payload_len)) {
+                WARN("[frogfs-test]: read-after-write failed: %d/%d",
+                     read_size, payload_len);
+                vfs_close(file);
+                return;
+        }
+
+        vfs_close(file);
+
+        file = vfs_open(path, O_RDWR);
+        if (!file) {
+                WARN("[frogfs-test]: reopen failed: %s", path);
+                return;
+        }
+
+        memset(read_buf, 0, sizeof(read_buf));
+        read_size = vfs_read(file, read_buf, payload_len);
+        if (read_size != (int_32) payload_len ||
+            memcmp(read_buf, payload, payload_len)) {
+                WARN("[frogfs-test]: read-after-reopen failed: %d/%d",
+                     read_size, payload_len);
+                vfs_close(file);
+                return;
+        }
+
+        vfs_close(file);
+        INFO("[frogfs-test]: create/write/read/reopen passed: %s", path);
+}
+
+static void frogfs_unlink_test(void)
+{
+        char *paths[] = {
+            "/test/unlink0", "/test/unlink1", "/test/unlink2",
+            "/test/unlink3", "/test/unlink4", "/test/unlink5",
+        };
+        char *path = NULL;
+
+        struct file *file = NULL;
+        for (uint_32 idx = 0; idx < sizeof(paths) / sizeof(paths[0]); idx++) {
+                file = vfs_open(paths[idx], O_CREAT | O_RDWR);
+                if (file) {
+                        path = paths[idx];
+                        break;
+                }
+        }
+        if (!file) {
+                WARN("[frogfs-unlink]: create failed");
+                return;
+        }
+        vfs_close(file);
+
+        struct dentry *d = vfs_lookup(path);
+        if (!d || !d->d_inode) {
+                WARN("[frogfs-unlink]: lookup failed after create: %s", path);
+                return;
+        }
+
+        if (vfs_unlink(d) != 0) {
+                WARN("[frogfs-unlink]: unlink failed: %s", path);
+                return;
+        }
+
+        file = vfs_open(path, O_RDWR);
+        if (file) {
+                WARN("[frogfs-unlink]: file still openable after unlink: %s",
+                     path);
+                vfs_close(file);
+                return;
+        }
+
+        INFO("[frogfs-unlink]: create/lookup/unlink/verify passed: %s", path);
+}
 
 static void do_basic_setup(void)
 {
@@ -68,6 +243,11 @@ static void do_basic_setup(void)
         /* fs_init(); */
         /* ps2hid_init(); */
         /* packagefs_init(); #<{(| "/dev/pkg" |)}># */
+
+        vga_self_test();
+        bare_disk_io_test();
+        frogfs_basic_io_test();
+        frogfs_unlink_test();
 }
 
 
@@ -165,9 +345,10 @@ __visible void __noreturn start_kernel(void)
         ps2_kbd_driver_init();
         ps2_mouse_driver_init();
         ata_ide_driver_init();
+
         /****************************************/
         frogfs_init();
-        vfs_mount("/test", "frogfs", 0, "/dev/sdbp2", NULL);
+        vfs_mount("/test", "frogfs", 0, "/dev/sdbp8", NULL);
 
         syscall_init();
 

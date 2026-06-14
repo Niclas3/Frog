@@ -1005,6 +1005,13 @@ void mem_init()
 #endif
         alloc_kstack_pool(K_THREAD_MAX * K_STACKSZ_IN_PAGE);
 
+        /* VGA text buffer is mapped at virtual 0xC00B8000 by early page
+         * tables (linear = phys | 0xC0000000).  If kernel heap is allowed
+         * to allocate this virtual page, put_page() will silently rewrite
+         * the PTE and our writes to 0xC00B8000 stop reaching VGA — the
+         * screen looks frozen.  Mark it occupied so the heap skips it. */
+        mark_kernel_vaddr_reserved(0xC00B8000UL);
+
         /* mark_kernel_vaddr_reserved(KHEAP_SHA_MEM_START); */
 
         // init local_cpu

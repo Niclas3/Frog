@@ -1,56 +1,78 @@
-;         Memory Mapping
-;  fsize                memory
-;───────────┌─────────┐0x0000_7C00
-;     512b  │  MBR.s  │
-;───────────├─────────┤0x0000_7E00
-;           │         │
-;   7k      │ unused  │
-;           │         │
-;───────────├─────────┤0x0000_9A00 (mem_bitmap_base)
-;   10.5k   │         │            
-;           │         │            
-;           │         │            
-;───────────├─────────┤0x0000_C400
-;           │loader.s │
-;    5k     │         │
-;───────────├─────────┤0x0000_D800
-;    4k     │font.img │
-;───────────├─────────┤0x0000_E800
-;    6k     │ unused  │
-;           │         │
-;───────────├─────────┤0x0001_0000
-;           │         │
-;  120k     │core.img │
-;           │zip      │
-;           │         │
-;───────────├─────────┤0x0002_E000
-;           │         │
-;  328k     │unused   │
-;           │         │
-;───────────├─────────┤0x0007_0000
-;           │ core    │
-;  192k     │ .start  │
-;           │         │
-;           │         │
-;───────────├─────────┤0x000a_0000 (end assume)
-;           │         │
-; 384k      │unused   │
-;           │         │
-;───────────├─────────┤0x0010_0000
-;           │page     │
-; 1M        │table    │
-;           │         │
-;           │         │
-;───────────├─────────┤0x0020_0000
-;           │         │
-;           │         │
-;           │         │
-;           │         │
-;───────────├─────────┤0x00a0_0000 
-;                                  
-;           ├─────────┤0xc006_0000 1.kernel_pool.bitmap
-;           │         │            2.user_pool.bitmap
-;           │         │            3.kernel_viraddr.bitmap
+; =============================================================================
+;                              Memory Layout
+; =============================================================================
+;
+; A. Physical memory (low region used by boot + kernel image)
+;
+;   size  | region                | physical address
+;  -------+-----------------------+----------------------------------
+;   512 B | MBR                   | 0x0000_7C00 - 0x0000_7E00
+;   ~32K  | early stack / unused  | 0x0000_7E00 - 0x0000_C400
+;     5 K | loader.s              | 0x0000_C400 - 0x0000_D800
+;     4 K | font.img              | 0x0000_D800 - 0x0000_E800
+;     6 K | unused                | 0x0000_E800 - 0x0001_0000
+;   120 K | core.img (compressed) | 0x0001_0000 - 0x0002_E000
+;   264 K | unused                | 0x0002_E000 - 0x0007_0000
+;   192 K | core (decompressed)   | 0x0007_0000 - 0x000A_0000
+;         |   _end ≈ 0x0007_CFCC  |
+;    64 K | VGA framebuffer       | 0x000A_0000 - 0x000B_0000  (mode 13h etc.)
+;    32 K | VGA text + alt        | 0x000B_0000 - 0x000C_0000  (text @ 0xB8000)
+;   256 K | BIOS ROM / reserved   | 0x000C_0000 - 0x0010_0000
+;    N K  | page tables           | 0x0010_0000 - 0x0010_0000+P
+;         |   (PD + PTs, sized by | (P = PAGE_SIZE * (PDT_COUNT+PGT_COUNT))
+;         |    PDT_COUNT/PGT_COUNT)|
+;   rest  | kernel pool / user    | above page tables;
+;         | pool                  | mem_pool_init splits free RAM 50/50.
+;
+; Note: physical 0x000B_8000 (VGA text) lives in this region; the
+; physical pool starts above 0x0020_0000 so it never gives out the
+; VGA frame.  The corresponding VIRTUAL mapping at 0xC00B_8000 is what
+; needs explicit reservation -- see section B.
+;
+;
+; B. Kernel virtual address space (after mem_init runs)
+;
+;   virtual address      | region
+;  ----------------------+-------------------------------------------------
+;   0xC000_0000          | start of kernel high half (phys 0 mirrored here)
+;   0xC006_0000          | MEM_BITMAP_BASE
+;                        |   - kernel_pool.pool_bitmap.bits
+;                        |   - user_pool.pool_bitmap.bits   (back-to-back)
+;                        |   - kernel_viraddr.vaddr_bitmap.bits
+;   0xC007_0000          | kernel .text (link base, kernel_dbg.ld)
+;  ≈0xC007_CFCC          | _end
+;  ≈0xC007_D000          | K_HEAP_START  ((_end & ~0xfff) + 0x1000)
+;                        |   kernel heap grows upward; managed by
+;                        |   kernel_viraddr.vaddr_bitmap; served by
+;                        |   kmalloc / kfree.
+;                        |
+;   0xC00B_8000          | *** RESERVED *** VGA text framebuffer (1 page)
+;                        |   mem_init() calls
+;                        |     mark_kernel_vaddr_reserved(0xC00B8000)
+;                        |   so the heap allocator never hands out this
+;                        |   virtual page.  Without that reservation,
+;                        |   put_page() (memory.c:152) silently rewrites
+;                        |   the PTE the first time a kmalloc happens to
+;                        |   land here, and writes to 0xC00B_8000 stop
+;                        |   reaching physical 0xB8000.  Symptom: screen
+;                        |   freezes after enough kmalloc churn (e.g.
+;                        |   right after frogfs_format_partition).
+;                        |
+;   ... heap continues ...
+;                        |
+;   0xFF40_0000          | KASAN shadow memory bottom
+;                        |   1 directory page + 96 shadow pages covering
+;                        |   ~3 MB of real memory.  (CONFIG_POSION_MEMORY)
+;   0xFF46_0000          | shadow ends
+;                        |
+;   0xFF80_0000          | kernel stack pool bottom
+;                        |   K_THREAD_MAX (=5) * K_STACKSZ_IN_PAGE (=2)
+;                        |   = 10 pages, allocated by alloc_kstack_pool()
+;   0xFFBF_FFFF          | top of stack pool
+;   0xFFC0_0000          | page directory + recursive page-table window
+;   0xFFFF_FFFF          | top of address space
+;
+; =============================================================================
 
 
 LOADER_BASE_ADDR equ 0xc400
