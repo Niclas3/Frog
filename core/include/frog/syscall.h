@@ -1,7 +1,10 @@
 #ifndef __SYS_SYSCALL_H
 #define __SYS_SYSCALL_H
-#include <frog/fs.h>
 #include <frog/ipc.h>
+
+struct dir;
+struct dir_entry;
+struct stat;
 #include <frog/types.h>
 #include <frog/time.h>
 
