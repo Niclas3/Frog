@@ -6,6 +6,8 @@
 
 #include <frog/syscall-init.h>
 #include <frog/syscall.h>
+#include <frog/exit.h>
+#include <frog/fork.h>
 #include <kernel/syscall_fs.h>
 
 /* #include <fs/fs.h>  // for sys_write/ sys_open/ sys_close */
@@ -101,5 +103,8 @@ void syscall_init(void)
     syscall_table[SYS_SEEK]    = sys_lseek;
     syscall_table[SYS_UNLINK]  = sys_unlink;
     syscall_table[SYS_MKDIR]   = sys_mkdir;
+    syscall_table[SYS_FORK]    = sys_fork;
+    syscall_table[SYS_EXIT]    = sys_exit;
+    syscall_table[SYS_WAIT]    = sys_wait;
     syscall_table[SYS_TESTSYSCALL] = sys_testsyscall;
 }

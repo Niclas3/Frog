@@ -1,15 +1,14 @@
-#include <fs/pipe.h>
-
-#include <frog/fs.h>
+#include <kernel/fd.h>
 #include <kernel/panic.h>
 #include <kernel/assert.h>
+#include <kernel/syscall_fs.h>
 #include <frog/math.h>
 #include <frog/exit.h>
 #include <frog/threads.h>
 #include <asm/page.h>
+#include "../../mm/mm_helper.h"
 
 extern struct list_head thread_all_list;
-extern struct file g_file_table[MAX_FILE_OPEN];
 
 static void release_proc_resource(TCB_t *thread)
 {
@@ -57,18 +56,8 @@ static void release_proc_resource(TCB_t *thread)
 
     // close file descriptor
     for (int fd_idx = 0; fd_idx < MAX_FILES_OPEN_PER_PROC; fd_idx++) {
-        if (thread->fd_table[fd_idx] != -1) {
-            if (is_pipe(fd_idx)) {
-                uint_32 global_fd = fd_local2global(fd_idx);
-                if (--g_file_table[global_fd].fd_pos == 0) {
-                    // release pipe
-                    free_page(MP_KERNEL, g_file_table[fd_idx].fd_inode, 1);
-                    g_file_table[global_fd].fd_inode = NULL;
-                }
-            } else {
-                sys_close(fd_idx);
-            }
-        }
+        if (thread->fd_table[fd_idx] != -1)
+            sys_close(fd_idx);
     }
 }
 

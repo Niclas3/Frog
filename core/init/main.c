@@ -258,7 +258,7 @@ static void rest_init(void)
 {
         // init thread pid = 1
         // dive into user mode, start first process init.
-        /* process_execute(init, "init"); */
+        process_execute(init, "init");
         // start a kernel thread like `kthreadd`;  we don't have it yet.
         // TODO:
         // Here is a problem, The every-early kernel thread 'unknow name' thread

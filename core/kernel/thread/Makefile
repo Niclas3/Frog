@@ -1,7 +1,7 @@
 include ../../../Makefile.os_rules
 
 # obj-y += exec.o
-# obj-y += exit.o
+obj-y += exit.o
 obj-y += fork.o
 obj-y += process.o
 obj-y += sched.o
