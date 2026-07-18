@@ -11,6 +11,6 @@
 //                     uint_32 src_dest,
 //                     message *p_msg);
 //
-// void sys_testsyscall(int a);
+void sys_testsyscall(int a);
 void syscall_init(void);
 #endif

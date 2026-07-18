@@ -9,7 +9,7 @@ obj-y += panic.o
 obj-y += ioqueue.o
 obj-y += cpu.o
 
-# obj-y += syscall.o
+obj-y += syscall.o
 
 all: $(subdir) $(obj-y)
 

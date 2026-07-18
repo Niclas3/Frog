@@ -8,6 +8,7 @@
 #include <frog/syscall.h>
 #include <frog/exit.h>
 #include <frog/fork.h>
+#include <kernel/debug.h>
 #include <kernel/syscall_fs.h>
 
 /* #include <fs/fs.h>  // for sys_write/ sys_open/ sys_close */
@@ -91,7 +92,7 @@ syscall syscall_table[syscall_max_nr];
 
 void sys_testsyscall(int a)
 {
-    return;
+    INFO("[init]: ring3 reached, testsyscall a=%d", a);
 }
 
 void syscall_init(void)
