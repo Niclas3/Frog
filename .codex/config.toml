@@ -1,0 +1,7 @@
+[agents.critical_coder]
+description = "Architecture-sensitive Frog OS implementation and runtime correctness work."
+config_file = "agents/critical_coder.toml"
+
+[agents.routine_operator]
+description = "Low-risk inspection, documentation, test execution, and Git operations."
+config_file = "agents/routine_operator.toml"
