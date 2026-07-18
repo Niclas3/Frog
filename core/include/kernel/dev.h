@@ -12,6 +12,6 @@
 #define DEV_MINOR(dev_nr) (dev_nr) & 0xffff
 #define DEV_NR(major, minor) (major << 16) | (minor & 0xffff)
 
-int devfs_create_node(char *pathname,int type,  int major, int minor);
+int devfs_create_node(const char *pathname, int type, int major, int minor);
 
 #endif

@@ -28,17 +28,18 @@ void frog_test_begin(const char *profile)
 
 void frog_test_case(const char *name, int passed)
 {
-        if (!passed)
-                test_failures++;
-        printk("FROGTEST CASE %s %s\n", name, passed ? "PASS" : "FAIL");
+        if (passed)
+                return;
+        test_failures++;
+        printk("FROGTEST CASE %s FAIL\n", name);
 }
 
 void frog_test_milestone(const char *name, int passed)
 {
-        if (!passed)
-                test_failures++;
-        printk("FROGTEST MILESTONE %s %s\n", name,
-               passed ? "PASS" : "FAIL");
+        if (passed)
+                return;
+        test_failures++;
+        printk("FROGTEST MILESTONE %s FAIL\n", name);
 }
 
 void frog_test_finish(void)

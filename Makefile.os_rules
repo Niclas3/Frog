@@ -2,6 +2,10 @@ AS := nasm
 CC := gcc
 LD := ld
 
+abs-src := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/core)
+BUILD_DIR := $(abs-src)/build
+DEPDIR := $(abs-src)/.deps
+
 OUTBIN := out.bin
 
 
@@ -42,12 +46,14 @@ C_OPTIM += -O0
 # -MD : list all header files include system header files
 # -MP : add phony targets
 # -MF : Name of the file
-DEPDIR=$(abs-src)/.deps
-DEPFLAGS=-MMD -MF
+DEPFLAGS = -MMD -MP -MT $@ -MF
 
--include $(DEPDIR)/*.d
-
-abs-src := /home/zm/Development/C/Frog/src/core
+ifneq ($(SKIP_DEPENDENCIES),1)
+ifneq ($(filter $(abs-src)/%,$(CURDIR)),)
+.DEFAULT_GOAL := all
+-include $(wildcard $(DEPDIR)/*.d)
+endif
+endif
 
 # this variable is for choosing target arch, like arm, x86 etc..
 ARCH_CUR := x86
@@ -61,7 +67,6 @@ INCLUDES += $(abs-src)/arch/$(ARCH_CUR)/include
 INCLUDES += $(abs-src)/arch/$(PLTF_CUR)/include
 
 BUILD := ..
-BUILD_DIR = $(abs-src)/build
 
 #gcc compile time Macro
 MACRO_DEBUG := -DCONFIG_DEBUG
@@ -70,12 +75,31 @@ ifeq ($(QEMU_TEST),1)
 MACRO_DEBUG += -DCONFIG_QEMU_TEST
 endif
 ifeq ($(FROG_TEST_PROFILE),disk-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error disk-smoke requires QEMU_TEST=1)
+endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_DISK
+ifeq ($(FROG_TEST_STAGE),prepare)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_STAGE_PREPARE
+else ifeq ($(FROG_TEST_STAGE),verify)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_STAGE_VERIFY
+else ifeq ($(FROG_TEST_STAGE),corrupt)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_STAGE_CORRUPT
+else
+$(error FROG_TEST_STAGE must be prepare, verify, or corrupt for disk-smoke)
+endif
 endif
 C_DMACRO := $(MACRO_DEBUG)
 
 C_OPT := $(C_NO_LINK) $(C_NO_GOT) $(C_WARNG) $(C_MARCH386) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM) $(C_ASAN)
-C_FLAG := $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
+C_FLAG = $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
+
+# Object targets live in the shared build directory, so make can compare the
+# real output timestamps with their source and generated header dependencies.
+build-obj-y = $(addprefix $(BUILD_DIR)/,$(obj-y))
+
+$(BUILD_DIR)/%.o: %.c
+	$(CC) $(C_FLAG) $(DEPDIR)/$*.d -o $@ $(abspath $<)
 
 
 # ld things 

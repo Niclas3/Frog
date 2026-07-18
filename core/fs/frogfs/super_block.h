@@ -2,6 +2,7 @@
 #define __FS_SUPER_BLOCK
 
 #include <frog/bitmap.h>
+#include <frog/semaphore.h>
 #include <frog/types.h>
 #include <frog/compiler.h>
 
@@ -49,6 +50,8 @@ struct frogfs_super_block {
         struct __frogfs_super_block disk_sb;
         struct bitmap *z_bmap;
         struct bitmap *i_bmap;
+        struct lock fs_lock;
+        bool needs_fsck;
 };
 
 struct super_block;
@@ -63,9 +66,9 @@ int_32 alloc_zone_bitmap(struct super_block *sb);
 int_32 free_znode_bitmap(struct super_block *sb, int_32 index);
 
 
-void flush_bitmap_block(struct super_block *sb,
-                        enum frogfs_bmap_t b_type,
-                        int_32 bit_idx);
+int flush_bitmap_block(struct super_block *sb,
+                       enum frogfs_bmap_t b_type,
+                       int_32 bit_idx);
 
 int read_bitmap(struct super_block *sb,
                 uint_32 blk_start,
@@ -73,7 +76,7 @@ int read_bitmap(struct super_block *sb,
                 struct bitmap *bmap);
 int write_bitmap(struct super_block *sb,
                  uint_32 blk_start,
-                 uint_32 size,
+                 uint_32 blk_count,
                  struct bitmap *bmap);
 
 #endif

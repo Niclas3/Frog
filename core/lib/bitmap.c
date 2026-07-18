@@ -28,59 +28,30 @@ void set_value_bitmap(struct bitmap *bmap, uint_32 bit_pos, uint_8 value)
 // count as a bit
 uint_32 find_block_bitmap(struct bitmap *bmap, uint_32 cnt)
 {
-    if(cnt == 0){ return -1; }
-    // 1.If cnt bigger than 8 aka 1 byte, then to find continued a byte.
-    uint_8 *map_p = bmap->bits;
-    uint_32 byte_idx = cnt / 8;
-    uint_32 bit_in_byte = cnt % 8;
-    if (bit_in_byte) {
-        byte_idx++;
-    }  // poor ceil(cnt/8)
-    while ((*map_p == 0xff) &&
-           ((map_p - (bmap->bits)) < bmap->map_bytes_length)) {
-        map_p++;
-    }
-    uint_32 pass_count = map_p - bmap->bits;
-    if (pass_count == bmap->map_bytes_length) {
-        return -1;
-    }
-    ASSERT(pass_count < bmap->map_bytes_length);
-    // Find maybe start of
-    uint_8 *maybe_start = map_p;
-    int bit_idx = 0;
-    while ((FULL_MASK << bit_idx) & *maybe_start) {
-        bit_idx++;
-    }
-    uint_32 start_idx = 8 * (maybe_start - bmap->bits) + bit_idx;
-    if(cnt == 1){ return start_idx; }
+    if (!bmap || !bmap->bits || cnt == 0)
+        return (uint_32) -1;
 
-    uint_32 other_bits = bmap->map_bytes_length * 8 - start_idx;
+    uint_32 bit_count = bmap->map_bytes_length * 8;
+    uint_32 run_start = 0;
+    uint_32 run_length = 0;
 
-    uint_32 next_bit = start_idx + 1;
-    uint_32 count = 1;
-
-    start_idx = -1;
-    if(next_bit >= bmap->map_bytes_length*8){ return start_idx; }
-
-    while(other_bits-- > 0){
-        if(next_bit >= bmap->map_bytes_length*8) break;
-        if(!get_value_bitmap(bmap, next_bit)){ // next_bit is unset aka 0
-            count++;
+    for (uint_32 bit = 0; bit < bit_count; bit++) {
+        if (!get_value_bitmap(bmap, bit)) {
+            if (run_length == 0)
+                run_start = bit;
+            run_length++;
+            if (run_length == cnt)
+                return run_start;
         } else {
-            count = 0;
+            run_length = 0;
         }
-        if(count == cnt){
-            start_idx = next_bit - cnt + 1;
-            break;
-        }
-        next_bit++;
     }
-    return start_idx;
+
+    return (uint_32) -1;
 }
 
 uint_32 get_value_bitmap(struct bitmap *bmap, uint_32 bit_pos)
 {
-    ASSERT(bit_pos >= 0);
     ASSERT(bmap->map_bytes_length * 8 > bit_pos);
     uint_32 byte_id = bit_pos / 8;         // find the target byte
     uint_32 bit_in_byte_id = bit_pos % 8;  // find the right bits in target byte

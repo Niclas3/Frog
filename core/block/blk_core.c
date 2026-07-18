@@ -25,18 +25,41 @@ static const struct block_device_operations *blkdev_table[BLKDEV_TABLE_SIZE];
 static struct bitmap *blkdev_bitmap;
 static LIST_HEAD(g_blk_devs);  // list of block devices
                                //
-extern void msdos_scan_partitions(struct block_device *);
+static int bio_validate_range(struct block_device *bdev,
+                              uint_32 lba,
+                              uint_32 sec_cnt,
+                              const void *buf)
+{
+        if (!bdev || !bdev->bd_disk || !buf || !sec_cnt)
+                return -EINVAL;
+        unsigned long long disk_end = bdev->bd_disk->lba_sectors;
+        unsigned long long device_start = bdev->bd_start_lba;
+        unsigned long long device_end =
+            device_start + (unsigned long long) bdev->bd_sec_cnt;
+        unsigned long long request_start = lba;
+        unsigned long long request_end = request_start + sec_cnt;
+        if (!disk_end || !bdev->bd_sec_cnt || device_end < device_start ||
+            request_end < request_start || device_end > disk_end ||
+            request_start < device_start || request_end > device_end ||
+            request_end > disk_end)
+                return -EIO;
+        return 0;
+}
 
 int bio_write(struct block_device *hd,
               unsigned int lba,
               void *buf,
               unsigned int sec_cnt)
 {
+        int ret = bio_validate_range(hd, lba, sec_cnt, buf);
+        if (ret < 0)
+                return ret;
         if (hd && hd->bd_disk && hd->bd_disk->bdops &&
             hd->bd_disk->bdops->write) {
-                return hd->bd_disk->bdops->write(hd, lba, sec_cnt, buf);
+                ret = hd->bd_disk->bdops->write(hd, lba, sec_cnt, buf);
+                return ret < 0 ? ret : 0;
         } else {
-                return -1;
+                return -ENODEV;
         }
 }
 
@@ -45,36 +68,51 @@ int bio_read(struct block_device *hd,
              void *buf,
              unsigned int sec_cnt)
 {
+        int ret = bio_validate_range(hd, lba, sec_cnt, buf);
+        if (ret < 0)
+                return ret;
         if (hd && hd->bd_disk && hd->bd_disk->bdops &&
             hd->bd_disk->bdops->read) {
-                return hd->bd_disk->bdops->read(hd, lba, sec_cnt, buf);
+                ret = hd->bd_disk->bdops->read(hd, lba, sec_cnt, buf);
+                return ret < 0 ? ret : 0;
         } else {
-                return -1;
+                return -ENODEV;
         }
 }
 
 
-static uint_32 get_avaliable_major()
+static uint_32 get_available_major(void)
 {
-        int idx = find_block_bitmap(blkdev_bitmap, 1);
+        if (!blkdev_bitmap || !blkdev_bitmap->bits)
+                return (uint_32) -1;
+        uint_32 idx = find_block_bitmap(blkdev_bitmap, 1);
+        if (idx == (uint_32) -1 || idx >= BLKDEV_TABLE_SIZE)
+                return (uint_32) -1;
         set_value_bitmap(blkdev_bitmap, idx, 1);
         return idx;
 }
 
 static uint_32 free_major(int idx){
+        if (!blkdev_bitmap || !blkdev_bitmap->bits || idx < 0 ||
+            idx >= BLKDEV_TABLE_SIZE)
+                return (uint_32) -1;
         set_value_bitmap(blkdev_bitmap, idx, 0);
         return 0;
 }
 
-static bool is_avalible_major(uint_32 major)
+static bool major_is_registered(uint_32 major)
 {
+        if (!blkdev_bitmap || !blkdev_bitmap->bits ||
+            major >= BLKDEV_TABLE_SIZE)
+                return false;
         uint_32 value = get_value_bitmap(blkdev_bitmap, major);
         return !!value;
 }
 
 const struct block_device_operations *get_blkdev_operations(int major)
 {
-        ASSERT(major < BLKDEV_TABLE_SIZE && major >= 0);
+        if (major < 0 || major >= BLKDEV_TABLE_SIZE)
+                return NULL;
         return blkdev_table[major];
 }
 
@@ -103,9 +141,12 @@ struct block_device *get_block_device(dev_t dev_no)
 
 int register_blkdev(unsigned int major, struct block_device_operations *bdop)
 {
+        if (!blkdev_bitmap || !blkdev_bitmap->bits || !bdop ||
+            major >= BLKDEV_TABLE_SIZE)
+                return -1;
         if (major == 0) {
-                uint_32 new_major = get_avaliable_major();
-                if (new_major == -1) {
+                uint_32 new_major = get_available_major();
+                if (new_major == (uint_32) -1) {
                         WARN("[blkdev]: not enough blkdev number.");
                         return -1;
                 } else {
@@ -113,7 +154,8 @@ int register_blkdev(unsigned int major, struct block_device_operations *bdop)
                         return new_major;
                 }
         } else {
-                if (is_avalible_major(major)) {
+                if (!major_is_registered(major)) {
+                        set_value_bitmap(blkdev_bitmap, major, 1);
                         blkdev_table[major] = bdop;
                         return major;
                 } else {
@@ -131,7 +173,7 @@ int register_blkdev(unsigned int major, struct block_device_operations *bdop)
  *****************************************************************************/
 int unregister_blkdev(unsigned int major)
 {
-        if (major > BLKDEV_TABLE_SIZE) {
+        if (major >= BLKDEV_TABLE_SIZE) {
                 return -1;
         }
         const struct block_device_operations *target = blkdev_table[major];
@@ -152,6 +194,9 @@ int unregister_blkdev(unsigned int major)
 struct gendisk *alloc_disk()
 {
         struct gendisk *disk = kmalloc(sizeof(struct gendisk));
+        if (!disk)
+                return NULL;
+        memset(disk, 0, sizeof(*disk));
         INIT_LIST_HEAD(&disk->partitions_list);
         return disk;
 }
@@ -218,6 +263,11 @@ void add_disk(struct gendisk *disk)
 
         disk->major = major;
         struct block_device *diskdev = kmalloc(sizeof(struct block_device));
+        if (!diskdev) {
+                unregister_blkdev((uint_32) major);
+                return;
+        }
+        memset(diskdev, 0, sizeof(*diskdev));
         // create a block device for target disk
         diskdev->bd_dev = DEV_NR(disk->major, disk->first_minor);
         diskdev->bd_start_lba = 0;
@@ -236,6 +286,9 @@ struct block_device *alloc_partation_bdev(struct block_device *hd,
                                           int part_index)
 {
         struct block_device *bdev = kmalloc(sizeof(*bdev));
+        if (!bdev)
+                return NULL;
+        memset(bdev, 0, sizeof(*bdev));
         bdev->bd_disk = hd->bd_disk;
         bdev->bd_start_lba = start_lba;
         bdev->bd_sec_cnt = sec_cnt;
@@ -248,25 +301,38 @@ struct block_device *alloc_partation_bdev(struct block_device *hd,
 
 int add_partations_bdev(struct block_device *hd, struct block_device *part_bdev)
 {
-        list_add_tail(&part_bdev->bd_target, &g_blk_devs);
-        list_add_tail(&part_bdev->bd_part_node, &hd->bd_disk->partitions_list);
+        if (!hd || !hd->bd_disk || !part_bdev)
+                return -EINVAL;
+        if (get_block_device(part_bdev->bd_dev))
+                return -EEXIST;
         uint_32 major = DEV_MAJOR(part_bdev->bd_dev);
         uint_32 minor = DEV_MINOR(part_bdev->bd_dev);
         char *name = kmalloc(64);
+        if (!name)
+                return -ENOMEM;
         sprintf(name, "%sp%d", part_bdev->bd_disk->name, minor);
-        devfs_create_node(name, DEV_TYPE_BLOCK, major, minor);
-        DEBUG("[partation]: %s %d %d", name, part_bdev->bd_start_lba,
-              part_bdev->bd_sec_cnt);
+        int ret = devfs_create_node(name, DEV_TYPE_BLOCK, major, minor);
         kfree(name);
+        if (ret < 0)
+                return ret;
+        list_add_tail(&part_bdev->bd_target, &g_blk_devs);
+        list_add_tail(&part_bdev->bd_part_node, &hd->bd_disk->partitions_list);
         return 0;
 }
 
-void block_init(void)
+int block_init(void)
 {
         blkdev_bitmap = kmalloc(sizeof(struct bitmap));
+        if (!blkdev_bitmap)
+                return -ENOMEM;
         blkdev_bitmap->bits = kmalloc(CEIL(BLKDEV_TABLE_SIZE, 8));
+        if (!blkdev_bitmap->bits) {
+                kfree(blkdev_bitmap);
+                blkdev_bitmap = NULL;
+                return -ENOMEM;
+        }
         blkdev_bitmap->map_bytes_length = CEIL(BLKDEV_TABLE_SIZE, 8);
         init_bitmap(blkdev_bitmap);
 
-        return;
+        return 0;
 }

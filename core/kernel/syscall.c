@@ -44,7 +44,7 @@ uint_32 wait2(int n, int_32 *fds, struct timeval *tvp){
     return _syscall3(SYS_WAIT2, n, fds, tvp);
 }
 
-int_32 open(const char *pathname, uint_8 flags)
+int_32 open(const char *pathname, uint_32 flags)
 {
     return _syscall2(SYS_OPEN, (uint_32) pathname, flags);
 }
@@ -52,7 +52,7 @@ int_32 close(int_32 fd)
 {
     return _syscall1(SYS_CLOSE, fd);
 }
-uint_32 write(int_32 fd, const void *buf, uint_32 count)
+int_32 write(int_32 fd, const void *buf, uint_32 count)
 {
     return _syscall3(SYS_WRITE, fd, buf, count);
 }
@@ -116,7 +116,8 @@ int_32 stat(const char *pathname, struct stat *statbuf)
     return _syscall2(SYS_STAT, pathname, statbuf);
 }
 
-uint_32 ioctl(int_32 fd, uint_32 request, void* argp){
+int_32 ioctl(int_32 fd, uint_32 request, void *argp)
+{
     return _syscall3(SYS_IOCTL, fd, request, argp);
 }
 

@@ -121,14 +121,7 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
 {
         // Set all 0 for thread memory
         memset(thread, 0, sizeof(*thread));
-        /* Set default stdio
-         * fd stdio input  0
-         * fd stdio output 1
-         * fd stdio error  2 */
-        thread->fd_table[0] = 0;
-        thread->fd_table[1] = 1;
-        thread->fd_table[2] = 2;
-        uint_8 fd_idx = 3;  // MAX_FILES_OPEN_PER_PROC-3;
+        uint_8 fd_idx = 0;
         while (fd_idx < MAX_FILES_OPEN_PER_PROC) {
                 // -1 represents available file description
                 thread->fd_table[fd_idx] = -1;
@@ -202,7 +195,6 @@ void make_main_thread(void)
         main_thread = (TCB_t *) main_tcb;
         init_thread(main_thread, "main", 42);
 
-        main_thread->pid = 0;
         /* ASSERT(!list_find_element(&main_thread->proc_list_tag,
          * &process_all_list)); */
         /* list_add_tail(&main_thread->proc_list_tag, &process_all_list); */
@@ -350,6 +342,7 @@ void thread_exit(TCB_t *discard_thread, bool need_schedule)
 {
         unsigned long flags;
         local_irq_save(flags);
+        pid_t discard_pid = discard_thread->pid;
         discard_thread->status = THREAD_TASK_DIED;
         struct list_head *discard_node = &discard_thread->general_tag;
         if (list_find_element(discard_node, &thread_ready_list)) {
@@ -362,16 +355,17 @@ void thread_exit(TCB_t *discard_thread, bool need_schedule)
 
         // remove from all_thread_list
         list_del_init(&discard_thread->all_list_tag);
+        release_pid(discard_pid);
 
         if (discard_thread != main_thread) {
                 free_page(MP_KERNEL, discard_thread, 1);
         }
 
-        release_pid(discard_thread->pid);
         if (need_schedule) {
                 schedule();
                 PANIC("waiting for next!");
         }
+        local_irq_restore(flags);
 }
 
 static bool find_pid(struct list_head *ele, pid_t pid)

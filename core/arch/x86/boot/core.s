@@ -13,6 +13,7 @@ extern i386_start_kernel  ;start symbol of C file
 
 ;---------------------------------------------------------------
 extern syscall_table
+extern syscall_table_size
 global syscall_handler
 
 extern exception_handler
@@ -226,7 +227,16 @@ syscall_handler:
 ; syscall_table
 ; eax is syscall number,
 ; syscall_table contains function pointer which size is 4 bytes
-    call [syscall_table + eax * 4]
+    cmp eax, [syscall_table_size]
+    jae .invalid_syscall
+    mov edi, [syscall_table + eax * 4]
+    test edi, edi
+    jz .invalid_syscall
+    call edi
+    jmp .syscall_done
+.invalid_syscall:
+    mov eax, -38 ; -ENOSYS
+.syscall_done:
     add esp, 4*4
 ;4. return value at eax,
 ;   esp+8*4 is eax 

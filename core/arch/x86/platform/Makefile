@@ -6,7 +6,7 @@ all: $(subdir)
 $(subdir): %:
 	$(MAKE) -C $@
 
-.PHONY: $(subdir) clean all
+.PHONY: all $(subdir) clean
 
 clean:
 	rm -rf ./*.o

@@ -1,11 +1,11 @@
 include ../../../../Makefile.os_rules
 
-all: boot.o
+all: $(BUILD_DIR)/boot.o
 
-boot.o : core.s
-	$(AS) $(A_FLAG) -o $(BUILD_DIR)/$@ $^
+$(BUILD_DIR)/boot.o: core.s
+	$(AS) $(A_FLAG) -o $@ $<
 
-.PHONY: all
+.PHONY: all clean
 
 clean:
 	rm -rf ./*.o

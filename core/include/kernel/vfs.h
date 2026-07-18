@@ -9,6 +9,7 @@
 #include <kernel/vfs_ops.h>
 
 #define FILE_NAME_MAX 255
+#define PATH_NAME_MAX 4096
 
 enum file_type {
         FT_UNKOWN = 0,
@@ -73,6 +74,7 @@ struct file {
         // offset of this file
         uint_32 f_pos;  // next available byte
         uint_32 f_flag;
+        uint_32 f_count;  // number of descriptor tables sharing this file
         struct inode *f_inode;
         struct file_operations *f_op;
         struct dentry *f_dentry;  //  related dir entry
@@ -97,13 +99,15 @@ struct dentry {
 
 
 // vfs helper functions
-struct dentry *dentry_lookup(struct dentry *parent, char *name);
+struct dentry *dentry_lookup(struct dentry *parent, const char *name);
 void dentry_add_child(struct dentry *parent, struct dentry *child);
-char *path_pop_tail(char *path, char *last_name);
-char **next_path_components(char **p_path, char *component);
+void vfs_namespace_lock(void);
+void vfs_namespace_unlock(void);
 
 // Init some vfs infrastructure like mount list, fs type list.
 int_32 vfs_init(void);
+int root_fs_init(void);
+int dev_fs_init(void);
 
 struct dentry *vfs_lookup(const char *path);
 
@@ -113,19 +117,23 @@ int_32 vfs_mount(const char *pathname,
                  const char *dev_name,
                  void *data);
 
-struct file *vfs_open(char *path, uint_8 flags);
+struct file *vfs_open(const char *path, uint_32 flags);
+int_32 vfs_open_file(const char *path,
+                     uint_32 flags,
+                     struct file **file_out);
 int_32 vfs_write(struct file *file, const void *buf, uint_32 count);
 int_32 vfs_read(struct file *file, void *buf, uint_32 count);
 int_32 vfs_lseek(struct file *file, int_32 offset, uint_8 whence);
 uint_32 vfs_poll(struct file *file, struct poll_table_struct *wait);
-uint_32 vfs_ioctl(struct file *file, uint_32 request, void *argp);
+int_32 vfs_ioctl(struct file *file, uint_32 request, void *argp);
 int_32 vfs_close(struct file *file);
 
 int_32 vfs_mkdir(struct dentry *parent, struct dentry *child);
+int_32 vfs_mkdir_path(const char *path);
 int_32 vfs_unlink(struct dentry *dir);
 int_32 vfs_rmdir(struct dentry *dir);
-int_32 vfs_readdir(struct file *dir, struct dentry *entry_out);
-void vfs_rewinddir(struct file *dir);
+int_32 vfs_unlink_path(const char *path);
+int_32 vfs_rmdir_path(const char *path);
 
 // char *vfs_getcwd(char *buf, int_32 size);
 // int_32 vfs_chdir(const char *pathname);

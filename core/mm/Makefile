@@ -4,11 +4,8 @@ obj-y += kasan.o
 obj-y += page_fault.o
 obj-y += mm_test.o
 
-.PHONY = all
-all: $(obj-y)
-
-$(obj-y) : %.o : %.c
-	$(CC) $(C_FLAG) $(DEPDIR)/$(@:.o=.d) -o $(BUILD_DIR)/$@  $<
+.PHONY: all clean
+all: $(build-obj-y)
 
 clean:
 	rm -rf ./*.o

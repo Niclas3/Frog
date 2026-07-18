@@ -48,6 +48,7 @@ enum SYSCALL_NR {
     // TIME
     SYS_GETTIMEOFDAY,
     SYS_SETTIMEOFDAY,
+    SYS_NR_COUNT,
 };
 
 /**
@@ -252,11 +253,11 @@ uint_32 wait2(int n, int_32 *fds, struct timeval *tvp);
 
 // System call: uint_32 write(char*)
 // return len of str
-int_32 open(const char *pathname, uint_8 flags);
+int_32 open(const char *pathname, uint_32 flags);
 
 int_32 close(int_32 fd);
 
-uint_32 write(int_32 fd, const void *buf, uint_32 count);
+int_32 write(int_32 fd, const void *buf, uint_32 count);
 
 int_32 read(int_32 fd, void *buf, uint_32 count);
 
@@ -281,7 +282,7 @@ int_32 chdir(const char *pathname);
 
 int_32 stat(const char *pathname, struct stat *statbuf);
 
-uint_32 ioctl(int_32 fd, uint_32 request, void* argp);
+int_32 ioctl(int_32 fd, uint_32 request, void *argp);
 
 void putc(char c);
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg);

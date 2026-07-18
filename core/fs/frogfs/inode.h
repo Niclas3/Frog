@@ -62,7 +62,7 @@ struct frogfs_inode {
 struct inode *geti(struct super_block *sb, uint_32 inode_nr);
 void new_inode(uint_32 inode_nr, struct inode* new_inode);
 
-void flush_inode(struct super_block *sb, struct inode *inode, void *io_buf);
-void release_inode(struct super_block *sb, uint_32 inode_nr);
+int flush_inode(struct super_block *sb, struct inode *inode, void *io_buf);
+int clear_inode(struct super_block *sb, uint_32 inode_nr, void *io_buf);
 
 #endif

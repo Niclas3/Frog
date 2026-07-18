@@ -1,15 +1,11 @@
 include ../../../Makefile.os_rules
 obj-y += devfs.o
 
-all: $(subdir) $(obj-y)
+all: $(subdir) $(build-obj-y)
 
 $(subdir): %:
 	$(MAKE) -C $@
 
-$(obj-y) : %.o : %.c
-	$(CC) $(C_FLAG) $(DEPDIR)/$(@:.o=.d) -o $(BUILD_DIR)/$@  $<
-
-.PHONY: $(subdir) clean
+.PHONY: all $(subdir) clean
 clean:
 	rm -rf ./*.o
-

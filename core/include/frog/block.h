@@ -5,9 +5,10 @@
 
 struct gendisk;
 
-extern void block_init(void);
+int block_init(void);
 
 struct block_device *get_block_device(dev_t dev_no);
+void msdos_scan_partitions(struct block_device *bdev);
 extern int bio_write(struct block_device *hd,
               unsigned int lba,
               void *buf,

@@ -8,6 +8,7 @@
 #include <frog/syscall.h>
 #include <frog/exit.h>
 #include <frog/fork.h>
+#include <frog/errno.h>
 #include <kernel/debug.h>
 #include <kernel/syscall_fs.h>
 #include <kernel/qemu_test.h>
@@ -27,10 +28,15 @@
 /* #include <math.h> */
 /* #include <sys/memory.h> */
 
-#define syscall_max_nr 32
 typedef void *syscall;
 
-syscall syscall_table[syscall_max_nr];
+syscall syscall_table[SYS_NR_COUNT];
+uint_32 syscall_table_size = SYS_NR_COUNT;
+
+static int_32 sys_ni_syscall(void)
+{
+    return -ENOSYS;
+}
 
 /* uint_32 sys_getpid(void) */
 /* { */
@@ -102,6 +108,9 @@ void sys_testsyscall(int a)
 
 void syscall_init(void)
 {
+    for (uint_32 nr = 0; nr < SYS_NR_COUNT; nr++)
+        syscall_table[nr] = sys_ni_syscall;
+
     syscall_table[SYS_OPEN]    = sys_open;
     syscall_table[SYS_CLOSE]   = sys_close;
     syscall_table[SYS_READ]    = sys_read;
@@ -109,6 +118,8 @@ void syscall_init(void)
     syscall_table[SYS_SEEK]    = sys_lseek;
     syscall_table[SYS_UNLINK]  = sys_unlink;
     syscall_table[SYS_MKDIR]   = sys_mkdir;
+    syscall_table[SYS_RMDIR]   = sys_rmdir;
+    syscall_table[SYS_IOCTL]   = sys_ioctl;
     syscall_table[SYS_FORK]    = sys_fork;
     syscall_table[SYS_EXIT]    = sys_exit;
     syscall_table[SYS_WAIT]    = sys_wait;

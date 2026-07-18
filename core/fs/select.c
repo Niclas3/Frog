@@ -39,6 +39,11 @@ void __pollwait(struct file *filp,
                 wait_queue_head_t *wait_address,
                 poll_table *p)
 {
+        if (!p || !filp || !wait_address) {
+                if (p)
+                        p->error = -EINVAL;
+                return;
+        }
         struct poll_table_page *table = p->table;
         TCB_t *current = running_thread();
 
@@ -48,7 +53,6 @@ void __pollwait(struct file *filp,
                 new_table = (struct poll_table_page *) get_kernel_page(1);
                 if (!new_table) {
                         p->error = -ENOMEM;
-                        current->status = THREAD_TASK_RUNNING;
                         return;
                 }
                 new_table->entry = new_table->entries;
@@ -70,7 +74,10 @@ void __pollwait(struct file *filp,
 
 void poll_freewait(poll_table *pt)
 {
+        if (!pt)
+                return;
         struct poll_table_page *p = pt->table;
+        pt->table = NULL;
         while (p) {
                 struct poll_table_entry *entry;
                 struct poll_table_page *old;

@@ -3,10 +3,7 @@ include ../../../../../Makefile.os_rules
 obj-y += pc_plt_init.o
 # obj-y += lfbvideo.o
 
-.PHONY = all
-all: $(obj-y)
-
-$(obj-y) : %.o : %.c
-	$(CC) $(C_FLAG) $(DEPDIR)/$(@:.o=.d) -o $(BUILD_DIR)/$@  $<
+.PHONY: all clean
+all: $(build-obj-y)
 clean:
 	rm -rf ./*.o

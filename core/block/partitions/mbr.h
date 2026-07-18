@@ -68,9 +68,9 @@ enum dpt_fs_t {
         DPT_FILE_SYSTEM_TYPE_LINUX_SWAP = 0x82,
 };
 
-#define IS_NULL_ENTRY(entry)                                 \
-        ((entry).end_head == 0) && ((entry).end_sec == 0) && \
-            ((entry).end_chs == 0)
+#define IS_NULL_ENTRY(entry)                                      \
+        ((entry).fs_type == 0 && (entry).start_lba == 0 &&        \
+         (entry).sec_cnt == 0)
 
 #define MAX_LOGICAL_PARTATIONS 63
 

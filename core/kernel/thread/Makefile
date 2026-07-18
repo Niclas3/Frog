@@ -8,13 +8,10 @@ obj-y += sched.o
 obj-y += semaphore.o
 obj-y += threads.o
 
-.PHONY = all
-all: $(obj-y) switch.o
+.PHONY: all clean
+all: $(build-obj-y) $(BUILD_DIR)/switch.o
 
-$(obj-y) : %.o : %.c
-	$(CC) $(C_FLAG) $(DEPDIR)/$(@:.o=.d) -o $(BUILD_DIR)/$@  $<
-
-switch.o : switch.s
-	$(AS) $(A_FLAG) -o $(BUILD_DIR)/$@ $^
+$(BUILD_DIR)/switch.o: switch.s
+	$(AS) $(A_FLAG) -o $@ $<
 clean:
 	rm -rf ./*.o

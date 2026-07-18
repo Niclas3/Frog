@@ -2,6 +2,7 @@
 #define _FROGFS_H
 
 #include <frog/types.h>
+#include <kernel/frogfs.h>
 #include "super_block.h"
 
 struct dentry;

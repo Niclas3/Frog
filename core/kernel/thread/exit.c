@@ -10,6 +10,14 @@
 
 extern struct list_head thread_all_list;
 
+static pid_t init_process_pid = -1;
+
+void set_init_process_pid(pid_t pid)
+{
+    ASSERT(pid != (pid_t) -1);
+    init_process_pid = pid;
+}
+
 static void release_proc_resource(TCB_t *thread)
 {
     // free kernel symbol link page
@@ -86,7 +94,7 @@ static bool proc_init_adopt_a_child(struct list_head *ele, pid_t pid)
 {
     TCB_t *cur = container_of(ele, TCB_t, all_list_tag);
     if (cur->parent_pid == pid) {
-        cur->parent_pid = 1;
+        cur->parent_pid = init_process_pid;
     }
     return false;
 }

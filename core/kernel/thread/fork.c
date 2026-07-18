@@ -110,16 +110,15 @@ static int_32 build_child_stack(TCB_t *child_thread, TCB_t *parent_thread)
         return 0;
 }
 
-static void update_inode_open_cnts(TCB_t *thread)
+static void retain_open_files(TCB_t *thread)
 {
-        for (int_32 local_fd = 3; local_fd < MAX_FILES_OPEN_PER_PROC;
+        for (int_32 local_fd = 0; local_fd < MAX_FILES_OPEN_PER_PROC;
              local_fd++) {
                 int_32 global_fd = thread->fd_table[local_fd];
                 if (global_fd < 0 || global_fd >= MAX_FILE_OPEN)
                         continue;
                 struct file *f = g_file_table[global_fd];
-                if (f && f->f_inode)
-                        f->f_inode->i_count++;
+                fd_retain(f);
         }
 }
 
@@ -135,7 +134,7 @@ static uint_32 copy_process(TCB_t *child_thread, TCB_t *parent_thread)
                 return -1;
         copy_body_stack3(child_thread, parent_thread, buf_page);
         build_child_stack(child_thread, parent_thread);
-        update_inode_open_cnts(child_thread);
+        retain_open_files(child_thread);
         free_page(MP_KERNEL, buf_page, 1);
         return 0;
 }

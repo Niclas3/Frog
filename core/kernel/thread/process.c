@@ -147,7 +147,7 @@ static void create_user_vaddr_bitmap(TCB_t *user_prog)
         init_bitmap(&user_prog->progress_vaddr.vaddr_bitmap);
 }
 
-void process_execute(void *filename, char *name)
+uint_32 process_execute(void *filename, char *name)
 {
         TCB_t *thread = get_kernel_page(1);
         init_thread(thread, name, DEFAULT_PRIORITY);
@@ -165,6 +165,7 @@ void process_execute(void *filename, char *name)
         list_add_tail(&thread->all_list_tag, &thread_all_list);
 
         local_irq_restore(flags);
+        return thread->pid;
 }
 
 void process_execute_ring1(void *filename, char *name)

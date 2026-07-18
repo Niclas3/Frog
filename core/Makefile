@@ -1,7 +1,8 @@
- # use ELF format
- # Real OS code ###########################
+SKIP_DEPENDENCIES := 1
 include ../Makefile.os_rules
 CORE = core
+CORE_IMAGE := $(BUILD_DIR)/core.img
+CORE_SYMBOL_IMAGE := $(BUILD_DIR)/core_symbol.img
 
 # $(BUILD_DIR)/exec.o
 # $(BUILD_DIR)/exit.o
@@ -20,7 +21,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o \
 	 $(BUILD_DIR)/msdos.o \
 	 $(BUILD_DIR)/blk_core.o \
-	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o \
+	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o $(BUILD_DIR)/fs_regression.o \
 	 $(BUILD_DIR)/frogfs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/ffs_utils.o $(BUILD_DIR)/ffs_super_block.o \
 	 $(BUILD_DIR)/kasan.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/mm_test.o \
 	 $(BUILD_DIR)/panic.o $(BUILD_DIR)/qemu_test.o \
@@ -36,25 +37,13 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 # obj-y = $(BUILD_DIR)/*.o
 
 
-# link object files, the final file of kernel is named `core.img`
+# Build objects through the existing directory ownership hierarchy.  The
+# second make invocation starts after that traversal, so link freshness is
+# evaluated against object timestamps updated by the recursive builds.
 prepare_build:
-	@mkdir -p $(DEPDIR)
+	@mkdir -p $(DEPDIR) $(BUILD_DIR)
 
-core:prepare_build core.img
-
-debug: core_symbol.img
-
-
-core_symbol.img: $(obj-y)
-	ld $(LD_DEBUG_FLAG) -o $(BUILD_DIR)/$@ $^
-
-core.img: $(obj-y)
-	ld $(LD_FLAG) -o $(BUILD_DIR)/$@  $^
-
-
-# $(MAKE) -C ./ipc/
-# $(MAKE) -C ./net/
-$(obj-y):
+build_objects: prepare_build
 	$(MAKE) -C ./arch/x86/
 	$(MAKE) -C ./lib/
 	$(MAKE) -C ./init/
@@ -64,9 +53,23 @@ $(obj-y):
 	$(MAKE) -C ./fs/
 	$(MAKE) -C ./block/
 
+core: build_objects
+	$(MAKE) $(CORE_IMAGE)
+
+debug: build_objects
+	$(MAKE) $(CORE_SYMBOL_IMAGE)
+
+$(CORE_SYMBOL_IMAGE): $(obj-y)
+	$(LD) $(LD_DEBUG_FLAG) -o $@ $^
+
+$(CORE_IMAGE): $(obj-y)
+	$(LD) $(LD_FLAG) -o $@ $^
+
+.PHONY: prepare_build build_objects core debug clean
+
 sb:
 	@ls build
 
 clean:
-	rm -rf ./.deps/*.d
-	cd ./build && rm -rf ./*
+	rm -f $(DEPDIR)/*.d
+	rm -f $(BUILD_DIR)/*
