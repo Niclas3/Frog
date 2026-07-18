@@ -6,6 +6,7 @@ subdir += time/
 
 obj-y += softirq.o
 obj-y += panic.o
+obj-y += qemu_test.o
 obj-y += ioqueue.o
 obj-y += cpu.o
 
@@ -22,4 +23,3 @@ $(obj-y) : %.o : %.c
 .PHONY: $(subdir) clean
 clean:
 	rm -rf ./*.o
-

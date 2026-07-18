@@ -2,10 +2,9 @@
 #define _ARCH_X86_BUG_H
 
 #define HAVE_ARCH_BUG
-#define BUG()                            \
-        do {                             \
-                __asm__ volatile("ud2"); \
-        } while (0)
+void bug(const char *file, int line, const char *func);
+
+#define BUG() bug(__FILE__, __LINE__, __func__)
 
 #define BUG_ON(condition) do {if(condition) BUG(); }while(0)
 

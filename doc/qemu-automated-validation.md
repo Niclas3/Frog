@@ -156,3 +156,12 @@ must be reported separately.
 
 This work implements the automated boot-smoke requirement in Milestone 0 and is
 the prerequisite for reliable unattended development loops.
+## Implementation status
+
+The initial infrastructure is implemented by `scripts/qemu-test.sh`. Both
+`boot-smoke` and `disk-smoke` perform clean builds, package disposable image
+copies, capture port `0xe9`, enforce a hard timeout, normalize the
+`isa-debug-exit` status, and write `result.json`. The guest reports aggregate
+case status and the ring-3 milestone; panic and architecture assertions use the
+test-only failure exit path. Normal kernel builds do not enable debug-exit, and
+destructive self-tests are compiled only for `disk-smoke`.

@@ -1,4 +1,5 @@
 #ifndef __FROG_PANIC_H
+#define __FROG_PANIC_H
 
 void panic(const char *file, int line, const char *func, const char *msg);
 

@@ -6,7 +6,12 @@
 #include "./mem_egg.h"
 
 #define PASS(name)         INFO("[mm-test]: PASS  " name)
-#define FAIL(name, ...)    WARN("[mm-test]: FAIL  " name, ##__VA_ARGS__)
+static int mm_test_failures;
+#define FAIL(name, ...)                                                   \
+        do {                                                              \
+                mm_test_failures++;                                       \
+                WARN("[mm-test]: FAIL  " name, ##__VA_ARGS__);           \
+        } while (0)
 
 /*
  * 1. Slab basic: alloc/fill/free one block per slab tier (16..1024 bytes).
@@ -198,8 +203,9 @@ static void mm_slab_reuse(void)
         PASS("slab_reuse (128-byte block reuse after free)");
 }
 
-void mm_regression_test(void)
+int mm_regression_test(void)
 {
+        mm_test_failures = 0;
         INFO("[mm-test]: ===== memory regression tests =====");
         mm_slab_basic();
         mm_slab_isolation();
@@ -208,4 +214,5 @@ void mm_regression_test(void)
         mm_large_alloc_multi();
         mm_slab_reuse();
         INFO("[mm-test]: ===== done =====");
+        return mm_test_failures;
 }

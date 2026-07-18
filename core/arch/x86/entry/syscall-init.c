@@ -10,6 +10,7 @@
 #include <frog/fork.h>
 #include <kernel/debug.h>
 #include <kernel/syscall_fs.h>
+#include <kernel/qemu_test.h>
 
 /* #include <fs/fs.h>  // for sys_write/ sys_open/ sys_close */
 /* #include <sys/exec.h> */
@@ -93,6 +94,10 @@ syscall syscall_table[syscall_max_nr];
 void sys_testsyscall(int a)
 {
     INFO("[init]: ring3 reached, testsyscall a=%d", a);
+#ifdef CONFIG_QEMU_TEST
+    frog_test_milestone("ring3", 1);
+    frog_test_finish();
+#endif
 }
 
 void syscall_init(void)

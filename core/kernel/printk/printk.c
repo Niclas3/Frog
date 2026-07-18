@@ -4,8 +4,6 @@
 #include "./print.h"
 
 #include <frog/irqflags.h>
-#include <frog/threads.h>
-#include <kernel/cpu.h>
 #include <kernel/debug.h>
 #define DEMSG_LEN 1024
 
@@ -13,17 +11,13 @@ char __ringbuf[DEMSG_LEN];  // a ring buffer for printk
 
 int printk(const char *fmt, ...)
 {
-        TCB_t *cur = this_cpu()->current_thread;
-        // only call printk() at kernel thread and interrupt context
-        if (cur && !cur->pgdir) {
-                va_list args;
-                va_start(args, fmt);
-                char buf[1024] = {0};
-                vsprintf(buf, fmt, args);
-                va_end(args);
-                put_str(buf);
-                return 0;
-        }
+        va_list args;
+        va_start(args, fmt);
+        char buf[1024] = {0};
+        vsprintf(buf, fmt, args);
+        va_end(args);
+        debugcon_put_str(buf);
+        put_str(buf);
         return 0;
 }
 
@@ -35,6 +29,7 @@ int printk_with_cls(const char *fmt, ...)
         char buf[1024] = {0};
         vsprintf(buf, fmt, args);
         va_end(args);
+        debugcon_put_str(buf);
         put_str(buf);
         return 0;
 }

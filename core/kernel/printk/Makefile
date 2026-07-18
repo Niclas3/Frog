@@ -1,6 +1,6 @@
 include ../../../Makefile.os_rules
 
-obj-y += printk.o vga.o
+obj-y += printk.o vga.o debugcon.o
 
 .PHONY = all
 all: $(obj-y) print.o

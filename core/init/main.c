@@ -19,6 +19,7 @@
 
 #include <kernel/debug.h>
 #include <kernel/panic.h>
+#include <kernel/qemu_test.h>
 
 extern void init(void);
 extern void cpu_idle(void);
@@ -34,25 +35,26 @@ extern uint_32 ps2_kbd_driver_init(void);
 extern uint_32 ata_ide_driver_init(void);
 
 extern void vga_self_test(void);
-extern void mm_regression_test(void);
+extern int mm_regression_test(void);
 
 // end test
 
 
 #include <frog/linker.h>
 
-static void bare_disk_io_test(void)
+#ifdef CONFIG_FROG_TEST_DISK
+static int bare_disk_io_test(void)
 {
         struct dentry *d = vfs_lookup("/dev/sdbp8");
         if (!d || !d->d_inode) {
                 WARN("[bare-io]: cannot find /dev/sdbp8");
-                return;
+                return -1;
         }
 
         struct block_device *bdev = get_block_device(d->d_inode->i_dev);
         if (!bdev) {
                 WARN("[bare-io]: get_block_device returned NULL");
-                return;
+                return -1;
         }
 
         uint_32 test_lba = bdev->bd_start_lba + bdev->bd_sec_cnt - 4;
@@ -60,7 +62,7 @@ static void bare_disk_io_test(void)
         uint_8 *rbuf = kmalloc(512);
         if (!wbuf || !rbuf) {
                 WARN("[bare-io]: alloc fail");
-                return;
+                return -1;
         }
 
         for (int i = 0; i < 512; i++)
@@ -71,14 +73,14 @@ static void bare_disk_io_test(void)
                 WARN("[bare-io]: bio_write fail at lba=%d", test_lba);
                 kfree(wbuf);
                 kfree(rbuf);
-                return;
+                return -1;
         }
 
         if (bio_read(bdev, test_lba, rbuf, 1) < 0) {
                 WARN("[bare-io]: bio_read fail at lba=%d", test_lba);
                 kfree(wbuf);
                 kfree(rbuf);
-                return;
+                return -1;
         }
 
         int mismatch_at = -1;
@@ -93,16 +95,17 @@ static void bare_disk_io_test(void)
                      mismatch_at, wbuf[mismatch_at], rbuf[mismatch_at]);
                 kfree(wbuf);
                 kfree(rbuf);
-                return;
+                return -1;
         }
 
         INFO("[bare-io]: bare disk round-trip passed lba=%d (partition end-4)",
              test_lba);
         kfree(wbuf);
         kfree(rbuf);
+        return 0;
 }
 
-static void frogfs_basic_io_test(void)
+static int frogfs_basic_io_test(void)
 {
         char *paths[] = {
             "/test/frogio0", "/test/frogio1", "/test/frogio2",
@@ -125,7 +128,7 @@ static void frogfs_basic_io_test(void)
 
         if (!file) {
                 WARN("[frogfs-test]: create/open failed");
-                return;
+                return -1;
         }
 
         int_32 written = vfs_write(file, payload, payload_len);
@@ -133,13 +136,13 @@ static void frogfs_basic_io_test(void)
                 WARN("[frogfs-test]: write failed: %d/%d", written,
                      payload_len);
                 vfs_close(file);
-                return;
+                return -1;
         }
 
         if (vfs_lseek(file, 0, SEEK_SET) != 0) {
                 WARN("[frogfs-test]: seek failed");
                 vfs_close(file);
-                return;
+                return -1;
         }
 
         memset(read_buf, 0, sizeof(read_buf));
@@ -149,7 +152,7 @@ static void frogfs_basic_io_test(void)
                 WARN("[frogfs-test]: read-after-write failed: %d/%d",
                      read_size, payload_len);
                 vfs_close(file);
-                return;
+                return -1;
         }
 
         vfs_close(file);
@@ -157,7 +160,7 @@ static void frogfs_basic_io_test(void)
         file = vfs_open(path, O_RDWR);
         if (!file) {
                 WARN("[frogfs-test]: reopen failed: %s", path);
-                return;
+                return -1;
         }
 
         memset(read_buf, 0, sizeof(read_buf));
@@ -172,9 +175,10 @@ static void frogfs_basic_io_test(void)
 
         vfs_close(file);
         INFO("[frogfs-test]: create/write/read/reopen passed: %s", path);
+        return 0;
 }
 
-static void frogfs_unlink_test(void)
+static int frogfs_unlink_test(void)
 {
         char *paths[] = {
             "/test/unlink0", "/test/unlink1", "/test/unlink2",
@@ -192,19 +196,19 @@ static void frogfs_unlink_test(void)
         }
         if (!file) {
                 WARN("[frogfs-unlink]: create failed");
-                return;
+                return -1;
         }
         vfs_close(file);
 
         struct dentry *d = vfs_lookup(path);
         if (!d || !d->d_inode) {
                 WARN("[frogfs-unlink]: lookup failed after create: %s", path);
-                return;
+                return -1;
         }
 
         if (vfs_unlink(d) != 0) {
                 WARN("[frogfs-unlink]: unlink failed: %s", path);
-                return;
+                return -1;
         }
 
         file = vfs_open(path, O_RDWR);
@@ -212,11 +216,13 @@ static void frogfs_unlink_test(void)
                 WARN("[frogfs-unlink]: file still openable after unlink: %s",
                      path);
                 vfs_close(file);
-                return;
+                return -1;
         }
 
         INFO("[frogfs-unlink]: create/lookup/unlink/verify passed: %s", path);
+        return 0;
 }
+#endif
 
 static void do_basic_setup(void)
 {
@@ -246,10 +252,15 @@ static void do_basic_setup(void)
         /* packagefs_init(); #<{(| "/dev/pkg" |)}># */
 
         vga_self_test();
-        mm_regression_test();
-        bare_disk_io_test();
-        frogfs_basic_io_test();
-        frogfs_unlink_test();
+        int mm_failures = mm_regression_test();
+#ifdef CONFIG_QEMU_TEST
+        frog_test_case("mm.regression", mm_failures == 0);
+#endif
+#ifdef CONFIG_FROG_TEST_DISK
+        frog_test_case("disk.raw-roundtrip", bare_disk_io_test() == 0);
+        frog_test_case("frogfs.basic-io", frogfs_basic_io_test() == 0);
+        frog_test_case("frogfs.unlink", frogfs_unlink_test() == 0);
+#endif
 }
 
 
@@ -318,7 +329,14 @@ static inline void setup_local_cpus(void)
 
 __visible void __noreturn start_kernel(void)
 {
-        printk_with_cls("[main]: ready to init kernel...");
+        printk_with_cls("[main]: ready to init kernel...\n");
+#ifdef CONFIG_QEMU_TEST
+#ifdef CONFIG_FROG_TEST_DISK
+        frog_test_begin("disk-smoke");
+#else
+        frog_test_begin("boot-smoke");
+#endif
+#endif
         setup_local_cpus();
         platform_init();
         mem_init();
@@ -349,8 +367,10 @@ __visible void __noreturn start_kernel(void)
         ata_ide_driver_init();
 
         /****************************************/
+#if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK)
         frogfs_init();
         vfs_mount("/test", "frogfs", 0, "/dev/sdbp8", NULL);
+#endif
 
         syscall_init();
 

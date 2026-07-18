@@ -66,6 +66,12 @@ BUILD_DIR = $(abs-src)/build
 #gcc compile time Macro
 MACRO_DEBUG := -DCONFIG_DEBUG
 MACRO_DEBUG += -DCONFIG_POSION_MEMORY
+ifeq ($(QEMU_TEST),1)
+MACRO_DEBUG += -DCONFIG_QEMU_TEST
+endif
+ifeq ($(FROG_TEST_PROFILE),disk-smoke)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_DISK
+endif
 C_DMACRO := $(MACRO_DEBUG)
 
 C_OPT := $(C_NO_LINK) $(C_NO_GOT) $(C_WARNG) $(C_MARCH386) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM) $(C_ASAN)
@@ -88,4 +94,3 @@ C_FLAG := $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
 CORE_VADDR := 0xc0070000
 LD_FLAG := -s -m elf_i386 -T ./scripts/kernel_dbg.ld
 LD_DEBUG_FLAG := -M -m elf_i386 -T ./scripts/kernel_dbg.ld
-
