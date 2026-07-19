@@ -4,9 +4,9 @@
 #include <kernel/syscall_fs.h>
 #include <frog/math.h>
 #include <frog/exit.h>
+#include <frog/irqflags.h>
+#include <frog/process.h>
 #include <frog/threads.h>
-#include <asm/page.h>
-#include "../../mm/mm_helper.h"
 
 extern struct list_head thread_all_list;
 
@@ -18,50 +18,8 @@ void set_init_process_pid(pid_t pid)
     init_process_pid = pid;
 }
 
-static void release_proc_resource(TCB_t *thread)
+static void close_process_files(TCB_t *thread)
 {
-    // free kernel symbol link page
-    uint_32 *pgdir = thread->pgdir;
-    uint_16 user_pde_nr = 768;
-    uint_16 pde_idx = 0;
-    uint_32 pde = 0;
-    uint_32 *pde_p = NULL;
-
-    uint_16 user_pte_nr = 1024;
-    uint_16 pte_idx = 0;
-    uint_32 pte = 0;
-    uint_32 *pte_p = NULL;
-
-    uint_32 *first_pte_vaddr_in_pde = NULL;
-    uint_32 pg_phy_addr = 0;
-    while (pde_idx < user_pde_nr) {
-        pde_p = pgdir + pde_idx;
-        pde = *pde_p;
-        if (pde & 0x00000001) {
-            // one page table has 4M size
-            first_pte_vaddr_in_pde = pte_ptr(pde_idx * 0x400000);
-            pte_idx = 0;
-            while (pte_idx < user_pte_nr) {
-                pte_p = first_pte_vaddr_in_pde + pte_idx;
-                pte = *pte_p;
-                if (pte & 0x00000001) {
-                    pg_phy_addr = pte & 0xfffff000;
-                    free_phy_page(pg_phy_addr);
-                }
-                pte_idx++;
-            }
-            pg_phy_addr = pde & 0xfffff000;
-            free_phy_page(pg_phy_addr);
-        }
-        pde_idx++;
-    }
-
-    // free bitmap page
-    uint_32 bitmap_len = thread->progress_vaddr.vaddr_bitmap.map_bytes_length;
-    uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PAGE_SIZE);
-    uint_8 *u_vaddr_pool_bm = thread->progress_vaddr.vaddr_bitmap.bits;
-    free_page(MP_KERNEL, u_vaddr_pool_bm, bitmap_pg_cnt);
-
     // close file descriptor
     for (int fd_idx = 0; fd_idx < MAX_FILES_OPEN_PER_PROC; fd_idx++) {
         if (thread->fd_table[fd_idx] != -1)
@@ -104,22 +62,27 @@ pid_t sys_wait(int_32 *status_loc)
 {
     TCB_t *parent = running_thread();
     while (1) {
+        unsigned long flags;
+        local_irq_save(flags);
         struct list_head *child_node =
             list_walker(&thread_all_list, find_hanging_child, parent->pid);
         if (child_node != NULL) {
             TCB_t *child = container_of(child_node, TCB_t, all_list_tag);
-            *status_loc = child->exit_status;
+            if (status_loc != NULL)
+                *status_loc = child->exit_status;
 
             pid_t child_pid = child->pid;
-
             thread_exit(child, false);
+            local_irq_restore(flags);
             return child_pid;
         }
         child_node = list_walker(&thread_all_list, find_child, parent->pid);
         if (child_node == NULL) {
+            local_irq_restore(flags);
             return -1;
         } else {
             thread_block(THREAD_TASK_WAITING);
+            local_irq_restore(flags);
         }
     }
 }
@@ -131,13 +94,16 @@ void sys_exit(int_32 status)
     if (child->parent_pid == -1) {
         PANIC("sys_exit: child parent is -1\n");
     }
+    close_process_files(child);
+
+    unsigned long flags;
+    local_irq_save(flags);
+    process_release_address_space(child);
     list_walker(&thread_all_list, proc_init_adopt_a_child, child->pid);
-
-    release_proc_resource(child);
-
     TCB_t *parent = pid2thread(child->parent_pid);
-    if (parent->status == THREAD_TASK_WAITING) {
+    if (parent != NULL && parent->status == THREAD_TASK_WAITING) {
         thread_unblock(parent);
     }
     thread_block(THREAD_TASK_HANGING);
+    local_irq_restore(flags);
 }

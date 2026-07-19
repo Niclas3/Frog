@@ -3,6 +3,7 @@
 #include <frog/softirq.h>
 #include <kernel/cpu.h>
 #include <kernel/debug.h>
+#include <kernel/assert.h>
 #include <asm/interrupt.h>
 
 
@@ -10,36 +11,49 @@
 // clear typical softirq type marked bits
 void clear_softirq(uint_32 type)
 {
+        if (type >= NR_SOFTIRQ)
+                return;
         this_cpu()->softirq_pending &= ~(1UL << type);
 }
 
 void do_softirq(void)
 {
-        struct softirq_action *h = this_cpu()->softirq_handlers;
-        uint_32 type = 0;
-        uint_32 loop = 0;
-        do {
-                if (this_cpu()->softirq_pending & (1 << type)) {
-                        clear_softirq(type);
-                        h->action(h);
+        struct cpu_local *cpu = this_cpu();
+
+        for (uint_32 loop = 0; loop < MAX_SOFTIRQ_LOOP; loop++) {
+                unsigned long flags;
+                local_irq_save(flags);
+                uint_32 pending = cpu->softirq_pending &
+                                  ((1UL << NR_SOFTIRQ) - 1);
+                cpu->softirq_pending &= ~pending;
+                local_irq_restore(flags);
+
+                if (pending == 0)
+                        return;
+                for (uint_32 type = 0; type < NR_SOFTIRQ; type++) {
+                        if (!(pending & (1UL << type)))
+                                continue;
+                        struct softirq_action *action =
+                            &cpu->softirq_handlers[type];
+                        if (action->action != NULL)
+                                action->action(action);
                 }
-                type++; // maybe here will be a bug. type and h will overflow
-                h++;    // if you take care of softirq_pending that fine.
-                if(loop >= MAX_SOFTIRQ_LOOP){
-                        WARN("do_softirq: possible softirq storm, breaking after %d loops \n", loop);
-                        break;
-                }
-        } while (this_cpu()->softirq_pending);
+        }
+        WARN("do_softirq: pending work remains after %d rounds\n",
+             MAX_SOFTIRQ_LOOP);
 }
 
 void register_softirq(uint_32 type, void (*handler)(struct softirq_action *))
 {
+        ASSERT(type < NR_SOFTIRQ);
+        ASSERT(handler != NULL);
         this_cpu()->softirq_handlers[type].action = handler;
 }
 
 // raise a softirq at a ISR when it should be mark as panding.
 void raise_softirq(uint_32 type)
 {
+        ASSERT(type < NR_SOFTIRQ);
         this_cpu()->softirq_pending |= (1 << type);
 }
 

@@ -165,7 +165,7 @@ void put_page(void *v_addr, void *phy_addr)
         }
 }
 
-static void put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
+static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
 {
         uint_32 vaddress = (uint_32) v_addr;
         uint_32 phyaddress = (uint_32) phy_addr;
@@ -189,6 +189,8 @@ static void put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
                 // if there is no pde , let's create it.
                 // Create phyaddr at kernel pool
                 uint_32 pde_phyaddr = (uint_32) get_physical_page(&kernel_pool);
+                if (pde_phyaddr == 0)
+                        return -1;
                 *pde = (pde_phyaddr | PG_US_U | PG_RW_W | PG_P_SET);
                 // Clear pte target address 1 page 4kb
                 // top 10 ->
@@ -196,6 +198,7 @@ static void put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
                 ASSERT(!(*pte & 0x00000001));
                 *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
         }
+        return 0;
 }
 
 
@@ -531,10 +534,14 @@ void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
         lock_fetch(&mem_pool->lock);
         void *page_phyaddr = get_physical_page(mem_pool);
         if (page_phyaddr == NULL) {
-                lock_fetch(&mem_pool->lock);
+                lock_release(&mem_pool->lock);
                 return NULL;
         }
-        put_page_and_flush((void *) vaddr, page_phyaddr, child_pgdir);
+        if (put_page_and_flush((void *) vaddr, page_phyaddr, child_pgdir) < 0) {
+                free_physical_page(mem_pool, (uint_32) page_phyaddr);
+                lock_release(&mem_pool->lock);
+                return NULL;
+        }
         lock_release(&mem_pool->lock);
         return (void *) vaddr;
 }

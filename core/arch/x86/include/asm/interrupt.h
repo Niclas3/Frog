@@ -12,9 +12,7 @@ static __always_inline void arch_ack(unsigned int intno)
         /* out 0xa0, al  ;; send ack to slaver  0x60+number*/
         /* mov al, %3 */
         /* out 0x20, al  ;; send ack to master  0x60+number*/
-        int irqs_num = intno ^ 0x20;
-        int port = 0x20;
-        if (intno > 0x7) {
+        if (intno >= 0x28 && intno <= 0x2f) {
                 // send to slave PIC
                 __asm__ volatile("out %0, %1" ::"a"(0x20), "Nd"(0xa0));
         }

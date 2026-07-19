@@ -22,6 +22,7 @@ void process_activate(TCB_t *thread);
 
 void page_dir_activate(TCB_t *thread);
 uint_32 *create_page_dir(void);
+void process_release_address_space(TCB_t *thread);
 
 // Create process at ring3
 uint_32 process_execute(void *filename, char *name);

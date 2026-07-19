@@ -3,6 +3,7 @@
 #include <kernel/assert.h>
 
 #include <frog/irqflags.h>
+#include <frog/interrupt.h>
 #include <frog/semaphore.h>
 #include <frog/threads.h>
 #include <frog/list.h>
@@ -48,6 +49,8 @@ void lock_init(struct lock *lock)
 /*     goto test_sema_value; */
 void semaphore_down(struct semaphore *sema)
 {
+        ASSERT(sema != NULL);
+        ASSERT(!in_interrupt());
         unsigned long flags;
         local_irq_save(flags);
         while (sema->value == 0) {
@@ -71,6 +74,7 @@ void semaphore_down(struct semaphore *sema)
 // 2. unblock thread at sema->waiting_list
 void semaphore_up(struct semaphore *sema)
 {
+        ASSERT(sema != NULL);
         unsigned long flags;
         local_irq_save(flags);
         if (!list_is_empty(&sema->waiting_queue)) {
@@ -86,6 +90,8 @@ void semaphore_up(struct semaphore *sema)
 // do P  aka down
 void lock_fetch(struct lock *lock)
 {
+        ASSERT(lock != NULL);
+        ASSERT(!in_interrupt());
         if (lock->holder != running_thread()) {
                 semaphore_down(&lock->semaphore);
                 lock->holder = running_thread();
@@ -99,6 +105,8 @@ void lock_fetch(struct lock *lock)
 // do V
 void lock_release(struct lock *lock)
 {
+        ASSERT(lock != NULL);
+        ASSERT(lock->holder == running_thread());
         if (lock->holder_repeat_nr > 1) {
                 lock->holder_repeat_nr--;
                 return;

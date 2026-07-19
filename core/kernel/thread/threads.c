@@ -95,6 +95,10 @@ static pid_t allocate_pid(void)
         lock_fetch(&pid_pool.pid_lock);
         pid_t base = pid_pool.pid_start;
         uint_32 pos = find_block_bitmap(&pid_pool.pid_bm, 1);
+        if (pos == (uint_32) -1) {
+                lock_release(&pid_pool.pid_lock);
+                return (pid_t) -1;
+        }
         set_value_bitmap(&pid_pool.pid_bm, pos, 1);
         lock_release(&pid_pool.pid_lock);
         return base + pos;
@@ -115,10 +119,18 @@ uint_32 fork_pid(void)
         return allocate_pid();
 }
 
+void thread_release_pid(pid_t pid)
+{
+        if (pid != (pid_t) -1)
+                release_pid(pid);
+}
+
 /* Init TCB
  */
-void init_thread(TCB_t *thread, char *name, uint_8 priority)
+int init_thread(TCB_t *thread, const char *name, uint_8 priority)
 {
+        if (thread == NULL || name == NULL || priority == 0)
+                return -1;
         // Set all 0 for thread memory
         memset(thread, 0, sizeof(*thread));
         uint_8 fd_idx = 0;
@@ -129,7 +141,10 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
         }
 
         thread->pid = allocate_pid();
-        strcpy(thread->name, name);
+        if (thread->pid == (pid_t) -1)
+                return -1;
+        strncpy(thread->name, name, TASK_NAME_LEN - 1);
+        thread->name[TASK_NAME_LEN - 1] = '\0';
         if (thread == main_thread) {
                 thread->status = THREAD_TASK_RUNNING;
         } else {
@@ -144,7 +159,12 @@ void init_thread(TCB_t *thread, char *name, uint_8 priority)
             0;  // current working directory to root_dir default
         thread->parent_pid = -1;  // default parent_pid is -1 -> no parent pid
 
+        INIT_LIST_HEAD(&thread->general_tag);
+        INIT_LIST_HEAD(&thread->all_list_tag);
+        INIT_LIST_HEAD(&thread->proc_list_tag);
+
         thread->stack_magic = 0x19900921;
+        return 0;
 }
 
 /* Set context ready to execute
@@ -169,18 +189,41 @@ void create_thread(TCB_t *thread, __routine_t func, void *arg)
         kthread_stack->func_arg = arg;
 }
 
-TCB_t *thread_start(char *name, int priority, __routine_t func, void *arg)
+int thread_publish(TCB_t *thread)
+{
+        unsigned long flags;
+
+        if (thread == NULL || thread->status != THREAD_TASK_READY)
+                return -1;
+        local_irq_save(flags);
+        if (task_on_readylist(thread) ||
+            list_find_element(&thread->all_list_tag, &thread_all_list)) {
+                local_irq_restore(flags);
+                return -1;
+        }
+        list_add_tail(&thread->general_tag, &thread_ready_list);
+        list_add_tail(&thread->all_list_tag, &thread_all_list);
+        local_irq_restore(flags);
+        return 0;
+}
+
+TCB_t *thread_start(const char *name, int priority, __routine_t func, void *arg)
 {
         TCB_t *thread = get_kernel_page(1);  // alloc only 4096b aka 1 page for
                                              // struct thread
-        init_thread(thread, name, priority);
+        if (thread == NULL)
+                return NULL;
+        if (init_thread(thread, name, priority) < 0) {
+                free_page(MP_KERNEL, thread, 1);
+                return NULL;
+        }
         create_thread(thread, func, arg);
 
-        ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
-        list_add_tail(&thread->general_tag, &thread_ready_list);
-
-        ASSERT(!list_find_element(&thread->all_list_tag, &thread_all_list));
-        list_add_tail(&thread->all_list_tag, &thread_all_list);
+        if (thread_publish(thread) < 0) {
+                release_pid(thread->pid);
+                free_page(MP_KERNEL, thread, 1);
+                return NULL;
+        }
 
         return thread;
 }
@@ -193,7 +236,8 @@ void make_main_thread(void)
         uint_32 main_stack_pg_count = 1;
         memcpy((void *) main_tcb, current, PAGE_SIZE * main_stack_pg_count);
         main_thread = (TCB_t *) main_tcb;
-        init_thread(main_thread, "main", 42);
+        if (init_thread(main_thread, "main", 42) < 0)
+                PANIC("cannot initialize main thread");
 
         /* ASSERT(!list_find_element(&main_thread->proc_list_tag,
          * &process_all_list)); */
@@ -216,28 +260,26 @@ void make_main_thread(void)
 
 static inline void append_readylist(TCB_t *cur)
 {
+        if (cur == idle_thread)
+                return;
         if (cur->status == THREAD_TASK_RUNNING) {
                 ASSERT(
                     !list_find_element(&cur->general_tag, &thread_ready_list));
                 list_add_tail(&cur->general_tag, &thread_ready_list);
                 cur->ticks = cur->priority;
                 cur->status = THREAD_TASK_READY;
-        } else if (cur->status == THREAD_TASK_READY &&
-                   !list_find_element(&cur->general_tag, &thread_ready_list)) {
-                ASSERT(
-                    !list_find_element(&cur->general_tag, &thread_ready_list));
-                list_add_tail(&cur->general_tag, &thread_ready_list);
         }
 }
 
 void schedule(void)
 {
         TCB_t *cur = running_thread();
+        cur->need_schedule = false;
         if (list_is_empty(&thread_ready_list)) {
-                /* append_readylist(cur); */
-                if (cur != idle_thread) {
-                        append_readylist(cur);
-                }
+                if (cur->status == THREAD_TASK_RUNNING)
+                        return;
+                if (cur == idle_thread)
+                        return;
                 idle_thread->status = THREAD_TASK_RUNNING;
                 process_activate(idle_thread);
                 switch_to(cur, idle_thread);
@@ -246,6 +288,13 @@ void schedule(void)
                 TCB_t *next = container_of(thread_tag, TCB_t, general_tag);
                 append_readylist(cur);
 
+                if (next == cur) {
+                        ASSERT(!task_on_readylist(next));
+                        next->status = THREAD_TASK_RUNNING;
+                        return;
+                }
+                if (cur == idle_thread)
+                        cur->status = THREAD_TASK_BLOCKED;
                 next->status = THREAD_TASK_RUNNING;
                 process_activate(next);
                 switch_to(cur, next);
@@ -268,10 +317,10 @@ void thread_auth_block(TCB_t *task, task_status_t status)
                (status == THREAD_TASK_WAITING) ||
                (status == THREAD_TASK_BLOCKED));
         ASSERT(task);
+        ASSERT(task == running_thread());
         unsigned long flags;
         local_irq_save(flags);
-        TCB_t *cur = task;
-        cur->status = status;
+        task->status = status;
         // This blocked thread is already pop from thread_ready_list
         // Just call schedule() switch to next thread at thread_ready_list
         // Don't need delete current thread from thread_ready list
@@ -348,16 +397,11 @@ void thread_exit(TCB_t *discard_thread, bool need_schedule)
         if (list_find_element(discard_node, &thread_ready_list)) {
                 list_del_init(discard_node);
         }
-        if (discard_thread
-                ->pgdir) {  // if this thread is progress release page table
-                free_page(MP_KERNEL, discard_thread->pgdir, 1);
-        }
-
         // remove from all_thread_list
         list_del_init(&discard_thread->all_list_tag);
         release_pid(discard_pid);
 
-        if (discard_thread != main_thread) {
+        if (discard_thread != running_thread() && discard_thread != main_thread) {
                 free_page(MP_KERNEL, discard_thread, 1);
         }
 
@@ -378,11 +422,15 @@ static bool find_pid(struct list_head *ele, pid_t pid)
 }
 TCB_t *pid2thread(pid_t pid)
 {
+        unsigned long flags;
+        local_irq_save(flags);
         struct list_head *node = list_walker(&thread_all_list, find_pid, pid);
         if (node == NULL) {
+                local_irq_restore(flags);
                 return NULL;
         }
         TCB_t *thread = container_of(node, TCB_t, all_list_tag);
+        local_irq_restore(flags);
         return thread;
 }
 
@@ -414,4 +462,8 @@ void thread_init(void)
         /* make_main_thread();  // maybe main thread not start here */
         // idle thread pid = 0
         idle_thread = thread_start("idle", 10, idle, 0);
+        if (idle_thread == NULL)
+                PANIC("cannot initialize idle thread");
+        list_del_init(&idle_thread->general_tag);
+        idle_thread->status = THREAD_TASK_BLOCKED;
 }

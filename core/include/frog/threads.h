@@ -127,11 +127,13 @@ static inline int task_on_readylist(struct thread_control_block *p)
 
 
 TCB_t *running_thread(void);
-TCB_t *thread_start(char *name, int priority, __routine_t func, void *arg);
-void init_thread(TCB_t *thread, char *name, uint_8 priority);
+TCB_t *thread_start(const char *name, int priority, __routine_t func, void *arg);
+int init_thread(TCB_t *thread, const char *name, uint_8 priority);
 void create_thread(TCB_t *thread, __routine_t func, void *arg);
 void thread_init(void);
 uint_32 fork_pid(void);
+void thread_release_pid(pid_t pid);
+int thread_publish(TCB_t *thread);
 
 void thread_auth_block(TCB_t *task, task_status_t status);
 void thread_block(task_status_t status);

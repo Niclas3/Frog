@@ -11,6 +11,7 @@
 #include <asm/tss.h>
 #include <asm/descriptor.h>
 #include <asm/page.h>
+#include "../../mm/mm_helper.h"
 
 
 
@@ -52,9 +53,7 @@ static void start_process(void *filename)
         proc_stack->cs = CREATE_SELECTOR(SEL_IDX_CODE_DPL_3, TI_GDT, RPL3);
         proc_stack->eip = function;
         proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED);
-        proc_stack->esp_ptr = (void *) ((uint_32) malloc_page_with_vaddr(
-                                            MP_USER, USER_STACK3_VADDR) +
-                                        PAGE_SIZE);
+        proc_stack->esp_ptr = (void *) (USER_STACK3_VADDR + PAGE_SIZE);
         proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_3, TI_GDT, RPL3);
         __asm__ volatile(
             "movl %0, %%esp;\
@@ -82,9 +81,7 @@ static void start_process_ring1(void *filename)
         proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED);
 
         // stack top
-        proc_stack->esp_ptr = (void *) ((uint_32) malloc_page_with_vaddr(
-                                            MP_USER, USER_STACK3_VADDR) +
-                                        PAGE_SIZE);
+        proc_stack->esp_ptr = (void *) (USER_STACK3_VADDR + PAGE_SIZE);
         proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_1, TI_GDT, RPL1);
         __asm__ volatile(
             "movl %0, %%esp;\
@@ -100,7 +97,7 @@ static void start_process_ring1(void *filename)
 void page_dir_activate(TCB_t *thread)
 {
         uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address 
-        if (thread->pgdir != NULL) {
+        if (thread != NULL && thread->pgdir != NULL) {
                 pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
         }
         __asm__ volatile("movl %0, %%cr3;"
@@ -135,7 +132,7 @@ uint_32 *create_page_dir(void)
         return page_dir_vaddr;
 }
 
-static void create_user_vaddr_bitmap(TCB_t *user_prog)
+static int create_user_vaddr_bitmap(TCB_t *user_prog)
 {
         uint_32 bitmap_len =
             DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PAGE_SIZE, 8);
@@ -143,46 +140,120 @@ static void create_user_vaddr_bitmap(TCB_t *user_prog)
         uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PAGE_SIZE);
         user_prog->progress_vaddr.vaddr_bitmap.bits =
             get_kernel_page(bitmap_pg_cnt);
+        if (user_prog->progress_vaddr.vaddr_bitmap.bits == NULL)
+                return -1;
         user_prog->progress_vaddr.vaddr_bitmap.map_bytes_length = bitmap_len;
         init_bitmap(&user_prog->progress_vaddr.vaddr_bitmap);
+        return 0;
+}
+
+static int create_initial_user_stack(TCB_t *thread)
+{
+        TCB_t *current = running_thread();
+        uint_32 bit_idx =
+            (USER_STACK3_VADDR - thread->progress_vaddr.vaddr_start) / PAGE_SIZE;
+        unsigned long flags;
+
+        local_irq_save(flags);
+        page_dir_activate(thread);
+        void *stack = get_phy_free_page_with_vaddr(
+            MP_USER, USER_STACK3_VADDR, thread->pgdir);
+        page_dir_activate(current);
+        local_irq_restore(flags);
+        if (stack == NULL)
+                return -1;
+        set_value_bitmap(&thread->progress_vaddr.vaddr_bitmap, bit_idx, 1);
+        return 0;
+}
+
+void process_release_address_space(TCB_t *thread)
+{
+        if (thread == NULL)
+                return;
+
+        TCB_t *current = running_thread();
+        unsigned long flags;
+        local_irq_save(flags);
+        if (thread->pgdir != NULL) {
+                page_dir_activate(thread);
+                for (uint_32 pde_idx = 0; pde_idx < 768; pde_idx++) {
+                        uint_32 pde = thread->pgdir[pde_idx];
+                        if (!(pde & PG_P_SET))
+                                continue;
+                        uint_32 *pt = pte_ptr(pde_idx * 0x400000);
+                        for (uint_32 pte_idx = 0; pte_idx < 1024; pte_idx++) {
+                                if (pt[pte_idx] & PG_P_SET)
+                                        free_phy_page(pt[pte_idx] & 0xfffff000);
+                        }
+                        free_phy_page(pde & 0xfffff000);
+                }
+                if (current == thread)
+                        page_dir_activate(NULL);
+                else
+                        page_dir_activate(current);
+                free_page(MP_KERNEL, thread->pgdir, 1);
+                thread->pgdir = NULL;
+        }
+
+        uint_8 *bits = thread->progress_vaddr.vaddr_bitmap.bits;
+        uint_32 bytes = thread->progress_vaddr.vaddr_bitmap.map_bytes_length;
+        if (bits != NULL && bytes != 0) {
+                free_page(MP_KERNEL, bits, DIV_ROUND_UP(bytes, PAGE_SIZE));
+                thread->progress_vaddr.vaddr_bitmap.bits = NULL;
+                thread->progress_vaddr.vaddr_bitmap.map_bytes_length = 0;
+        }
+        local_irq_restore(flags);
 }
 
 uint_32 process_execute(void *filename, char *name)
 {
         TCB_t *thread = get_kernel_page(1);
-        init_thread(thread, name, DEFAULT_PRIORITY);
-        create_user_vaddr_bitmap(thread);
+        if (thread == NULL)
+                return (uint_32) -1;
+        if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
+                goto fail_tcb;
+        if (create_user_vaddr_bitmap(thread) < 0)
+                goto fail_pid;
         create_thread(thread, start_process, filename);
         thread->pgdir = create_page_dir();
+        if (thread->pgdir == NULL)
+                goto fail_address_space;
+        if (create_initial_user_stack(thread) < 0)
+                goto fail_address_space;
         block_desc_init(thread->u_block_descs);
-        unsigned long flags;
-        local_irq_save(flags);
-
-        ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
-        list_add_tail(&thread->general_tag, &thread_ready_list);
-
-        ASSERT(!list_find_element(&thread->all_list_tag, &thread_all_list));
-        list_add_tail(&thread->all_list_tag, &thread_all_list);
-
-        local_irq_restore(flags);
+        if (thread_publish(thread) < 0)
+                goto fail_address_space;
         return thread->pid;
+
+fail_address_space:
+        process_release_address_space(thread);
+fail_pid:
+        thread_release_pid(thread->pid);
+fail_tcb:
+        free_page(MP_KERNEL, thread, 1);
+        return (uint_32) -1;
 }
 
 void process_execute_ring1(void *filename, char *name)
 {
         TCB_t *thread = get_kernel_page(1);
-        init_thread(thread, name, DEFAULT_PRIORITY);
-        create_user_vaddr_bitmap(thread);
+        if (thread == NULL)
+                return;
+        if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
+                goto fail_tcb;
+        if (create_user_vaddr_bitmap(thread) < 0)
+                goto fail_pid;
         create_thread(thread, start_process_ring1, filename);
         thread->pgdir = create_page_dir();
-        unsigned long flags;
-        local_irq_save(flags);
+        if (thread->pgdir == NULL || create_initial_user_stack(thread) < 0 ||
+            thread_publish(thread) < 0)
+                goto fail_address_space;
+        return;
 
-        ASSERT(!list_find_element(&thread->general_tag, &thread_ready_list));
-        list_add_tail(&thread->general_tag, &thread_ready_list);
-
-        ASSERT(!list_find_element(&thread->all_list_tag, &thread_all_list));
-        list_add_tail(&thread->all_list_tag, &thread_all_list);
-
-        local_irq_restore(flags);
+fail_address_space:
+        process_release_address_space(thread);
+fail_pid:
+        thread_release_pid(thread->pid);
+fail_tcb:
+        free_page(MP_KERNEL, thread, 1);
 }

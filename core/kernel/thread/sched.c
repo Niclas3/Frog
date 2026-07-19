@@ -65,6 +65,10 @@ static inline int try_to_wake_up(TCB_t *p, int synchronous)
          */
         unsigned long flags;
         local_irq_save(flags);
+        if (p->status != THREAD_TASK_WAITING &&
+            p->status != THREAD_TASK_BLOCKED &&
+            p->status != THREAD_TASK_HANGING)
+                goto out;
         p->status = THREAD_TASK_READY;
         if (task_on_readylist(p))
                 goto out;
@@ -142,7 +146,8 @@ void inthandler20(void)
         (*(uint_32 *) &ticks)++;
         raise_softirq(TIMER_SOFTIRQ);
 
-        if (cur_thread->ticks == 0) {
+        if (cur_thread->ticks <= 1) {
+                cur_thread->ticks = 0;
                 cur_thread->need_schedule = true;
         } else {
                 cur_thread->ticks--;
@@ -169,6 +174,10 @@ int_32 schedule_timeout(int_32 timeout)
         struct timer_list timer;
         unsigned long expire;
         TCB_t *current = running_thread();
+        unsigned long flags;
+
+        if (timeout == 0)
+                return 0;
 
         switch (timeout) {
         case MAX_SCHEDULE_TIMEOUT:
@@ -179,7 +188,7 @@ int_32 schedule_timeout(int_32 timeout)
                  * but I' d like to return a valid offset (>=0) to allow
                  * the caller to do everything it want with the retval.
                  */
-                schedule();
+                thread_block(THREAD_TASK_WAITING);
                 goto out;
         default:
                 /*
@@ -205,8 +214,11 @@ int_32 schedule_timeout(int_32 timeout)
         timer.data = (unsigned long) current;
         timer.function = process_timeout;
 
+        local_irq_save(flags);
         add_timer(&timer);
+        current->status = THREAD_TASK_WAITING;
         schedule();
+        local_irq_restore(flags);
         del_timer_sync(&timer);
 
         timeout = expire - ticks;
