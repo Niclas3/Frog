@@ -16,6 +16,7 @@
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 #include <kernel/fs_regression.h>
+#include <kernel/framebuffer_smoke.h>
 #include <kernel/frogfs.h>
 #include <kernel/vfs.h>
 
@@ -165,6 +166,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin(fs_regression_profile());
 #elif defined(CONFIG_FROG_TEST_PROCESS)
         frog_test_begin("process-smoke");
+#elif defined(CONFIG_FROG_TEST_FRAMEBUFFER)
+        frog_test_begin("framebuffer-smoke");
 #else
         frog_test_begin("boot-smoke");
 #endif
@@ -172,9 +175,12 @@ __visible void __noreturn start_kernel(void)
         setup_local_cpus();
         platform_init();
         mem_init();
-
         thread_init();
         make_main_thread();
+
+#ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+        framebuffer_smoke_run();
+#endif
 
         if (chrdev_init() < 0)
                 PANIC("chrdev initialization failed");

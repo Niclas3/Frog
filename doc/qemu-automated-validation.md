@@ -116,16 +116,18 @@ default:
   child-reaping checks without filesystem writes.
 - `disk-smoke`: IDE and FrogFS round trips using disposable disk copies.
 - `soak-10m`: bounded stability run with heartbeat/progress markers.
-- Later graphical profiles: framebuffer rendering and input scenarios driven
-  through QMP.
+- `framebuffer-smoke`: fixed framebuffer rendering captured through QMP and
+  checked by dimensions and exact visible-frame pixels. Input scenarios remain
+  future work.
 
 Each profile has an explicit timeout and expected ordered milestones. A compile
 success or a single early marker never counts as a runtime pass.
 
 ## Graphical Validation
 
-When framebuffer and compositor work begins, add a QMP Unix socket to the host
-runner. QMP can request screenshots and inject keyboard or mouse events. Visual
+The `framebuffer-smoke` runner uses a private QMP Unix socket to request a P6
+PPM screenshot after the guest emits `FROGTEST SYNC framebuffer-ready`. Future
+profiles can also use QMP to inject keyboard or mouse events. Visual
 validation should combine three sources:
 
 1. Guest state markers, such as focused window and old/new coordinates.
@@ -154,16 +156,25 @@ must be reported separately.
 4. Implement a nondestructive, timeout-bounded `boot-smoke` host runner.
 5. Repair the image packaging graph so the runner consumes freshly built files.
 6. Move IDE and FrogFS writes into a disposable `disk-smoke` profile.
-7. Add QMP screenshots and input injection with the framebuffer milestone.
+7. Add QMP screenshots with the framebuffer milestone. Input injection remains
+   future work.
 
 This work implements the automated boot-smoke requirement in Milestone 0 and is
 the prerequisite for reliable unattended development loops.
 ## Implementation status
 
 The initial infrastructure is implemented by `scripts/qemu-test.sh`.
-`boot-smoke`, `process-smoke`, and `disk-smoke` perform clean builds, package disposable image
-copies, capture port `0xe9`, enforce a hard timeout, normalize the
-`isa-debug-exit` status, and write `result.json`. The guest reports aggregate
+All profiles perform clean builds, package disposable image copies, capture
+port `0xe9`, enforce a hard timeout, and write `result.json`. `boot-smoke`,
+`process-smoke`, and `disk-smoke` normalize the `isa-debug-exit` status. The
+guest reports aggregate
 case status and the ring-3 milestone; panic and architecture assertions use the
 test-only failure exit path. Normal kernel builds do not enable debug-exit, and
 destructive self-tests are compiled only for `disk-smoke`.
+`framebuffer-smoke` selects a conservative 1024x768x32 VBE linear framebuffer,
+maps it only in kernel space without admitting MMIO frames to the RAM allocator,
+draws deterministic color regions, emits a READY synchronization marker, then
+the host captures and validates a QMP screenshot before asking QEMU to quit. It
+does not use `isa-debug-exit` as its success oracle. A successful
+graphical run retains only its normalized result JSON; failure artifacts include
+the screenshot and diagnostic logs.

@@ -89,6 +89,10 @@ void block_desc_init(struct mem_block_desc *desc_array);
 // phy_addr from `get_physical_page()`
 void put_page(void *v_addr, void *phy_addr);
 
+/* Test-only kernel mapping; framebuffer frames never enter the RAM allocator. */
+#define KERNEL_FRAMEBUFFER_VADDR 0xf0000000UL
+int map_kernel_framebuffer(uintptr_t paddr, uint_32 size);
+
 uint_32 addr_v2p(uint_32 vaddr);
 // Get kernel page from memory
 void *get_kernel_page(uint_32 pg_cnt);

@@ -24,3 +24,13 @@ Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
 syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait
 case. The guest cases live in `core/kernel/thread/process_regression.c`.
+
+Run `./scripts/qemu-test.sh framebuffer-smoke` after boot-video, VBE, paging, or
+framebuffer changes. The guest maps the VBE linear framebuffer as kernel-only
+MMIO and draws fixed red, green, and blue bands with a white center square. The
+host waits for a debugcon synchronization marker, requests a P6 PPM screenshot
+through a private QMP socket, and validates the full visible frame, including
+every pixel.
+Passing runs remain quiet and retain only
+`build/qemu-test/framebuffer-smoke-result.json`; failed runs retain the
+screenshot, debugcon log, QEMU trace, and validator diagnostics.

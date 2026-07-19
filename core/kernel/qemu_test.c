@@ -42,6 +42,11 @@ void frog_test_milestone(const char *name, int passed)
         printk("FROGTEST MILESTONE %s FAIL\n", name);
 }
 
+void frog_test_sync(const char *name)
+{
+        printk("FROGTEST SYNC %s\n", name);
+}
+
 void frog_test_finish(void)
 {
         printk("FROGTEST END %s\n", test_failures ? "FAIL" : "PASS");

@@ -251,8 +251,13 @@ jmp scr_320
 ; VBE setting
 ;----------------------------------------------------
 ;test config
+%ifdef FRAMEBUFFER_TEST
+mov word [width], 1024      ; Conservative deterministic test mode
+mov word [height], 768
+%else
 mov word [width], 1920      ; Take default values
 mov word [height], 1080
+%endif
 mov byte [bpp], 32 
 
 set_up_vbe:

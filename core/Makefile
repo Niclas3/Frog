@@ -18,7 +18,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/page_fault.o \
 	 $(BUILD_DIR)/exceptions.o $(BUILD_DIR)/idt.o \
 	 $(BUILD_DIR)/i8253.o $(BUILD_DIR)/i8259a.o $(BUILD_DIR)/segment.o \
-	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o \
+	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o $(BUILD_DIR)/framebuffer_smoke.o \
 	 $(BUILD_DIR)/msdos.o \
 	 $(BUILD_DIR)/blk_core.o \
 	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o $(BUILD_DIR)/fs_regression.o \

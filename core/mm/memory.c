@@ -57,6 +57,7 @@ struct _virtual_addr kernel_viraddr;
 static int mark_kernel_vaddr_reserved(uintptr_t vaddr);
 
 static void *get_physical_page(struct pool *mpool);
+static void free_physical_page(struct pool *mpool, uint_32 phy_addr_page);
 
 // Only get page frame address.
 static uint_32 virtual_addr_to_physical_addr(void *v_addr)
@@ -163,6 +164,72 @@ void put_page(void *v_addr, void *phy_addr)
                 ASSERT(!(*pte & 0x00000001));
                 *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
         }
+}
+
+#define FRAMEBUFFER_MAX_PDE_COUNT 4
+
+int map_kernel_framebuffer(uintptr_t paddr, uint_32 size)
+{
+        const uintptr_t vaddr = KERNEL_FRAMEBUFFER_VADDR;
+        void *new_page_tables[FRAMEBUFFER_MAX_PDE_COUNT];
+        uint_32 new_pde_indexes[FRAMEBUFFER_MAX_PDE_COUNT];
+        uint_32 new_pde_count = 0;
+
+        if (size == 0 || (paddr & (PAGE_SIZE - 1)) ||
+            size > 16 * 1024 * 1024UL || paddr + size < paddr)
+                return -1;
+
+        uint_32 page_count = DIV_ROUND_UP(size, PAGE_SIZE);
+        lock_fetch(&kernel_pool.lock);
+
+        /* Reject the whole request before changing any existing page table. */
+        for (uint_32 page = 0; page < page_count; page++) {
+                uint_32 current_vaddr = vaddr + page * PAGE_SIZE;
+                uint_32 *pde = pde_ptr(current_vaddr);
+                uint_32 *pte = pte_ptr(current_vaddr);
+
+                if ((*pde & PG_P_SET) && (*pte & PG_P_SET)) {
+                        lock_release(&kernel_pool.lock);
+                        return -1;
+                }
+        }
+
+        for (uint_32 page = 0; page < page_count; page += 1024) {
+                uint_32 current_vaddr = vaddr + page * PAGE_SIZE;
+                uint_32 *pde = pde_ptr(current_vaddr);
+                if (*pde & PG_P_SET)
+                        continue;
+                void *page_table = get_physical_page(&kernel_pool);
+                if (page_table == NULL) {
+                        while (new_pde_count > 0)
+                                free_physical_page(
+                                    &kernel_pool,
+                                    (uint_32) new_page_tables[--new_pde_count]);
+                        lock_release(&kernel_pool.lock);
+                        return -1;
+                }
+                new_page_tables[new_pde_count] = page_table;
+                new_pde_indexes[new_pde_count++] = current_vaddr >> 22;
+        }
+
+        for (uint_32 index = 0; index < new_pde_count; index++) {
+                uint_32 pde_vaddr = new_pde_indexes[index] << 22;
+                *pde_ptr(pde_vaddr) =
+                    (uint_32) new_page_tables[index] | PG_RW_W | PG_P_SET;
+                invalidate();
+                memset((void *) ((uint_32) pte_ptr(pde_vaddr) & 0xfffff000),
+                       0, PAGE_SIZE);
+        }
+
+        for (uint_32 page = 0; page < page_count; page++) {
+                uint_32 current_vaddr = vaddr + page * PAGE_SIZE;
+                uint_32 current_paddr = paddr + page * PAGE_SIZE;
+                uint_32 *pte = pte_ptr(current_vaddr);
+                *pte = current_paddr | PG_RW_W | PG_P_SET;
+                __asm__ volatile("invlpg (%0)" : : "r"(current_vaddr) : "memory");
+        }
+        lock_release(&kernel_pool.lock);
+        return 0;
 }
 
 static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
