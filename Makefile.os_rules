@@ -80,6 +80,12 @@ $(error process-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_PROCESS
 endif
+ifeq ($(FROG_TEST_PROFILE),user-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error user-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_USER
+endif
 ifeq ($(FROG_TEST_PROFILE),framebuffer-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error framebuffer-smoke requires QEMU_TEST=1)

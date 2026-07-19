@@ -100,8 +100,13 @@ static int_32 sys_ni_syscall(void)
 
 void sys_testsyscall(int a)
 {
+#ifndef CONFIG_FROG_TEST_USER
     INFO("[init]: ring3 reached, testsyscall a=%d", a);
+#endif
 #ifdef CONFIG_QEMU_TEST
+#ifdef CONFIG_FROG_TEST_USER
+    frog_test_case("user.low-image.syscalls", a == 0x46524f47);
+#endif
 #ifdef CONFIG_FROG_TEST_PROCESS
     mm_uaccess_process_regression();
 #endif

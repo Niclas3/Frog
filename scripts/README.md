@@ -25,6 +25,11 @@ syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait
 case. The guest cases live in `core/kernel/thread/process_regression.c`.
 
+Run `./scripts/qemu-test.sh user-smoke` after changing user-image loading,
+privilege transitions, or syscall entry. It copies a separately linked image
+to `0x08048000`, enters it in ring 3, and verifies both invalid and
+unimplemented syscall handling before completing the guest test.
+
 Run `./scripts/qemu-test.sh framebuffer-smoke` after boot-video, VBE, paging, or
 framebuffer changes. The guest maps the VBE linear framebuffer as kernel-only
 MMIO and draws fixed red, green, and blue bands with a white center square. The

@@ -9,7 +9,7 @@ CORE_SYMBOL_IMAGE := $(BUILD_DIR)/core_symbol.img
 # $(BUILD_DIR)/fork.o
 
 obj-y  = $(BUILD_DIR)/head32.o  \
-	 $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o \
+	 $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/user_smoke_blob.o \
 	 $(BUILD_DIR)/process.o $(BUILD_DIR)/process_regression.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/semaphore.o \
 	 $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o \
 	 $(BUILD_DIR)/timer.o \
@@ -44,6 +44,7 @@ prepare_build:
 	@mkdir -p $(DEPDIR) $(BUILD_DIR)
 
 build_objects: prepare_build
+	$(MAKE) -C ./user/
 	$(MAKE) -C ./arch/x86/
 	$(MAKE) -C ./lib/
 	$(MAKE) -C ./init/

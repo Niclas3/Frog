@@ -10,9 +10,10 @@ keep=${FROG_QEMU_KEEP:-0}
 case "$profile" in
     boot-smoke) stages=(boot) ;;
     process-smoke) stages=(boot) ;;
+    user-smoke) stages=(boot) ;;
     framebuffer-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|framebuffer-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")
@@ -95,6 +96,13 @@ build_stage()
     fi
     make -C "$repo_dir/core" "${make_args[@]}" core \
         >>"$build_log" 2>&1 || return 1
+    local core_image_size
+    core_image_size=$(wc -c <"$repo_dir/core/build/core.img") || return 1
+    if [ "$core_image_size" -gt $((300 * 512)) ]; then
+        echo "core.img is $core_image_size bytes; boot image limit is 153600" \
+            >>"$build_log"
+        return 1
+    fi
     (cd "$repo_dir/booter" &&
         nasm -p boot.inc -f bin MBR.s -o "$stage_dir/MBR.bin") \
         >>"$build_log" 2>&1 || return 1

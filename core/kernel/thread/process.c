@@ -166,6 +166,49 @@ static int create_initial_user_stack(TCB_t *thread)
         return 0;
 }
 
+static bool user_image_valid(const struct user_image *image)
+{
+        uint_32 image_end;
+
+        if (image == NULL || image->data == NULL || image->size == 0 ||
+            image->size > PAGE_SIZE || image->load_addr != USER_IMAGE_VADDR ||
+            (image->load_addr & (PAGE_SIZE - 1)) != 0)
+                return false;
+        image_end = image->load_addr + image->size;
+        if (image_end < image->load_addr || image_end > USER_STACK3_VADDR ||
+            image->entry < image->load_addr || image->entry >= image_end)
+                return false;
+        return true;
+}
+
+static int load_user_image(TCB_t *thread, const struct user_image *image)
+{
+        TCB_t *current = running_thread();
+        uint_32 bit_idx =
+            (image->load_addr - thread->progress_vaddr.vaddr_start) / PAGE_SIZE;
+        unsigned long flags;
+        int result = -1;
+
+        local_irq_save(flags);
+        page_dir_activate(thread);
+        uint_32 *pde = pde_ptr(image->load_addr);
+        if ((*pde & PG_P_SET) && (*pte_ptr(image->load_addr) & PG_P_SET))
+                goto out;
+        if (get_phy_free_page_with_vaddr(MP_USER, image->load_addr,
+                                         thread->pgdir) == NULL)
+                goto out;
+
+        memset((void *) image->load_addr, 0, PAGE_SIZE);
+        memcpy((void *) image->load_addr, image->data, image->size);
+        set_value_bitmap(&thread->progress_vaddr.vaddr_bitmap, bit_idx, 1);
+        result = 0;
+
+out:
+        page_dir_activate(current);
+        local_irq_restore(flags);
+        return result;
+}
+
 void process_release_address_space(TCB_t *thread)
 {
         if (thread == NULL)
@@ -219,6 +262,39 @@ uint_32 process_execute(void *filename, char *name)
         if (thread->pgdir == NULL)
                 goto fail_address_space;
         if (create_initial_user_stack(thread) < 0)
+                goto fail_address_space;
+        block_desc_init(thread->u_block_descs);
+        if (thread_publish(thread) < 0)
+                goto fail_address_space;
+        return thread->pid;
+
+fail_address_space:
+        process_release_address_space(thread);
+fail_pid:
+        thread_release_pid(thread->pid);
+fail_tcb:
+        free_page(MP_KERNEL, thread, 1);
+        return (uint_32) -1;
+}
+
+uint_32 process_execute_image(const struct user_image *image,
+                              const char *name)
+{
+        TCB_t *thread;
+
+        if (!user_image_valid(image))
+                return (uint_32) -1;
+        thread = get_kernel_page(1);
+        if (thread == NULL)
+                return (uint_32) -1;
+        if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
+                goto fail_tcb;
+        if (create_user_vaddr_bitmap(thread) < 0)
+                goto fail_pid;
+        create_thread(thread, start_process, (void *) image->entry);
+        thread->pgdir = create_page_dir();
+        if (thread->pgdir == NULL || load_user_image(thread, image) < 0 ||
+            create_initial_user_stack(thread) < 0)
                 goto fail_address_space;
         block_desc_init(thread->u_block_descs);
         if (thread_publish(thread) < 0)

@@ -14,8 +14,16 @@ typedef struct thread_control_block TCB_t;
 // #define USER_VADDR_START  0x01000000   // does not work at qume? i dont know why
 // #define USER_VADDR_START     0x01001000
 #define USER_VADDR_START  0x08000000
+#define USER_IMAGE_VADDR  0x08048000
 
 #define DEFAULT_PRIORITY 30
+
+struct user_image {
+        const void *data;
+        uint_32 size;
+        uint_32 load_addr;
+        uint_32 entry;
+};
 
 // start a process
 void process_activate(TCB_t *thread);
@@ -26,6 +34,8 @@ void process_release_address_space(TCB_t *thread);
 
 // Create process at ring3
 uint_32 process_execute(void *filename, char *name);
+uint_32 process_execute_image(const struct user_image *image,
+                              const char *name);
 
 // Create process at ring1
 void process_execute_ring1(void *filename, char *name);

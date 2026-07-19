@@ -52,6 +52,11 @@ static int frogfs_test_mount_result;
 static int frogfs_test_rollback_result;
 #endif
 
+#ifdef CONFIG_FROG_TEST_USER
+extern const uint_8 _binary_user_smoke_bin_start[];
+extern const uint_8 _binary_user_smoke_bin_end[];
+#endif
+
 static void do_basic_setup(void)
 {
         /* DEBUG("rodata_start:%x", __rodata_start); */
@@ -97,8 +102,28 @@ static void rest_init(void)
 {
         // dive into user mode, start first process init.
         unsigned long flags;
+        uint_32 init_pid;
+
         local_irq_save(flags);
-        set_init_process_pid(process_execute(init, "init"));
+#ifdef CONFIG_FROG_TEST_USER
+        struct user_image image = {
+            .data = _binary_user_smoke_bin_start,
+            .size = (uint_32) (_binary_user_smoke_bin_end -
+                              _binary_user_smoke_bin_start),
+            .load_addr = USER_IMAGE_VADDR,
+            .entry = USER_IMAGE_VADDR,
+        };
+        init_pid = process_execute_image(&image, "init");
+#else
+        init_pid = process_execute(init, "init");
+#endif
+#ifdef CONFIG_FROG_TEST_USER
+        if (init_pid == (uint_32) -1) {
+                local_irq_restore(flags);
+                frog_test_abort("user-image-load");
+        }
+#endif
+        set_init_process_pid(init_pid);
         local_irq_restore(flags);
         // start a kernel thread like `kthreadd`;  we don't have it yet.
         // TODO:
@@ -165,6 +190,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin(fs_regression_profile());
 #elif defined(CONFIG_FROG_TEST_PROCESS)
         frog_test_begin("process-smoke");
+#elif defined(CONFIG_FROG_TEST_USER)
+        frog_test_begin("user-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER)
         frog_test_begin("framebuffer-smoke");
 #else
