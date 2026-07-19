@@ -9,6 +9,7 @@
 #include <frog/exit.h>
 #include <frog/fork.h>
 #include <frog/errno.h>
+#include <frog/test.h>
 #include <kernel/debug.h>
 #include <kernel/mm_test.h>
 #include <kernel/syscall_fs.h>
@@ -38,6 +39,48 @@ static int_32 sys_ni_syscall(void)
 {
     return -ENOSYS;
 }
+
+#ifdef CONFIG_QEMU_TEST
+static int_32 sys_test_report(uint_32 id, int_32 passed)
+{
+    const char *name;
+
+    switch (id) {
+    case FROG_TEST_PROCESS_FORK_PARENT_RESULT:
+        name = "process.fork.parent-result";
+        break;
+    case FROG_TEST_PROCESS_WAIT_PID:
+        name = "process.wait.pid";
+        break;
+    case FROG_TEST_PROCESS_WAIT_STATUS:
+        name = "process.wait.status";
+        break;
+    case FROG_TEST_PROCESS_FORK_ADDRESS_SPACE:
+        name = "process.fork.address-space";
+        break;
+    case FROG_TEST_PROCESS_WAIT_NO_CHILD:
+        name = "process.wait.no-child";
+        break;
+    case FROG_TEST_FD_FORK_CHILD_CLOSE:
+        name = "fd.fork-child-close";
+        break;
+    case FROG_TEST_FD_FORK_PARENT_CLOSE:
+        name = "fd.fork-parent-close";
+        break;
+    case FROG_TEST_SYSCALL_OUT_OF_RANGE:
+        name = "syscall.out-of-range";
+        break;
+    case FROG_TEST_SYSCALL_UNIMPLEMENTED:
+        name = "syscall.unimplemented";
+        break;
+    default:
+        return -EINVAL;
+    }
+
+    frog_test_case(name, passed != 0);
+    return 0;
+}
+#endif
 
 /* uint_32 sys_getpid(void) */
 /* { */
@@ -133,4 +176,7 @@ void syscall_init(void)
     syscall_table[SYS_EXIT]    = sys_exit;
     syscall_table[SYS_WAIT]    = sys_wait;
     syscall_table[SYS_TESTSYSCALL] = sys_testsyscall;
+#ifdef CONFIG_QEMU_TEST
+    syscall_table[SYS_TEST_REPORT] = sys_test_report;
+#endif
 }

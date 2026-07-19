@@ -52,10 +52,12 @@ static int frogfs_test_mount_result;
 static int frogfs_test_rollback_result;
 #endif
 
-#ifdef CONFIG_FROG_TEST_USER
-extern const uint_8 _binary_user_smoke_bin_start[];
-extern const uint_8 _binary_user_smoke_bin_end[];
-#endif
+extern const uint_8 _binary_user_smoke_basic_bin_start[];
+extern const uint_8 _binary_user_smoke_basic_bin_end[];
+extern const uint_8 _binary_user_smoke_process_bin_start[];
+extern const uint_8 _binary_user_smoke_process_bin_end[];
+extern const uint_8 _binary_user_smoke_disk_prepare_bin_start[];
+extern const uint_8 _binary_user_smoke_disk_prepare_bin_end[];
 
 static void do_basic_setup(void)
 {
@@ -103,26 +105,38 @@ static void rest_init(void)
         // dive into user mode, start first process init.
         unsigned long flags;
         uint_32 init_pid;
+        const uint_8 *image_start;
+        const uint_8 *image_end;
 
-        local_irq_save(flags);
-#ifdef CONFIG_FROG_TEST_USER
-        struct user_image image = {
-            .data = _binary_user_smoke_bin_start,
-            .size = (uint_32) (_binary_user_smoke_bin_end -
-                              _binary_user_smoke_bin_start),
+#ifdef CONFIG_FROG_TEST_PROCESS
+        image_start = _binary_user_smoke_process_bin_start;
+        image_end = _binary_user_smoke_process_bin_end;
+#elif defined(CONFIG_FROG_TEST_DISK) && \
+      defined(CONFIG_FROG_TEST_STAGE_PREPARE)
+        image_start = _binary_user_smoke_disk_prepare_bin_start;
+        image_end = _binary_user_smoke_disk_prepare_bin_end;
+#else
+        image_start = _binary_user_smoke_basic_bin_start;
+        image_end = _binary_user_smoke_basic_bin_end;
+#endif
+
+        const struct user_image image = {
+            .data = image_start,
+            .size = (uint_32) (image_end - image_start),
             .load_addr = USER_IMAGE_VADDR,
             .entry = USER_IMAGE_VADDR,
         };
+
+        local_irq_save(flags);
         init_pid = process_execute_image(&image, "init");
-#else
-        init_pid = process_execute(init, "init");
-#endif
-#ifdef CONFIG_FROG_TEST_USER
         if (init_pid == (uint_32) -1) {
                 local_irq_restore(flags);
+#ifdef CONFIG_QEMU_TEST
                 frog_test_abort("user-image-load");
-        }
+#else
+                PANIC("user image load failed");
 #endif
+        }
         set_init_process_pid(init_pid);
         local_irq_restore(flags);
         // start a kernel thread like `kthreadd`;  we don't have it yet.

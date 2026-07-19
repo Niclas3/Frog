@@ -25,10 +25,14 @@ syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait
 case. The guest cases live in `core/kernel/thread/process_regression.c`.
 
-Run `./scripts/qemu-test.sh user-smoke` after changing user-image loading,
-privilege transitions, or syscall entry. It copies a separately linked image
-to `0x08048000`, enters it in ring 3, and verifies both invalid and
-unimplemented syscall handling before completing the guest test.
+All normal and QEMU-test boots now enter ring 3 through a separately linked
+image copied to `0x08048000`; kernel-linked `init()` remains only as legacy
+source. `boot-smoke` and `user-smoke` use the basic image, `process-smoke` uses
+the process image, and the prepare stage of `disk-smoke` uses the fd-lifetime
+image. Disk verify/corrupt stages use the basic image. Run
+`./scripts/qemu-test.sh user-smoke` after changing image loading, privilege
+transitions, or syscall entry; it verifies invalid and unimplemented syscall
+handling before completing the guest test.
 
 Run `./scripts/qemu-test.sh framebuffer-smoke` after boot-video, VBE, paging, or
 framebuffer changes. The guest maps the VBE linear framebuffer as kernel-only

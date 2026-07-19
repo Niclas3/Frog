@@ -48,7 +48,8 @@ enum SYSCALL_NR {
     // TIME
     SYS_GETTIMEOFDAY = 28,
     SYS_SETTIMEOFDAY = 29,
-    SYS_NR_COUNT = 30,
+    SYS_TEST_REPORT = 30,
+    SYS_NR_COUNT = 31,
 };
 
 /**
