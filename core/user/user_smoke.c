@@ -77,6 +77,32 @@ static bool run_basic_checks(void)
 }
 
 #ifdef USER_SMOKE_PROCESS
+static bool run_vm_mapping_checks(void)
+{
+        int_32 mapped = raw_syscall1(SYS_TESTSYSCALL,
+                                     FROG_TEST_VM_PREPARE);
+        bool address_ok = mapped == (int_32) FROG_TEST_VM_EXPECTED_ADDR;
+        bool read_ok = false;
+        bool write_ok = false;
+
+        if (address_ok) {
+                volatile uint_8 *alias = (volatile uint_8 *) mapped;
+
+                read_ok = alias[0] == FROG_TEST_VM_SEED;
+                alias[0] = FROG_TEST_VM_WRITTEN;
+                write_ok = alias[0] == FROG_TEST_VM_WRITTEN;
+        }
+        report(FROG_TEST_VM_USER_ADDRESS, address_ok);
+        report(FROG_TEST_VM_USER_READ, read_ok);
+        report(FROG_TEST_VM_USER_WRITE, write_ok);
+
+        bool cleanup_ok =
+            raw_syscall1(SYS_TESTSYSCALL,
+                         FROG_TEST_VM_VERIFY_CLEANUP) == 0;
+        report(FROG_TEST_VM_CLEANUP, cleanup_ok);
+        return address_ok && read_ok && write_ok && cleanup_ok;
+}
+
 static void run_profile(void)
 {
         volatile int private_value = 7;
@@ -109,6 +135,7 @@ static void run_profile(void)
         }
         report(FROG_TEST_PROCESS_WAIT_NO_CHILD,
                raw_syscall1(SYS_WAIT, 0) == -1);
+        (void) run_vm_mapping_checks();
         finish(1);
 }
 #elif defined(USER_SMOKE_DISK_PREPARE)

@@ -337,12 +337,33 @@ static void *get_physical_page(struct pool *mpool)
 // Release target address at mpool
 static void free_physical_page(struct pool *mpool, uint_32 phy_addr_page)
 {
-        if (phy_addr_page < mpool->phy_addr_start)
+        if (phy_addr_page < mpool->phy_addr_start ||
+            (phy_addr_page & (PAGE_SIZE - 1U)) != 0)
                 PANIC("free bad phy address");
-        int pos = (phy_addr_page - mpool->phy_addr_start) / PAGE_SIZE;
-        if (pos > mpool->pool_bitmap.map_bytes_length * 8)
+        uint_32 pos = (phy_addr_page - mpool->phy_addr_start) / PAGE_SIZE;
+        if (pos >= mpool->pool_bitmap.map_bytes_length * 8U)
                 PANIC("free bad address over length");
+        if (!get_value_bitmap(&mpool->pool_bitmap, pos))
+                PANIC("free physical page twice");
         set_value_bitmap(&mpool->pool_bitmap, pos, PG_VACANT);
+}
+
+uint_32 alloc_kernel_page_frame(void)
+{
+        uint_32 physical;
+
+        lock_fetch(&kernel_pool.lock);
+        physical = (uint_32) get_physical_page(&kernel_pool);
+        lock_release(&kernel_pool.lock);
+        return physical;
+}
+
+void free_kernel_page_frame(uint_32 physical)
+{
+        ASSERT(physical != 0 && (physical & (PAGE_SIZE - 1U)) == 0);
+        lock_fetch(&kernel_pool.lock);
+        free_physical_page(&kernel_pool, physical);
+        lock_release(&kernel_pool.lock);
 }
 
 void free_phy_page(uint_32 phy_addr_page)
@@ -409,7 +430,8 @@ static void __free_addr_bitmap(struct bitmap *map,
 {
         if (addr < addr_start)
                 PANIC("[mm]:free bad phy address");
-        if (pos > (map->map_bytes_length >> 3))
+        uint_32 capacity = map->map_bytes_length * 8U;
+        if (pos >= capacity || pg_cnt > capacity - pos)
                 PANIC("[mm]:free bad address over length");
         for (int i = 0; i < pg_cnt; i++) {
                 set_value_bitmap(map, pos + i, PG_VACANT);

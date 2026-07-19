@@ -73,6 +73,18 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_SYSCALL_UNIMPLEMENTED:
         name = "syscall.unimplemented";
         break;
+    case FROG_TEST_VM_USER_ADDRESS:
+        name = "vm.user-address";
+        break;
+    case FROG_TEST_VM_USER_READ:
+        name = "vm.user-read";
+        break;
+    case FROG_TEST_VM_USER_WRITE:
+        name = "vm.user-write";
+        break;
+    case FROG_TEST_VM_CLEANUP:
+        name = "vm.cleanup";
+        break;
     default:
         return -EINVAL;
     }
@@ -141,14 +153,20 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
 /*     put_char(c); */
 /* } */
 
-void sys_testsyscall(int a)
+int_32 sys_testsyscall(uint_32 command)
 {
+#ifdef CONFIG_FROG_TEST_PROCESS
+    if (command == FROG_TEST_VM_PREPARE)
+        return mm_vm_process_prepare();
+    if (command == FROG_TEST_VM_VERIFY_CLEANUP)
+        return mm_vm_process_verify_cleanup();
+#endif
 #ifndef CONFIG_FROG_TEST_USER
-    INFO("[init]: ring3 reached, testsyscall a=%d", a);
+    INFO("[init]: ring3 reached, testsyscall a=%d", command);
 #endif
 #ifdef CONFIG_QEMU_TEST
 #ifdef CONFIG_FROG_TEST_USER
-    frog_test_case("user.low-image.syscalls", a == 0x46524f47);
+    frog_test_case("user.low-image.syscalls", command == 0x46524f47);
 #endif
 #ifdef CONFIG_FROG_TEST_PROCESS
     mm_uaccess_process_regression();
@@ -156,6 +174,7 @@ void sys_testsyscall(int a)
     frog_test_milestone("ring3", 1);
     frog_test_finish();
 #endif
+    return 0;
 }
 
 void syscall_init(void)

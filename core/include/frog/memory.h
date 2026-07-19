@@ -68,6 +68,10 @@ void sys_free(void *ptr);
 void free_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt);
 void free_phy_page(uint_32 phy_addr_page);
 
+/* Raw page-table frames. These helpers do not create virtual mappings. */
+uint_32 alloc_kernel_page_frame(void);
+void free_kernel_page_frame(uint_32 physical);
+
 // Alloc a page aka (4kb) link to vaddr_start
 void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start);
 
