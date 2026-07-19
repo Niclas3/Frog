@@ -18,6 +18,7 @@
 #include <kernel/fs_regression.h>
 #include <kernel/framebuffer_smoke.h>
 #include <kernel/frogfs.h>
+#include <kernel/mm_test.h>
 #include <kernel/vfs.h>
 
 /* #include <frog/block.h> */
@@ -40,8 +41,6 @@ extern uint_32 ps2_kbd_driver_init(void);
 extern uint_32 ata_ide_driver_init(void);
 
 extern void vga_self_test(void);
-extern int mm_regression_test(void);
-
 // end test
 
 

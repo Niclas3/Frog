@@ -11,44 +11,44 @@ struct stat;
 typedef struct kwaak_msg message;
 
 enum SYSCALL_NR {
-    SYS_GETPID,  // 0
-    SYS_SENDREC,
+    SYS_GETPID = 0,
+    SYS_SENDREC = 1,
     // heap
-    SYS_MALLOC,
-    SYS_FREE,
+    SYS_MALLOC = 2,
+    SYS_FREE = 3,
     // process
-    SYS_FORK,
-    SYS_EXECV,
-    SYS_WAIT,
-    SYS_EXIT,
-    SYS_WAIT2, // select like things
+    SYS_FORK = 4,
+    SYS_EXECV = 5,
+    SYS_WAIT = 6,
+    SYS_EXIT = 7,
+    SYS_WAIT2 = 8, // select like things
     // file system api
-    SYS_OPEN,
-    SYS_CLOSE,
-    SYS_READ,
-    SYS_WRITE,
-    SYS_SEEK,
-    SYS_UNLINK,
-    SYS_MKDIR,
-    SYS_OPENDIR,
-    SYS_CLOSEDIR,
-    SYS_READDIR,
-    SYS_REWINDDIR,
-    SYS_RMDIR,
-    SYS_GETCWD,
-    SYS_CHDIR,
-    SYS_STAT,
-    SYS_PIPE,
+    SYS_OPEN = 9,
+    SYS_CLOSE = 10,
+    SYS_READ = 11,
+    SYS_WRITE = 12,
+    SYS_SEEK = 13,
+    SYS_UNLINK = 14,
+    SYS_MKDIR = 15,
+    SYS_OPENDIR = 16,
+    SYS_CLOSEDIR = 17,
+    SYS_READDIR = 18,
+    SYS_REWINDDIR = 19,
+    SYS_RMDIR = 20,
+    SYS_GETCWD = 21,
+    SYS_CHDIR = 22,
+    SYS_STAT = 23,
+    SYS_PIPE = 24,
     //device
-    SYS_IOCTL,
+    SYS_IOCTL = 25,
     // i/o
-    SYS_PUTC,
+    SYS_PUTC = 26,
     // for test
-    SYS_TESTSYSCALL,
+    SYS_TESTSYSCALL = 27,
     // TIME
-    SYS_GETTIMEOFDAY,
-    SYS_SETTIMEOFDAY,
-    SYS_NR_COUNT,
+    SYS_GETTIMEOFDAY = 28,
+    SYS_SETTIMEOFDAY = 29,
+    SYS_NR_COUNT = 30,
 };
 
 /**

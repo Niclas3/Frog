@@ -1,9 +1,18 @@
+#include <asm/page.h>
+
+#include <frog/errno.h>
+#include <frog/irqflags.h>
 #include <frog/memory.h>
+#include <frog/process.h>
 #include <frog/string.h>
 #include <frog/types.h>
+#include <frog/uaccess.h>
 #include <kernel/debug.h>
+#include <kernel/mm_test.h>
+#include <kernel/qemu_test.h>
 
 #include "./mem_egg.h"
+#include "./mm_helper.h"
 
 #define PASS(name)         INFO("[mm-test]: PASS  " name)
 static int mm_test_failures;
@@ -203,6 +212,157 @@ static void mm_slab_reuse(void)
         PASS("slab_reuse (128-byte block reuse after free)");
 }
 
+/* access_ok() is a pure range check and is safe before a user pgdir exists. */
+static void mm_uaccess_range(void)
+{
+        bool passed = true;
+
+        passed = access_ok(NULL, 0) && passed;
+        passed = access_ok((void *) 0xffffffffU, 0) && passed;
+        passed = !access_ok(NULL, 1) && passed;
+        passed = !access_ok((void *) (USER_VADDR_START - 1), 1) && passed;
+        passed = access_ok((void *) USER_VADDR_START, 1) && passed;
+        passed = access_ok((void *) 0xbfffffffU, 1) && passed;
+        passed = !access_ok((void *) 0xbfffffffU, 2) && passed;
+        passed = access_ok((void *) USER_VADDR_START,
+                           0xc0000000U - USER_VADDR_START) && passed;
+        passed = !access_ok((void *) USER_VADDR_START,
+                            0xc0000000U - USER_VADDR_START + 1) && passed;
+        passed = !access_ok((void *) USER_VADDR_START, 0xffffffffU) && passed;
+
+        if (!passed) {
+                FAIL("uaccess_range: boundary or overflow check failed");
+                return;
+        }
+        PASS("uaccess_range (zero, bounds, and overflow)");
+}
+
+#ifdef CONFIG_FROG_TEST_PROCESS
+static void mm_test_invlpg(uint_32 addr)
+{
+        __asm__ volatile("invlpg (%0)" : : "r"(addr) : "memory");
+}
+
+void mm_uaccess_process_regression(void)
+{
+        uint_8 kernel_source[16];
+        uint_8 kernel_dest[16];
+        uint_8 *user = get_user_page(2);
+        if (user == NULL) {
+                frog_test_case("uaccess.user-pages", 0);
+                return;
+        }
+
+        for (uint_32 idx = 0; idx < sizeof(kernel_source); idx++)
+                kernel_source[idx] = (uint_8) (0x80U + idx);
+
+        memset(kernel_dest, 0, sizeof(kernel_dest));
+        int single_ok =
+            copy_to_user(user + 32, kernel_source, sizeof(kernel_source)) == 0 &&
+            copy_from_user(kernel_dest, user + 32, sizeof(kernel_dest)) == 0 &&
+            memcmp(kernel_source, kernel_dest, sizeof(kernel_source)) == 0;
+
+        uint_8 *cross = user + PAGE_SIZE - 8;
+        memset(kernel_dest, 0, sizeof(kernel_dest));
+        int cross_ok =
+            copy_to_user(cross, kernel_source, sizeof(kernel_source)) == 0 &&
+            copy_from_user(kernel_dest, cross, sizeof(kernel_dest)) == 0 &&
+            memcmp(kernel_source, kernel_dest, sizeof(kernel_source)) == 0;
+
+        memset(cross, 0x5a, 8);
+        memset(kernel_dest, 0x33, sizeof(kernel_dest));
+        uint_32 second_page = (uint_32) user + PAGE_SIZE;
+        uint_32 *second_pte = pte_ptr(second_page);
+        unsigned long irq_flags;
+        local_irq_save(irq_flags);
+        uint_32 saved_second_pte = *second_pte;
+        *second_pte = 0;
+        mm_test_invlpg(second_page);
+        int missing_to =
+            copy_to_user(cross, kernel_source, sizeof(kernel_source));
+        int missing_from =
+            copy_from_user(kernel_dest, cross, sizeof(kernel_dest));
+        int missing_unchanged = 1;
+        for (uint_32 idx = 0; idx < 8; idx++) {
+                if (cross[idx] != 0x5a)
+                        missing_unchanged = 0;
+        }
+        for (uint_32 idx = 0; idx < sizeof(kernel_dest); idx++) {
+                if (kernel_dest[idx] != 0x33)
+                        missing_unchanged = 0;
+        }
+        *second_pte = saved_second_pte;
+        mm_test_invlpg(second_page);
+        local_irq_restore(irq_flags);
+        int missing_ok = missing_to == -EFAULT && missing_from == -EFAULT &&
+                         missing_unchanged;
+
+        uint_32 first_page = (uint_32) user;
+        uint_32 *first_pte = pte_ptr(first_page);
+        uint_32 *first_pde = pde_ptr(first_page);
+
+        local_irq_save(irq_flags);
+        uint_32 saved_first_pte = *first_pte;
+        *first_pte = saved_first_pte & ~PG_US_U;
+        mm_test_invlpg(first_page);
+        int pte_user_ok =
+            copy_from_user(kernel_dest, user, 1) == -EFAULT &&
+            copy_to_user(user, kernel_source, 1) == -EFAULT;
+        *first_pte = saved_first_pte;
+        mm_test_invlpg(first_page);
+        local_irq_restore(irq_flags);
+
+        local_irq_save(irq_flags);
+        uint_32 saved_first_pde = *first_pde;
+        *first_pde = saved_first_pde & ~PG_US_U;
+        mm_test_invlpg(first_page);
+        int pde_user_ok =
+            copy_from_user(kernel_dest, user, 1) == -EFAULT &&
+            copy_to_user(user, kernel_source, 1) == -EFAULT;
+        *first_pde = saved_first_pde;
+        mm_test_invlpg(first_page);
+        local_irq_restore(irq_flags);
+
+        user[0] = 0x6d;
+        kernel_dest[0] = 0;
+        local_irq_save(irq_flags);
+        saved_first_pte = *first_pte;
+        *first_pte = saved_first_pte & ~PG_RW_W;
+        mm_test_invlpg(first_page);
+        int pte_write_ok =
+            copy_to_user(user, kernel_source, 1) == -EFAULT &&
+            copy_from_user(kernel_dest, user, 1) == 0 &&
+            kernel_dest[0] == 0x6d;
+        *first_pte = saved_first_pte;
+        mm_test_invlpg(first_page);
+        local_irq_restore(irq_flags);
+
+        kernel_dest[0] = 0;
+        local_irq_save(irq_flags);
+        saved_first_pde = *first_pde;
+        *first_pde = saved_first_pde & ~PG_RW_W;
+        mm_test_invlpg(first_page);
+        int pde_write_ok =
+            copy_to_user(user, kernel_source, 1) == -EFAULT &&
+            copy_from_user(kernel_dest, user, 1) == 0 &&
+            kernel_dest[0] == 0x6d;
+        *first_pde = saved_first_pde;
+        mm_test_invlpg(first_page);
+        local_irq_restore(irq_flags);
+
+        frog_test_case("uaccess.single-page", single_ok);
+        frog_test_case("uaccess.cross-page", cross_ok);
+        frog_test_case("uaccess.no-partial-copy", missing_ok);
+        frog_test_case("uaccess.pte-user", pte_user_ok);
+        frog_test_case("uaccess.pde-user", pde_user_ok);
+        frog_test_case("uaccess.pte-write", pte_write_ok);
+        frog_test_case("uaccess.pde-write", pde_write_ok);
+        free_page(MP_USER, user, 2);
+}
+#else
+void mm_uaccess_process_regression(void) {}
+#endif
+
 int mm_regression_test(void)
 {
         mm_test_failures = 0;
@@ -213,6 +373,7 @@ int mm_regression_test(void)
         mm_large_alloc_writethrough();
         mm_large_alloc_multi();
         mm_slab_reuse();
+        mm_uaccess_range();
         INFO("[mm-test]: ===== done =====");
         return mm_test_failures;
 }

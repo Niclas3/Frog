@@ -10,6 +10,7 @@
 #include <frog/fork.h>
 #include <frog/errno.h>
 #include <kernel/debug.h>
+#include <kernel/mm_test.h>
 #include <kernel/syscall_fs.h>
 #include <kernel/qemu_test.h>
 
@@ -101,6 +102,9 @@ void sys_testsyscall(int a)
 {
     INFO("[init]: ring3 reached, testsyscall a=%d", a);
 #ifdef CONFIG_QEMU_TEST
+#ifdef CONFIG_FROG_TEST_PROCESS
+    mm_uaccess_process_regression();
+#endif
     frog_test_milestone("ring3", 1);
     frog_test_finish();
 #endif
