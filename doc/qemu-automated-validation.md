@@ -112,6 +112,8 @@ default:
 
 - `boot-smoke`: boot, memory regression, kernel initialization, ring-3 syscall
   marker, then exit. It must not write to a filesystem or disk test region.
+- `process-smoke`: ring-3 fork, private-memory isolation, exit/wait status, and
+  child-reaping checks without filesystem writes.
 - `disk-smoke`: IDE and FrogFS round trips using disposable disk copies.
 - `soak-10m`: bounded stability run with heartbeat/progress markers.
 - Later graphical profiles: framebuffer rendering and input scenarios driven
@@ -158,8 +160,8 @@ This work implements the automated boot-smoke requirement in Milestone 0 and is
 the prerequisite for reliable unattended development loops.
 ## Implementation status
 
-The initial infrastructure is implemented by `scripts/qemu-test.sh`. Both
-`boot-smoke` and `disk-smoke` perform clean builds, package disposable image
+The initial infrastructure is implemented by `scripts/qemu-test.sh`.
+`boot-smoke`, `process-smoke`, and `disk-smoke` perform clean builds, package disposable image
 copies, capture port `0xe9`, enforce a hard timeout, normalize the
 `isa-debug-exit` status, and write `result.json`. The guest reports aggregate
 case status and the ring-3 milestone; panic and architecture assertions use the

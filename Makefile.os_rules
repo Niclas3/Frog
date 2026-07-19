@@ -74,6 +74,12 @@ MACRO_DEBUG += -DCONFIG_POSION_MEMORY
 ifeq ($(QEMU_TEST),1)
 MACRO_DEBUG += -DCONFIG_QEMU_TEST
 endif
+ifeq ($(FROG_TEST_PROFILE),process-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error process-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_PROCESS
+endif
 ifeq ($(FROG_TEST_PROFILE),disk-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error disk-smoke requires QEMU_TEST=1)

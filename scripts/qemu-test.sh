@@ -9,8 +9,9 @@ keep=${FROG_QEMU_KEEP:-0}
 
 case "$profile" in
     boot-smoke) stages=(boot) ;;
+    process-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")

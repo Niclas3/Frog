@@ -4,6 +4,7 @@ include ../../../Makefile.os_rules
 obj-y += exit.o
 obj-y += fork.o
 obj-y += process.o
+obj-y += process_regression.o
 obj-y += sched.o
 obj-y += semaphore.o
 obj-y += threads.o

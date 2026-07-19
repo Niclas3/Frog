@@ -4,6 +4,9 @@
 #include <asm/i386_syscall_common.h>
 #include <frog/errno.h>
 #include <kernel/qemu_test.h>
+#ifdef CONFIG_FROG_TEST_PROCESS
+#include <kernel/process_regression.h>
+#endif
 #ifdef CONFIG_FROG_TEST_DISK
 #include <kernel/fs_regression.h>
 #endif
@@ -21,6 +24,9 @@ void init(void)
                        unimplemented_result == -ENOSYS);
 #ifdef CONFIG_FROG_TEST_DISK
         fs_regression_run_user();
+#endif
+#ifdef CONFIG_FROG_TEST_PROCESS
+        process_regression_run_user();
 #endif
 #endif
         testsyscall(1);

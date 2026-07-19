@@ -23,6 +23,7 @@
 
 #include <kernel/debug.h>
 #include <kernel/panic.h>
+#include <kernel/process_regression.h>
 #include <kernel/qemu_test.h>
 
 extern void init(void);
@@ -79,6 +80,9 @@ static void do_basic_setup(void)
         int mm_failures = mm_regression_test();
 #ifdef CONFIG_QEMU_TEST
         frog_test_case("mm.regression", mm_failures == 0);
+#endif
+#ifdef CONFIG_FROG_TEST_PROCESS
+        process_regression_run_kernel();
 #endif
 #ifdef CONFIG_FROG_TEST_DISK
         fs_regression_run_kernel(frogfs_test_init_result,
@@ -159,6 +163,8 @@ __visible void __noreturn start_kernel(void)
 #ifdef CONFIG_QEMU_TEST
 #ifdef CONFIG_FROG_TEST_DISK
         frog_test_begin(fs_regression_profile());
+#elif defined(CONFIG_FROG_TEST_PROCESS)
+        frog_test_begin("process-smoke");
 #else
         frog_test_begin("boot-smoke");
 #endif

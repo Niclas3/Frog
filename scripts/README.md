@@ -19,3 +19,8 @@ build log, debugcon output, QEMU trace, and copied images under
 and FrogFS cases. These operations still run only against disposable image
 copies. Set `FROG_QEMU_TIMEOUT` to change the 30-second deadline or
 `FROG_QEMU_KEEP=1` to retain all artifacts from a passing run.
+
+Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
+syscall changes. It boots into ring 3 and checks fork return values, address
+space isolation, exit-status delivery, child reaping, and the no-child wait
+case. The guest cases live in `core/kernel/thread/process_regression.c`.

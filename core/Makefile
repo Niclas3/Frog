@@ -10,7 +10,7 @@ CORE_SYMBOL_IMAGE := $(BUILD_DIR)/core_symbol.img
 
 obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o \
-	 $(BUILD_DIR)/process.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/semaphore.o \
+	 $(BUILD_DIR)/process.o $(BUILD_DIR)/process_regression.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/semaphore.o \
 	 $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o \
 	 $(BUILD_DIR)/timer.o \
 	 $(BUILD_DIR)/controller.o $(BUILD_DIR)/irq.o $(BUILD_DIR)/softirq.o \
