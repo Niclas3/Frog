@@ -145,11 +145,11 @@ static int send_to_client(pkg_server_t *serv,
 static pkg_client_t *create_client(pkg_server_t *server)
 {
         TCB_t *cur = running_thread();
-        uint_32 *cur_pagedir_bak = cur->pgdir;
-        cur->pgdir = NULL;
+        struct mm_struct *cur_mm_bak = cur->mm;
+        cur->mm = NULL;
         // this memory at kernel for share
         pkg_client_t *client = sys_malloc(sizeof(pkg_client_t));
-        cur->pgdir = cur_pagedir_bak;
+        cur->mm = cur_mm_bak;
 
         client->msg_list = init_ioqueue(4000);
         client->server = server;
@@ -161,11 +161,11 @@ static pkg_client_t *create_client(pkg_server_t *server)
 static pkg_server_t *create_server(char *name)
 {
         TCB_t *cur = running_thread();
-        uint_32 *cur_pagedir_bak = cur->pgdir;
-        cur->pgdir = NULL;
+        struct mm_struct *cur_mm_bak = cur->mm;
+        cur->mm = NULL;
         // this memory at kernel for share
         pkg_server_t *server = sys_malloc(sizeof(pkg_server_t));
-        cur->pgdir = cur_pagedir_bak;
+        cur->mm = cur_mm_bak;
 
         server->msg_list = init_ioqueue(4000);
         INIT_LIST_HEAD(&server->clients);
@@ -205,11 +205,11 @@ int_32 packagefs_create(struct partition *part,
         //--------------------------------------------------------------------
         // alloc memory struct inode at kernel memory
         TCB_t *cur = running_thread();
-        uint_32 *cur_pagedir_bak = cur->pgdir;
-        cur->pgdir = NULL;
+        struct mm_struct *cur_mm_bak = cur->mm;
+        cur->mm = NULL;
         // this memory at kernel for share
         struct inode *new_f_inode = sys_malloc(sizeof(struct inode));
-        cur->pgdir = cur_pagedir_bak;
+        cur->mm = cur_mm_bak;
         //--------------------------------------------------------------------
 
         if (!new_f_inode) {
@@ -317,11 +317,11 @@ int_32 open_pkg(struct partition *part,
                 }
 
                 TCB_t *cur = running_thread();
-                uint_32 *cur_pagedir_bak = cur->pgdir;
-                cur->pgdir = NULL;
+                struct mm_struct *cur_mm_bak = cur->mm;
+                cur->mm = NULL;
                 // this memory at kernel for share
                 struct inode *client_inode = sys_malloc(sizeof(struct inode));
-                cur->pgdir = cur_pagedir_bak;
+                cur->mm = cur_mm_bak;
 
                 client_inode->i_zones[0] = client;
                 client_inode->i_mode = FT_FIFO << 11;

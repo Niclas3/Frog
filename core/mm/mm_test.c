@@ -7,6 +7,7 @@
 #include <frog/string.h>
 #include <frog/types.h>
 #include <frog/uaccess.h>
+#include <frog/vm.h>
 #include <kernel/debug.h>
 #include <kernel/mm_test.h>
 #include <kernel/qemu_test.h>
@@ -273,6 +274,118 @@ static void mm_uaccess_range(void)
         PASS("uaccess_range (zero, bounds, and overflow)");
 }
 
+static void mm_test_vma_init(struct vm_area *vma,
+                             uint_32 start,
+                             uint_32 end)
+{
+        memset(vma, 0, sizeof(*vma));
+        INIT_LIST_HEAD(&vma->elem);
+        vma->start = start;
+        vma->end = end;
+        vma->state = VM_PREPARING;
+}
+
+static void mm_vma_metadata(void)
+{
+        struct mm_struct *mm = mm_create();
+        struct vm_area left;
+        struct vm_area adjacent;
+        struct vm_area middle;
+        struct vm_area right;
+        struct vm_area unaligned;
+        struct vm_area empty;
+        struct vm_area reversed;
+        struct vm_area overlap_left;
+        struct vm_area overlap_middle;
+        struct vm_area overlap_exact;
+        bool passed = true;
+
+        if (mm == NULL) {
+                FAIL("vma_metadata: mm allocation failed");
+                return;
+        }
+        passed = mm->pgdir == NULL &&
+                 mm->user_vaddr.vaddr_bitmap.bits == NULL &&
+                 mm->user_vaddr.vaddr_bitmap.map_bytes_length == 0 &&
+                 list_is_empty(&mm->vma_list) && mm->generation == 0;
+
+        mm_test_vma_init(&left, 0x40000000U, 0x40002000U);
+        mm_test_vma_init(&adjacent, 0x40002000U, 0x40004000U);
+        mm_test_vma_init(&middle, 0x40004000U, 0x40006000U);
+        mm_test_vma_init(&right, 0x40008000U, 0x40009000U);
+        passed = vm_area_insert(mm, &right) == 0 && passed;
+        passed = vm_area_insert(mm, &left) == 0 && passed;
+        passed = vm_area_insert(mm, &middle) == 0 && passed;
+        passed = mm->vma_list.next == &left.elem &&
+                 left.elem.next == &middle.elem &&
+                 middle.elem.next == &right.elem &&
+                 right.elem.next == &mm->vma_list && passed;
+
+        mm_test_vma_init(&unaligned, 0x40000001U, 0x40001000U);
+        mm_test_vma_init(&empty, 0x50000000U, 0x50000000U);
+        mm_test_vma_init(&reversed, 0xfffff000U, 0x00001000U);
+        passed = vm_area_insert(mm, &unaligned) == -EINVAL && passed;
+        passed = vm_area_insert(mm, &empty) == -EINVAL && passed;
+        passed = vm_area_insert(mm, &reversed) == -EINVAL && passed;
+
+        mm_test_vma_init(&overlap_left, 0x40001000U, 0x40003000U);
+        mm_test_vma_init(&overlap_middle, 0x40003000U, 0x40007000U);
+        mm_test_vma_init(&overlap_exact, 0x40004000U, 0x40006000U);
+        passed = vm_area_insert(mm, &overlap_left) == -EEXIST && passed;
+        passed = vm_area_insert(mm, &overlap_middle) == -EEXIST && passed;
+        passed = vm_area_insert(mm, &overlap_exact) == -EEXIST && passed;
+        passed = vm_area_insert(mm, &adjacent) == 0 && passed;
+        passed = mm->generation == 4 && passed;
+
+        passed = vm_area_find(mm, 0x3fffffffU) == NULL && passed;
+        passed = vm_area_find(mm, left.start) == &left && passed;
+        passed = vm_area_find(mm, left.end) == &adjacent && passed;
+        passed = vm_area_find(mm, middle.end) == NULL && passed;
+        passed = vm_area_find(mm, right.end) == NULL && passed;
+        passed = vm_area_find_exact(mm, middle.start, middle.end) ==
+                     &middle &&
+                 vm_area_find_exact(mm, middle.start,
+                                    middle.end - PAGE_SIZE) == NULL &&
+                 passed;
+
+        unsigned long long generation = mm->generation;
+        passed = vm_area_remove_exact(mm, middle.start,
+                                      middle.end - PAGE_SIZE) == NULL &&
+                 mm->generation == generation && passed;
+        struct vm_area *removed_middle =
+            vm_area_remove_exact(mm, middle.start, middle.end);
+        struct vm_area *removed_left =
+            vm_area_remove_exact(mm, left.start, left.end);
+        struct vm_area *removed_adjacent =
+            vm_area_remove_exact(mm, adjacent.start, adjacent.end);
+        struct vm_area *removed_right =
+            vm_area_remove_exact(mm, right.start, right.end);
+        passed = removed_middle == &middle && middle.mm == NULL &&
+                 middle.elem.next == &middle.elem &&
+                 middle.elem.prev == &middle.elem &&
+                 removed_left == &left && removed_adjacent == &adjacent &&
+                 removed_right == &right && list_is_empty(&mm->vma_list) &&
+                 mm->generation == 8 && passed;
+
+        if (!list_is_empty(&mm->vma_list)) {
+                passed = false;
+                while (!list_is_empty(&mm->vma_list)) {
+                        struct list_head *node = mm->vma_list.next;
+                        struct vm_area *vma =
+                            list_entry(node, struct vm_area, elem);
+                        list_del_init(node);
+                        vma->mm = NULL;
+                }
+        }
+
+        mm_destroy(mm);
+        if (!passed) {
+                FAIL("vma_metadata: ordering, boundary, overlap, or exact lookup failed");
+                return;
+        }
+        PASS("vma_metadata (ordered, non-overlapping, exact remove)");
+}
+
 #ifdef CONFIG_FROG_TEST_PROCESS
 static void mm_test_invlpg(uint_32 addr)
 {
@@ -432,6 +545,7 @@ int mm_regression_test(void)
         mm_slab_reuse();
         mm_supervisor_permissions();
         mm_uaccess_range();
+        mm_vma_metadata();
         INFO("[mm-test]: ===== done =====");
         return mm_test_failures;
 }

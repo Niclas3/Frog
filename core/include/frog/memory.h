@@ -30,6 +30,8 @@ typedef struct _virtual_addr {
 
 typedef enum mem_pool_type { MP_KERNEL = 1, MP_USER } pool_type;
 
+struct mm_struct;
+
 // The largest size is 4KB
 // There are seven different descriptions
 //
@@ -70,7 +72,7 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start);
 // void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr);
 void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
                                    uint_32 vaddr,
-                                   uint_32 *child_pgdir);
+                                   struct mm_struct *mm);
 
 // init block descriptors
 void block_desc_init(struct mem_block_desc *desc_array);

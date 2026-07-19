@@ -3,6 +3,7 @@
 #include <frog/string.h>
 #include <frog/process.h>
 #include <frog/threads.h>
+#include <frog/vm.h>
 
 #include <const.h>
 #include <kernel/assert.h>
@@ -91,14 +92,15 @@ static void start_process_ring1(void *filename)
 
 /*
  * Change current process page dir to new physical address
- * If current thread does not have "thread->pgdir" use default page dir aka
+ * If current thread does not have an mm use default page dir aka
  * kernel page dir address (0x100000)
  */
 void page_dir_activate(TCB_t *thread)
 {
         uint_32 pagedir_phy_addr = 0x100000;  // default pagedir address 
-        if (thread != NULL && thread->pgdir != NULL) {
-                pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
+        if (thread != NULL && thread->mm != NULL &&
+            thread->mm->pgdir != NULL) {
+                pagedir_phy_addr = addr_v2p((uint_32) thread->mm->pgdir);
         }
         __asm__ volatile("movl %0, %%cr3;"
                          :
@@ -111,7 +113,7 @@ void process_activate(TCB_t *thread)
         ASSERT(thread != NULL);
 
         page_dir_activate(thread);
-        if (thread->pgdir) {  // if thread is a process
+        if (thread->mm != NULL) {
                 update_tss_esp0(thread);
         }
 }
@@ -132,18 +134,17 @@ uint_32 *create_page_dir(void)
         return page_dir_vaddr;
 }
 
-static int create_user_vaddr_bitmap(TCB_t *user_prog)
+static int create_user_vaddr_bitmap(struct mm_struct *mm)
 {
         uint_32 bitmap_len =
             DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PAGE_SIZE, 8);
-        user_prog->progress_vaddr.vaddr_start = USER_VADDR_START;
+        mm->user_vaddr.vaddr_start = USER_VADDR_START;
         uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PAGE_SIZE);
-        user_prog->progress_vaddr.vaddr_bitmap.bits =
-            get_kernel_page(bitmap_pg_cnt);
-        if (user_prog->progress_vaddr.vaddr_bitmap.bits == NULL)
+        mm->user_vaddr.vaddr_bitmap.bits = get_kernel_page(bitmap_pg_cnt);
+        if (mm->user_vaddr.vaddr_bitmap.bits == NULL)
                 return -1;
-        user_prog->progress_vaddr.vaddr_bitmap.map_bytes_length = bitmap_len;
-        init_bitmap(&user_prog->progress_vaddr.vaddr_bitmap);
+        mm->user_vaddr.vaddr_bitmap.map_bytes_length = bitmap_len;
+        init_bitmap(&mm->user_vaddr.vaddr_bitmap);
         return 0;
 }
 
@@ -151,18 +152,20 @@ static int create_initial_user_stack(TCB_t *thread)
 {
         TCB_t *current = running_thread();
         uint_32 bit_idx =
-            (USER_STACK3_VADDR - thread->progress_vaddr.vaddr_start) / PAGE_SIZE;
+            (USER_STACK3_VADDR - thread->mm->user_vaddr.vaddr_start) /
+            PAGE_SIZE;
         unsigned long flags;
 
         local_irq_save(flags);
         page_dir_activate(thread);
         void *stack = get_phy_free_page_with_vaddr(
-            MP_USER, USER_STACK3_VADDR, thread->pgdir);
+            MP_USER, USER_STACK3_VADDR, thread->mm);
         page_dir_activate(current);
         local_irq_restore(flags);
         if (stack == NULL)
                 return -1;
-        set_value_bitmap(&thread->progress_vaddr.vaddr_bitmap, bit_idx, 1);
+        set_value_bitmap(&thread->mm->user_vaddr.vaddr_bitmap, bit_idx, 1);
+        thread->mm->generation++;
         return 0;
 }
 
@@ -185,7 +188,8 @@ static int load_user_image(TCB_t *thread, const struct user_image *image)
 {
         TCB_t *current = running_thread();
         uint_32 bit_idx =
-            (image->load_addr - thread->progress_vaddr.vaddr_start) / PAGE_SIZE;
+            (image->load_addr - thread->mm->user_vaddr.vaddr_start) /
+            PAGE_SIZE;
         unsigned long flags;
         int result = -1;
 
@@ -195,12 +199,13 @@ static int load_user_image(TCB_t *thread, const struct user_image *image)
         if ((*pde & PG_P_SET) && (*pte_ptr(image->load_addr) & PG_P_SET))
                 goto out;
         if (get_phy_free_page_with_vaddr(MP_USER, image->load_addr,
-                                         thread->pgdir) == NULL)
+                                         thread->mm) == NULL)
                 goto out;
 
         memset((void *) image->load_addr, 0, PAGE_SIZE);
         memcpy((void *) image->load_addr, image->data, image->size);
-        set_value_bitmap(&thread->progress_vaddr.vaddr_bitmap, bit_idx, 1);
+        set_value_bitmap(&thread->mm->user_vaddr.vaddr_bitmap, bit_idx, 1);
+        thread->mm->generation++;
         result = 0;
 
 out:
@@ -211,16 +216,17 @@ out:
 
 void process_release_address_space(TCB_t *thread)
 {
-        if (thread == NULL)
+        if (thread == NULL || thread->mm == NULL)
                 return;
 
+        struct mm_struct *mm = thread->mm;
         TCB_t *current = running_thread();
         unsigned long flags;
         local_irq_save(flags);
-        if (thread->pgdir != NULL) {
+        if (mm->pgdir != NULL) {
                 page_dir_activate(thread);
                 for (uint_32 pde_idx = 0; pde_idx < 768; pde_idx++) {
-                        uint_32 pde = thread->pgdir[pde_idx];
+                        uint_32 pde = mm->pgdir[pde_idx];
                         if (!(pde & PG_P_SET))
                                 continue;
                         uint_32 *pt = pte_ptr(pde_idx * 0x400000);
@@ -234,18 +240,20 @@ void process_release_address_space(TCB_t *thread)
                         page_dir_activate(NULL);
                 else
                         page_dir_activate(current);
-                free_page(MP_KERNEL, thread->pgdir, 1);
-                thread->pgdir = NULL;
+                free_page(MP_KERNEL, mm->pgdir, 1);
+                mm->pgdir = NULL;
         }
 
-        uint_8 *bits = thread->progress_vaddr.vaddr_bitmap.bits;
-        uint_32 bytes = thread->progress_vaddr.vaddr_bitmap.map_bytes_length;
+        uint_8 *bits = mm->user_vaddr.vaddr_bitmap.bits;
+        uint_32 bytes = mm->user_vaddr.vaddr_bitmap.map_bytes_length;
         if (bits != NULL && bytes != 0) {
                 free_page(MP_KERNEL, bits, DIV_ROUND_UP(bytes, PAGE_SIZE));
-                thread->progress_vaddr.vaddr_bitmap.bits = NULL;
-                thread->progress_vaddr.vaddr_bitmap.map_bytes_length = 0;
+                mm->user_vaddr.vaddr_bitmap.bits = NULL;
+                mm->user_vaddr.vaddr_bitmap.map_bytes_length = 0;
         }
+        thread->mm = NULL;
         local_irq_restore(flags);
+        mm_destroy(mm);
 }
 
 uint_32 process_execute(void *filename, char *name)
@@ -255,11 +263,14 @@ uint_32 process_execute(void *filename, char *name)
                 return (uint_32) -1;
         if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
                 goto fail_tcb;
-        if (create_user_vaddr_bitmap(thread) < 0)
+        thread->mm = mm_create();
+        if (thread->mm == NULL)
                 goto fail_pid;
+        if (create_user_vaddr_bitmap(thread->mm) < 0)
+                goto fail_address_space;
         create_thread(thread, start_process, filename);
-        thread->pgdir = create_page_dir();
-        if (thread->pgdir == NULL)
+        thread->mm->pgdir = create_page_dir();
+        if (thread->mm->pgdir == NULL)
                 goto fail_address_space;
         if (create_initial_user_stack(thread) < 0)
                 goto fail_address_space;
@@ -289,11 +300,14 @@ uint_32 process_execute_image(const struct user_image *image,
                 return (uint_32) -1;
         if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
                 goto fail_tcb;
-        if (create_user_vaddr_bitmap(thread) < 0)
+        thread->mm = mm_create();
+        if (thread->mm == NULL)
                 goto fail_pid;
+        if (create_user_vaddr_bitmap(thread->mm) < 0)
+                goto fail_address_space;
         create_thread(thread, start_process, (void *) image->entry);
-        thread->pgdir = create_page_dir();
-        if (thread->pgdir == NULL || load_user_image(thread, image) < 0 ||
+        thread->mm->pgdir = create_page_dir();
+        if (thread->mm->pgdir == NULL || load_user_image(thread, image) < 0 ||
             create_initial_user_stack(thread) < 0)
                 goto fail_address_space;
         block_desc_init(thread->u_block_descs);
@@ -317,11 +331,15 @@ void process_execute_ring1(void *filename, char *name)
                 return;
         if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
                 goto fail_tcb;
-        if (create_user_vaddr_bitmap(thread) < 0)
+        thread->mm = mm_create();
+        if (thread->mm == NULL)
                 goto fail_pid;
+        if (create_user_vaddr_bitmap(thread->mm) < 0)
+                goto fail_address_space;
         create_thread(thread, start_process_ring1, filename);
-        thread->pgdir = create_page_dir();
-        if (thread->pgdir == NULL || create_initial_user_stack(thread) < 0 ||
+        thread->mm->pgdir = create_page_dir();
+        if (thread->mm->pgdir == NULL ||
+            create_initial_user_stack(thread) < 0 ||
             thread_publish(thread) < 0)
                 goto fail_address_space;
         return;

@@ -8,6 +8,7 @@
 #include <frog/process.h>
 #include <frog/string.h>
 #include <frog/threads.h>
+#include <frog/vm.h>
 
 #include <asm/page.h>
 
@@ -22,9 +23,12 @@ extern struct list_head thread_all_list;
 static int_32 copy_tcb_vaddrbitmap_stack0(TCB_t *child_thread,
                                           TCB_t *parent_thread)
 {
+        if (parent_thread->mm == NULL ||
+            !list_is_empty(&parent_thread->mm->vma_list))
+                return -1;
+
         memcpy(child_thread, parent_thread, PAGE_SIZE);
-        child_thread->pgdir = NULL;
-        child_thread->progress_vaddr.vaddr_bitmap.bits = NULL;
+        child_thread->mm = NULL;
         child_thread->pid = fork_pid();
         if (child_thread->pid == (pid_t) -1)
                 return -1;
@@ -37,15 +41,27 @@ static int_32 copy_tcb_vaddrbitmap_stack0(TCB_t *child_thread,
         INIT_LIST_HEAD(&child_thread->proc_list_tag);
         block_desc_init(child_thread->u_block_descs);
 
+        child_thread->mm = mm_create();
+        if (child_thread->mm == NULL)
+                return -1;
         uint_32 bitmap_len =
-            DIV_ROUND_UP((0xc0000000 - USER_VADDR_START) / PAGE_SIZE, 8);
+            parent_thread->mm->user_vaddr.vaddr_bitmap.map_bytes_length;
+        if (bitmap_len == 0 ||
+            parent_thread->mm->user_vaddr.vaddr_bitmap.bits == NULL)
+                return -1;
         uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PAGE_SIZE);
         void *vaddr_btmp = get_kernel_page(bitmap_pg_cnt);
         if (vaddr_btmp == NULL)
                 return -1;
-        memcpy(vaddr_btmp, parent_thread->progress_vaddr.vaddr_bitmap.bits,
+        memcpy(vaddr_btmp,
+               parent_thread->mm->user_vaddr.vaddr_bitmap.bits,
                bitmap_pg_cnt * PAGE_SIZE);
-        child_thread->progress_vaddr.vaddr_bitmap.bits = vaddr_btmp;
+        child_thread->mm->user_vaddr.vaddr_bitmap.bits = vaddr_btmp;
+        child_thread->mm->user_vaddr.vaddr_bitmap.map_bytes_length =
+            bitmap_len;
+        child_thread->mm->user_vaddr.vaddr_start =
+            parent_thread->mm->user_vaddr.vaddr_start;
+        child_thread->mm->generation = parent_thread->mm->generation;
 
         uint_32 name_len = strlen(child_thread->name);
         strncpy(child_thread->name + name_len, "_fork",
@@ -58,10 +74,11 @@ static int copy_body_stack3(TCB_t *child_thread,
                             TCB_t *parent_thread,
                             void *buf_page)
 {
-        uint_8 *vaddr_btmp = parent_thread->progress_vaddr.vaddr_bitmap.bits;
+        uint_8 *vaddr_btmp =
+            parent_thread->mm->user_vaddr.vaddr_bitmap.bits;
         uint_32 btmp_bytes_len =
-            parent_thread->progress_vaddr.vaddr_bitmap.map_bytes_length;
-        uint_32 vaddr_start = parent_thread->progress_vaddr.vaddr_start;
+            parent_thread->mm->user_vaddr.vaddr_bitmap.map_bytes_length;
+        uint_32 vaddr_start = parent_thread->mm->user_vaddr.vaddr_start;
         uint_32 idx_byte = 0;
         uint_32 idx_bit = 0;
         uint_32 prog_vaddr = 0;
@@ -81,7 +98,7 @@ static int copy_body_stack3(TCB_t *child_thread,
                                         page_dir_activate(child_thread);
                                         if (get_phy_free_page_with_vaddr(
                                                 MP_USER, prog_vaddr,
-                                                child_thread->pgdir) == NULL) {
+                                                child_thread->mm) == NULL) {
                                                 page_dir_activate(parent_thread);
                                                 local_irq_restore(flags);
                                                 return -1;
@@ -142,8 +159,8 @@ static int copy_process(TCB_t *child_thread, TCB_t *parent_thread)
                 return -1;
         if (copy_tcb_vaddrbitmap_stack0(child_thread, parent_thread) == -1)
                 goto fail;
-        child_thread->pgdir = create_page_dir();
-        if (child_thread->pgdir == NULL)
+        child_thread->mm->pgdir = create_page_dir();
+        if (child_thread->mm->pgdir == NULL)
                 goto fail;
         if (copy_body_stack3(child_thread, parent_thread, buf_page) < 0)
                 goto fail;
@@ -166,7 +183,8 @@ uint_32 sys_fork(void)
         memset(child_thread, 0, PAGE_SIZE);
         child_thread->pid = (pid_t) -1;
 
-        ASSERT(parent_thread->pgdir != NULL);
+        ASSERT(parent_thread->mm != NULL &&
+               parent_thread->mm->pgdir != NULL);
         if (copy_process(child_thread, parent_thread) == -1)
                 goto fail;
 

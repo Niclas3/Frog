@@ -154,7 +154,7 @@ int init_thread(TCB_t *thread, const char *name, uint_8 priority)
         thread->priority = priority;
         thread->ticks = priority;
         thread->elapsed_ticks = 0;
-        thread->pgdir = NULL;  // pgdir == NULL indicate this is kernel thread
+        thread->mm = NULL;
         thread->cwd_inode_nr =
             0;  // current working directory to root_dir default
         thread->parent_pid = -1;  // default parent_pid is -1 -> no parent pid

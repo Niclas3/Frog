@@ -17,6 +17,8 @@
 
 typedef uint_16 tid_t;  // thread id for each thread
 
+struct mm_struct;
+
 // Routine type
 typedef void *(*__routine_ptr_t)(void *);
 typedef void *__routine_t(void *);
@@ -94,9 +96,7 @@ typedef struct thread_control_block {
         struct list_head general_tag;    // set this tag to thread_ready_list
         struct list_head all_list_tag;   // for thread_all_list
         struct list_head proc_list_tag;  // for process_all_list
-        uint_32 *pgdir;                  // virtual address of page directory
-        virtual_addr
-            progress_vaddr;  // vaddress start and a new bitmap of memory
+        struct mm_struct *mm;  // NULL for a kernel thread
         struct mem_block_desc
             u_block_descs[DESC_CNT];  // block descriptor from allocate memory
         // File things

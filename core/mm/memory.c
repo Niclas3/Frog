@@ -4,6 +4,7 @@
 #include <frog/semaphore.h>
 #include <frog/string.h>
 #include <frog/threads.h>
+#include <frog/vm.h>
 
 #include <frog/math.h>  // for DIV_ROUND_UP
 #include <kernel/assert.h>
@@ -123,8 +124,8 @@ static void invalidate(void)
         ASSERT(thread);
         uint_32 pagedir_phy_addr =
             0x100000;  // default pagedir address is 0x100000
-        if (thread->pgdir != NULL) {
-                pagedir_phy_addr = addr_v2p((uint_32) thread->pgdir);
+        if (thread->mm != NULL && thread->mm->pgdir != NULL) {
+                pagedir_phy_addr = addr_v2p((uint_32) thread->mm->pgdir);
         }
         __asm__ volatile("movl %0, %%cr3;"
                          :
@@ -173,6 +174,11 @@ void put_page(void *v_addr, void *phy_addr)
                 memset((void *) ((int) pte & 0xfffff000), 0, PAGE_SIZE);
                 ASSERT(!(*pte & 0x00000001));
                 *pte = phyaddress | entry_flags;
+        }
+        if (vaddress < KERNEL_BASE) {
+                TCB_t *current = running_thread();
+                if (current != NULL && current->mm != NULL)
+                        current->mm->generation++;
         }
 }
 
@@ -242,7 +248,9 @@ int map_kernel_framebuffer(uintptr_t paddr, uint_32 size)
         return 0;
 }
 
-static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
+static int put_page_and_flush(void *v_addr,
+                              void *phy_addr,
+                              struct mm_struct *mm)
 {
         uint_32 vaddress = (uint_32) v_addr;
         uint_32 phyaddress = (uint_32) phy_addr;
@@ -262,7 +270,7 @@ static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
                         /* PANIC("pte exists"); */
                         *pte = phyaddress | entry_flags;
                 }
-                flush_cr3(pgdir);
+                flush_cr3(mm->pgdir);
         } else {
                 // if there is no pde , let's create it.
                 // Create phyaddr at kernel pool
@@ -276,6 +284,7 @@ static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
                 ASSERT(!(*pte & 0x00000001));
                 *pte = phyaddress | entry_flags;
         }
+        mm->generation++;
         return 0;
 }
 
@@ -340,17 +349,19 @@ static void *get_virtual_pages(pool_type poolt, uint_32 pg_cnt)
                     start_pos * PAGE_SIZE + kernel_viraddr.vaddr_start;
                 return (void *) v_start_addr;
         } else if (poolt == MP_USER) {
-                start_pos = find_block_bitmap(&cur->progress_vaddr.vaddr_bitmap,
+                ASSERT(cur->mm != NULL);
+                start_pos = find_block_bitmap(&cur->mm->user_vaddr.vaddr_bitmap,
                                               pg_cnt);
                 if (start_pos == -1) {
                         return NULL;
                 }
                 for (int i = 0; i < pg_cnt; i++) {
-                        set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap,
+                        set_value_bitmap(&cur->mm->user_vaddr.vaddr_bitmap,
                                          start_pos + i, PG_OCCUPIED);
                 }
                 v_start_addr =
-                    start_pos * PAGE_SIZE + cur->progress_vaddr.vaddr_start;
+                    start_pos * PAGE_SIZE + cur->mm->user_vaddr.vaddr_start;
+                cur->mm->generation++;
                 return (void *) v_start_addr;
         } else {
                 PANIC("[mm]: Wrong memory pool type.");
@@ -389,11 +400,14 @@ static void free_virtual_pages(pool_type poolt,
                                    pg_cnt);
         } else {
                 TCB_t *cur = running_thread();
-                uint_32 offset = (vaddress - cur->progress_vaddr.vaddr_start);
+                ASSERT(cur->mm != NULL);
+                uint_32 offset =
+                    (vaddress - cur->mm->user_vaddr.vaddr_start);
                 uint_32 pos = offset / PAGE_SIZE;
-                __free_addr_bitmap(&cur->progress_vaddr.vaddr_bitmap,
-                                   cur->progress_vaddr.vaddr_start, vaddress,
+                __free_addr_bitmap(&cur->mm->user_vaddr.vaddr_bitmap,
+                                   cur->mm->user_vaddr.vaddr_start, vaddress,
                                    pos, pg_cnt);
+                cur->mm->generation++;
         }
 }
 
@@ -468,6 +482,8 @@ void free_page(enum mem_pool_type poolt, void *_vaddr, uint_32 pg_cnt)
                 phy_addr = virtual_addr_to_physical_addr((void *) vaddr);
                 free_physical_page(mem_pool, phy_addr);
                 remove_page((void *) vaddr);
+                if (poolt == MP_USER)
+                        running_thread()->mm->generation++;
                 vaddr += PAGE_SIZE;
         }
 }
@@ -581,16 +597,17 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
         int_32 bit_idx = -1;
         TCB_t *cur = running_thread();
         uint_32 offset;
-        if (cur->pgdir == NULL && poolt == MP_KERNEL) {
+        if (cur->mm == NULL && poolt == MP_KERNEL) {
                 offset = (vaddr_start - kernel_viraddr.vaddr_start);
                 bit_idx = offset / PAGE_SIZE;
                 ASSERT(bit_idx >= 0);
                 set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, 1);
-        } else if (cur->pgdir != NULL && poolt == MP_USER) {
-                offset = (vaddr_start - cur->progress_vaddr.vaddr_start);
+        } else if (cur->mm != NULL && poolt == MP_USER) {
+                offset = (vaddr_start - cur->mm->user_vaddr.vaddr_start);
                 bit_idx = offset / PAGE_SIZE;
                 ASSERT(bit_idx >= 0);
-                set_value_bitmap(&cur->progress_vaddr.vaddr_bitmap, bit_idx, 1);
+                set_value_bitmap(&cur->mm->user_vaddr.vaddr_bitmap, bit_idx, 1);
+                cur->mm->generation++;
         } else {
                 PANIC("[mm]: worng pool type.");
         }
@@ -606,16 +623,18 @@ void *malloc_page_with_vaddr(enum mem_pool_type poolt, uint_32 vaddr_start)
 // invoke by fork() fork.c
 void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
                                    uint_32 vaddr,
-                                   uint_32 *child_pgdir)
+                                   struct mm_struct *mm)
 {
         struct pool *mem_pool = poolt == MP_KERNEL ? &kernel_pool : &user_pool;
+        if (mm == NULL || mm->pgdir == NULL)
+                return NULL;
         lock_fetch(&mem_pool->lock);
         void *page_phyaddr = get_physical_page(mem_pool);
         if (page_phyaddr == NULL) {
                 lock_release(&mem_pool->lock);
                 return NULL;
         }
-        if (put_page_and_flush((void *) vaddr, page_phyaddr, child_pgdir) < 0) {
+        if (put_page_and_flush((void *) vaddr, page_phyaddr, mm) < 0) {
                 free_physical_page(mem_pool, (uint_32) page_phyaddr);
                 lock_release(&mem_pool->lock);
                 return NULL;
@@ -844,7 +863,7 @@ void *sys_malloc(uint_32 size)
 {
         TCB_t *cur = running_thread();
         // Kernel
-        if (cur->pgdir == NULL) {
+        if (cur->mm == NULL) {
                 return malloc_internal(size, MP_KERNEL);
         } else {
                 // User
@@ -858,7 +877,7 @@ void sys_free(void *ptr)
         if (ptr != NULL) {
                 TCB_t *cur = running_thread();
                 // Is thread
-                if (cur->pgdir == NULL) {
+                if (cur->mm == NULL) {
                         ASSERT((uint_32) ptr >= K_HEAP_START);
                         free_internal(ptr, MP_KERNEL);
                 } else {  // is process

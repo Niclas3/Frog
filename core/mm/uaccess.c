@@ -6,6 +6,7 @@
 #include <frog/threads.h>
 #include <frog/types.h>
 #include <frog/uaccess.h>
+#include <frog/vm.h>
 
 #include "mm_helper.h"
 
@@ -36,7 +37,8 @@ static bool user_pages_accessible(const void *user_ptr, uint_32 size,
 
         if (size == 0)
                 return true;
-        if (current == NULL || current->pgdir == NULL)
+        if (current == NULL || current->mm == NULL ||
+            current->mm->pgdir == NULL)
                 return false;
 
         page = (uint_32) user_ptr & ~(PAGE_SIZE - 1);
