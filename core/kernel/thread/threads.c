@@ -250,11 +250,16 @@ void make_main_thread(void)
         uintptr_t esp;
         __asm__ volatile("movl %%esp, %0" : "=r"(esp) : :);
         uintptr_t new_esp = main_tcb | (esp & 0xFFFUL);
-        __asm__ volatile("movl %0, %%esp" : : "r"(new_esp) : "%esp");
 
         uintptr_t ebp;
         __asm__ volatile("movl %%ebp, %0" : "=r"(ebp) : :);
         uintptr_t new_ebp = main_tcb | (ebp & 0xFFFUL);
+        uintptr_t caller_ebp = *(uintptr_t *) ebp;
+
+        ASSERT((caller_ebp & ~0xFFFUL) == (uintptr_t) current);
+        *(uintptr_t *) new_ebp = main_tcb | (caller_ebp & 0xFFFUL);
+
+        __asm__ volatile("movl %0, %%esp" : : "r"(new_esp) : "%esp");
         __asm__ volatile("movl %0, %%ebp" : : "r"(new_ebp) : "%esp");
 }
 

@@ -213,8 +213,10 @@ static int isa_register_device(struct bus_type *isa_bus,
         int ret;
 
         dev = kmalloc(sizeof(*dev));
-        if (dev == NULL)
+        if (dev == NULL) {
+                printk("[device] register %s failed: %d\n", name, -ENOMEM);
                 return -ENOMEM;
+        }
 
         device_init(dev, heap_device_release);
         dev->name = name;
@@ -223,8 +225,10 @@ static int isa_register_device(struct bus_type *isa_bus,
         dev->bus = isa_bus;
 
         ret = register_device(dev);
-        if (ret != 0)
+        if (ret != 0) {
+                printk("[device] register %s failed: %d\n", name, ret);
                 kfree(dev);
+        }
         return ret;
 }
 
