@@ -188,19 +188,37 @@ void put_page(void *v_addr, void *phy_addr)
 
 #define FRAMEBUFFER_MAX_PDE_COUNT 4
 
-int map_kernel_framebuffer(uintptr_t paddr, uint_32 size)
+static const struct phys_resource *kernel_framebuffer_resource;
+
+int map_kernel_framebuffer_pinned(const struct phys_resource *resource,
+                                  uint_32 size)
 {
         const uintptr_t vaddr = KERNEL_FRAMEBUFFER_VADDR;
         void *new_page_tables[FRAMEBUFFER_MAX_PDE_COUNT];
         uint_32 new_pde_indexes[FRAMEBUFFER_MAX_PDE_COUNT];
         uint_32 new_pde_count = 0;
+        uintptr_t paddr;
 
-        if (size == 0 || (paddr & (PAGE_SIZE - 1)) ||
-            size > 16 * 1024 * 1024UL || paddr + size < paddr)
+        if (resource == NULL ||
+            resource->state != PHYS_RESOURCE_REGISTERED ||
+            resource->type != PHYS_RESOURCE_MMIO ||
+            resource->cache_mode != VM_CACHE_UNCACHED ||
+            refcount_read(&resource->refs) < 2 ||
+            resource->start > 0xffffffffULL || size == 0 ||
+            resource->start > 0x100000000ULL - size ||
+            (resource->start & (PAGE_SIZE - 1U)) != 0 ||
+            (size & (PAGE_SIZE - 1U)) != 0 ||
+            size > 16U * 1024U * 1024U ||
+            !phys_resource_contains(resource, resource->start, size))
                 return -1;
+        paddr = (uintptr_t) resource->start;
 
-        uint_32 page_count = DIV_ROUND_UP(size, PAGE_SIZE);
+        uint_32 page_count = size / PAGE_SIZE;
         lock_fetch(&kernel_pool.lock);
+        if (kernel_framebuffer_resource != NULL) {
+                lock_release(&kernel_pool.lock);
+                return -1;
+        }
 
         /* Reject the whole request before changing any existing page table. */
         for (uint_32 page = 0; page < page_count; page++) {
@@ -208,6 +226,10 @@ int map_kernel_framebuffer(uintptr_t paddr, uint_32 size)
                 uint_32 *pde = pde_ptr(current_vaddr);
                 uint_32 *pte = pte_ptr(current_vaddr);
 
+                if ((*pde & PG_P_SET) && (*pde & PG_US_U)) {
+                        lock_release(&kernel_pool.lock);
+                        return -1;
+                }
                 if ((*pde & PG_P_SET) && (*pte & PG_P_SET)) {
                         lock_release(&kernel_pool.lock);
                         return -1;
@@ -245,9 +267,15 @@ int map_kernel_framebuffer(uintptr_t paddr, uint_32 size)
                 uint_32 current_vaddr = vaddr + page * PAGE_SIZE;
                 uint_32 current_paddr = paddr + page * PAGE_SIZE;
                 uint_32 *pte = pte_ptr(current_vaddr);
-                *pte = current_paddr | PG_RW_W | PG_P_SET;
+                uint_32 expected = current_paddr | PG_RW_W | PG_PWT |
+                                   PG_PCD | PG_P_SET;
+
+                *pte = expected;
                 __asm__ volatile("invlpg (%0)" : : "r"(current_vaddr) : "memory");
+                ASSERT((*pte & (0xfffff000U | PG_US_U | PG_RW_W | PG_PWT |
+                                PG_PCD | PG_P_SET)) == expected);
         }
+        kernel_framebuffer_resource = resource;
         lock_release(&kernel_pool.lock);
         return 0;
 }

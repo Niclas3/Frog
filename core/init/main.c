@@ -17,6 +17,7 @@
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 #include <kernel/fs_regression.h>
+#include <kernel/framebuffer.h>
 #include <kernel/framebuffer_smoke.h>
 #include <kernel/frogfs.h>
 #include <kernel/mm_test.h>
@@ -264,11 +265,42 @@ __visible void __noreturn start_kernel(void)
 #endif
         setup_local_cpus();
         platform_init();
+        int framebuffer_result = pc_framebuffer_snapshot_handoff();
+        if (framebuffer_result != 0 && framebuffer_result != -ENODEV) {
+#ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+                frog_test_abort("framebuffer-handoff-invalid");
+#else
+                PANIC("framebuffer handoff is invalid");
+#endif
+        }
         mem_init();
         thread_init();
         make_main_thread();
 
+        struct bus_type *isa_bus = isa_bus_init();
+        struct bus_type *platform_bus = platform_bus_init();
+        register_bus(isa_bus);
+        register_bus(platform_bus);
+
+#ifdef CONFIG_QEMU_TEST
+        if (pc_framebuffer_regression_test() != 0)
+                frog_test_abort("framebuffer-regression-failed");
+#endif
+        if (framebuffer_result == 0) {
+                framebuffer_result =
+                    pc_framebuffer_register_aperture(platform_bus);
+                if (framebuffer_result != 0) {
 #ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+                        frog_test_abort("framebuffer-resource-register-failed");
+#else
+                        PANIC("framebuffer resource registration failed");
+#endif
+                }
+        }
+
+#ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+        if (framebuffer_result == -ENODEV)
+                frog_test_abort("framebuffer-unavailable");
         framebuffer_smoke_run();
 #endif
 
@@ -283,11 +315,6 @@ __visible void __noreturn start_kernel(void)
                 PANIC("rootfs initialization failed");
         if (dev_fs_init() < 0)
                 PANIC("devfs initialization failed");
-
-        struct bus_type *isa_bus = isa_bus_init();
-        struct bus_type *platform_bus = platform_bus_init();
-        register_bus(isa_bus);
-        register_bus(platform_bus);
 
         if (isa_device_init(isa_bus) != 0)
                 PANIC("ISA device initialization failed");

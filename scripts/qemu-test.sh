@@ -278,6 +278,7 @@ run_framebuffer_stage()
     local qmp_socket="$stage_dir/qmp.sock"
     local screenshot="$stage_dir/framebuffer.ppm"
     local begin_seen=0
+    local guest_failure_seen=0
     local qmp_failed=0
 
     timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
@@ -299,6 +300,11 @@ run_framebuffer_stage()
                   "$debug_log" 2>/dev/null; then
             begin_seen=1
         fi
+        if grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
+                   "$debug_log" 2>/dev/null; then
+            guest_failure_seen=1
+            break
+        fi
         if [ "$begin_seen" -eq 1 ] &&
            grep -q '^FROGTEST SYNC framebuffer-ready$' \
                 "$debug_log" 2>/dev/null; then
@@ -310,6 +316,13 @@ run_framebuffer_stage()
         fi
         sleep 0.05
     done
+
+    if [ "$guest_failure_seen" -eq 1 ]; then
+        kill "$runner_pid" 2>/dev/null || true
+        wait "$runner_pid" 2>/dev/null || true
+        classification=GUEST_TEST_FAILED
+        return
+    fi
 
     if [ "$ready" -eq 1 ] &&
        qmp_screendump "$qmp_socket" "$screenshot" \

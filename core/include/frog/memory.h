@@ -31,6 +31,7 @@ typedef struct _virtual_addr {
 typedef enum mem_pool_type { MP_KERNEL = 1, MP_USER } pool_type;
 
 struct mm_struct;
+struct phys_resource;
 
 // The largest size is 4KB
 // There are seven different descriptions
@@ -93,9 +94,10 @@ void block_desc_init(struct mem_block_desc *desc_array);
 // phy_addr from `get_physical_page()`
 void put_page(void *v_addr, void *phy_addr);
 
-/* Test-only kernel mapping; framebuffer frames never enter the RAM allocator. */
+/* The caller transfers a live resource pin to the permanent kernel alias. */
 #define KERNEL_FRAMEBUFFER_VADDR 0xf0000000UL
-int map_kernel_framebuffer(uintptr_t paddr, uint_32 size);
+int map_kernel_framebuffer_pinned(const struct phys_resource *resource,
+                                  uint_32 size);
 
 uint_32 addr_v2p(uint_32 vaddr);
 // Get kernel page from memory

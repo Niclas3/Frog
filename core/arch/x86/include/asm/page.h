@@ -15,5 +15,7 @@
 #define PG_RW_R 0
 #define PG_US_S 0  // supervisor
 #define PG_US_U 4  // user
+#define PG_PWT  0x008U
+#define PG_PCD  0x010U
 
 #endif
