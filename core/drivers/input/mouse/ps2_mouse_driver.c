@@ -269,8 +269,6 @@ int_32 ps2_mouse_ioctl(struct file *file, uint_32 request, void *argp)
 int ps2_mouse_probe(struct device *dev)
 {
         // When dev and drv match then run this function
-        dev->driver = &ps2_mouse_driver;
-
         register_r0_intr_handler(INT_VECTOR_PS2_MOUSE,
                                  (Inthandle_t *) ps2_mouse_ISR);
 

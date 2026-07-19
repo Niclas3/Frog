@@ -15,8 +15,7 @@ static int platform_bus_match(struct device *dev, struct driver *drv)
 static int platform_bus_probe(struct device *dev, struct driver *drv)
 {
         ASSERT(dev && drv);
-        drv->probe(dev);
-        return 0;
+        return drv->probe(dev);
 }
 
 struct bus_type *platform_bus_init(void)

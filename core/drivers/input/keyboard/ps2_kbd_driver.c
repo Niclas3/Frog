@@ -257,7 +257,6 @@ static struct file_operations ps2_kbd_file_operations = {
 
 int ps2_kbd_probe(struct device *dev)
 {
-        dev->driver = &ps2_kbd_driver;
         // enable keyboard
         ps2_wait_writeable();
         outb(PS2_COMMAND, KBD_WRITE);

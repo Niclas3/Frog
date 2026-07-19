@@ -1,5 +1,6 @@
 // start_kernel must at top of file
 #include <frog/compiler.h>
+#include <frog/errno.h>
 #include <frog/irqflags.h>
 #include <frog/syscall-init.h>
 
@@ -197,47 +198,46 @@ static void rest_init(void)
         thread_exit(main, true);
 }
 
-static void isa_device_init(struct bus_type *isa_bus)
+static void heap_device_release(struct device *dev)
 {
-        // 1. init mouse device
-        struct device *ps2_mouse_dev = kmalloc(sizeof(struct device));
-        if (!ps2_mouse_dev) {
-                DEBUG("[isa_dev]: cannot create ps2 mouse dev");
-                return;
-        }
-        ps2_mouse_dev->name = "ps2-mouse";
-        ps2_mouse_dev->io_base = 0x60;
-        ps2_mouse_dev->irq_nr = 12;
-        ps2_mouse_dev->bus = isa_bus;
+        kfree(dev);
+}
 
-        // 2. init keyboard device
+static int isa_register_device(struct bus_type *isa_bus,
+                               char *name,
+                               uint_32 io_base,
+                               uint_32 irq_nr)
+{
+        struct device *dev;
+        int ret;
 
-        struct device *ps2_kbd_dev = kmalloc(sizeof(struct device));
-        if (!ps2_kbd_dev) {
-                DEBUG("[isa_dev]: cannot create ps2 kbd dev");
-                return;
-        }
-        ps2_kbd_dev->name = "ps2-kbd";
-        ps2_kbd_dev->io_base = 0x60;
-        ps2_kbd_dev->irq_nr = 1;
-        ps2_kbd_dev->bus = isa_bus;
+        dev = kmalloc(sizeof(*dev));
+        if (dev == NULL)
+                return -ENOMEM;
 
-        // 3. init disk device
-        struct device *ata_dev = kmalloc(sizeof(struct device));
-        if (!ata_dev) {
-                DEBUG("[isa_dev]: cannot create ata device.");
-                return;
-        }
-        ata_dev->name = "ata-ide";
-        ata_dev->irq_nr = 12;
-        ata_dev->io_base = 0x1f0;  // only for primary channel
-        ata_dev->bus = isa_bus;
+        device_init(dev, heap_device_release);
+        dev->name = name;
+        dev->io_base = io_base;
+        dev->irq_nr = irq_nr;
+        dev->bus = isa_bus;
 
-        // 4. init rtc device (?)
+        ret = register_device(dev);
+        if (ret != 0)
+                kfree(dev);
+        return ret;
+}
 
-        register_device(ps2_mouse_dev);
-        register_device(ps2_kbd_dev);
-        register_device(ata_dev);
+static int isa_device_init(struct bus_type *isa_bus)
+{
+        int ret;
+
+        ret = isa_register_device(isa_bus, "ps2-mouse", 0x60, 12);
+        if (ret != 0)
+                return ret;
+        ret = isa_register_device(isa_bus, "ps2-kbd", 0x60, 1);
+        if (ret != 0)
+                return ret;
+        return isa_register_device(isa_bus, "ata-ide", 0x1f0, 12);
 }
 
 static inline void setup_local_cpus(void)
@@ -289,7 +289,8 @@ __visible void __noreturn start_kernel(void)
         register_bus(isa_bus);
         register_bus(platform_bus);
 
-        isa_device_init(isa_bus);
+        if (isa_device_init(isa_bus) != 0)
+                PANIC("ISA device initialization failed");
 
         // module init : to init all module that register to module.
         // But now I simulate it by call xxx_xxx_init().
@@ -300,6 +301,7 @@ __visible void __noreturn start_kernel(void)
         ata_ide_driver_init();
 #ifdef CONFIG_QEMU_TEST
         irqflags_regression_test();
+        device_lifecycle_regression_test();
 #endif
 
         /****************************************/
