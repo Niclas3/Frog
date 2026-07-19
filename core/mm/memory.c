@@ -132,11 +132,21 @@ static void invalidate(void)
                          : "memory");
 }
 
+static uint_32 page_entry_flags(uint_32 vaddress)
+{
+        uint_32 flags = PG_RW_W | PG_P_SET;
+
+        if (vaddress < KERNEL_BASE)
+                flags |= PG_US_U;
+        return flags;
+}
+
 // Combine v address -> phy address
 void put_page(void *v_addr, void *phy_addr)
 {
         uint_32 vaddress = (uint_32) v_addr;
         uint_32 phyaddress = (uint_32) phy_addr;
+        uint_32 entry_flags = page_entry_flags(vaddress);
         uint_32 *pde = pde_ptr(vaddress);
         uint_32 *pte = pte_ptr(vaddress);
 
@@ -147,22 +157,22 @@ void put_page(void *v_addr, void *phy_addr)
                 // should re-consider v-address start
                 /* ASSERT(!(*pte & 0x00000001)); */
                 if ((!(*pte & 0x00000001))) {
-                        *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+                        *pte = phyaddress | entry_flags;
                 } else {
                         /* PANIC("pte exists"); */
-                        *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+                        *pte = phyaddress | entry_flags;
                 }
                 invalidate();
         } else {
                 // if there is no pde , let's create it.
                 // Create phyaddr at kernel pool
                 uint_32 pde_phyaddr = (uint_32) get_physical_page(&kernel_pool);
-                *pde = (pde_phyaddr | PG_US_U | PG_RW_W | PG_P_SET);
+                *pde = pde_phyaddr | entry_flags;
                 // Clear pte target address 1 page 4kb
                 // top 10 ->
                 memset((void *) ((int) pte & 0xfffff000), 0, PAGE_SIZE);
                 ASSERT(!(*pte & 0x00000001));
-                *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+                *pte = phyaddress | entry_flags;
         }
 }
 
@@ -236,6 +246,7 @@ static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
 {
         uint_32 vaddress = (uint_32) v_addr;
         uint_32 phyaddress = (uint_32) phy_addr;
+        uint_32 entry_flags = page_entry_flags(vaddress);
         uint_32 *pde = pde_ptr(vaddress);
         uint_32 *pte = pte_ptr(vaddress);
 
@@ -246,10 +257,10 @@ static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
                 // should re-consider v-address start
                 /* ASSERT(!(*pte & 0x00000001)); */
                 if ((!(*pte & 0x00000001))) {
-                        *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+                        *pte = phyaddress | entry_flags;
                 } else {
                         /* PANIC("pte exists"); */
-                        *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+                        *pte = phyaddress | entry_flags;
                 }
                 flush_cr3(pgdir);
         } else {
@@ -258,12 +269,12 @@ static int put_page_and_flush(void *v_addr, void *phy_addr, uint_32 *pgdir)
                 uint_32 pde_phyaddr = (uint_32) get_physical_page(&kernel_pool);
                 if (pde_phyaddr == 0)
                         return -1;
-                *pde = (pde_phyaddr | PG_US_U | PG_RW_W | PG_P_SET);
+                *pde = pde_phyaddr | entry_flags;
                 // Clear pte target address 1 page 4kb
                 // top 10 ->
                 memset((void *) ((int) pte & 0xfffff000), 0, PAGE_SIZE);
                 ASSERT(!(*pte & 0x00000001));
-                *pte = (phyaddress | PG_US_U | PG_RW_W | PG_P_SET);
+                *pte = phyaddress | entry_flags;
         }
         return 0;
 }

@@ -212,6 +212,42 @@ static void mm_slab_reuse(void)
         PASS("slab_reuse (128-byte block reuse after free)");
 }
 
+static void mm_supervisor_permissions(void)
+{
+        uint_32 kernel_addr = (uint_32) mm_regression_test;
+        uint_32 kernel_pde = *pde_ptr(kernel_addr);
+        uint_32 kernel_pte = *pte_ptr(kernel_addr);
+        uint_32 identity_pde = *pde_ptr(0);
+        uint_32 recursive_pde = *pde_ptr(0xfffff000U);
+        bool passed = (kernel_pde & PG_P_SET) &&
+                      (kernel_pte & PG_P_SET) &&
+                      !(kernel_pde & PG_US_U) &&
+                      !(kernel_pte & PG_US_U) &&
+                      (identity_pde & PG_P_SET) &&
+                      !(identity_pde & PG_US_U) &&
+                      (recursive_pde & PG_P_SET) &&
+                      !(recursive_pde & PG_US_U);
+        void *page = get_kernel_page(1);
+
+        if (page == NULL) {
+                FAIL("supervisor_permissions: kernel page allocation failed");
+                return;
+        }
+        uint_32 dynamic_pde = *pde_ptr((uint_32) page);
+        uint_32 dynamic_pte = *pte_ptr((uint_32) page);
+        passed = (dynamic_pde & PG_P_SET) &&
+                 (dynamic_pte & PG_P_SET) &&
+                 !(dynamic_pde & PG_US_U) &&
+                 !(dynamic_pte & PG_US_U) && passed;
+        free_page(MP_KERNEL, page, 1);
+
+        if (!passed) {
+                FAIL("supervisor_permissions: kernel or recursive entry is user-accessible");
+                return;
+        }
+        PASS("supervisor_permissions (identity, kernel, recursive, dynamic)");
+}
+
 /* access_ok() is a pure range check and is safe before a user pgdir exists. */
 static void mm_uaccess_range(void)
 {
@@ -252,6 +288,23 @@ void mm_uaccess_process_regression(void)
                 frog_test_case("uaccess.user-pages", 0);
                 return;
         }
+
+        uint_32 user_required = PG_P_SET | PG_US_U;
+        uint_32 kernel_addr = (uint_32) mm_uaccess_process_regression;
+        int image_user =
+            (*pde_ptr(USER_IMAGE_VADDR) & user_required) == user_required &&
+            (*pte_ptr(USER_IMAGE_VADDR) & user_required) == user_required;
+        int allocated_user =
+            (*pde_ptr((uint_32) user) & user_required) == user_required &&
+            (*pte_ptr((uint_32) user) & user_required) == user_required;
+        int kernel_supervisor =
+            (*pde_ptr(kernel_addr) & PG_P_SET) &&
+            (*pte_ptr(kernel_addr) & PG_P_SET) &&
+            !(*pde_ptr(kernel_addr) & PG_US_U) &&
+            !(*pte_ptr(kernel_addr) & PG_US_U);
+        uint_32 recursive_pde = *pde_ptr(0xfffff000U);
+        int recursive_supervisor =
+            (recursive_pde & PG_P_SET) && !(recursive_pde & PG_US_U);
 
         for (uint_32 idx = 0; idx < sizeof(kernel_source); idx++)
                 kernel_source[idx] = (uint_8) (0x80U + idx);
@@ -357,6 +410,10 @@ void mm_uaccess_process_regression(void)
         frog_test_case("uaccess.pde-user", pde_user_ok);
         frog_test_case("uaccess.pte-write", pte_write_ok);
         frog_test_case("uaccess.pde-write", pde_write_ok);
+        frog_test_case("paging.user-image", image_user);
+        frog_test_case("paging.user-allocator", allocated_user);
+        frog_test_case("paging.kernel-supervisor", kernel_supervisor);
+        frog_test_case("paging.recursive-supervisor", recursive_supervisor);
         free_page(MP_USER, user, 2);
 }
 #else
@@ -373,6 +430,7 @@ int mm_regression_test(void)
         mm_large_alloc_writethrough();
         mm_large_alloc_multi();
         mm_slab_reuse();
+        mm_supervisor_permissions();
         mm_uaccess_range();
         INFO("[mm-test]: ===== done =====");
         return mm_test_failures;

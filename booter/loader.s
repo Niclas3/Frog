@@ -661,11 +661,11 @@ setup_page:
     mov ebx, eax   ; Base address of first page table to ebx
 ;; First entry of page dir
 ;; 0010 1000
-    or eax, PG_US_U | PG_RW_W | PG_P ; eax contains page address + attributes
+    or eax, PG_RW_W | PG_P ; boot identity and kernel mappings are supervisor-only
 ;; set 0x0 entry of page dir 
 ;; no.1 dir entry of table 
 ;; pt_address is PAGE_DIR_START+0x1000 aka the first page table address
-;  int_32 pde = pt_address | PG_US_U | PG_RW_W | PG_P;
+;  int_32 pde = pt_address | PG_RW_W | PG_P;
  
     mov [PAGE_DIR_START+0x0], eax ; Set first pde about 4M physical memory
 ;; Set 0xc00 entry of page dir
@@ -684,7 +684,8 @@ setup_page:
 ; mov [PAGE_DIR_START+0xfd0], eax
 
 ;;The last entry point to it self
-    sub eax, 0x1000
+    mov eax, PAGE_DIR_START
+    or eax, PG_RW_W | PG_P
     mov [PAGE_DIR_START+4092], eax
 
 ; Page table entry
@@ -708,7 +709,7 @@ PG_MSIZE_4M   equ 1024
 ;First page  .pg0
     mov ecx, PG_MSIZE_1M
     mov esi, 0
-    mov edx, PG_US_U | PG_RW_W | PG_P
+    mov edx, PG_RW_W | PG_P
 .create_pte:
     mov [ebx+esi*4], edx ; ebx: .pg0 address, 4: 4 bytes one entry
     add edx, 4096        ; 4096b=0x1000=4b*1024 size of one page
@@ -718,7 +719,7 @@ PG_MSIZE_4M   equ 1024
 ;; init page directory entries
     mov eax, PAGE_DIR_START
     add eax, 0x2000                  ; .pg1
-    or  eax, PG_US_U | PG_RW_W | PG_P
+    or  eax, PG_RW_W | PG_P
     mov ebx, PAGE_DIR_START
     mov ecx, 254
     mov esi, 769
@@ -761,7 +762,7 @@ setpage:
     mov esi, 0
     mov edx, [ebp+12]
     and edx, 0xfffff000
-    or  edx, PG_US_U | PG_RW_W | PG_P
+    or  edx, PG_RW_W | PG_P
 .c_pte:
     mov ebx, [ebp+8]
     mov [ebx+esi*4], edx ; ebx: start_of_pagetable, 4: 4 bytes one entry

@@ -128,7 +128,7 @@ uint_32 *create_page_dir(void)
         uint_32 new_page_dir_phy_addr = addr_v2p((uint_32) page_dir_vaddr);
         // Add last pde to pd phy_addr
         page_dir_vaddr[1023] =
-            new_page_dir_phy_addr | PG_US_U | PG_RW_W | PG_P_SET;
+            new_page_dir_phy_addr | PG_RW_W | PG_P_SET;
         return page_dir_vaddr;
 }
 
