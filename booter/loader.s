@@ -503,8 +503,8 @@ LABEL_SEG_CODE32:
     lgdt [gdt_ptr]
 
 ;;==============================================================================
-;; load kernel.elf to 0x90000 ~ 0xA4000 80kb
-;;       change to    0x10000 ~ 0x9fc00 575kb
+;; Load the packaged kernel ELF at 0x10000.  The 512-sector reservation ends
+;; at 0x50000, below the first unpacked kernel segment at physical 0x70000.
 ;;==============================================================================
     KERNELBIN_START equ 0x10000
     ; KERNEL_START    equ 0xc0080000
@@ -523,19 +523,36 @@ LABEL_SEG_CODE32:
     ;;  mov ecx, 300 ; for 150kb
     ; call SELECTOR_CODE:read_hard_disk_32
 
-    ; Read n sector from hard disk 
+%if KERNEL_START_SECTOR + KERNEL_SECTOR_COUNT > FONT_START_SECTOR
+    %error "kernel disk reservation overlaps font image"
+%endif
+%if KERNELBIN_START + KERNEL_SECTOR_COUNT * DISK_SECTOR_SIZE > 0x70000
+    %error "kernel staging buffer overlaps unpacked kernel"
+%endif
+%if KERNEL_SECTOR_COUNT <= ATA_PIO_MAX_SECTORS * 2 || \
+    KERNEL_SECTOR_COUNT > ATA_PIO_MAX_SECTORS * 3
+    %error "kernel sector count does not fit the three ATA read chunks"
+%endif
+
+    ; Read the fixed kernel reservation in ATA-safe 8-bit sector-count chunks.
     ; ebp+4 ---> count read-in sector number
     ; ebp+8 ---> base address
     ; ebp+12---> LBA sector number
-    push 255 ;; ATA sector count is 8-bit; read the package in two chunks.
+    push ATA_PIO_MAX_SECTORS
     push KERNELBIN_START
-    push 13              ;; start LBA address
+    push KERNEL_START_SECTOR
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12   ; Clean up the stack after the function call
 
-    push 45
-    push KERNELBIN_START + 255 * 512
-    push 13 + 255
+    push ATA_PIO_MAX_SECTORS
+    push KERNELBIN_START + ATA_PIO_MAX_SECTORS * DISK_SECTOR_SIZE
+    push KERNEL_START_SECTOR + ATA_PIO_MAX_SECTORS
+    call SELECTOR_CODE:read_hard_disk_qemu
+    add esp, 12
+
+    push KERNEL_SECTOR_COUNT - ATA_PIO_MAX_SECTORS * 2
+    push KERNELBIN_START + ATA_PIO_MAX_SECTORS * 2 * DISK_SECTOR_SIZE
+    push KERNEL_START_SECTOR + ATA_PIO_MAX_SECTORS * 2
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12
 
@@ -628,7 +645,7 @@ LABEL_SEG_CODE32:
     ; ebp+12---> LBA sector number
     push 8
     push FONT_START
-    push 2048
+    push FONT_START_SECTOR
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12   ; Clean up the stack after the function call
 

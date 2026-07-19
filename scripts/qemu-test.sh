@@ -6,6 +6,10 @@ repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 profile=${1:-boot-smoke}
 timeout_seconds=${FROG_QEMU_TIMEOUT:-30}
 keep=${FROG_QEMU_KEEP:-0}
+sector_size=512
+loader_sector_count=11
+kernel_start_sector=13
+kernel_sector_count=512
 
 case "$profile" in
     boot-smoke) stages=(boot) ;;
@@ -98,9 +102,10 @@ build_stage()
         >>"$build_log" 2>&1 || return 1
     local core_image_size
     core_image_size=$(wc -c <"$repo_dir/core/build/core.img") || return 1
-    if [ "$core_image_size" -gt $((300 * 512)) ]; then
-        echo "core.img is $core_image_size bytes; boot image limit is 153600" \
-            >>"$build_log"
+    local core_image_limit=$((kernel_sector_count * sector_size))
+    if [ "$core_image_size" -gt "$core_image_limit" ]; then
+        echo "core.img is $core_image_size bytes; boot image limit is $core_image_limit" \
+             >>"$build_log"
         return 1
     fi
     (cd "$repo_dir/booter" &&
@@ -115,6 +120,14 @@ build_stage()
     fi
     (cd "$repo_dir/booter" && nasm "${loader_args[@]}") \
         >>"$build_log" 2>&1 || return 1
+    local loader_image_size
+    local loader_image_limit=$((loader_sector_count * sector_size))
+    loader_image_size=$(wc -c <"$stage_dir/loader.img") || return 1
+    if [ "$loader_image_size" -gt "$loader_image_limit" ]; then
+        echo "loader.img is $loader_image_size bytes; MBR loader limit is $loader_image_limit" \
+             >>"$build_log"
+        return 1
+    fi
     gcc -g -o "$stage_dir/hankaku.bin" "$repo_dir/tools/create_fonts.c" -lm \
         >>"$build_log" 2>&1 || return 1
     cp "$repo_dir/tools/hankaku.txt" "$stage_dir/hankaku.txt" || return 1
@@ -123,9 +136,11 @@ build_stage()
     dd if="$stage_dir/MBR.bin" of="$stage_dir/hd.img" \
        bs=512 count=360 conv=notrunc status=none || return 1
     dd if="$stage_dir/loader.img" of="$stage_dir/hd.img" \
-       bs=512 seek=2 count=300 conv=notrunc status=none || return 1
+       bs="$sector_size" seek=2 count="$loader_sector_count" \
+       conv=notrunc status=none || return 1
     dd if="$repo_dir/core/build/core.img" of="$stage_dir/hd.img" \
-       bs=512 seek=13 count=300 conv=notrunc status=none || return 1
+       bs="$sector_size" seek="$kernel_start_sector" \
+       count="$kernel_sector_count" conv=notrunc status=none || return 1
     dd if="$stage_dir/hankaku_font.img" of="$stage_dir/hd.img" \
        bs=512 seek=2048 conv=notrunc status=none || return 1
 }

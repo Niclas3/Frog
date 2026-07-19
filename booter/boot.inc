@@ -11,8 +11,8 @@
 ;     5 K | loader.s              | 0x0000_C400 - 0x0000_D800
 ;     4 K | font.img              | 0x0000_D800 - 0x0000_E800
 ;     6 K | unused                | 0x0000_E800 - 0x0001_0000
-;   120 K | core.img (compressed) | 0x0001_0000 - 0x0002_E000
-;   264 K | unused                | 0x0002_E000 - 0x0007_0000
+;   256 K | core.img (ELF image)  | 0x0001_0000 - 0x0005_0000
+;   128 K | unused                | 0x0005_0000 - 0x0007_0000
 ;   192 K | core (decompressed)   | 0x0007_0000 - 0x000A_0000
 ;         |   _end ≈ 0x0007_CFCC  |
 ;    64 K | VGA framebuffer       | 0x000A_0000 - 0x000B_0000  (mode 13h etc.)
@@ -77,6 +77,13 @@
 
 LOADER_BASE_ADDR equ 0xc400
 LOADER_START_SECTOR equ 0x2
+
+; Canonical disk layout. Host-side image builders mirror these values.
+DISK_SECTOR_SIZE equ 512
+KERNEL_START_SECTOR equ 13
+KERNEL_SECTOR_COUNT equ 512
+FONT_START_SECTOR equ 2048
+ATA_PIO_MAX_SECTORS equ 255
 ;;------------boot information-
 LEDS  equ  0x0ff1
 VMODE equ  0x0ff2
