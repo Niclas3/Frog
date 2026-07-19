@@ -1,7 +1,7 @@
 /*
  * asm/irqflags.h
  *
- * It provide a x86-arch irq restore and irq_save
+ * x86 interrupt flag save and restore helpers.
  */
 #ifndef _X86_IRQFLAGS_H
 #define _X86_IRQFLAGS_H
@@ -9,14 +9,6 @@
 #include <asm/processor-flags.h>
 #include <frog/compiler.h>
 
-
-static __always_inline void get_eflags(unsigned long flag)
-{
-        __asm__ volatile("pushfl; popl %0"
-                         : "=rm"(flag)
-                         : /*no input*/
-                         : "memory");
-}
 static __always_inline void native_irq_enable(void)
 {
         __asm__ volatile("sti" ::: "memory");
@@ -55,28 +47,22 @@ static __always_inline void arch_local_irq_disable(void)
 
 static __always_inline unsigned long arch_local_irq_save(void)
 {
-        unsigned long flag = 0;
-        get_eflags(flag);
-        arch_local_irq_disable();
-        return flag;
+        unsigned long flags;
+
+        __asm__ volatile("pushfl; popl %0; cli"
+                         : "=r"(flags)
+                         :
+                         : "memory");
+        return flags;
 }
 
-/*set interrupt enable status*/
+/* Restore the saved IF state without changing the other EFLAGS bits. */
 static __always_inline void arch_local_irq_restore(unsigned long flags)
 {
-        if (!arch_irqs_disabled_flags(flags)) {
+        if (arch_irqs_disabled_flags(flags))
+                arch_local_irq_disable();
+        else
                 arch_local_irq_enable();
-        } 
-        /* don't need call arch_local_irq_disable() on this `else branch`
-         * because most of code structure like that 
-         * `
-         * arch_local_irq_save()
-         * ...
-         * arch_local_irq_restore()
-         * `
-         * arch_local_irq_save() will call irq_disable(), so most time
-         * arch_local_irq_restore() called under irq_disable()
-         * */
 }
 /* use sti; hlt;
  **/

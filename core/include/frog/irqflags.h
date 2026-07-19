@@ -17,10 +17,12 @@
                 flag = arch_local_irq_save();  \
         } while(0)
 
-/* raw_irqs_disabled_flags(), irqs disabled flags for test a flag is disabled 
- * flag or not.
- **/
-#define raw_irqs_disabled_flags(flag) do{ arch_irqs_disabled_flags(flag); }while(0)
+/* Test whether a saved flags value has interrupts disabled. */
+#define raw_irqs_disabled_flags(flag)              \
+        ({                                         \
+                typecheck(unsigned long, flag);   \
+                arch_irqs_disabled_flags(flag);   \
+        })
 
 /* This is final local_irq_* API for other part of os.
  **/

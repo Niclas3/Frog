@@ -43,6 +43,56 @@ extern uint_32 ata_ide_driver_init(void);
 extern void vga_self_test(void);
 // end test
 
+#ifdef CONFIG_QEMU_TEST
+static void irqflags_regression_test(void)
+{
+        unsigned long entry_flags;
+        unsigned long outer_flags;
+        unsigned long inner_flags;
+        unsigned long disabled_probe;
+        unsigned long enabled_probe;
+        unsigned long restored_probe;
+        int outer_was_enabled;
+        int inner_was_disabled;
+        int disabled_restore_worked;
+        int outer_restore_worked;
+        int entry_state_restored;
+
+        local_irq_save(entry_flags);
+
+        local_irq_enable();
+        local_irq_save(outer_flags);
+        outer_was_enabled = !raw_irqs_disabled_flags(outer_flags);
+
+        local_irq_save(inner_flags);
+        inner_was_disabled = raw_irqs_disabled_flags(inner_flags);
+
+        local_irq_enable();
+        local_irq_restore(inner_flags);
+        local_irq_save(disabled_probe);
+        disabled_restore_worked = raw_irqs_disabled_flags(disabled_probe);
+        local_irq_restore(disabled_probe);
+
+        local_irq_restore(outer_flags);
+        local_irq_save(enabled_probe);
+        outer_restore_worked = !raw_irqs_disabled_flags(enabled_probe);
+        local_irq_restore(enabled_probe);
+
+        local_irq_restore(entry_flags);
+        local_irq_save(restored_probe);
+        entry_state_restored =
+            raw_irqs_disabled_flags(restored_probe) ==
+            raw_irqs_disabled_flags(entry_flags);
+        local_irq_restore(restored_probe);
+
+        frog_test_case("irqflags.outer-save-enabled", outer_was_enabled);
+        frog_test_case("irqflags.inner-save-disabled", inner_was_disabled);
+        frog_test_case("irqflags.restore-disabled", disabled_restore_worked);
+        frog_test_case("irqflags.restore-enabled", outer_restore_worked);
+        frog_test_case("irqflags.restore-entry", entry_state_restored);
+}
+#endif
+
 
 #include <frog/linker.h>
 
@@ -248,6 +298,9 @@ __visible void __noreturn start_kernel(void)
         ps2_kbd_driver_init();
         ps2_mouse_driver_init();
         ata_ide_driver_init();
+#ifdef CONFIG_QEMU_TEST
+        irqflags_regression_test();
+#endif
 
         /****************************************/
 #if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK)
