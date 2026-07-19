@@ -208,10 +208,13 @@ offset: dw 0
 t_segment: dw 0	; "segment" is keyword in fasm
 mode: dw 0
 
-; ;; entry of memory map
-; memmap: times 20 db 0
-; memmap: times 61 db 0
-memmap: times 256 db 0
+E820_ENTRY_BYTES equ 20
+E820_BUFFER_BYTES equ 256
+E820_CAPACITY equ E820_BUFFER_BYTES / E820_ENTRY_BYTES
+E820_SMAP_SIGNATURE equ 0x534D4150
+
+; BIOS E820 writes packed 20-byte entries into this bounded buffer.
+memmap: times E820_BUFFER_BYTES db 0
 memmap_cnt: dd 0
 
 ; ;; print a string
@@ -381,22 +384,36 @@ keystatus:
 ; number of total entries  BP
 ;----------------------------------------------------
 detect_memory:
-        mov ebx, 0
+        xor ebx, ebx
+        xor ax, ax
+        mov es, ax
         mov di, memmap
-    .dm_loop
+        mov dword [memmap_cnt], 0
+    .dm_loop:
+        cmp dword [memmap_cnt], E820_CAPACITY
+        jae .error
         mov eax, 0xe820
-        mov ecx, 20          ; size of decs
-        mov edx, 0x0534D4150 ; 'SMAP'
+        mov ecx, E820_ENTRY_BYTES
+        mov edx, E820_SMAP_SIGNATURE
         int 15h
         jc .error
-        add di, 20           ; next desc
+        cmp eax, E820_SMAP_SIGNATURE
+        jne .error
+        cmp ecx, E820_ENTRY_BYTES
+        jb .error
+        mov eax, [es:di + 8]
+        or eax, [es:di + 12]
+        jz .next
+        add di, E820_ENTRY_BYTES
         inc dword [memmap_cnt]
-        cmp ebx, 0
+    .next:
+        test ebx, ebx
         jne .dm_loop
-        jmp .done
+        cmp dword [memmap_cnt], 0
+        je .error
+        jmp save_memmap
     .error:
         jmp save_memmap_error
-    .done:
 
 ;----------------------------------------------------
 save_memmap:
@@ -510,12 +527,17 @@ LABEL_SEG_CODE32:
     ; ebp+4 ---> count read-in sector number
     ; ebp+8 ---> base address
     ; ebp+12---> LBA sector number
-    ; push 300 ;; read sector number 
-    push 255 ;; read sector number 
+    push 255 ;; ATA sector count is 8-bit; read the package in two chunks.
     push KERNELBIN_START
     push 13              ;; start LBA address
     call SELECTOR_CODE:read_hard_disk_qemu
     add esp, 12   ; Clean up the stack after the function call
+
+    push 45
+    push KERNELBIN_START + 255 * 512
+    push 13 + 255
+    call SELECTOR_CODE:read_hard_disk_qemu
+    add esp, 12
 
 ;;==============================================================================
 ;; Break down kernel from 0x90000 ~ ? to 0x80000

@@ -1,4 +1,5 @@
 #include <asm/page.h>
+#include <frog/bootmem.h>
 #include <frog/irqflags.h>
 #include <frog/memory.h>
 #include <frog/semaphore.h>
@@ -10,8 +11,6 @@
 #include <kernel/assert.h>
 #include <kernel/debug.h>
 #include <kernel/panic.h>
-
-#include "ARDS.h"  // for Address Range Descriptor Structure at mem_init()
 
 // for kernel test
 #include <frog/printk.h>
@@ -25,6 +24,7 @@
 #include "./mm_helper.h"  // helper on PTE/PDE etc
 
 #define MEM_BITMAP_BASE 0xc0060000UL
+#define MEM_BITMAP_END  0xc0070000UL
 
 // 1 page dir table
 #define PDT_COUNT 1UL
@@ -41,6 +41,9 @@
 #define PG0_COUNT 1
 // In real world Frog don't need all Upper vaddress I will give it 4MB
 #define PGT_COUNT (MAX_KPT_COUNT / 255 + PG0_COUNT)
+
+#define MEM_POOL_START \
+        (KPAGE_TABLE_START + PAGE_SIZE * (PDT_COUNT + PGT_COUNT))
 
 #define PG_OCCUPIED 1
 #define PG_VACANT 0
@@ -892,12 +895,35 @@ void sys_free(void *ptr)
 /* Kernel pool and user pool manage physical memory.
  *
  * */
-static void mem_pool_init(uint_32 all_mem)
+static bool page_count_to_bytes(uint_32 page_count, uint_32 *bytes_out)
+{
+        if (bytes_out == NULL || page_count > 0xffffffffU / PAGE_SIZE)
+                return false;
+        *bytes_out = page_count * PAGE_SIZE;
+        return true;
+}
+
+uint_32 mem_pool_fit_page_count(uint_32 page_count,
+                                uint_32 bitmap_window_bytes)
+{
+        uint_32 capacity_blocks = bitmap_window_bytes / 3U;
+        uint_32 capacity_pages;
+
+        page_count &= ~15U;
+        if (capacity_blocks > 0xfffffff0U / 16U)
+                capacity_pages = 0xfffffff0U;
+        else
+                capacity_pages = capacity_blocks * 16U;
+        if (capacity_pages < page_count)
+                page_count = capacity_pages;
+        return page_count;
+}
+
+static void mem_pool_init(uint_32 alloc_end)
 {
         // 1 page dir table and 255 page table
         //                      no.769 ~ no.1022 pde
         //                      no.768 and no.0 pg
-        uint_32 page_table_size = PAGE_SIZE * (PDT_COUNT + PGT_COUNT);
         /*
          *  Page table start at 0x0010_0000
          **/
@@ -925,18 +951,27 @@ static void mem_pool_init(uint_32 all_mem)
          *
          * */
         // clang-format on
-        uint_32 used_mem = page_table_size + KPAGE_TABLE_START;
-        /*
-         *  all_mem for now is loading at loader.s use BIOS int.
-         *  It must be calculate by loader.s before entering protected mode
-         * */
-        uint_32 free_mem = all_mem - used_mem;
-        uint_16 all_free_pages = free_mem / PAGE_SIZE;
+        uint_32 used_mem = MEM_POOL_START;
+        if (alloc_end <= used_mem)
+                PANIC("[mm]: E820 has no contiguous allocator range");
+        uint_32 free_mem = alloc_end - used_mem;
+        uint_32 all_free_pages = mem_pool_fit_page_count(
+            free_mem / PAGE_SIZE, MEM_BITMAP_END - MEM_BITMAP_BASE);
+
+        /* Two physical-pool bitmaps plus the kernel virtual bitmap fit here. */
+        if (all_free_pages == 0)
+                PANIC("[mm]: E820 allocator range is too small");
 
         /* kernel used memory vs user used memory
          * */
-        uint_16 kernel_free_page = all_free_pages / 2;
-        uint_16 user_free_page = all_free_pages - kernel_free_page;
+        uint_32 kernel_free_page = all_free_pages / 2;
+        uint_32 user_free_page = all_free_pages - kernel_free_page;
+        uint_32 kernel_pool_bytes;
+        uint_32 user_pool_bytes;
+
+        if (!page_count_to_bytes(kernel_free_page, &kernel_pool_bytes) ||
+            !page_count_to_bytes(user_free_page, &user_pool_bytes))
+                PANIC("[mm]: physical pool size overflows");
 
 
         // Kernel bitmap length
@@ -951,19 +986,29 @@ static void mem_pool_init(uint_32 all_mem)
         // First address of free memory
         uint_32 kp_start = used_mem;
         // User pool start
-        uint_32 up_start = kp_start + kernel_free_page * PAGE_SIZE;
+        if (kernel_pool_bytes > 0xffffffffU - kp_start)
+                PANIC("[mm]: user pool address overflows");
+        uint_32 up_start = kp_start + kernel_pool_bytes;
+        if (up_start > alloc_end || user_pool_bytes > alloc_end - up_start)
+                PANIC("[mm]: physical pools exceed E820 allocator range");
 
         kernel_pool.phy_addr_start = kp_start;
 
         user_pool.phy_addr_start = up_start;
 
-        kernel_pool.pool_size = kernel_free_page * PAGE_SIZE;
-        user_pool.pool_size = user_free_page * PAGE_SIZE;
+        kernel_pool.pool_size = kernel_pool_bytes;
+        user_pool.pool_size = user_pool_bytes;
 
         kernel_pool.pool_bitmap.map_bytes_length = kbm_length;
         user_pool.pool_bitmap.map_bytes_length = ubm_length;
 
-        // kernel pool bit map fix at MEM_BITMAP_BASE 0x9a000
+        if (kbm_length > MEM_BITMAP_END - MEM_BITMAP_BASE ||
+            ubm_length > MEM_BITMAP_END - MEM_BITMAP_BASE - kbm_length ||
+            kbm_length >
+                MEM_BITMAP_END - MEM_BITMAP_BASE - kbm_length - ubm_length)
+                PANIC("[mm]: memory bitmaps exceed reserved window");
+
+        // kernel pool bit map fix at MEM_BITMAP_BASE 0xc0060000
         kernel_pool.pool_bitmap.bits = (void *) MEM_BITMAP_BASE;
         user_pool.pool_bitmap.bits = (void *) (MEM_BITMAP_BASE + kbm_length);
 
@@ -1076,38 +1121,36 @@ static void alloc_shadow_memory()
         put_page(KHEAP_SHA_MEM_START, paddress);
 }
 
-void mem_init()
+void mem_init(void)
 {
-        struct memory_map_descriptor *mmap_desc =
-            *((struct memory_map_descriptor **) MMAP_INFO_POINTER);
-        uint_32 *mmap_desc_cnt = *((uint_32 **) MMAP_INFO_COUNT_POINTER);
-        uint_32 mem_bytes_total = 0;  // 32M //(*(uint_32 *) (0xb00));
-        // Memory map from BISO success
-        if (mmap_desc && mmap_desc_cnt) {
-                printk("\n");
-                printk(
-                    "baselow    basehight    lenghtlow    lenhight    type    "
-                    "\n");
-                for (int i = 0; i < *mmap_desc_cnt; i++) {
-                        struct memory_map_descriptor mmp_desc = mmap_desc[i];
-                        uint_32 base_low = mmp_desc.base_addr_low;
-                        uint_32 base_high = mmp_desc.base_addr_high;
-                        uint_32 length_low = mmp_desc.length_low;
-                        uint_32 length_hight = mmp_desc.length_high;
-                        ARDS_t type = mmp_desc.type;
-                        printk(
-                            "%x         %x           %x           %x          "
-                            "%x\n",
-                            base_low, base_high, length_low, length_hight,
-                            type);
-                        if (type == ARDS_address_range_memory) {
-                                mem_bytes_total += mmp_desc.length_low;
-                        }
-                }
-                INFO("All memory %x bytes", mem_bytes_total);
-        }
+        struct bootmem_entry entries[BOOTMEM_MAX_ENTRIES];
+        uint_32 count;
+        uint_32 alloc_end;
 
-        mem_pool_init(mem_bytes_total);
+        if (bootmem_init_from_handoff() < 0)
+                PANIC("[mm]: invalid E820 boot handoff");
+
+        count = bootmem_count();
+        if (count == 0 || count > BOOTMEM_MAX_ENTRIES)
+                PANIC("[mm]: invalid E820 snapshot count");
+
+        printk("\n");
+        printk("baselow    basehight    lenghtlow    lenhight    type    \n");
+        for (uint_32 index = 0; index < count; index++) {
+                const struct bootmem_entry *entry = bootmem_get(index);
+
+                ASSERT(entry != NULL);
+                entries[index] = *entry;
+                printk("%x         %x           %x           %x          %x\n",
+                       entry->base_low, entry->base_high, entry->length_low,
+                       entry->length_high, entry->type);
+        }
+        if (bootmem_find_usable_end(entries, count, MEM_POOL_START,
+                                    &alloc_end) < 0)
+                PANIC("[mm]: no contiguous E820 allocator range");
+        INFO("Allocator physical end %x", alloc_end);
+
+        mem_pool_init(alloc_end);
         block_desc_init(k_block_descs);
 
 #ifdef CONFIG_POSION_MEMORY

@@ -1,5 +1,6 @@
 #include <asm/page.h>
 
+#include <frog/bootmem.h>
 #include <frog/errno.h>
 #include <frog/irqflags.h>
 #include <frog/memory.h>
@@ -274,6 +275,106 @@ static void mm_uaccess_range(void)
         PASS("uaccess_range (zero, bounds, and overflow)");
 }
 
+static void mm_bootmem_range(void)
+{
+        struct bootmem_entry entry = { 0 };
+        bool passed = !bootmem_range_valid(NULL) &&
+                      !bootmem_range_valid(&entry);
+
+        entry.length_low = 1;
+        passed = bootmem_range_valid(&entry) && passed;
+
+        entry.base_low = 0xffffffffU;
+        entry.base_high = 0xffffffffU;
+        passed = !bootmem_range_valid(&entry) && passed;
+
+        entry.base_low = 0xfffffffeU;
+        passed = bootmem_range_valid(&entry) && passed;
+
+        entry.base_low = 0;
+        entry.base_high = 0;
+        entry.length_low = 0;
+        entry.length_high = 1;
+        passed = bootmem_range_valid(&entry) && passed;
+
+        if (!passed) {
+                FAIL("bootmem_range: zero or 64-bit overflow check failed");
+                return;
+        }
+        PASS("bootmem_range (zero and 64-bit overflow)");
+}
+
+static void mm_bootmem_allocator_range(void)
+{
+        struct bootmem_entry hole[] = {
+            { 0x00100000U, 0, 0x00200000U, 0, BOOTMEM_TYPE_USABLE },
+            { 0x00400000U, 0, 0x00400000U, 0, BOOTMEM_TYPE_USABLE },
+        };
+        struct bootmem_entry embedded_reserved[] = {
+            { 0x00100000U, 0, 0x00700000U, 0, BOOTMEM_TYPE_USABLE },
+            { 0x00480000U, 0, 0x00080000U, 0, 2 },
+        };
+        struct bootmem_entry covers_start[] = {
+            { 0x00100000U, 0, 0x00700000U, 0, BOOTMEM_TYPE_USABLE },
+            { 0x00180000U, 0, 0x00100000U, 0, 2 },
+        };
+        struct bootmem_entry invalid_tail[] = {
+            { 0x00100000U, 0, 0x00700000U, 0, BOOTMEM_TYPE_USABLE },
+            { 0, 0, 0, 0, 2 },
+        };
+        struct bootmem_entry four_gib = {
+            0, 0, 0, 1, BOOTMEM_TYPE_USABLE
+        };
+        uint_32 end = 0;
+        bool passed = true;
+
+        passed = bootmem_find_usable_end(hole, 2, 0x00180000U, &end) == 0 &&
+                 end == 0x00300000U && passed;
+        passed = bootmem_find_usable_end(hole, 2, 0x00380000U, &end) ==
+                     -EINVAL &&
+                 passed;
+        passed = bootmem_find_usable_end(embedded_reserved, 2, 0x00200000U,
+                                         &end) == 0 &&
+                 end == 0x00480000U && passed;
+        passed = bootmem_find_usable_end(covers_start, 2, 0x00200000U,
+                                         &end) == -EINVAL &&
+                 passed;
+        passed = bootmem_find_usable_end(invalid_tail, 2, 0x00200000U,
+                                         &end) == -EINVAL &&
+                 passed;
+        passed = bootmem_find_usable_end(&four_gib, 1, 0x00200000U, &end) ==
+                     0 &&
+                 end == 0xfffff000U && passed;
+        passed = bootmem_find_usable_end(NULL, 1, 0x00200000U, &end) ==
+                     -EINVAL &&
+                 bootmem_find_usable_end(hole, 0, 0x00200000U, &end) ==
+                     -EINVAL &&
+                 passed;
+
+        if (!passed) {
+                FAIL("bootmem_allocator: contiguous range selection failed");
+                return;
+        }
+        PASS("bootmem_allocator (holes, reserved ranges, and 4GiB cap)");
+}
+
+static void mm_pool_bitmap_capacity(void)
+{
+        uint_32 pages = mem_pool_fit_page_count(0xfffff000U / PAGE_SIZE,
+                                                0x00010000U);
+        bool passed = pages == 349520U &&
+                      (pages / 16U) * 3U <= 0x00010000U &&
+                      ((pages + 16U) / 16U) * 3U > 0x00010000U;
+
+        passed = mem_pool_fit_page_count(335U, 0x00010000U) == 320U &&
+                 mem_pool_fit_page_count(16U, 2U) == 0U && passed;
+        if (!passed) {
+                FAIL("pool_bitmap_capacity: page cap calculation failed");
+                return;
+        }
+        PASS("pool_bitmap_capacity (4GiB range capped to 64KiB window)");
+}
+
 static void mm_test_vma_init(struct vm_area *vma,
                              uint_32 start,
                              uint_32 end)
@@ -545,6 +646,9 @@ int mm_regression_test(void)
         mm_slab_reuse();
         mm_supervisor_permissions();
         mm_uaccess_range();
+        mm_bootmem_range();
+        mm_bootmem_allocator_range();
+        mm_pool_bitmap_capacity();
         mm_vma_metadata();
         INFO("[mm-test]: ===== done =====");
         return mm_test_failures;

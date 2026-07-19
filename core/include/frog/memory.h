@@ -57,6 +57,8 @@ struct mem_block_desc {
 #define DESC_CNT 7  // type counts of memory blocks
 
 void mem_init(void);
+uint_32 mem_pool_fit_page_count(uint_32 page_count,
+                                uint_32 bitmap_window_bytes);
 // alloc any size memory
 void *sys_malloc(uint_32 size);
 // Free pointed memory
