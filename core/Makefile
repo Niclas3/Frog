@@ -26,14 +26,14 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/blk_core.o \
 	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o $(BUILD_DIR)/fs_regression.o \
 	 $(BUILD_DIR)/frogfs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/ffs_utils.o $(BUILD_DIR)/ffs_super_block.o \
-	 $(BUILD_DIR)/kasan.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/bootmem.o $(BUILD_DIR)/mm_test.o $(BUILD_DIR)/uaccess.o $(BUILD_DIR)/vm.o \
+	 $(BUILD_DIR)/kasan.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/bootmem.o $(BUILD_DIR)/phys_resource.o $(BUILD_DIR)/mm_test.o $(BUILD_DIR)/uaccess.o $(BUILD_DIR)/vm.o \
 	 $(BUILD_DIR)/panic.o $(BUILD_DIR)/qemu_test.o \
 	 $(BUILD_DIR)/select.o $(BUILD_DIR)/fork.o $(BUILD_DIR)/exit.o $(BUILD_DIR)/syscall.o \
 	 $(BUILD_DIR)/isa_bus_core.o $(BUILD_DIR)/plt_bus_core.o $(BUILD_DIR)/bus.o $(BUILD_DIR)/device.o \
 	 $(BUILD_DIR)/driver.o \
 	 $(BUILD_DIR)/ps2_mouse_driver.o $(BUILD_DIR)/ps2_kbd_driver.o $(BUILD_DIR)/ide.o \
 	 $(BUILD_DIR)/printk.o $(BUILD_DIR)/print.o $(BUILD_DIR)/vga.o $(BUILD_DIR)/debugcon.o \
-	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/fifo.o $(BUILD_DIR)/string.o $(BUILD_DIR)/ioqueue.o \
+	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/refcount.o $(BUILD_DIR)/fifo.o $(BUILD_DIR)/string.o $(BUILD_DIR)/ioqueue.o \
 	 $(BUILD_DIR)/cpu.o $(BUILD_DIR)/boot.o \
 
 

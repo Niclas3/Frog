@@ -4,7 +4,10 @@
 #include <frog/errno.h>
 #include <frog/irqflags.h>
 #include <frog/memory.h>
+#include <frog/kernel.h>
+#include <frog/phys_resource.h>
 #include <frog/process.h>
+#include <frog/refcount.h>
 #include <frog/string.h>
 #include <frog/types.h>
 #include <frog/uaccess.h>
@@ -375,6 +378,192 @@ static void mm_pool_bitmap_capacity(void)
         PASS("pool_bitmap_capacity (4GiB range capped to 64KiB window)");
 }
 
+static void mm_refcount_lifecycle(void)
+{
+        refcount_t ref;
+        bool passed = true;
+
+        refcount_init(&ref, 1);
+        passed = refcount_read(&ref) == 1 && passed;
+        passed = refcount_get_live(&ref) && refcount_read(&ref) == 2 &&
+                 passed;
+        passed = !refcount_put(&ref) && refcount_read(&ref) == 1 && passed;
+        passed = refcount_put(&ref) && refcount_read(&ref) == 0 && passed;
+        passed = !refcount_get_live(&ref) && refcount_read(&ref) == 0 &&
+                 passed;
+
+        refcount_init(&ref, UINT_MAX);
+        passed = !refcount_get_live(&ref) &&
+                 refcount_read(&ref) == UINT_MAX && passed;
+
+        if (!passed) {
+                FAIL("refcount_lifecycle: transition, zero, or overflow check failed");
+                return;
+        }
+        PASS("refcount_lifecycle (live get, zero, and saturation)");
+}
+
+static void mm_phys_resource_registry(void)
+{
+        struct phys_resource_registry registry;
+        struct phys_resource ram;
+        struct phys_resource left_adjacent;
+        struct phys_resource right_adjacent;
+        struct phys_resource overlaps[5];
+        struct phys_resource invalid;
+        bool passed = true;
+
+        phys_resource_registry_init(&registry);
+        phys_resource_init(&ram);
+        phys_resource_init(&left_adjacent);
+        phys_resource_init(&right_adjacent);
+        for (uint_32 index = 0; index < 5; index++)
+                phys_resource_init(&overlaps[index]);
+        phys_resource_init(&invalid);
+
+        passed = phys_resource_registry_register(
+                     &registry, &ram, 0x1000ULL, 0x1000ULL,
+                     PHYS_RESOURCE_RAM, VM_CACHE_WRITE_BACK) == 0 &&
+                 passed;
+        passed = phys_resource_registry_register(
+                     &registry, &overlaps[0], 0x1000ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EBUSY &&
+                 passed;
+        passed = phys_resource_registry_register(
+                     &registry, &overlaps[1], 0x1400ULL, 0x0200ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EBUSY &&
+                 passed;
+        passed = phys_resource_registry_register(
+                     &registry, &overlaps[2], 0x0800ULL, 0x2000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EBUSY &&
+                 passed;
+        passed = phys_resource_registry_register(
+                     &registry, &overlaps[3], 0x0800ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EBUSY &&
+                 passed;
+        passed = phys_resource_registry_register(
+                     &registry, &overlaps[4], 0x1800ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EBUSY &&
+                 passed;
+        for (uint_32 index = 0; index < 5; index++) {
+                passed = overlaps[index].state == PHYS_RESOURCE_NEW &&
+                         refcount_read(&overlaps[index].refs) == 0 && passed;
+        }
+
+        passed = phys_resource_registry_register(
+                     &registry, &left_adjacent, 0, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == 0 &&
+                 phys_resource_registry_register(
+                     &registry, &right_adjacent, 0x2000ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == 0 &&
+                 passed;
+        passed = phys_resource_registry_register(
+                     &registry, &invalid, 0x4000ULL, 0,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EINVAL &&
+                 phys_resource_registry_register(
+                     &registry, &invalid, ~0ULL - 0x100ULL, 0x200ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EOVERFLOW &&
+                 phys_resource_registry_register(
+                     &registry, &invalid, 0x4000ULL, 0x1000ULL,
+                     (enum phys_resource_type) 99,
+                     VM_CACHE_UNCACHED) == -EINVAL &&
+                 phys_resource_registry_register(
+                     &registry, &invalid, 0x4000ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO,
+                     (enum vm_cache_mode) 99) == -EINVAL &&
+                 phys_resource_registry_register(
+                     &registry, &invalid, 0x4000ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_WRITE_BACK) == -EINVAL &&
+                 invalid.state == PHYS_RESOURCE_NEW && passed;
+        passed = !phys_resource_contains(&invalid, 0x4000ULL, 1) &&
+                 phys_resource_contains(&ram, 0x1000ULL, 0x1000ULL) &&
+                 phys_resource_contains(&ram, 0x1000ULL, 1) &&
+                 phys_resource_contains(&ram, 0x1fffULL, 1) &&
+                 !phys_resource_contains(&ram, 0x1000ULL, 0) &&
+                 !phys_resource_contains(&ram, 0x0fffULL, 1) &&
+                 !phys_resource_contains(&ram, 0x1fffULL, 2) &&
+                 !phys_resource_contains(&ram, ~0ULL - 1, 3) && passed;
+
+        passed = phys_resource_get_live(&ram) &&
+                 refcount_read(&ram.refs) == 2 && passed;
+        passed = phys_resource_registry_unregister(&registry, &ram) ==
+                     -EBUSY &&
+                 ram.state == PHYS_RESOURCE_REGISTERED &&
+                 ram.registry == &registry && refcount_read(&ram.refs) == 2 &&
+                 passed;
+        phys_resource_put(&ram);
+        passed = refcount_read(&ram.refs) == 1 &&
+                 phys_resource_registry_unregister(&registry, &ram) == 0 &&
+                 ram.state == PHYS_RESOURCE_DEAD && ram.registry == NULL &&
+                 refcount_read(&ram.refs) == 0 &&
+                 ram.node.next == &ram.node && ram.node.prev == &ram.node &&
+                 !phys_resource_get_live(&ram) &&
+                 !phys_resource_contains(&ram, 0x1000ULL, 1) &&
+                 phys_resource_registry_register(
+                     &registry, &ram, 0x4000ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EINVAL &&
+                 passed;
+
+        passed = phys_resource_registry_unregister(&registry,
+                                                   &left_adjacent) == 0 &&
+                 phys_resource_registry_unregister(&registry,
+                                                   &right_adjacent) == 0 &&
+                 list_is_empty(&registry.resources) && passed;
+
+        if (!passed) {
+                FAIL("phys_resource_registry: overlap, lifetime, or range check failed");
+                return;
+        }
+        PASS("phys_resource_registry (ranges, adjacency, and lifetime)");
+}
+
+static void mm_phys_resource_bootmem_snapshot(void)
+{
+        struct bootmem_entry entries[] = {
+            { 0x00100000U, 0, 0x00700000U, 0, BOOTMEM_TYPE_USABLE },
+            { 0x00700000U, 0, 0x00200000U, 0, BOOTMEM_TYPE_USABLE },
+            { 0x00800000U, 0, 0x00100000U, 0, 2 },
+            { 0, 1, 0x00200000U, 0, BOOTMEM_TYPE_USABLE },
+        };
+        struct phys_resource_registry registry;
+        struct phys_resource ram[3];
+        struct phys_resource high_overlap;
+        uint_32 allocator_end = 0;
+        bool passed = true;
+
+        phys_resource_init(&high_overlap);
+        passed = bootmem_find_usable_end(entries, 4, 0x00200000U,
+                                         &allocator_end) == 0 &&
+                 allocator_end == 0x00800000U && passed;
+        passed = phys_resource_registry_init_from_bootmem(
+                     &registry, ram, 3, entries, 4) == 0 &&
+                 ram[0].state == PHYS_RESOURCE_REGISTERED &&
+                 ram[0].start == 0x00100000ULL &&
+                 ram[0].end == 0x00800000ULL &&
+                 ram[1].state == PHYS_RESOURCE_REGISTERED &&
+                 ram[1].start == 0x00700000ULL &&
+                 ram[1].end == 0x00900000ULL &&
+                 ram[2].state == PHYS_RESOURCE_REGISTERED &&
+                 ram[2].start == 0x100000000ULL &&
+                 ram[2].end == 0x100200000ULL && passed;
+
+        /* The high range is outside the contiguous allocator but still RAM. */
+        passed = phys_resource_registry_register(
+                     &registry, &high_overlap, 0x100100000ULL, 0x1000ULL,
+                     PHYS_RESOURCE_MMIO, VM_CACHE_UNCACHED) == -EBUSY &&
+                 high_overlap.state == PHYS_RESOURCE_NEW && passed;
+        passed = phys_resource_registry_unregister(&registry, &ram[0]) == 0 &&
+                 phys_resource_registry_unregister(&registry, &ram[1]) == 0 &&
+                 phys_resource_registry_unregister(&registry, &ram[2]) == 0 &&
+                 list_is_empty(&registry.resources) && passed;
+
+        if (!passed) {
+                FAIL("phys_resource_bootmem: complete E820 RAM snapshot was not retained");
+                return;
+        }
+        PASS("phys_resource_bootmem (complete and overlapping E820 snapshot)");
+}
+
 static void mm_test_vma_init(struct vm_area *vma,
                              uint_32 start,
                              uint_32 end)
@@ -649,6 +838,9 @@ int mm_regression_test(void)
         mm_bootmem_range();
         mm_bootmem_allocator_range();
         mm_pool_bitmap_capacity();
+        mm_refcount_lifecycle();
+        mm_phys_resource_registry();
+        mm_phys_resource_bootmem_snapshot();
         mm_vma_metadata();
         INFO("[mm-test]: ===== done =====");
         return mm_test_failures;

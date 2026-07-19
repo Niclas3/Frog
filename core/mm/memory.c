@@ -2,6 +2,7 @@
 #include <frog/bootmem.h>
 #include <frog/irqflags.h>
 #include <frog/memory.h>
+#include <frog/phys_resource.h>
 #include <frog/semaphore.h>
 #include <frog/string.h>
 #include <frog/threads.h>
@@ -1145,6 +1146,8 @@ void mem_init(void)
                        entry->base_low, entry->base_high, entry->length_low,
                        entry->length_high, entry->type);
         }
+        if (phys_resources_init_from_bootmem(entries, count) < 0)
+                PANIC("[mm]: cannot build physical resource registry");
         if (bootmem_find_usable_end(entries, count, MEM_POOL_START,
                                     &alloc_end) < 0)
                 PANIC("[mm]: no contiguous E820 allocator range");
