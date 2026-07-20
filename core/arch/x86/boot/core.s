@@ -98,14 +98,16 @@ section .data
 %macro EXCEPTION_HANDLER 2
 section .text
 _asm_exceptionhandler%1:
+	%2              ; synthesize an error code before the saved context
         push ds
         push es
         push fs
         push gs
         pushad   ;; push 32bits register as order eax,ecx, edx, ebx, esp, ebp, esi, edi
-	%2              ; err code
 	push %1              ; vector_no 
+	push esp
 	call exception_handler
+	add esp, 4
         jmp intr_exit
 
 section .data

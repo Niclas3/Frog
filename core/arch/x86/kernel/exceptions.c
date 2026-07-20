@@ -1,4 +1,5 @@
 #include <frog/types.h>
+#include <frog/threads.h>
 #include <kernel/debug.h>
 
 /*     Interrupt handler function Usage
@@ -26,38 +27,20 @@
  **/
 
 
-extern void page_fault_handler(uint_32 cr2, uint_32 err_code);
+extern void page_fault_handler(uint_32 cr2, uint_32 err_code,
+                               uint_32 eip, uint_32 cs,
+                               const struct context_registers *context);
 //-----------------------------------------------------------------------------
 //                     exception Callback function 
 //-----------------------------------------------------------------------------
-void exception_handler(int vec_no, int err_code, int eip, int cs, int eflags)
+void exception_handler(struct context_registers *context)
 {
-    char *err_msg[] = {
-        "#DE Divide Error",
-        "#DB RESERVED",
-        "--  NMI Interrupt",
-        "#BP Breakpoint",
-        "#OF Overflow",
-        "#BR BOUND Range Exceeded",
-        "#UD Invalid Opcode (Undefined Opcode)",
-        "#NM Device Not Available (No Math Coprocessor)",
-        "#DF Double Fault",
-        "    Coprocessor Segment Overrun (reserved)",
-        "#TS Invalid TSS",
-        "#NP Segment Not Present",
-        "#SS Stack-Segment Fault",
-        "#GP General Protection",
-        "#PF Page Fault",
-        "--  (Intel reserved. Do not use.)",
-        "#MF x87 FPU Floating-Point Error (Math Fault)",
-        "#AC Alignment Check",
-        "#MC Machine Check",
-        "#XF SIMD Floating-Point Exception"
-    };
-    if(vec_no == 0xe) {
+    if(context->vector_no == 0xe) {
             uint_32 cr2;
             __asm__ volatile ("mov %%cr2, %0": "=r"(cr2));
-            page_fault_handler(cr2, err_code);
+            page_fault_handler(cr2, context->err_code,
+                               (uint_32) context->eip, context->cs,
+                               context);
             return;
     } else {
             __asm__ volatile ("hlt;");

@@ -85,6 +85,21 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_VM_CLEANUP:
         name = "vm.cleanup";
         break;
+    case FROG_TEST_VM_FORK_ROLLBACK:
+        name = "vm.fork-rollback";
+        break;
+    case FROG_TEST_VM_FORK_SHARED:
+        name = "vm.fork-shared";
+        break;
+    case FROG_TEST_VM_EXIT_CHILD_FIRST:
+        name = "vm.exit-child-first";
+        break;
+    case FROG_TEST_VM_EXIT_PARENT_FIRST:
+        name = "vm.exit-parent-first";
+        break;
+    case FROG_TEST_VM_POST_UNMAP_FAULT:
+        name = "vm.post-unmap-fault";
+        break;
     default:
         return -EINVAL;
     }
@@ -160,6 +175,17 @@ int_32 sys_testsyscall(uint_32 command)
         return mm_vm_process_prepare();
     if (command == FROG_TEST_VM_VERIFY_CLEANUP)
         return mm_vm_process_verify_cleanup();
+    if (command == FROG_TEST_VM_UNMAP_CURRENT)
+        return mm_vm_process_unmap_current();
+    if (command >= FROG_TEST_VM_FORK_FAIL_BASE &&
+        command < FROG_TEST_VM_FORK_FAIL_BASE + FROG_TEST_VM_FORK_FAIL_COUNT)
+        return mm_vm_process_arm_fork_failure(
+            command - FROG_TEST_VM_FORK_FAIL_BASE);
+    if (command > FROG_TEST_VM_VERIFY_REFS_BASE &&
+        command <= FROG_TEST_VM_VERIFY_REFS_BASE +
+                       FROG_TEST_VM_FORK_FAIL_COUNT)
+        return mm_vm_process_verify_refs(
+            command - FROG_TEST_VM_VERIFY_REFS_BASE);
 #endif
 #ifndef CONFIG_FROG_TEST_USER
     INFO("[init]: ring3 reached, testsyscall a=%d", command);

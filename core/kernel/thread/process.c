@@ -220,40 +220,10 @@ void process_release_address_space(TCB_t *thread)
                 return;
 
         struct mm_struct *mm = thread->mm;
-        TCB_t *current = running_thread();
-        unsigned long flags;
-        local_irq_save(flags);
-        if (mm->pgdir != NULL) {
-                page_dir_activate(thread);
-                for (uint_32 pde_idx = 0; pde_idx < 768; pde_idx++) {
-                        uint_32 pde = mm->pgdir[pde_idx];
-                        if (!(pde & PG_P_SET))
-                                continue;
-                        uint_32 *pt = pte_ptr(pde_idx * 0x400000);
-                        for (uint_32 pte_idx = 0; pte_idx < 1024; pte_idx++) {
-                                if (pt[pte_idx] & PG_P_SET)
-                                        free_phy_page(pt[pte_idx] & 0xfffff000);
-                        }
-                        free_phy_page(pde & 0xfffff000);
-                }
-                if (current == thread)
-                        page_dir_activate(NULL);
-                else
-                        page_dir_activate(current);
-                free_page(MP_KERNEL, mm->pgdir, 1);
-                mm->pgdir = NULL;
-        }
 
-        uint_8 *bits = mm->user_vaddr.vaddr_bitmap.bits;
-        uint_32 bytes = mm->user_vaddr.vaddr_bitmap.map_bytes_length;
-        if (bits != NULL && bytes != 0) {
-                free_page(MP_KERNEL, bits, DIV_ROUND_UP(bytes, PAGE_SIZE));
-                mm->user_vaddr.vaddr_bitmap.bits = NULL;
-                mm->user_vaddr.vaddr_bitmap.map_bytes_length = 0;
-        }
+        /* A scheduled teardown must never reactivate an address space in flight. */
         thread->mm = NULL;
-        local_irq_restore(flags);
-        mm_destroy(mm);
+        mm_release_address_space(mm);
 }
 
 uint_32 process_execute(void *filename, char *name)

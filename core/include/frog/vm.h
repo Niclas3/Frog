@@ -75,6 +75,9 @@ struct vm_area {
 
 struct mm_struct *mm_create(void);
 void mm_destroy(struct mm_struct *mm);
+struct mm_struct *mm_clone_for_fork(struct mm_struct *parent);
+void mm_release_address_space(struct mm_struct *mm);
+int vm_handle_user_page_fault(struct mm_struct *mm, uint_32 address);
 
 struct vm_mapping *vm_mapping_alloc(enum vm_backing_type backing_type,
                                     const struct vm_operations *vm_ops);
@@ -119,6 +122,7 @@ uint_32 vm_find_unmapped_area(struct mm_struct *mm, uint_32 length);
 
 #ifdef CONFIG_QEMU_TEST
 void vm_test_fail_map_after(int installed_ptes);
+void vm_test_fail_fork_after(int clone_steps);
 #endif
 
 #endif

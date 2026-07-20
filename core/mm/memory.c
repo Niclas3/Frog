@@ -124,14 +124,11 @@ static void flush_cr3(uint_32 *pgdir)
 
 static void invalidate(void)
 {
-        TCB_t *thread = running_thread();
-        ASSERT(thread);
-        uint_32 pagedir_phy_addr =
-            0x100000;  // default pagedir address is 0x100000
-        if (thread->mm != NULL && thread->mm->pgdir != NULL) {
-                pagedir_phy_addr = addr_v2p((uint_32) thread->mm->pgdir);
-        }
-        __asm__ volatile("movl %0, %%cr3;"
+        uint_32 pagedir_phy_addr;
+
+        /* put_page() always edits the active recursive page table. */
+        __asm__ volatile("movl %%cr3, %0" : "=r"(pagedir_phy_addr));
+        __asm__ volatile("movl %0, %%cr3"
                          :
                          : "r"(pagedir_phy_addr)
                          : "memory");
@@ -358,12 +355,30 @@ uint_32 alloc_kernel_page_frame(void)
         return physical;
 }
 
+uint_32 alloc_user_page_frame(void)
+{
+        uint_32 physical;
+
+        lock_fetch(&user_pool.lock);
+        physical = (uint_32) get_physical_page(&user_pool);
+        lock_release(&user_pool.lock);
+        return physical;
+}
+
 void free_kernel_page_frame(uint_32 physical)
 {
         ASSERT(physical != 0 && (physical & (PAGE_SIZE - 1U)) == 0);
         lock_fetch(&kernel_pool.lock);
         free_physical_page(&kernel_pool, physical);
         lock_release(&kernel_pool.lock);
+}
+
+void free_user_page_frame(uint_32 physical)
+{
+        ASSERT(physical != 0 && (physical & (PAGE_SIZE - 1U)) == 0);
+        lock_fetch(&user_pool.lock);
+        free_physical_page(&user_pool, physical);
+        lock_release(&user_pool.lock);
 }
 
 void free_phy_page(uint_32 phy_addr_page)
@@ -625,6 +640,20 @@ static int mark_kernel_vaddr_reserved(uintptr_t vaddr)
         uint_32 bit_idx = vaddr2pos(vaddr, &kernel_viraddr);
         set_value_bitmap(&kernel_viraddr.vaddr_bitmap, bit_idx, PG_OCCUPIED);
         return 0;
+}
+
+static void reserve_bootstrap_stack_vaddr(void)
+{
+        uintptr_t stack_page = (uintptr_t) running_thread();
+        uintptr_t capacity =
+            kernel_viraddr.vaddr_bitmap.map_bytes_length * 8UL * PAGE_SIZE;
+
+        if (stack_page < kernel_viraddr.vaddr_start ||
+            stack_page - kernel_viraddr.vaddr_start >= capacity)
+                return;
+
+        /* The boot stack remains live until make_main_thread() relocates it. */
+        mark_kernel_vaddr_reserved(stack_page);
 }
 
 
@@ -1204,6 +1233,7 @@ void mem_init(void)
         INFO("Allocator physical end %x", alloc_end);
 
         mem_pool_init(alloc_end);
+        reserve_bootstrap_stack_vaddr();
         block_desc_init(k_block_descs);
 
 #ifdef CONFIG_POSION_MEMORY

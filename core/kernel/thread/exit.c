@@ -90,15 +90,18 @@ pid_t sys_wait(int_32 *status_loc)
 void sys_exit(int_32 status)
 {
     TCB_t *child = running_thread();
+
+    /* The syscall/exception gate clears IF; file and VM teardown may sleep. */
+    local_irq_enable();
     child->exit_status = status;
     if (child->parent_pid == -1) {
         PANIC("sys_exit: child parent is -1\n");
     }
     close_process_files(child);
+    process_release_address_space(child);
 
     unsigned long flags;
     local_irq_save(flags);
-    process_release_address_space(child);
     list_walker(&thread_all_list, proc_init_adopt_a_child, child->pid);
     TCB_t *parent = pid2thread(child->parent_pid);
     if (parent != NULL && parent->status == THREAD_TASK_WAITING) {

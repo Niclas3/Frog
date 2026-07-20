@@ -77,6 +77,123 @@ static bool run_basic_checks(void)
 }
 
 #ifdef USER_SMOKE_PROCESS
+static void process_exit(int_32 status) __attribute__((noreturn));
+
+static void process_exit(int_32 status)
+{
+        raw_syscall1(SYS_EXIT, (uint_32) status);
+        for (;;)
+                __asm__ volatile("pause");
+}
+
+static bool vm_refs_are(uint_32 expected)
+{
+        return raw_syscall1(SYS_TESTSYSCALL,
+                            FROG_TEST_VM_VERIFY_REFS_BASE + expected) == 0;
+}
+
+static bool wait_for_status(int_32 pid, int_32 expected)
+{
+        int_32 status = 0;
+
+        return pid > 0 &&
+               raw_syscall1(SYS_WAIT, (uint_32) &status) == pid &&
+               status == expected;
+}
+
+static bool test_vm_fork_rollback(void)
+{
+        bool passed = true;
+
+        for (uint_32 step = 0; step < FROG_TEST_VM_FORK_FAIL_COUNT; step++) {
+                bool armed = raw_syscall1(
+                    SYS_TESTSYSCALL,
+                    FROG_TEST_VM_FORK_FAIL_BASE + step) == 0;
+                int_32 child = raw_syscall0(SYS_FORK);
+
+                if (child == 0)
+                        process_exit(70);
+                if (child > 0)
+                        (void) wait_for_status(child, 70);
+                passed = armed && child == -1 && vm_refs_are(1) && passed;
+        }
+        return passed;
+}
+
+static bool test_vm_parent_first(volatile uint_8 *alias)
+{
+        const uint_8 waiting = 0x41U;
+        const uint_8 release = 0x42U;
+        const uint_8 done = 0x43U;
+        int_32 worker;
+
+        alias[0] = waiting;
+        worker = raw_syscall0(SYS_FORK);
+        if (worker == 0) {
+                int_32 grandchild = raw_syscall0(SYS_FORK);
+
+                if (grandchild == 0) {
+                        while (alias[0] != release)
+                                __asm__ volatile("pause");
+                        bool passed = vm_refs_are(2);
+
+                        alias[0] = done;
+                        process_exit(passed ? 52 : 53);
+                }
+                process_exit(grandchild > 0 ? 51 : 54);
+        }
+
+        bool worker_exit = wait_for_status(worker, 51) && vm_refs_are(2);
+        alias[0] = release;
+        int_32 status = 0;
+        int_32 reparented = raw_syscall1(SYS_WAIT, (uint_32) &status);
+        bool grandchild_exit = reparented > 0 && status == 52 &&
+                               alias[0] == done && vm_refs_are(1);
+
+        return worker > 0 && worker_exit && grandchild_exit;
+}
+
+static void run_vm_lifecycle_checks(volatile uint_8 *alias)
+{
+        const uint_8 parent_value = 0x31U;
+        const uint_8 child_value = 0x32U;
+        int_32 child;
+
+        report(FROG_TEST_VM_FORK_ROLLBACK, test_vm_fork_rollback());
+
+        alias[0] = parent_value;
+        child = raw_syscall0(SYS_FORK);
+        if (child == 0) {
+                bool passed = vm_refs_are(2) && alias[0] == parent_value;
+
+                alias[0] = child_value;
+                process_exit(passed ? 37 : 38);
+        }
+        bool shared = wait_for_status(child, 37) &&
+                      alias[0] == child_value;
+        bool child_first = vm_refs_are(1);
+        report(FROG_TEST_VM_FORK_SHARED, shared);
+        report(FROG_TEST_VM_EXIT_CHILD_FIRST,
+               child > 0 && child_first);
+
+        report(FROG_TEST_VM_EXIT_PARENT_FIRST,
+               test_vm_parent_first(alias));
+
+        alias[0] = FROG_TEST_VM_WRITTEN;
+        child = raw_syscall0(SYS_FORK);
+        if (child == 0) {
+                if (raw_syscall1(SYS_TESTSYSCALL,
+                                 FROG_TEST_VM_UNMAP_CURRENT) != 0)
+                        process_exit(39);
+                alias[0] = 0xffU;
+                process_exit(40);
+        }
+        bool post_unmap = wait_for_status(child, -EFAULT) &&
+                          vm_refs_are(1) &&
+                          alias[0] == FROG_TEST_VM_WRITTEN;
+        report(FROG_TEST_VM_POST_UNMAP_FAULT, post_unmap);
+}
+
 static bool run_vm_mapping_checks(void)
 {
         int_32 mapped = raw_syscall1(SYS_TESTSYSCALL,
@@ -95,6 +212,16 @@ static bool run_vm_mapping_checks(void)
         report(FROG_TEST_VM_USER_ADDRESS, address_ok);
         report(FROG_TEST_VM_USER_READ, read_ok);
         report(FROG_TEST_VM_USER_WRITE, write_ok);
+
+        if (address_ok && read_ok && write_ok)
+                run_vm_lifecycle_checks((volatile uint_8 *) mapped);
+        else {
+                report(FROG_TEST_VM_FORK_SHARED, false);
+                report(FROG_TEST_VM_EXIT_CHILD_FIRST, false);
+                report(FROG_TEST_VM_FORK_ROLLBACK, false);
+                report(FROG_TEST_VM_EXIT_PARENT_FIRST, false);
+                report(FROG_TEST_VM_POST_UNMAP_FAULT, false);
+        }
 
         bool cleanup_ok =
             raw_syscall1(SYS_TESTSYSCALL,
@@ -226,7 +353,7 @@ static void run_profile(void)
 }
 #endif
 
-void _start(void) __attribute__((noreturn));
+void _start(void) __attribute__((noreturn, section(".text._start")));
 
 void _start(void)
 {

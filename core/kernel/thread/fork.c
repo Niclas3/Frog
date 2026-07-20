@@ -1,9 +1,7 @@
 #include <kernel/assert.h>
-#include <frog/bitmap.h>
 #include <frog/irqflags.h>
 
 #include <frog/fork.h>
-#include <frog/math.h>
 #include <frog/memory.h>
 #include <frog/process.h>
 #include <frog/string.h>
@@ -20,11 +18,9 @@ extern void intr_exit(void);
 extern struct list_head thread_ready_list;
 extern struct list_head thread_all_list;
 
-static int_32 copy_tcb_vaddrbitmap_stack0(TCB_t *child_thread,
-                                          TCB_t *parent_thread)
+static int_32 copy_tcb_stack0(TCB_t *child_thread, TCB_t *parent_thread)
 {
-        if (parent_thread->mm == NULL ||
-            !list_is_empty(&parent_thread->mm->vma_list))
+        if (parent_thread->mm == NULL)
                 return -1;
 
         memcpy(child_thread, parent_thread, PAGE_SIZE);
@@ -41,78 +37,10 @@ static int_32 copy_tcb_vaddrbitmap_stack0(TCB_t *child_thread,
         INIT_LIST_HEAD(&child_thread->proc_list_tag);
         block_desc_init(child_thread->u_block_descs);
 
-        child_thread->mm = mm_create();
-        if (child_thread->mm == NULL)
-                return -1;
-        uint_32 bitmap_len =
-            parent_thread->mm->user_vaddr.vaddr_bitmap.map_bytes_length;
-        if (bitmap_len == 0 ||
-            parent_thread->mm->user_vaddr.vaddr_bitmap.bits == NULL)
-                return -1;
-        uint_32 bitmap_pg_cnt = DIV_ROUND_UP(bitmap_len, PAGE_SIZE);
-        void *vaddr_btmp = get_kernel_page(bitmap_pg_cnt);
-        if (vaddr_btmp == NULL)
-                return -1;
-        memcpy(vaddr_btmp,
-               parent_thread->mm->user_vaddr.vaddr_bitmap.bits,
-               bitmap_pg_cnt * PAGE_SIZE);
-        child_thread->mm->user_vaddr.vaddr_bitmap.bits = vaddr_btmp;
-        child_thread->mm->user_vaddr.vaddr_bitmap.map_bytes_length =
-            bitmap_len;
-        child_thread->mm->user_vaddr.vaddr_start =
-            parent_thread->mm->user_vaddr.vaddr_start;
-        child_thread->mm->generation = parent_thread->mm->generation;
-
         uint_32 name_len = strlen(child_thread->name);
         strncpy(child_thread->name + name_len, "_fork",
                 TASK_NAME_LEN - name_len - 1);
         child_thread->name[TASK_NAME_LEN - 1] = '\0';
-        return 0;
-}
-
-static int copy_body_stack3(TCB_t *child_thread,
-                            TCB_t *parent_thread,
-                            void *buf_page)
-{
-        uint_8 *vaddr_btmp =
-            parent_thread->mm->user_vaddr.vaddr_bitmap.bits;
-        uint_32 btmp_bytes_len =
-            parent_thread->mm->user_vaddr.vaddr_bitmap.map_bytes_length;
-        uint_32 vaddr_start = parent_thread->mm->user_vaddr.vaddr_start;
-        uint_32 idx_byte = 0;
-        uint_32 idx_bit = 0;
-        uint_32 prog_vaddr = 0;
-        while (idx_byte < btmp_bytes_len) {
-                if (vaddr_btmp[idx_byte]) {
-                        idx_bit = 0;
-                        while (idx_bit < 8) {
-                                if ((FULL_MASK << idx_bit) &
-                                    vaddr_btmp[idx_byte]) {
-                                        prog_vaddr = (idx_byte * 8 + idx_bit) *
-                                                         PAGE_SIZE +
-                                                     vaddr_start;
-                                        memcpy(buf_page, (void *) prog_vaddr,
-                                               PAGE_SIZE);
-                                        unsigned long flags;
-                                        local_irq_save(flags);
-                                        page_dir_activate(child_thread);
-                                        if (get_phy_free_page_with_vaddr(
-                                                MP_USER, prog_vaddr,
-                                                child_thread->mm) == NULL) {
-                                                page_dir_activate(parent_thread);
-                                                local_irq_restore(flags);
-                                                return -1;
-                                        }
-                                        memcpy((void *) prog_vaddr, buf_page,
-                                               PAGE_SIZE);
-                                        page_dir_activate(parent_thread);
-                                        local_irq_restore(flags);
-                                }
-                                idx_bit++;
-                        }
-                }
-                idx_byte++;
-        }
         return 0;
 }
 
@@ -154,32 +82,34 @@ static void retain_open_files(TCB_t *thread)
 
 static int copy_process(TCB_t *child_thread, TCB_t *parent_thread)
 {
-        void *buf_page = get_kernel_page(1);
-        if (buf_page == NULL)
-                return -1;
-        if (copy_tcb_vaddrbitmap_stack0(child_thread, parent_thread) == -1)
+        if (copy_tcb_stack0(child_thread, parent_thread) == -1)
                 goto fail;
-        child_thread->mm->pgdir = create_page_dir();
-        if (child_thread->mm->pgdir == NULL)
-                goto fail;
-        if (copy_body_stack3(child_thread, parent_thread, buf_page) < 0)
+        child_thread->mm = mm_clone_for_fork(parent_thread->mm);
+        if (child_thread->mm == NULL)
                 goto fail;
         build_child_stack(child_thread, parent_thread);
-        free_page(MP_KERNEL, buf_page, 1);
         return 0;
 
 fail:
-        free_page(MP_KERNEL, buf_page, 1);
         return -1;
 }
 
 uint_32 sys_fork(void)
 {
         TCB_t *parent_thread = running_thread();
-        TCB_t *child_thread = get_kernel_page(1);
+        TCB_t *child_thread;
+        unsigned long syscall_flags;
+        uint_32 result;
 
-        if (child_thread == NULL)
-                return -1;
+        /* The syscall interrupt gate enters with IF clear; cloning may sleep. */
+        local_irq_save(syscall_flags);
+        local_irq_enable();
+        child_thread = get_kernel_page(1);
+
+        if (child_thread == NULL) {
+                result = (uint_32) -1;
+                goto restore_irqs;
+        }
         memset(child_thread, 0, PAGE_SIZE);
         child_thread->pid = (pid_t) -1;
 
@@ -197,13 +127,18 @@ uint_32 sys_fork(void)
         retain_open_files(child_thread);
         local_irq_restore(flags);
 
-        return child_thread->pid;
+        result = child_thread->pid;
+        goto restore_irqs;
 
 fail:
         process_release_address_space(child_thread);
         thread_release_pid(child_thread->pid);
         free_page(MP_KERNEL, child_thread, 1);
-        return (uint_32) -1;
+        result = (uint_32) -1;
+
+restore_irqs:
+        local_irq_restore(syscall_flags);
+        return result;
 }
 
 void add_wait_queue(wait_queue_head_t *q, wait_queue_t *wait)
