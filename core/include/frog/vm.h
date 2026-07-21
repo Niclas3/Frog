@@ -101,6 +101,8 @@ struct vm_area *vm_area_find(struct mm_struct *mm, uint_32 address);
 struct vm_area *vm_area_find_exact(struct mm_struct *mm,
                                    uint_32 start,
                                    uint_32 end);
+/* Takes mmap_lock internally and includes inherited mappings after fork. */
+bool vm_mm_maps_device(struct mm_struct *mm, const struct device *device);
 struct vm_area *vm_area_remove_exact(struct mm_struct *mm,
                                      uint_32 start,
                                      uint_32 end);

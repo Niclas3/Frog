@@ -2,14 +2,25 @@
 #include <global.h>
 
 #include <frog/errno.h>
+#include <frog/fcntl.h>
+#include <frog/fb.h>
+#include <frog/kernel.h>
 #include <frog/memory.h>
+#include <frog/mman.h>
 #include <frog/phys_resource.h>
 #include <frog/refcount.h>
 #include <frog/string.h>
+#include <frog/threads.h>
+#include <frog/uaccess.h>
+#include <frog/vm.h>
+#include <kernel/assert.h>
 #include <kernel/bus.h>
+#include <kernel/chardev.h>
+#include <kernel/dev.h>
 #include <kernel/device.h>
 #include <kernel/framebuffer.h>
 #include <kernel/panic.h>
+#include <kernel/vfs.h>
 #include <video/video.h>
 
 #define BOOT_HANDOFF_LOW_START 0x0500ULL
@@ -21,15 +32,168 @@ struct pc_framebuffer_state {
         int snapshot_result;
         bool registration_attempted;
         bool registered;
+        bool chardev_registered;
+        int major;
+        uint_32 live_mapping_objects;
         vbe_info_t controller;
         vbe_mode_info_t mode;
-        struct framebuffer_info info;
+        struct frog_fb_info info;
         unsigned long long aperture_length;
         struct device device;
         struct phys_resource aperture;
 };
 
 static struct pc_framebuffer_state pc_framebuffer;
+
+static int_32 pc_framebuffer_open(struct inode *inode, struct file *file);
+static int_32 pc_framebuffer_close(struct file *file);
+static int_32 pc_framebuffer_ioctl(struct file *file, uint_32 request,
+                                  void *argp);
+static int_32 pc_framebuffer_mmap(struct file *file, struct vm_area *vma);
+
+static const struct file_operations pc_framebuffer_fops = {
+        .open = pc_framebuffer_open,
+        .close = pc_framebuffer_close,
+        .ioctl = pc_framebuffer_ioctl,
+        .mmap = pc_framebuffer_mmap,
+};
+
+static void pc_framebuffer_mapping_close(struct vm_mapping *mapping)
+{
+        struct pc_framebuffer_state *state = mapping->private_data;
+
+        ASSERT(state != NULL && mapping->device == &state->device &&
+               mapping->resource == &state->aperture &&
+               mapping->file != NULL);
+        lock_fetch(&state->device.lock);
+        ASSERT(state->live_mapping_objects > 0);
+        state->live_mapping_objects--;
+        lock_release(&state->device.lock);
+
+        (void) file_put(mapping->file);
+        phys_resource_put(mapping->resource);
+        device_put(mapping->device);
+}
+
+static const struct vm_operations pc_framebuffer_vm_ops = {
+        .close = pc_framebuffer_mapping_close,
+};
+
+static int_32 pc_framebuffer_open(struct inode *inode, struct file *file)
+{
+        if (inode == NULL || file == NULL ||
+            (inode->i_dev & 0xffffU) != 0 || file->private_data != NULL ||
+            !pc_framebuffer.registered ||
+            !pc_framebuffer.chardev_registered)
+                return -ENODEV;
+        if (!device_get_live(&pc_framebuffer.device))
+                return -ENODEV;
+        file->private_data = &pc_framebuffer;
+        return 0;
+}
+
+static int_32 pc_framebuffer_close(struct file *file)
+{
+        struct pc_framebuffer_state *state;
+
+        if (file == NULL || file->f_op != &pc_framebuffer_fops ||
+            file->private_data != &pc_framebuffer)
+                return -EINVAL;
+        state = file->private_data;
+        file->private_data = NULL;
+        device_put(&state->device);
+        return 0;
+}
+
+static int_32 pc_framebuffer_ioctl(struct file *file, uint_32 request,
+                                  void *argp)
+{
+        struct pc_framebuffer_state *state;
+        struct frog_fb_info info;
+
+        if (request != FROG_FB_IOCTL_GET_INFO)
+                return -ENOTTY;
+        if (file == NULL || file->f_op != &pc_framebuffer_fops ||
+            file->private_data != &pc_framebuffer)
+                return -ENODEV;
+        state = file->private_data;
+        lock_fetch(&state->device.lock);
+        if (!state->registered || state->device.state != DEVICE_LIVE) {
+                lock_release(&state->device.lock);
+                return -ENODEV;
+        }
+        info = state->info;
+        lock_release(&state->device.lock);
+        return copy_to_user(argp, &info, sizeof(info));
+}
+
+static int framebuffer_prepare_mmap(struct pc_framebuffer_state *state,
+                                    struct file *file,
+                                    struct vm_area *vma,
+                                    struct mm_struct *mm)
+{
+        struct vm_mapping *mapping;
+        bool resource_pinned = false;
+        int result;
+
+        if (state == NULL || file == NULL || vma == NULL || mm == NULL ||
+            file->f_op != &pc_framebuffer_fops ||
+            file->private_data != state)
+                return -ENODEV;
+        if ((file->f_flag & O_ACCMODE) != O_RDWR)
+                return -EACCES;
+        mapping = vma->mapping;
+        if (mapping == NULL ||
+            mapping->backing_type != VM_BACKING_DEVICE_BORROWED ||
+            mapping->state != VM_MAPPING_NEW || mapping->vm_ops != NULL ||
+            vma->start != 0 || vma->end != state->info.map_length ||
+            vma->prot != (PROT_READ | PROT_WRITE) ||
+            vma->flags != MAP_SHARED || vma->page_offset != 0)
+                return -EINVAL;
+        if (vm_mm_maps_device(mm, &state->device))
+                return -EBUSY;
+        if (!device_get_live(&state->device))
+                return -ENODEV;
+
+        lock_fetch(&state->device.lock);
+        if (!state->registered || state->device.state != DEVICE_LIVE) {
+                result = -ENODEV;
+                goto unlock;
+        }
+        resource_pinned = phys_resource_get_live(&state->aperture);
+        if (!resource_pinned) {
+                result = -ENODEV;
+                goto unlock;
+        }
+        if (state->live_mapping_objects == UINT_MAX) {
+                result = -EOVERFLOW;
+                goto unlock;
+        }
+
+        mapping->vm_ops = &pc_framebuffer_vm_ops;
+        result = vm_mapping_prepare_device(mapping, file, &state->device,
+                                           &state->aperture, state);
+        if (result != 0) {
+                mapping->vm_ops = NULL;
+                goto unlock;
+        }
+        state->live_mapping_objects++;
+        lock_release(&state->device.lock);
+        return 0;
+
+unlock:
+        lock_release(&state->device.lock);
+        if (resource_pinned)
+                phys_resource_put(&state->aperture);
+        device_put(&state->device);
+        return result;
+}
+
+static int_32 pc_framebuffer_mmap(struct file *file, struct vm_area *vma)
+{
+        return framebuffer_prepare_mmap(&pc_framebuffer, file, vma,
+                                        running_thread()->mm);
+}
 
 static bool handoff_object_valid(uint_32 address, uint_32 size)
 {
@@ -88,7 +252,7 @@ static int framebuffer_align_length(unsigned long long visible,
 
 static int framebuffer_normalize(const vbe_info_t *controller,
                                  const vbe_mode_info_t *mode,
-                                 struct framebuffer_info *info,
+                                 struct frog_fb_info *info,
                                  unsigned long long *aperture_length)
 {
         unsigned long long aperture;
@@ -223,6 +387,7 @@ int pc_framebuffer_register_aperture(struct bus_type *bus)
         if (pc_framebuffer.registration_attempted)
                 return -EALREADY;
         pc_framebuffer.registration_attempted = true;
+        pc_framebuffer.major = -1;
 
         device_init(&pc_framebuffer.device, NULL);
         pc_framebuffer.device.name = "pc-framebuffer";
@@ -256,6 +421,101 @@ unregister_resource:
 out:
         lock_release(&pc_framebuffer.device.lock);
         return result;
+}
+
+int pc_framebuffer_register_chardev(void)
+{
+        int major;
+        int result;
+
+        if (!pc_framebuffer.registered ||
+            pc_framebuffer.device.state != DEVICE_LIVE)
+                return -ENODEV;
+        if (pc_framebuffer.chardev_registered)
+                return -EALREADY;
+
+        major = register_chrdev(0, &pc_framebuffer_fops);
+        if (major < 0)
+                return -ENOSPC;
+        pc_framebuffer.major = major;
+        pc_framebuffer.chardev_registered = true;
+        result = devfs_create_node("fb0", DEV_TYPE_CHAR, major, 0);
+        if (result != 0) {
+                pc_framebuffer.chardev_registered = false;
+                pc_framebuffer.major = -1;
+                (void) unregister_chrdev(major);
+                return result;
+        }
+        return 0;
+}
+
+static int framebuffer_mode_change_allowed(
+    struct pc_framebuffer_state *state)
+{
+        int result = 0;
+
+        if (state == NULL)
+                return -EINVAL;
+        lock_fetch(&state->device.lock);
+        if (!state->registered || state->device.state != DEVICE_LIVE)
+                result = -ENODEV;
+        else if (state->live_mapping_objects != 0)
+                result = -EBUSY;
+        lock_release(&state->device.lock);
+        return result;
+}
+
+int pc_framebuffer_mode_change_allowed(void)
+{
+        return framebuffer_mode_change_allowed(&pc_framebuffer);
+}
+
+int pc_framebuffer_unregister(void)
+{
+        int major;
+        int result;
+
+        if (!pc_framebuffer.registered ||
+            !pc_framebuffer.chardev_registered)
+                return -ENODEV;
+        result = pc_framebuffer_mode_change_allowed();
+        if (result != 0)
+                return result;
+        result = device_begin_unregister(&pc_framebuffer.device);
+        if (result != 0)
+                return result;
+
+        lock_fetch(&pc_framebuffer.device.lock);
+        bool resource_ready =
+            pc_framebuffer.aperture.state == PHYS_RESOURCE_REGISTERED &&
+            refcount_read(&pc_framebuffer.aperture.refs) == 1;
+        lock_release(&pc_framebuffer.device.lock);
+        if (!resource_ready) {
+                ASSERT(device_cancel_unregister(&pc_framebuffer.device) == 0);
+                return -EBUSY;
+        }
+
+        major = pc_framebuffer.major;
+        result = devfs_remove_node("fb0", DEV_TYPE_CHAR, major, 0);
+        if (result != 0) {
+                ASSERT(device_cancel_unregister(&pc_framebuffer.device) == 0);
+                return result;
+        }
+
+        lock_fetch(&pc_framebuffer.device.lock);
+        result = phys_resource_unregister(&pc_framebuffer.aperture);
+        lock_release(&pc_framebuffer.device.lock);
+        if (result != 0)
+                PANIC("framebuffer resource teardown failed");
+        ASSERT(unregister_chrdev(major) == 0);
+        result = device_finish_unregister(&pc_framebuffer.device);
+        if (result != 0)
+                PANIC("framebuffer device teardown failed");
+
+        pc_framebuffer.chardev_registered = false;
+        pc_framebuffer.registered = false;
+        pc_framebuffer.major = -1;
+        return 0;
 }
 
 int pc_framebuffer_get_live(struct framebuffer_ref *ref)
@@ -328,7 +588,7 @@ int pc_framebuffer_regression_test(void)
 {
         vbe_info_t controller;
         vbe_mode_info_t mode;
-        struct framebuffer_info info;
+        struct frog_fb_info info;
         struct phys_resource_registry registry;
         struct phys_resource ram;
         struct phys_resource overlap;
@@ -481,6 +741,202 @@ int pc_framebuffer_regression_test(void)
             "framebuffer.mapper-reject-writeback",
             map_kernel_framebuffer_pinned(&invalid, PAGE_SIZE) != 0,
             &failures);
+        return failures;
+}
+
+int pc_framebuffer_driver_regression_test(void)
+{
+        struct pc_framebuffer_state *state = &pc_framebuffer;
+        struct file *bad_file = NULL;
+        struct file *mapped_file = NULL;
+        struct file *duplicate_file = NULL;
+        struct file *other_file = NULL;
+        struct vm_mapping *bad_mapping = NULL;
+        struct vm_mapping *mapping = NULL;
+        struct vm_mapping *duplicate_mapping = NULL;
+        struct vm_mapping *other_mapping = NULL;
+        struct vm_area *bad_vma = NULL;
+        struct vm_area *vma = NULL;
+        struct vm_area *duplicate_vma = NULL;
+        struct vm_area *other_vma = NULL;
+        struct mm_struct *mm = NULL;
+        struct mm_struct *other_mm = NULL;
+        struct inode *inode = NULL;
+        bool vma_inserted = false;
+        bool removal_ok = true;
+        int failures = 0;
+        int result;
+
+        result = vfs_open_file("/dev/fb0", O_RDWR, &bad_file);
+        framebuffer_test_case(
+            "framebuffer.driver-open",
+            result == 0 && bad_file != NULL &&
+                bad_file->private_data == state &&
+                refcount_read(&state->device.refs) == 2,
+            &failures);
+        if (result != 0 || bad_file == NULL)
+                return failures;
+
+        inode = bad_file->f_inode;
+        framebuffer_test_case(
+            "framebuffer.driver-ioctl-errors",
+            vfs_ioctl(bad_file, FROG_FB_IOCTL_GET_INFO + 1U, NULL) ==
+                    -ENOTTY &&
+                vfs_ioctl(bad_file, FROG_FB_IOCTL_GET_INFO, NULL) ==
+                    -EFAULT,
+            &failures);
+
+        mm = mm_create();
+        bad_mapping = vm_mapping_alloc(VM_BACKING_DEVICE_BORROWED, NULL);
+        if (bad_mapping != NULL)
+                bad_vma = vm_area_alloc(state->info.map_length - PAGE_SIZE,
+                                        PROT_READ | PROT_WRITE, MAP_SHARED,
+                                        0, bad_mapping);
+        result = bad_vma == NULL
+                     ? -ENOMEM
+                     : framebuffer_prepare_mmap(state, bad_file, bad_vma, mm);
+        framebuffer_test_case(
+            "framebuffer.driver-mmap-reject",
+            mm != NULL && result == -EINVAL &&
+                bad_mapping != NULL &&
+                bad_mapping->state == VM_MAPPING_NEW &&
+                state->live_mapping_objects == 0 &&
+                refcount_read(&state->device.refs) == 2 &&
+                refcount_read(&state->aperture.refs) == 1,
+            &failures);
+        kfree(bad_vma);
+        vm_mapping_put(bad_mapping);
+        (void) vfs_close(bad_file);
+        bad_file = NULL;
+
+        result = mm == NULL
+                     ? -ENOMEM
+                     : vfs_open_file("/dev/fb0", O_RDWR, &mapped_file);
+        mapping = vm_mapping_alloc(VM_BACKING_DEVICE_BORROWED, NULL);
+        if (mapping != NULL)
+                vma = vm_area_alloc(state->info.map_length,
+                                    PROT_READ | PROT_WRITE, MAP_SHARED, 0,
+                                    mapping);
+        if (result == 0 && vma != NULL)
+                result = framebuffer_prepare_mmap(state, mapped_file, vma,
+                                                  mm);
+        framebuffer_test_case(
+            "framebuffer.driver-mmap-prepare",
+            result == 0 && mapping != NULL &&
+                mapping->state == VM_MAPPING_PREPARED &&
+                mapping->file == mapped_file &&
+                mapping->device == &state->device &&
+                mapping->resource == &state->aperture &&
+                state->live_mapping_objects == 1 &&
+                refcount_read(&state->aperture.refs) == 2 &&
+                refcount_read(&state->device.refs) == 3,
+            &failures);
+        if (mapping != NULL && mapping->state == VM_MAPPING_PREPARED)
+                mapped_file = NULL;
+
+        if (result == 0) {
+                vma->start = VM_MMAP_START;
+                vma->end = VM_MMAP_START + state->info.map_length;
+                lock_fetch(&mm->mmap_lock);
+                result = vm_area_insert(mm, vma);
+                lock_release(&mm->mmap_lock);
+                vma_inserted = result == 0;
+        }
+
+        if (vma_inserted)
+                result = vfs_open_file("/dev/fb0", O_RDWR,
+                                       &duplicate_file);
+        duplicate_mapping =
+            vm_mapping_alloc(VM_BACKING_DEVICE_BORROWED, NULL);
+        if (duplicate_mapping != NULL)
+                duplicate_vma = vm_area_alloc(
+                    state->info.map_length, PROT_READ | PROT_WRITE,
+                    MAP_SHARED, 0, duplicate_mapping);
+        if (result == 0 && duplicate_vma != NULL)
+                result = framebuffer_prepare_mmap(
+                    state, duplicate_file, duplicate_vma, mm);
+        framebuffer_test_case(
+            "framebuffer.driver-mmap-duplicate",
+            vma_inserted && result == -EBUSY &&
+                duplicate_mapping != NULL &&
+                duplicate_mapping->state == VM_MAPPING_NEW &&
+                state->live_mapping_objects == 1 &&
+                refcount_read(&state->aperture.refs) == 2 &&
+                refcount_read(&state->device.refs) == 4,
+            &failures);
+        if (duplicate_mapping != NULL &&
+            duplicate_mapping->state == VM_MAPPING_PREPARED)
+                duplicate_file = NULL;
+        kfree(duplicate_vma);
+        vm_mapping_put(duplicate_mapping);
+        if (duplicate_file != NULL)
+                (void) vfs_close(duplicate_file);
+
+        other_mm = mm_create();
+        result = other_mm == NULL
+                     ? -ENOMEM
+                     : vfs_open_file("/dev/fb0", O_RDWR, &other_file);
+        other_mapping = vm_mapping_alloc(VM_BACKING_DEVICE_BORROWED, NULL);
+        if (other_mapping != NULL)
+                other_vma = vm_area_alloc(
+                    state->info.map_length, PROT_READ | PROT_WRITE,
+                    MAP_SHARED, 0, other_mapping);
+        if (result == 0 && other_vma != NULL)
+                result = framebuffer_prepare_mmap(
+                    state, other_file, other_vma, other_mm);
+        framebuffer_test_case(
+            "framebuffer.driver-mmap-other-mm",
+            vma_inserted && result == 0 && other_mapping != NULL &&
+                other_mapping->state == VM_MAPPING_PREPARED &&
+                state->live_mapping_objects == 2 &&
+                refcount_read(&state->aperture.refs) == 3 &&
+                refcount_read(&state->device.refs) == 5,
+            &failures);
+        if (other_mapping != NULL &&
+            other_mapping->state == VM_MAPPING_PREPARED)
+                other_file = NULL;
+        kfree(other_vma);
+        vm_mapping_put(other_mapping);
+        if (other_file != NULL)
+                (void) vfs_close(other_file);
+        mm_destroy(other_mm);
+
+        framebuffer_test_case(
+            "framebuffer.driver-mapping-busy",
+            framebuffer_mode_change_allowed(state) == -EBUSY &&
+                pc_framebuffer_unregister() == -EBUSY &&
+                device_begin_unregister(&state->device) == -EBUSY &&
+                state->device.state == DEVICE_LIVE,
+            &failures);
+
+        if (vma_inserted) {
+                struct vm_area *removed;
+
+                lock_fetch(&mm->mmap_lock);
+                removed = vm_area_remove_exact(mm, vma->start, vma->end);
+                lock_release(&mm->mmap_lock);
+                removal_ok = removed == vma;
+                if (removal_ok)
+                        vma_inserted = false;
+        }
+        if (removal_ok) {
+                kfree(vma);
+                vm_mapping_put(mapping);
+        }
+        if (mapped_file != NULL)
+                (void) vfs_close(mapped_file);
+
+        framebuffer_test_case(
+            "framebuffer.driver-mapping-cleanup",
+            removal_ok && !vma_inserted &&
+                state->live_mapping_objects == 0 &&
+                framebuffer_mode_change_allowed(state) == 0 &&
+                refcount_read(&state->aperture.refs) == 1 &&
+                refcount_read(&state->device.refs) == 1 &&
+                inode != NULL && inode->i_count == 0,
+            &failures);
+        if (!vma_inserted)
+                mm_destroy(mm);
         return failures;
 }
 #endif

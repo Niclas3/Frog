@@ -273,6 +273,79 @@ create_node_fail:
         return ret;
 }
 
+int devfs_remove_node(const char *pathname, int type, int major, int minor)
+{
+        struct mount_entry *mount;
+        struct dentry *current;
+        dev_t dev_no;
+        const char *cursor;
+        int result = 0;
+
+        if (!devfs_valid_path(pathname) ||
+            (type != DEV_TYPE_CHAR && type != DEV_TYPE_BLOCK) ||
+            major < 0 || major >= 255 || minor < 0 || minor > 0xffff)
+                return -EINVAL;
+
+        vfs_namespace_lock();
+        mount = find_mount_entry("devfs");
+        if (mount == NULL || mount->mounted_root == NULL) {
+                result = -ENODEV;
+                goto out;
+        }
+        current = mount->mounted_root;
+        dev_no = DEV_NR(major, minor);
+        cursor = pathname;
+
+        for (;;) {
+                const char *end = cursor;
+                char component[FILE_NAME_MAX + 1];
+                struct dentry *next;
+                uint_32 component_len;
+                bool last_component;
+
+                while (*end != '\0' && *end != '/')
+                        end++;
+                component_len = end - cursor;
+                memcpy(component, cursor, component_len);
+                component[component_len] = '\0';
+                last_component = *end == '\0';
+                next = dentry_lookup(current, component);
+                if (next == NULL) {
+                        result = -ENOENT;
+                        goto out;
+                }
+                if (!last_component) {
+                        if (next->d_type != FT_DIRECTORY) {
+                                result = -ENOTDIR;
+                                goto out;
+                        }
+                        current = next;
+                        cursor = end + 1;
+                        continue;
+                }
+
+                if (next->d_inode == NULL ||
+                    next->d_type != (type == DEV_TYPE_CHAR
+                                         ? FT_CHAR
+                                         : FT_BLOCK) ||
+                    next->d_inode->i_dev != dev_no) {
+                        result = -ENODEV;
+                        goto out;
+                }
+                if (next->d_inode->i_count != 0 ||
+                    !list_is_empty(&next->d_subdirs)) {
+                        result = -EBUSY;
+                        goto out;
+                }
+                devfs_destroy_subtree(next);
+                break;
+        }
+
+out:
+        vfs_namespace_unlock();
+        return result;
+}
+
 static struct inode *devfs_create_root_inode(struct super_block *sb)
 {
         struct inode *dev_inode = kmalloc(sizeof(struct inode));

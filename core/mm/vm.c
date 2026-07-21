@@ -679,6 +679,32 @@ struct vm_area *vm_area_find_exact(struct mm_struct *mm,
         return NULL;
 }
 
+bool vm_mm_maps_device(struct mm_struct *mm, const struct device *device)
+{
+        struct list_head *position;
+        bool found = false;
+
+        if (mm == NULL || device == NULL)
+                return false;
+        lock_fetch(&mm->mmap_lock);
+        list_for_each(position, &mm->vma_list) {
+                struct vm_area *vma =
+                    list_entry(position, struct vm_area, elem);
+                struct vm_mapping *mapping = vma->mapping;
+
+                if ((vma->state == VM_ACTIVE ||
+                     vma->state == VM_PREPARING) &&
+                    mapping != NULL &&
+                    mapping->state == VM_MAPPING_PREPARED &&
+                    mapping->device == device) {
+                        found = true;
+                        break;
+                }
+        }
+        lock_release(&mm->mmap_lock);
+        return found;
+}
+
 struct vm_area *vm_area_remove_exact(struct mm_struct *mm,
                                      uint_32 start,
                                      uint_32 end)

@@ -305,7 +305,6 @@ __visible void __noreturn start_kernel(void)
 #ifdef CONFIG_FROG_TEST_FRAMEBUFFER
         if (framebuffer_result == -ENODEV)
                 frog_test_abort("framebuffer-unavailable");
-        framebuffer_smoke_run();
 #endif
 
         if (chrdev_init() < 0)
@@ -319,6 +318,17 @@ __visible void __noreturn start_kernel(void)
                 PANIC("rootfs initialization failed");
         if (dev_fs_init() < 0)
                 PANIC("devfs initialization failed");
+        if (framebuffer_result == 0 &&
+            pc_framebuffer_register_chardev() != 0)
+                PANIC("framebuffer chardev registration failed");
+#ifdef CONFIG_QEMU_TEST
+        if (framebuffer_result == 0 &&
+            pc_framebuffer_driver_regression_test() != 0)
+                frog_test_abort("framebuffer-driver-regression-failed");
+#endif
+#ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+        framebuffer_smoke_run();
+#endif
 
         if (isa_device_init(isa_bus) != 0)
                 PANIC("ISA device initialization failed");

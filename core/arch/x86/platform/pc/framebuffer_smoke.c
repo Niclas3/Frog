@@ -20,7 +20,7 @@ static uint_32 encode_channel(uint_8 value, uint_32 width, uint_32 position)
         return ((value >> (8U - width)) & channel_mask(width)) << position;
 }
 
-static uint_32 encode_rgb(const struct framebuffer_info *info,
+static uint_32 encode_rgb(const struct frog_fb_info *info,
                           uint_8 red, uint_8 green, uint_8 blue)
 {
         return encode_channel(red, info->red_size, info->red_position) |
