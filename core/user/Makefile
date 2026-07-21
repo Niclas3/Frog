@@ -2,7 +2,7 @@ include ../../Makefile.os_rules
 
 OBJCOPY ?= objcopy
 
-USER_PROFILES := basic process disk_prepare
+USER_PROFILES := basic process disk_prepare framebuffer_mmap
 USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
@@ -25,6 +25,11 @@ $(BUILD_DIR)/user_smoke_process_user.o: user_smoke.c
 $(BUILD_DIR)/user_smoke_disk_prepare_user.o: user_smoke.c
 	$(CC) $(USER_CFLAGS) -DUSER_SMOKE_DISK_PREPARE \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_disk_prepare_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_framebuffer_mmap_user.o: framebuffer_mmap_smoke.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_framebuffer_mmap_user.d \
 		-o $@ $<
 
 $(BUILD_DIR)/user_smoke_%.elf: $(BUILD_DIR)/user_smoke_%_user.o user_smoke.ld

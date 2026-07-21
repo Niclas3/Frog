@@ -25,6 +25,7 @@ void pc_framebuffer_put(struct framebuffer_ref *ref);
 #ifdef CONFIG_QEMU_TEST
 int pc_framebuffer_regression_test(void);
 int pc_framebuffer_driver_regression_test(void);
+int pc_framebuffer_test_verify_cleanup(void);
 #endif
 
 #endif

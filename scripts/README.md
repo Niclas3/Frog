@@ -43,3 +43,13 @@ every pixel.
 Passing runs remain quiet and retain only
 `build/qemu-test/framebuffer-smoke-result.json`; failed runs retain the
 screenshot, debugcon log, QEMU trace, and validator diagnostics.
+
+Run `./scripts/qemu-test.sh framebuffer-mmap-smoke` for the public API path. A
+separate low-address ring-3 image opens `/dev/fb0`, validates framebuffer info
+and mmap errors, maps the complete aperture, draws the base frame, closes the
+fd, and then proves the VMA remains live across fork and exact unmap. Child
+processes add fixed magenta and yellow rectangles, including child-first and
+parent-first exit order plus a child-only post-unmap fault. The test-only ready
+syscall checks that all mapping, file, device, and physical-resource references
+returned to their baseline before QMP captures and validates every pixel.
+Failures retain the QMP transcript in addition to the graphical diagnostics.

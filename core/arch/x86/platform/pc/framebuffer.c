@@ -939,4 +939,42 @@ int pc_framebuffer_driver_regression_test(void)
                 mm_destroy(mm);
         return failures;
 }
+
+int pc_framebuffer_test_verify_cleanup(void)
+{
+        struct pc_framebuffer_state *state = &pc_framebuffer;
+        struct dentry *node;
+        TCB_t *current = running_thread();
+        bool clean;
+
+        if (current == NULL || current->mm == NULL)
+                return -EINVAL;
+        if (vm_mm_maps_device(current->mm, &state->device))
+                return -EUCLEAN;
+
+        node = vfs_lookup("/dev/fb0");
+        if (node == NULL || node->d_inode == NULL)
+                return -ENODEV;
+
+        vfs_namespace_lock();
+        clean = node->d_inode->i_count == 0 &&
+                node->d_inode->i_fop ==
+                    (struct file_operations *) &pc_framebuffer_fops;
+        vfs_namespace_unlock();
+        if (!clean)
+                return -EUCLEAN;
+
+        lock_fetch(&state->device.lock);
+        clean = state->registered && state->chardev_registered &&
+                state->device.state == DEVICE_LIVE &&
+                state->live_mapping_objects == 0 &&
+                refcount_read(&state->device.refs) == 1 &&
+                state->aperture.state == PHYS_RESOURCE_REGISTERED &&
+                refcount_read(&state->aperture.refs) == 1;
+        lock_release(&state->device.lock);
+
+        if (!clean)
+                return -EUCLEAN;
+        return 0;
+}
 #endif

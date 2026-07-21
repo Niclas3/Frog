@@ -119,6 +119,8 @@ default:
 - `framebuffer-smoke`: fixed framebuffer rendering captured through QMP and
   checked by dimensions and exact visible-frame pixels. Input scenarios remain
   future work.
+- `framebuffer-mmap-smoke`: a real ring-3 `/dev/fb0` mapping, close/fork/unmap
+  lifecycle checks, cleanup-reference validation, and exact QMP frame comparison.
 
 Each profile has an explicit timeout and expected ordered milestones. A compile
 success or a single early marker never counts as a runtime pass.
@@ -178,3 +180,8 @@ the host captures and validates a QMP screenshot before asking QEMU to quit. It
 does not use `isa-debug-exit` as its success oracle. A successful
 graphical run retains only its normalized result JSON; failure artifacts include
 the screenshot and diagnostic logs.
+`framebuffer-mmap-smoke` uses the same QMP transport only after a distinct
+ring-3 program has closed and unmapped `/dev/fb0`, all guest cases remain clean,
+and the kernel verifies zero live mapping/file/device references. Its exact
+`FROGTEST SYNC framebuffer-mmap-ready` marker gates the full-frame comparison;
+failed runs also retain the QMP transcript.

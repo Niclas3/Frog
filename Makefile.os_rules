@@ -92,6 +92,12 @@ $(error framebuffer-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_FRAMEBUFFER
 endif
+ifeq ($(FROG_TEST_PROFILE),framebuffer-mmap-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error framebuffer-mmap-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_FRAMEBUFFER_MMAP
+endif
 ifeq ($(FROG_TEST_PROFILE),disk-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error disk-smoke requires QEMU_TEST=1)

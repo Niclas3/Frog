@@ -47,6 +47,11 @@ void frog_test_sync(const char *name)
         printk("FROGTEST SYNC %s\n", name);
 }
 
+int frog_test_has_failures(void)
+{
+        return test_failures != 0;
+}
+
 void frog_test_finish(void)
 {
         printk("FROGTEST END %s\n", test_failures ? "FAIL" : "PASS");

@@ -1,6 +1,7 @@
 # Frog `mmap` v1 design
 
-Status: proposed design; no implementation is included in this change.
+Status: implemented. Section 2 is retained as the pre-implementation problem
+statement; `framebuffer-mmap-smoke` is the end-to-end acceptance profile.
 
 ## 1. Objective
 

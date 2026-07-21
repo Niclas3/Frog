@@ -9,8 +9,10 @@
 #include <frog/exit.h>
 #include <frog/fork.h>
 #include <frog/errno.h>
+#include <frog/irqflags.h>
 #include <frog/test.h>
 #include <kernel/debug.h>
+#include <kernel/framebuffer.h>
 #include <kernel/mm_test.h>
 #include <kernel/syscall_fs.h>
 #include <kernel/qemu_test.h>
@@ -42,7 +44,31 @@ static int_32 sys_ni_syscall(void)
 
 static int_32 sys_test_sync(void)
 {
+#ifdef CONFIG_FROG_TEST_FRAMEBUFFER_MMAP
+    unsigned long entry_flags;
+    int result;
+
+    local_irq_save(entry_flags);
+    local_irq_enable();
+    result = pc_framebuffer_test_verify_cleanup();
+
+    if (result != 0) {
+        frog_test_case("framebuffer.mmap.cleanup", 0);
+        local_irq_restore(entry_flags);
+        return result;
+    }
+    if (frog_test_has_failures()) {
+        local_irq_restore(entry_flags);
+        return -EUCLEAN;
+    }
+
+    frog_test_sync("framebuffer-mmap-ready");
+    local_irq_disable();
+    for (;;)
+        __asm__ volatile("hlt");
+#else
     return -EOPNOTSUPP;
+#endif
 }
 
 #ifdef CONFIG_QEMU_TEST
@@ -214,7 +240,8 @@ int_32 sys_testsyscall(uint_32 command)
         return mm_vm_process_verify_refs(
             command - FROG_TEST_VM_VERIFY_REFS_BASE);
 #endif
-#ifndef CONFIG_FROG_TEST_USER
+#if !defined(CONFIG_FROG_TEST_USER) && \
+    !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
     INFO("[init]: ring3 reached, testsyscall a=%d", command);
 #endif
 #ifdef CONFIG_QEMU_TEST

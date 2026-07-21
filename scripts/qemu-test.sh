@@ -16,8 +16,9 @@ case "$profile" in
     process-smoke) stages=(boot) ;;
     user-smoke) stages=(boot) ;;
     framebuffer-smoke) stages=(boot) ;;
+    framebuffer-mmap-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")
@@ -113,7 +114,8 @@ build_stage()
         >>"$build_log" 2>&1 || return 1
     local -a loader_args
     loader_args=(-p boot.inc -f bin loader.s -o "$stage_dir/loader.img")
-    if [ "$profile" = framebuffer-smoke ]; then
+    if [ "$profile" = framebuffer-smoke ] ||
+       [ "$profile" = framebuffer-mmap-smoke ]; then
         loader_args=(-DFRAMEBUFFER_TEST "${loader_args[@]}")
     else
         loader_args=(-DVGA_ENABLE "${loader_args[@]}")
@@ -197,19 +199,28 @@ qmp_screendump()
 {
     local socket_path=$1
     local output_path=$2
-    QMP_SOCKET="$socket_path" SCREENSHOT="$output_path" python3 - <<'PY'
+    local transcript_path=$3
+    QMP_SOCKET="$socket_path" SCREENSHOT="$output_path" \
+    QMP_TRANSCRIPT="$transcript_path" python3 - <<'PY'
 import json
 import os
 import socket
 
+transcript = open(os.environ["QMP_TRANSCRIPT"], "w", encoding="ascii")
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.settimeout(5)
 sock.connect(os.environ["QMP_SOCKET"])
 stream = sock.makefile("rwb", buffering=0)
 
+def record(direction, payload):
+    transcript.write(f"{direction} {payload}\n")
+    transcript.flush()
+
 def receive():
     while True:
-        message = json.loads(stream.readline().decode("ascii"))
+        line = stream.readline().decode("ascii").rstrip("\n")
+        record("<", line)
+        message = json.loads(line)
         if "event" not in message:
             return message
 
@@ -217,7 +228,9 @@ def execute(command, arguments=None):
     payload = {"execute": command}
     if arguments is not None:
         payload["arguments"] = arguments
-    stream.write((json.dumps(payload) + "\n").encode("ascii"))
+    line = json.dumps(payload)
+    record(">", line)
+    stream.write((line + "\n").encode("ascii"))
     response = receive()
     if "error" in response:
         raise RuntimeError(response["error"])
@@ -226,6 +239,7 @@ receive()
 execute("qmp_capabilities")
 execute("screendump", {"filename": os.environ["SCREENSHOT"]})
 execute("quit")
+transcript.close()
 sock.close()
 PY
 }
@@ -233,7 +247,8 @@ PY
 validate_framebuffer_ppm()
 {
     local ppm=$1
-    FRAMEBUFFER_META="$work_dir/framebuffer-meta" SCREENSHOT="$ppm" python3 - <<'PY'
+    FRAMEBUFFER_META="$work_dir/framebuffer-meta" SCREENSHOT="$ppm" \
+    FROG_PROFILE="$profile" python3 - <<'PY'
 import os
 import sys
 
@@ -274,6 +289,11 @@ for y in range(height):
                     (0, 0, 255))
         if 480 <= x < 544 and 352 <= y < 416:
             expected = (255, 255, 255)
+        if os.environ["FROG_PROFILE"] == "framebuffer-mmap-smoke":
+            if 64 <= x < 96 and 64 <= y < 96:
+                expected = (255, 0, 255)
+            if 128 <= x < 160 and 64 <= y < 96:
+                expected = (255, 255, 0)
         offset = (y * width + x) * 3
         actual = tuple(pixels[offset:offset + 3])
         if actual != expected:
@@ -292,14 +312,22 @@ run_framebuffer_stage()
     local qemu_log="$stage_dir/qemu.log"
     local qmp_socket="$stage_dir/qmp.sock"
     local screenshot="$stage_dir/framebuffer.ppm"
+    local qmp_transcript="$stage_dir/qmp-transcript.log"
+    local expected_profile=$profile
+    local ready_marker=framebuffer-ready
     local begin_seen=0
     local guest_failure_seen=0
     local qmp_failed=0
 
+    if [ "$profile" = framebuffer-mmap-smoke ]; then
+        ready_marker=framebuffer-mmap-ready
+    fi
+    : >"$qmp_transcript"
+
     timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
         qemu-system-i386 \
         -display none -monitor none -serial none -no-reboot -vga std \
-        -m 1G \
+        -m 1G -smp 1 \
         -drive "format=raw,file=$stage_dir/hd.img,if=ide,index=0,media=disk" \
         -drive "format=raw,file=$data_disk,if=ide,index=1,media=disk" \
         -chardev "file,id=frogdebug,path=$debug_log" \
@@ -311,17 +339,18 @@ run_framebuffer_stage()
     local runner_pid=$!
     local ready=0
     for _ in $(seq 1 $((timeout_seconds * 20))); do
-        if grep -q '^FROGTEST v=1 BEGIN profile=framebuffer-smoke$' \
+        if grep -q "^FROGTEST v=1 BEGIN profile=${expected_profile}$" \
                   "$debug_log" 2>/dev/null; then
             begin_seen=1
         fi
         if grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
-                   "$debug_log" 2>/dev/null; then
+                   "$debug_log" 2>/dev/null ||
+           grep -Eq '\[PANIC\]|ASSERT_FAILED' "$debug_log" 2>/dev/null; then
             guest_failure_seen=1
             break
         fi
         if [ "$begin_seen" -eq 1 ] &&
-           grep -q '^FROGTEST SYNC framebuffer-ready$' \
+           grep -q "^FROGTEST SYNC ${ready_marker}$" \
                 "$debug_log" 2>/dev/null; then
             ready=1
             break
@@ -340,7 +369,7 @@ run_framebuffer_stage()
     fi
 
     if [ "$ready" -eq 1 ] &&
-       qmp_screendump "$qmp_socket" "$screenshot" \
+       qmp_screendump "$qmp_socket" "$screenshot" "$qmp_transcript" \
            2>"$stage_dir/qmp-error.log"; then
         wait "$runner_pid"
         qemu_status=$?
@@ -398,7 +427,8 @@ for stage in "${stages[@]}"; do
         disk_sha_before=$(sha256sum "$data_disk" | awk '{print $1}')
     fi
 
-    if [ "$profile" = framebuffer-smoke ]; then
+    if [ "$profile" = framebuffer-smoke ] ||
+       [ "$profile" = framebuffer-mmap-smoke ]; then
         run_framebuffer_stage "$stage"
     else
         run_stage "$stage"

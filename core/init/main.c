@@ -110,6 +110,8 @@ extern const uint_8 _binary_user_smoke_process_bin_start[];
 extern const uint_8 _binary_user_smoke_process_bin_end[];
 extern const uint_8 _binary_user_smoke_disk_prepare_bin_start[];
 extern const uint_8 _binary_user_smoke_disk_prepare_bin_end[];
+extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_start[];
+extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_end[];
 
 static void do_basic_setup(void)
 {
@@ -163,6 +165,9 @@ static void rest_init(void)
 #ifdef CONFIG_FROG_TEST_PROCESS
         image_start = _binary_user_smoke_process_bin_start;
         image_end = _binary_user_smoke_process_bin_end;
+#elif defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
+        image_start = _binary_user_smoke_framebuffer_mmap_bin_start;
+        image_end = _binary_user_smoke_framebuffer_mmap_bin_end;
 #elif defined(CONFIG_FROG_TEST_DISK) && \
       defined(CONFIG_FROG_TEST_STAGE_PREPARE)
         image_start = _binary_user_smoke_disk_prepare_bin_start;
@@ -261,6 +266,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("process-smoke");
 #elif defined(CONFIG_FROG_TEST_USER)
         frog_test_begin("user-smoke");
+#elif defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
+        frog_test_begin("framebuffer-mmap-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER)
         frog_test_begin("framebuffer-smoke");
 #else
@@ -271,7 +278,8 @@ __visible void __noreturn start_kernel(void)
         platform_init();
         int framebuffer_result = pc_framebuffer_snapshot_handoff();
         if (framebuffer_result != 0 && framebuffer_result != -ENODEV) {
-#ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+#if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
+    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
                 frog_test_abort("framebuffer-handoff-invalid");
 #else
                 PANIC("framebuffer handoff is invalid");
@@ -294,7 +302,8 @@ __visible void __noreturn start_kernel(void)
                 framebuffer_result =
                     pc_framebuffer_register_aperture(platform_bus);
                 if (framebuffer_result != 0) {
-#ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+#if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
+    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
                         frog_test_abort("framebuffer-resource-register-failed");
 #else
                         PANIC("framebuffer resource registration failed");
@@ -302,7 +311,8 @@ __visible void __noreturn start_kernel(void)
                 }
         }
 
-#ifdef CONFIG_FROG_TEST_FRAMEBUFFER
+#if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
+    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
         if (framebuffer_result == -ENODEV)
                 frog_test_abort("framebuffer-unavailable");
 #endif
