@@ -4,11 +4,16 @@
 #define MAX_FILE_OPEN 128
 
 struct file;
+struct thread_control_block;
 extern struct file *g_file_table[MAX_FILE_OPEN];
 
-int          fd_alloc(struct file *f);
-struct file *fd_get(int local_fd);
-int          fd_release(int local_fd, struct file **last_file);
-void         fd_retain(struct file *f);
+/* Success transfers the caller's strong file reference to the descriptor. */
+int fd_alloc(struct file *file);
+/* Returns a temporary strong reference that the caller must file_put(). */
+struct file *fdget(int local_fd);
+int fd_close(int local_fd);
+int fd_close_for(struct thread_control_block *thread, int local_fd);
+void fd_close_all(struct thread_control_block *thread);
+int fd_retain_table(struct thread_control_block *thread);
 
 #endif

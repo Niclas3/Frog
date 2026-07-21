@@ -1,7 +1,6 @@
 #include <kernel/fd.h>
 #include <kernel/panic.h>
 #include <kernel/assert.h>
-#include <kernel/syscall_fs.h>
 #include <frog/math.h>
 #include <frog/exit.h>
 #include <frog/irqflags.h>
@@ -20,11 +19,7 @@ void set_init_process_pid(pid_t pid)
 
 static void close_process_files(TCB_t *thread)
 {
-    // close file descriptor
-    for (int fd_idx = 0; fd_idx < MAX_FILES_OPEN_PER_PROC; fd_idx++) {
-        if (thread->fd_table[fd_idx] != -1)
-            sys_close(fd_idx);
-    }
+    fd_close_all(thread);
 }
 
 // list_walk() callback

@@ -68,18 +68,6 @@ static int_32 build_child_stack(TCB_t *child_thread, TCB_t *parent_thread)
         return 0;
 }
 
-static void retain_open_files(TCB_t *thread)
-{
-        for (int_32 local_fd = 0; local_fd < MAX_FILES_OPEN_PER_PROC;
-             local_fd++) {
-                int_32 global_fd = thread->fd_table[local_fd];
-                if (global_fd < 0 || global_fd >= MAX_FILE_OPEN)
-                        continue;
-                struct file *f = g_file_table[global_fd];
-                fd_retain(f);
-        }
-}
-
 static int copy_process(TCB_t *child_thread, TCB_t *parent_thread)
 {
         if (copy_tcb_stack0(child_thread, parent_thread) == -1)
@@ -100,6 +88,7 @@ uint_32 sys_fork(void)
         TCB_t *child_thread;
         unsigned long syscall_flags;
         uint_32 result;
+        bool files_retained = false;
 
         /* The syscall interrupt gate enters with IF clear; cloning may sleep. */
         local_irq_save(syscall_flags);
@@ -117,6 +106,9 @@ uint_32 sys_fork(void)
                parent_thread->mm->pgdir != NULL);
         if (copy_process(child_thread, parent_thread) == -1)
                 goto fail;
+        if (fd_retain_table(child_thread) != 0)
+                goto fail;
+        files_retained = true;
 
         unsigned long flags;
         local_irq_save(flags);
@@ -124,13 +116,14 @@ uint_32 sys_fork(void)
                 local_irq_restore(flags);
                 goto fail;
         }
-        retain_open_files(child_thread);
         local_irq_restore(flags);
 
         result = child_thread->pid;
         goto restore_irqs;
 
 fail:
+        if (files_retained)
+                fd_close_all(child_thread);
         process_release_address_space(child_thread);
         thread_release_pid(child_thread->pid);
         free_page(MP_KERNEL, child_thread, 1);

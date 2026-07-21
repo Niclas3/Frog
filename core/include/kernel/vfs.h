@@ -4,6 +4,7 @@
 #include <frog/block.h>
 #include <frog/fcntl.h>
 #include <frog/list.h>
+#include <frog/refcount.h>
 #include <frog/types.h>
 #include <kernel/mount.h>
 #include <kernel/vfs_ops.h>
@@ -74,6 +75,7 @@ struct file {
         // offset of this file
         uint_32 f_pos;  // next available byte
         uint_32 f_flag;
+        refcount_t f_refs;  // strong references keeping this object alive
         uint_32 f_count;  // number of descriptor tables sharing this file
         struct inode *f_inode;
         struct file_operations *f_op;
@@ -118,6 +120,7 @@ int_32 vfs_mount(const char *pathname,
                  void *data);
 
 struct file *vfs_open(const char *path, uint_32 flags);
+/* A successful open returns one caller-owned strong file reference. */
 int_32 vfs_open_file(const char *path,
                      uint_32 flags,
                      struct file **file_out);
@@ -126,6 +129,9 @@ int_32 vfs_read(struct file *file, void *buf, uint_32 count);
 int_32 vfs_lseek(struct file *file, int_32 offset, uint_8 whence);
 uint_32 vfs_poll(struct file *file, struct poll_table_struct *wait);
 int_32 vfs_ioctl(struct file *file, uint_32 request, void *argp);
+bool file_get_live(struct file *file);
+int_32 file_put(struct file *file);
+/* Compatibility spelling for dropping one caller-owned strong reference. */
 int_32 vfs_close(struct file *file);
 
 int_32 vfs_mkdir(struct dentry *parent, struct dentry *child);

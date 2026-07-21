@@ -238,7 +238,8 @@ static int open_filep(struct dentry *d,
         f->f_inode = dinode;
         f->f_dentry = d;
         f->f_flag = flags;
-        f->f_count = 1;
+        refcount_init(&f->f_refs, 1);
+        f->f_count = 0;
         f->f_pos = 0;
         f->f_op = dinode->i_fop;
         f->private_data = NULL;
@@ -394,10 +395,19 @@ struct file *vfs_open(const char *path, uint_32 flags)
         return vfs_open_file(path, flags, &file) < 0 ? NULL : file;
 }
 
-int_32 vfs_close(struct file *f)
+bool file_get_live(struct file *f)
 {
-        if (!f)
+        return f != NULL && refcount_get_live(&f->f_refs);
+}
+
+int_32 file_put(struct file *f)
+{
+        if (f == NULL)
                 return -EBADF;
+        if (!refcount_put(&f->f_refs))
+                return 0;
+
+        ASSERT(f->f_count == 0);
         vfs_namespace_lock();
         int_32 ret = 0;
         struct inode *inode = f->f_inode;
@@ -413,6 +423,11 @@ int_32 vfs_close(struct file *f)
         kfree(f);
         vfs_namespace_unlock();
         return ret;
+}
+
+int_32 vfs_close(struct file *f)
+{
+        return file_put(f);
 }
 
 int_32 vfs_write(struct file *f, const void *buf, uint_32 count)

@@ -12,6 +12,7 @@
 #include <kernel/assert.h>
 #include <kernel/device.h>
 #include <kernel/panic.h>
+#include <kernel/vfs.h>
 
 #include "./mm_helper.h"
 
@@ -577,6 +578,7 @@ int vm_mapping_prepare_device(struct vm_mapping *mapping,
             mapping->device != NULL || mapping->resource != NULL ||
             mapping->vm_ops == NULL || mapping->vm_ops->close == NULL ||
             file == NULL || device == NULL || resource == NULL ||
+            refcount_read(&file->f_refs) == 0 ||
             device->state != DEVICE_LIVE ||
             refcount_read(&device->refs) < 2 ||
             resource->state != PHYS_RESOURCE_REGISTERED ||

@@ -17,6 +17,7 @@
 #include <kernel/assert.h>
 #include <kernel/debug.h>
 #include <kernel/device.h>
+#include <kernel/fd.h>
 #include <kernel/mm_test.h>
 #include <kernel/qemu_test.h>
 #include <kernel/vfs.h>
@@ -694,10 +695,13 @@ struct vm_process_test_fixture {
         bool rollback_pending;
         struct phys_resource resource;
         struct device device;
-        struct file file;
+        struct inode inode;
+        struct file *file;
+        int file_fd;
         struct vm_mapping *mapping;
         uint_32 mapped;
         uint_32 close_count;
+        uint_32 file_close_count;
         uint_32 active_close_count;
         uint_32 device_release_count;
         uint_32 rollback_kernel_frames;
@@ -716,15 +720,30 @@ static void vm_process_device_release(struct device *device)
         fixture->device_release_count++;
 }
 
+static int_32 vm_process_file_close(struct file *file)
+{
+        struct vm_process_test_fixture *fixture = file->private_data;
+
+        ASSERT(fixture != NULL && fixture->file == file);
+        fixture->file_close_count++;
+        fixture->file = NULL;
+        return 0;
+}
+
+static const struct file_operations vm_process_file_ops = {
+        .close = vm_process_file_close,
+};
+
 static void vm_process_mapping_close(struct vm_mapping *mapping)
 {
         struct vm_process_test_fixture *fixture = mapping->private_data;
 
         ASSERT(fixture != NULL && mapping->resource == &fixture->resource &&
                mapping->device == &fixture->device &&
-               mapping->file == &fixture->file && fixture->file.f_count > 1);
+               mapping->file == fixture->file &&
+               refcount_read(&mapping->file->f_refs) > 0);
         fixture->close_count++;
-        fixture->file.f_count--;
+        (void) file_put(mapping->file);
         phys_resource_put(mapping->resource);
         device_put(mapping->device);
 }
@@ -808,11 +827,21 @@ static int vm_process_fixture_init(struct vm_process_test_fixture *fixture)
         if (fixture->initialized)
                 return -EBUSY;
         memset(fixture, 0, sizeof(*fixture));
+        fixture->file_fd = -1;
+        fixture->file = kmalloc(sizeof(*fixture->file));
+        if (fixture->file == NULL)
+                return -ENOMEM;
+        memset(fixture->file, 0, sizeof(*fixture->file));
+        fixture->inode.i_count = 1;
+        fixture->inode.i_fop = &vm_process_file_ops;
+        fixture->file->f_inode = &fixture->inode;
+        fixture->file->f_op = &vm_process_file_ops;
+        fixture->file->private_data = fixture;
+        refcount_init(&fixture->file->f_refs, 1);
         device_init(&fixture->device, vm_process_device_release);
         fixture->device.name = "vm-process-test";
         refcount_init(&fixture->device.refs, 1);
         fixture->device.state = DEVICE_LIVE;
-        fixture->file.f_count = 1;
         phys_resource_init(&fixture->resource);
 
         lock_fetch(&fixture->device.lock);
@@ -823,10 +852,23 @@ static int vm_process_fixture_init(struct vm_process_test_fixture *fixture)
                                         VM_CACHE_UNCACHED);
         lock_release(&fixture->device.lock);
         if (result != 0) {
+                (void) file_put(fixture->file);
                 ASSERT(device_begin_unregister(&fixture->device) == 0);
                 ASSERT(device_finish_unregister(&fixture->device) == 0);
                 return result;
         }
+
+        result = fd_alloc(fixture->file);
+        if (result < 0) {
+                (void) file_put(fixture->file);
+                ASSERT(device_begin_unregister(&fixture->device) == 0);
+                lock_fetch(&fixture->device.lock);
+                ASSERT(phys_resource_unregister(&fixture->resource) == 0);
+                lock_release(&fixture->device.lock);
+                ASSERT(device_finish_unregister(&fixture->device) == 0);
+                return result;
+        }
+        fixture->file_fd = result;
         fixture->initialized = true;
         return 0;
 }
@@ -835,11 +877,28 @@ static bool vm_process_fixture_destroy(struct vm_process_test_fixture *fixture)
 {
         bool passed = fixture->initialized && !fixture->active &&
                       refcount_read(&fixture->resource.refs) == 1 &&
-                      refcount_read(&fixture->device.refs) == 1 &&
-                      fixture->file.f_count == 1;
+                      refcount_read(&fixture->device.refs) == 1;
 
         if (!fixture->initialized)
                 return false;
+        if (fixture->file != NULL) {
+                passed = fixture->file_fd >= 0 &&
+                         fixture->file_fd < MAX_FILES_OPEN_PER_PROC &&
+                         fixture->file->f_count == 1 &&
+                         refcount_read(&fixture->file->f_refs) == 1 &&
+                         fixture->inode.i_count == 1 && passed;
+                if (fixture->file_fd >= 0 &&
+                    fixture->file_fd < MAX_FILES_OPEN_PER_PROC) {
+                        int close_result =
+                            fd_close_for(running_thread(), fixture->file_fd);
+                        if (running_thread()->fd_table[fixture->file_fd] == -1)
+                                fixture->file_fd = -1;
+                        passed = close_result == 0 && passed;
+                }
+        }
+        passed = fixture->file == NULL && fixture->file_fd == -1 &&
+                 fixture->file_close_count == 1 &&
+                 fixture->inode.i_count == 0 && passed;
         if (device_begin_unregister(&fixture->device) != 0)
                 return false;
         lock_fetch(&fixture->device.lock);
@@ -868,6 +927,7 @@ static int vm_process_new_vma(struct vm_process_test_fixture *fixture,
         struct vm_mapping *mapping = vm_mapping_alloc(
             VM_BACKING_DEVICE_BORROWED, &vm_process_mapping_ops);
         struct vm_area *vma;
+        bool file_pinned = false;
         bool resource_pinned = false;
 
         if (mapping == NULL)
@@ -878,7 +938,9 @@ static int vm_process_new_vma(struct vm_process_test_fixture *fixture,
                 return -ENOMEM;
         }
 
-        fixture->file.f_count++;
+        if (!file_get_live(fixture->file))
+                goto fail_file;
+        file_pinned = true;
         if (!device_get_live(&fixture->device))
                 goto fail_file;
         lock_fetch(&fixture->device.lock);
@@ -887,7 +949,7 @@ static int vm_process_new_vma(struct vm_process_test_fixture *fixture,
         lock_release(&fixture->device.lock);
         if (!resource_pinned)
                 goto fail_device;
-        if (vm_mapping_prepare_device(mapping, &fixture->file,
+        if (vm_mapping_prepare_device(mapping, fixture->file,
                                       &fixture->device, &fixture->resource,
                                       fixture) != 0)
                 goto fail_resource;
@@ -901,7 +963,8 @@ fail_resource:
 fail_device:
         device_put(&fixture->device);
 fail_file:
-        fixture->file.f_count--;
+        if (file_pinned)
+                (void) file_put(fixture->file);
         kfree(vma);
         vm_mapping_put(mapping);
         return -ENODEV;
@@ -975,7 +1038,9 @@ static bool vm_process_failure_round(struct vm_process_test_fixture *fixture,
         passed = fixture->close_count == close_before + 1 &&
                  refcount_read(&fixture->resource.refs) == 1 &&
                  refcount_read(&fixture->device.refs) == 1 &&
-                 fixture->file.f_count == 1 &&
+                 fixture->file != NULL && fixture->file->f_count == 1 &&
+                 refcount_read(&fixture->file->f_refs) == 1 &&
+                 fixture->file_close_count == 0 &&
                  vm_process_remove_blocker(mm, &blocker) && passed;
         return passed;
 }
@@ -1022,7 +1087,9 @@ static bool vm_process_cross_pde_round(
                                          VM_PROCESS_TEST_LENGTH, 0) &&
                  refcount_read(&fixture->resource.refs) == 1 &&
                  refcount_read(&fixture->device.refs) == 1 &&
-                 fixture->file.f_count == 1 &&
+                 fixture->file != NULL && fixture->file->f_count == 1 &&
+                 refcount_read(&fixture->file->f_refs) == 1 &&
+                 fixture->file_close_count == 0 &&
                  vm_process_remove_blocker(mm, &blocker) && passed;
         return passed;
 }
@@ -1067,7 +1134,9 @@ int_32 mm_vm_process_prepare(void)
                       refcount_read(&mapping->refs) == 1 &&
                       refcount_read(&fixture->resource.refs) == 2 &&
                       refcount_read(&fixture->device.refs) == 2 &&
-                      fixture->file.f_count == 2;
+                      fixture->file != NULL && fixture->file->f_count == 1 &&
+                      refcount_read(&fixture->file->f_refs) == 2 &&
+                      fixture->file_close_count == 0;
         frog_test_case("vm.pfn-map", map_ok);
         fixture->mapping = mapping;
         fixture->mapped = mapped;
@@ -1126,7 +1195,10 @@ int_32 mm_vm_process_verify_refs(uint_32 expected)
         passed = refcount_read(&fixture->mapping->refs) == expected &&
                  refcount_read(&fixture->resource.refs) == 2 &&
                  refcount_read(&fixture->device.refs) == 2 &&
-                 fixture->file.f_count == 2 &&
+                 fixture->file != NULL &&
+                 fixture->file->f_count == expected &&
+                 refcount_read(&fixture->file->f_refs) == expected + 1 &&
+                 fixture->file_close_count == 0 &&
                  fixture->close_count == fixture->active_close_count && passed;
 
         if (fixture->rollback_pending) {
@@ -1196,6 +1268,33 @@ int_32 mm_vm_process_verify_cleanup(void)
             fixture->close_count == close_before &&
             refcount_read(&fixture->mapping->refs) == 1;
 
+        TCB_t *thread = running_thread();
+        int file_fd = fixture->file_fd;
+        int global_fd = file_fd >= 0 &&
+                                file_fd < MAX_FILES_OPEN_PER_PROC
+                            ? thread->fd_table[file_fd]
+                            : -1;
+        struct file *file = fixture->file;
+        bool file_before_close = file != NULL && file_fd >= 0 &&
+                                 file->f_count == 1 &&
+                                 refcount_read(&file->f_refs) == 2 &&
+                                 fixture->file_close_count == 0;
+        int close_result = fd_close_for(thread, file_fd);
+        if (file_fd >= 0 && file_fd < MAX_FILES_OPEN_PER_PROC &&
+            thread->fd_table[file_fd] == -1)
+                fixture->file_fd = -1;
+        struct file *closed_lookup = fdget(file_fd);
+        bool lookup_gone = closed_lookup == NULL;
+        if (closed_lookup != NULL)
+                (void) file_put(closed_lookup);
+        bool file_after_close =
+            file_before_close && close_result == 0 && lookup_gone &&
+            global_fd >= 0 && global_fd < MAX_FILE_OPEN &&
+            g_file_table[global_fd] == NULL && fixture->file == file &&
+            file->f_count == 0 && refcount_read(&file->f_refs) == 1 &&
+            fixture->file_close_count == 0 &&
+            refcount_read(&fixture->mapping->refs) == 1;
+
         int unmap_result =
             vm_unmap_exact(mm, mapped, VM_PROCESS_TEST_LENGTH);
         fixture->mapping = NULL;
@@ -1204,19 +1303,25 @@ int_32 mm_vm_process_verify_cleanup(void)
                            fixture->close_count == close_before + 1 &&
                            refcount_read(&fixture->resource.refs) == 1 &&
                            refcount_read(&fixture->device.refs) == 1 &&
-                           fixture->file.f_count == 1 &&
+                           fixture->file == NULL &&
+                           fixture->file_close_count == 1 &&
+                           fixture->inode.i_count == 0 &&
                            vm_process_pte_range_absent(
                                mapped, VM_PROCESS_TEST_LENGTH) &&
                            vm_process_bitmap_range(
                                mm, mapped, VM_PROCESS_TEST_LENGTH, 0);
 
         *(volatile uint_8 *) VM_PROCESS_TEST_KERNEL_ALIAS = fixture->saved_byte;
-        bool destroy_ok = lifetime_ok && vm_process_fixture_destroy(fixture);
+        bool fixture_destroyed = vm_process_fixture_destroy(fixture);
+        bool destroy_ok = lifetime_ok && fixture_destroyed;
         frog_test_case("vm.user-alias", alias_ok);
         frog_test_case("vm.device-busy", busy_ok);
         frog_test_case("vm.exact-unmap", exact_ok);
+        frog_test_case("vm.file-after-close", file_after_close);
         frog_test_case("vm.mapping-lifetime", destroy_ok);
-        return alias_ok && busy_ok && exact_ok && destroy_ok ? 0 : -EUCLEAN;
+        return alias_ok && busy_ok && exact_ok && file_after_close && destroy_ok
+                   ? 0
+                   : -EUCLEAN;
 }
 
 static void mm_test_invlpg(uint_32 addr)

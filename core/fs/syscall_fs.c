@@ -18,35 +18,37 @@ int_32 sys_open(const char *path, uint_32 flags)
 
 int_32 sys_close(int_32 local_fd)
 {
-        struct file *last = NULL;
-        int ret = fd_release(local_fd, &last);
-        if (ret < 0)
-                return ret;
-        return last ? vfs_close(last) : 0;
+        return fd_close(local_fd);
 }
 
 int_32 sys_read(int_32 fd, void *buf, uint_32 count)
 {
-        struct file *f = fd_get(fd);
+        struct file *f = fdget(fd);
         if (!f)
                 return -EBADF;
-        return vfs_read(f, buf, count);
+        int_32 result = vfs_read(f, buf, count);
+        (void) file_put(f);
+        return result;
 }
 
 int_32 sys_write(int_32 fd, const void *buf, uint_32 count)
 {
-        struct file *f = fd_get(fd);
+        struct file *f = fdget(fd);
         if (!f)
                 return -EBADF;
-        return vfs_write(f, buf, count);
+        int_32 result = vfs_write(f, buf, count);
+        (void) file_put(f);
+        return result;
 }
 
 int_32 sys_lseek(int_32 fd, int_32 offset, uint_8 whence)
 {
-        struct file *f = fd_get(fd);
+        struct file *f = fdget(fd);
         if (!f)
                 return -EBADF;
-        return vfs_lseek(f, offset, whence);
+        int_32 result = vfs_lseek(f, offset, whence);
+        (void) file_put(f);
+        return result;
 }
 
 int_32 sys_unlink(const char *path)
@@ -66,8 +68,10 @@ int_32 sys_rmdir(const char *path)
 
 int_32 sys_ioctl(int_32 fd, uint_32 request, void *argp)
 {
-        struct file *f = fd_get(fd);
+        struct file *f = fdget(fd);
         if (!f)
                 return -EBADF;
-        return vfs_ioctl(f, request, argp);
+        int_32 result = vfs_ioctl(f, request, argp);
+        (void) file_put(f);
+        return result;
 }
