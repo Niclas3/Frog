@@ -79,7 +79,7 @@ int_32 mkdir(const char *pathname)
 
 struct dir *opendir(const char *name)
 {
-    return _syscall1(SYS_OPENDIR, name);
+    return (struct dir *) _syscall1(SYS_OPENDIR, name);
 }
 
 int_32 closedir(struct dir *dirp)
@@ -89,7 +89,7 @@ int_32 closedir(struct dir *dirp)
 
 struct dir_entry *readdir(struct dir *dirp)
 {
-    return _syscall1(SYS_READDIR, dirp);
+    return (struct dir_entry *) _syscall1(SYS_READDIR, dirp);
 }
 void rewinddir(struct dir *dirp)
 {
@@ -103,7 +103,7 @@ int_32 rmdir(const char *pathname)
 
 char *getcwd(char *buf, int_32 size)
 {
-    return _syscall2(SYS_GETCWD, buf, size);
+    return (char *) _syscall2(SYS_GETCWD, buf, size);
 }
 
 int_32 chdir(const char *pathname)

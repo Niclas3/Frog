@@ -32,6 +32,18 @@ $(BUILD_DIR)/user_smoke_framebuffer_mmap_user.o: framebuffer_mmap_smoke.c
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_framebuffer_mmap_user.d \
 		-o $@ $<
 
+$(BUILD_DIR)/user_smoke_framebuffer_mmap_runtime.o: ../kernel/syscall.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_framebuffer_mmap_runtime.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_framebuffer_mmap.elf: \
+	$(BUILD_DIR)/user_smoke_framebuffer_mmap_user.o \
+	$(BUILD_DIR)/user_smoke_framebuffer_mmap_runtime.o user_smoke.ld
+	$(LD) -m elf_i386 -T user_smoke.ld -o $@ \
+		$(BUILD_DIR)/user_smoke_framebuffer_mmap_user.o \
+		$(BUILD_DIR)/user_smoke_framebuffer_mmap_runtime.o
+
 $(BUILD_DIR)/user_smoke_%.elf: $(BUILD_DIR)/user_smoke_%_user.o user_smoke.ld
 	$(LD) -m elf_i386 -T user_smoke.ld -o $@ $<
 

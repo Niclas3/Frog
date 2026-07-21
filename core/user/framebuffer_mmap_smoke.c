@@ -49,18 +49,6 @@ static int_32 raw_syscall2(uint_32 number, uint_32 arg1, uint_32 arg2)
         return result;
 }
 
-static int_32 raw_syscall3(uint_32 number, uint_32 arg1, uint_32 arg2,
-                           uint_32 arg3)
-{
-        int_32 result;
-
-        __asm__ volatile("int $0x93"
-                         : "=a"(result)
-                         : "a"(number), "b"(arg1), "c"(arg2), "d"(arg3)
-                         : "memory");
-        return result;
-}
-
 static void report(uint_32 id, bool passed)
 {
         if (raw_syscall2(SYS_TEST_REPORT, id, passed) != 0)
@@ -79,7 +67,7 @@ static void finish_failure(void)
 static void process_exit(int_32 status) __attribute__((noreturn));
 static void process_exit(int_32 status)
 {
-        raw_syscall1(SYS_EXIT, (uint_32) status);
+        exit(status);
         for (;;)
                 __asm__ volatile("pause");
 }
@@ -88,7 +76,7 @@ static bool wait_status(int_32 pid, int_32 expected)
 {
         int_32 status = 0;
 
-        return pid > 0 && raw_syscall1(SYS_WAIT, (uint_32) &status) == pid &&
+        return pid > 0 && (int_32) wait(&status) == pid &&
                status == expected;
 }
 
@@ -185,8 +173,7 @@ static bool test_mmap_arguments(int_32 fd, uint_32 length)
 
 static bool test_read_only_mapping(uint_32 length)
 {
-        int_32 fd = raw_syscall2(SYS_OPEN, (uint_32) framebuffer_path,
-                                 O_RDONLY);
+        int_32 fd = open(framebuffer_path, O_RDONLY);
         struct frog_mmap_args args = {
             .addr = 0,
             .length = length,
@@ -198,7 +185,7 @@ static bool test_read_only_mapping(uint_32 length)
         bool passed = fd >= 0 && mmap_raw(&args) == -EACCES;
 
         if (fd >= 0)
-                passed = raw_syscall1(SYS_CLOSE, (uint_32) fd) == 0 && passed;
+                passed = close(fd) == 0 && passed;
         return passed;
 }
 
@@ -206,7 +193,7 @@ static bool test_child_first(volatile uint_8 *framebuffer,
                              const struct frog_fb_info *info)
 {
         uint_32 magenta = rgb(info, 255, 0, 255);
-        int_32 child = raw_syscall0(SYS_FORK);
+        int_32 child = (int_32) fork();
 
         if (child == 0) {
                 fill_rect(framebuffer, info, 64, 64, 96, 96, magenta);
@@ -226,9 +213,9 @@ static bool test_parent_first(volatile uint_8 *framebuffer,
         int_32 worker;
 
         *control = 0;
-        worker = raw_syscall0(SYS_FORK);
+        worker = (int_32) fork();
         if (worker == 0) {
-                int_32 grandchild = raw_syscall0(SYS_FORK);
+                int_32 grandchild = (int_32) fork();
 
                 if (grandchild == 0) {
                         while (*control != release)
@@ -244,7 +231,7 @@ static bool test_parent_first(volatile uint_8 *framebuffer,
                 return false;
         *control = release;
         int_32 status = 0;
-        int_32 reparented = raw_syscall1(SYS_WAIT, (uint_32) &status);
+        int_32 reparented = wait(&status);
 
         return reparented > 0 && status == 52 &&
                *pixel(framebuffer, info, 159, 95) == yellow;
@@ -256,11 +243,10 @@ static bool test_post_unmap_fault(volatile uint_8 *framebuffer,
 {
         volatile uint_32 *shared_pixel = pixel(framebuffer, info, 64, 64);
         uint_32 expected = *shared_pixel;
-        int_32 child = raw_syscall0(SYS_FORK);
+        int_32 child = (int_32) fork();
 
         if (child == 0) {
-                if (raw_syscall2(SYS_MUNMAP, (uint_32) framebuffer,
-                                 length) != 0)
+                if (munmap((void *) framebuffer, length) != 0)
                         process_exit(61);
                 *shared_pixel = 0;
                 process_exit(62);
@@ -272,7 +258,7 @@ void _start(void) __attribute__((section(".text._start"), noreturn));
 void _start(void)
 {
         struct frog_fb_info info;
-        int_32 fd = raw_syscall2(SYS_OPEN, (uint_32) framebuffer_path, O_RDWR);
+        int_32 fd = open(framebuffer_path, O_RDWR);
         bool opened = fd >= 0;
 
         report(FROG_TEST_VM_MMAP_FD, opened);
@@ -280,16 +266,12 @@ void _start(void)
                 finish_failure();
 
         bool ioctl_pointer =
-            raw_syscall3(SYS_IOCTL, fd, FROG_FB_IOCTL_GET_INFO, 0) == -EFAULT &&
-            raw_syscall3(SYS_IOCTL, fd, FROG_FB_IOCTL_GET_INFO,
-                         0xbffffff0U) == -EFAULT;
+            ioctl(fd, FROG_FB_IOCTL_GET_INFO, 0) == -EFAULT &&
+            ioctl(fd, FROG_FB_IOCTL_GET_INFO, (void *) 0xbffffff0U) == -EFAULT;
         report(FROG_TEST_VM_MMAP_POINTER, ioctl_pointer);
 
-        bool ioctl_ok = raw_syscall3(SYS_IOCTL, fd, 0xffffffffU,
-                                     (uint_32) &info) == -ENOTTY &&
-                        raw_syscall3(SYS_IOCTL, fd,
-                                     FROG_FB_IOCTL_GET_INFO,
-                                     (uint_32) &info) == 0 &&
+        bool ioctl_ok = ioctl(fd, 0xffffffffU, &info) == -ENOTTY &&
+                        ioctl(fd, FROG_FB_IOCTL_GET_INFO, &info) == 0 &&
                         framebuffer_info_valid(&info);
         report(FROG_TEST_VM_USER_READ, ioctl_ok);
         if (!ioctl_ok)
@@ -308,13 +290,14 @@ void _start(void)
             .fd = fd,
             .offset = 0,
         };
-        int_32 mapped = mmap_raw(&args);
-        bool address_ok = mapped == (int_32) FB_ADDRESS;
+        volatile uint_8 *framebuffer = mmap(
+            (void *) 0, info.map_length, PROT_READ | PROT_WRITE,
+            MAP_SHARED, fd, 0);
+        bool address_ok = framebuffer == (volatile uint_8 *) FB_ADDRESS;
         report(FROG_TEST_VM_USER_ADDRESS, address_ok);
         if (!address_ok)
                 finish_failure();
 
-        volatile uint_8 *framebuffer = (volatile uint_8 *) mapped;
         report(FROG_TEST_VM_MMAP_BUSY, mmap_raw(&args) == -EBUSY);
         draw_expected_base(framebuffer, &info);
         report(FROG_TEST_VM_USER_WRITE,
@@ -322,9 +305,8 @@ void _start(void)
                *pixel(framebuffer, &info, 512, 0) == rgb(&info, 0, 255, 0) &&
                *pixel(framebuffer, &info, 1023, 0) == rgb(&info, 0, 0, 255));
 
-        bool closed = raw_syscall1(SYS_CLOSE, (uint_32) fd) == 0 &&
-                      raw_syscall3(SYS_IOCTL, fd, FROG_FB_IOCTL_GET_INFO,
-                                   (uint_32) &info) == -EBADF;
+        bool closed = close(fd) == 0 &&
+                      ioctl(fd, FROG_FB_IOCTL_GET_INFO, &info) == -EBADF;
         uint_32 white = rgb(&info, 255, 255, 255);
         fill_rect(framebuffer, &info, 480, 352, 544, 416, white);
         closed = *pixel(framebuffer, &info, 543, 415) == white && closed;
@@ -347,8 +329,7 @@ void _start(void)
                          PAGE_SIZE) == -EINVAL;
         report(FROG_TEST_VM_MUNMAP_EXACT, exact_only);
 
-        bool unmapped = raw_syscall2(SYS_MUNMAP, (uint_32) framebuffer,
-                                     info.map_length) == 0;
+        bool unmapped = munmap((void *) framebuffer, info.map_length) == 0;
         report(FROG_TEST_VM_CLEANUP, unmapped);
         if (!all_passed)
                 finish_failure();
