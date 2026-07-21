@@ -2767,13 +2767,11 @@ int_32 frogfs_symlink(struct inode *dir,
         return -ENOSYS;
 }
 
-int_32 frogfs_mmap(struct file *file, void *addr, uint_32 length, uint_32 flag)
+int_32 frogfs_mmap(struct file *file, struct vm_area *vma)
 {
         (void) file;
-        (void) addr;
-        (void) length;
-        (void) flag;
-        return -ENOSYS;
+        (void) vma;
+        return -EOPNOTSUPP;
 }
 
 int frogfs_init(void)

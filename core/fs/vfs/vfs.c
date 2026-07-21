@@ -499,6 +499,17 @@ int_32 vfs_ioctl(struct file *file, uint_32 request, void *argp)
         return -ENOTTY;
 }
 
+int_32 vfs_mmap(struct file *file, struct vm_area *vma)
+{
+        if (file == NULL)
+                return -EBADF;
+        if (vma == NULL)
+                return -EINVAL;
+        if (file->f_op == NULL || file->f_op->mmap == NULL)
+                return -EOPNOTSUPP;
+        return file->f_op->mmap(file, vma);
+}
+
 
 int_32 vfs_mkdir(struct dentry *parent, struct dentry *child)
 {

@@ -8,6 +8,7 @@
 struct dentry;
 struct file;
 struct inode;
+struct vm_area;
 struct writeback_control;
 
 
@@ -47,7 +48,7 @@ int_32 frogfs_close(struct file *file);
 int_32 frogfs_read(struct file *file, void *buf, uint_32 count);
 int_32 frogfs_write(struct file *file, const void *buf, uint_32 count);
 int_32 frogfs_lseek(struct file *file, int_32 offset, uint_8 whence);
-int_32 frogfs_mmap(struct file *file, void *addr, uint_32 length, uint_32 flag);
+int_32 frogfs_mmap(struct file *file, struct vm_area *vma);
 
 int_32 frogfs_create(struct inode *dir, struct dentry *target, uint_32 mode);
 int_32 frogfs_mkdir(struct inode *dir, struct dentry *target, uint_32 mode);

@@ -1,6 +1,7 @@
 #ifndef __SYS_SYSCALL_H
 #define __SYS_SYSCALL_H
 #include <frog/ipc.h>
+#include <frog/mman.h>
 
 struct dir;
 struct dir_entry;
@@ -49,7 +50,10 @@ enum SYSCALL_NR {
     SYS_GETTIMEOFDAY = 28,
     SYS_SETTIMEOFDAY = 29,
     SYS_TEST_REPORT = 30,
-    SYS_NR_COUNT = 31,
+    SYS_MMAP = 31,
+    SYS_MUNMAP = 32,
+    SYS_TEST_SYNC = 33,
+    SYS_NR_COUNT = 34,
 };
 
 /**
@@ -284,6 +288,12 @@ int_32 chdir(const char *pathname);
 int_32 stat(const char *pathname, struct stat *statbuf);
 
 int_32 ioctl(int_32 fd, uint_32 request, void *argp);
+
+int_32 frog_mmap_raw(const struct frog_mmap_args *args);
+int_32 frog_munmap_raw(void *addr, uint_32 length);
+void *mmap(void *addr, uint_32 length, uint_32 prot,
+           uint_32 flags, int_32 fd, uint_32 offset);
+int_32 munmap(void *addr, uint_32 length);
 
 void putc(char c);
 uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg);

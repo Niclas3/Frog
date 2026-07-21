@@ -129,6 +129,11 @@ int_32 vfs_read(struct file *file, void *buf, uint_32 count);
 int_32 vfs_lseek(struct file *file, int_32 offset, uint_8 whence);
 uint_32 vfs_poll(struct file *file, struct poll_table_struct *wait);
 int_32 vfs_ioctl(struct file *file, uint_32 request, void *argp);
+/*
+ * Called without mm locks. Success transfers the caller's file reference to
+ * vma->mapping; failure leaves that reference with the caller.
+ */
+int_32 vfs_mmap(struct file *file, struct vm_area *vma);
 bool file_get_live(struct file *file);
 int_32 file_put(struct file *file);
 /* Compatibility spelling for dropping one caller-owned strong reference. */

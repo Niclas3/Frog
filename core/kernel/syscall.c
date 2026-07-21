@@ -121,6 +121,37 @@ int_32 ioctl(int_32 fd, uint_32 request, void *argp)
     return _syscall3(SYS_IOCTL, fd, request, argp);
 }
 
+int_32 frog_mmap_raw(const struct frog_mmap_args *args)
+{
+    return _syscall1(SYS_MMAP, args);
+}
+
+int_32 frog_munmap_raw(void *addr, uint_32 length)
+{
+    return _syscall2(SYS_MUNMAP, addr, length);
+}
+
+void *mmap(void *addr, uint_32 length, uint_32 prot,
+           uint_32 flags, int_32 fd, uint_32 offset)
+{
+    struct frog_mmap_args args = {
+        .addr = (uint_32) addr,
+        .length = length,
+        .prot = prot,
+        .flags = flags,
+        .fd = fd,
+        .offset = offset,
+    };
+    int_32 result = frog_mmap_raw(&args);
+
+    return result < 0 ? MAP_FAILED : (void *) result;
+}
+
+int_32 munmap(void *addr, uint_32 length)
+{
+    return frog_munmap_raw(addr, length);
+}
+
 void putc(char c)
 {
     _syscall1(SYS_PUTC, c);

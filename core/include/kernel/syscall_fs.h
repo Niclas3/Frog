@@ -1,6 +1,7 @@
 #ifndef __KERNEL_SYSCALL_FS_H
 #define __KERNEL_SYSCALL_FS_H
 
+#include <frog/mman.h>
 #include <frog/types.h>
 
 int_32 sys_open(const char *path, uint_32 flags);
@@ -12,5 +13,7 @@ int_32 sys_unlink(const char *path);
 int_32 sys_mkdir(const char *path);
 int_32 sys_rmdir(const char *path);
 int_32 sys_ioctl(int_32 fd, uint_32 request, void *argp);
+int_32 sys_mmap(const struct frog_mmap_args *user_args);
+int_32 sys_munmap(void *addr, uint_32 length);
 
 #endif

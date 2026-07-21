@@ -40,6 +40,11 @@ static int_32 sys_ni_syscall(void)
     return -ENOSYS;
 }
 
+static int_32 sys_test_sync(void)
+{
+    return -EOPNOTSUPP;
+}
+
 #ifdef CONFIG_QEMU_TEST
 static int_32 sys_test_report(uint_32 id, int_32 passed)
 {
@@ -99,6 +104,30 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
         break;
     case FROG_TEST_VM_POST_UNMAP_FAULT:
         name = "vm.post-unmap-fault";
+        break;
+    case FROG_TEST_VM_MMAP_POINTER:
+        name = "vm.mmap-pointer";
+        break;
+    case FROG_TEST_VM_MMAP_ARGUMENTS:
+        name = "vm.mmap-arguments";
+        break;
+    case FROG_TEST_VM_MMAP_FD:
+        name = "vm.mmap-fd";
+        break;
+    case FROG_TEST_VM_MMAP_ACCESS:
+        name = "vm.mmap-access";
+        break;
+    case FROG_TEST_VM_MMAP_UNSUPPORTED:
+        name = "vm.mmap-unsupported";
+        break;
+    case FROG_TEST_VM_MUNMAP_EXACT:
+        name = "vm.munmap-exact";
+        break;
+    case FROG_TEST_VM_FILE_AFTER_CLOSE:
+        name = "vm.file-after-close";
+        break;
+    case FROG_TEST_VM_MMAP_BUSY:
+        name = "vm.mmap-busy";
         break;
     default:
         return -EINVAL;
@@ -175,8 +204,6 @@ int_32 sys_testsyscall(uint_32 command)
         return mm_vm_process_prepare();
     if (command == FROG_TEST_VM_VERIFY_CLEANUP)
         return mm_vm_process_verify_cleanup();
-    if (command == FROG_TEST_VM_UNMAP_CURRENT)
-        return mm_vm_process_unmap_current();
     if (command >= FROG_TEST_VM_FORK_FAIL_BASE &&
         command < FROG_TEST_VM_FORK_FAIL_BASE + FROG_TEST_VM_FORK_FAIL_COUNT)
         return mm_vm_process_arm_fork_failure(
@@ -217,6 +244,9 @@ void syscall_init(void)
     syscall_table[SYS_MKDIR]   = sys_mkdir;
     syscall_table[SYS_RMDIR]   = sys_rmdir;
     syscall_table[SYS_IOCTL]   = sys_ioctl;
+    syscall_table[SYS_MMAP]    = sys_mmap;
+    syscall_table[SYS_MUNMAP]  = sys_munmap;
+    syscall_table[SYS_TEST_SYNC] = sys_test_sync;
     syscall_table[SYS_FORK]    = sys_fork;
     syscall_table[SYS_EXIT]    = sys_exit;
     syscall_table[SYS_WAIT]    = sys_wait;

@@ -9,6 +9,7 @@ struct super_block;
 struct poll_table_struct;
 struct stat;
 struct page;
+struct vm_area;
 
 
 struct file_operations {
@@ -19,10 +20,7 @@ struct file_operations {
         int_32 (*lseek)(struct file *file, int_32 offset, uint_8 whence);
         uint_32 (*poll)(struct file *file, struct poll_table_struct *wait);
         int_32 (*ioctl)(struct file *file, uint_32 request, void *argp);
-        int_32 (*mmap)(struct file *file,
-                       void *addr,
-                       uint_32 length,
-                       uint_32 flag);
+        int_32 (*mmap)(struct file *file, struct vm_area *vma);
 };
 
 struct inode_operations {

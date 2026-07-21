@@ -2,8 +2,10 @@
 
 #include <frog/bootmem.h>
 #include <frog/errno.h>
+#include <frog/fcntl.h>
 #include <frog/irqflags.h>
 #include <frog/memory.h>
+#include <frog/mman.h>
 #include <frog/kernel.h>
 #include <frog/phys_resource.h>
 #include <frog/process.h>
@@ -692,13 +694,17 @@ static void mm_vma_metadata(void)
 struct vm_process_test_fixture {
         bool initialized;
         bool active;
+        bool busy_checked;
+        bool busy_ok;
         bool rollback_pending;
         struct phys_resource resource;
         struct device device;
         struct inode inode;
         struct file *file;
         int file_fd;
+        int global_fd;
         struct vm_mapping *mapping;
+        struct vm_area *vma;
         uint_32 mapped;
         uint_32 close_count;
         uint_32 file_close_count;
@@ -730,8 +736,11 @@ static int_32 vm_process_file_close(struct file *file)
         return 0;
 }
 
+static int_32 vm_process_file_mmap(struct file *file, struct vm_area *vma);
+
 static const struct file_operations vm_process_file_ops = {
         .close = vm_process_file_close,
+        .mmap = vm_process_file_mmap,
 };
 
 static void vm_process_mapping_close(struct vm_mapping *mapping)
@@ -742,6 +751,11 @@ static void vm_process_mapping_close(struct vm_mapping *mapping)
                mapping->device == &fixture->device &&
                mapping->file == fixture->file &&
                refcount_read(&mapping->file->f_refs) > 0);
+        if (fixture->active && fixture->mapping == mapping) {
+                fixture->mapping = NULL;
+                fixture->vma = NULL;
+                fixture->active = false;
+        }
         fixture->close_count++;
         (void) file_put(mapping->file);
         phys_resource_put(mapping->resource);
@@ -751,6 +765,51 @@ static void vm_process_mapping_close(struct vm_mapping *mapping)
 static const struct vm_operations vm_process_mapping_ops = {
         .close = vm_process_mapping_close,
 };
+
+static int_32 vm_process_file_mmap(struct file *file, struct vm_area *vma)
+{
+        struct vm_process_test_fixture *fixture;
+        struct vm_mapping *mapping;
+        bool resource_pinned = false;
+
+        if (file == NULL || vma == NULL || file->private_data == NULL)
+                return -ENODEV;
+        fixture = file->private_data;
+        mapping = vma->mapping;
+        if (!fixture->initialized || fixture->file != file ||
+            fixture->active)
+                return fixture->active ? -EBUSY : -ENODEV;
+        if (mapping == NULL || mapping->state != VM_MAPPING_NEW ||
+            vma->start != 0 || vma->end != VM_PROCESS_TEST_LENGTH ||
+            vma->prot != (PROT_READ | PROT_WRITE) ||
+            vma->flags != MAP_SHARED || vma->page_offset != 0)
+                return -EINVAL;
+
+        if (!device_get_live(&fixture->device))
+                return -ENODEV;
+        lock_fetch(&fixture->device.lock);
+        if (fixture->device.state == DEVICE_LIVE)
+                resource_pinned = phys_resource_get_live(&fixture->resource);
+        lock_release(&fixture->device.lock);
+        if (!resource_pinned) {
+                device_put(&fixture->device);
+                return -ENODEV;
+        }
+
+        mapping->vm_ops = &vm_process_mapping_ops;
+        if (vm_mapping_prepare_device(mapping, file, &fixture->device,
+                                      &fixture->resource, fixture) != 0) {
+                mapping->vm_ops = NULL;
+                phys_resource_put(&fixture->resource);
+                device_put(&fixture->device);
+                return -ENODEV;
+        }
+        fixture->mapping = mapping;
+        fixture->vma = vma;
+        fixture->active_close_count = fixture->close_count;
+        fixture->active = true;
+        return 0;
+}
 
 static uint_32 vm_process_bitmap_bit(struct mm_struct *mm, uint_32 address)
 {
@@ -828,6 +887,7 @@ static int vm_process_fixture_init(struct vm_process_test_fixture *fixture)
                 return -EBUSY;
         memset(fixture, 0, sizeof(*fixture));
         fixture->file_fd = -1;
+        fixture->global_fd = -1;
         fixture->file = kmalloc(sizeof(*fixture->file));
         if (fixture->file == NULL)
                 return -ENOMEM;
@@ -836,6 +896,7 @@ static int vm_process_fixture_init(struct vm_process_test_fixture *fixture)
         fixture->inode.i_fop = &vm_process_file_ops;
         fixture->file->f_inode = &fixture->inode;
         fixture->file->f_op = &vm_process_file_ops;
+        fixture->file->f_flag = O_RDWR;
         fixture->file->private_data = fixture;
         refcount_init(&fixture->file->f_refs, 1);
         device_init(&fixture->device, vm_process_device_release);
@@ -869,8 +930,13 @@ static int vm_process_fixture_init(struct vm_process_test_fixture *fixture)
                 return result;
         }
         fixture->file_fd = result;
+        fixture->global_fd = running_thread()->fd_table[result];
+        fixture->saved_byte =
+            *(volatile uint_8 *) VM_PROCESS_TEST_KERNEL_ALIAS;
+        *(volatile uint_8 *) VM_PROCESS_TEST_KERNEL_ALIAS =
+            FROG_TEST_VM_SEED;
         fixture->initialized = true;
-        return 0;
+        return result;
 }
 
 static bool vm_process_fixture_destroy(struct vm_process_test_fixture *fixture)
@@ -1097,15 +1163,17 @@ static bool vm_process_cross_pde_round(
 int_32 mm_vm_process_prepare(void)
 {
         struct vm_process_test_fixture *fixture = &vm_process_fixture;
-        struct mm_struct *mm = running_thread()->mm;
-        struct vm_mapping *mapping = NULL;
-        struct vm_area *vma = NULL;
-        uint_32 mapped = 0;
+        int_32 fd;
         bool rollback_ok = true;
 
-        if (mm == NULL || vm_process_fixture_init(fixture) != 0) {
+        if (running_thread()->mm == NULL) {
                 frog_test_case("vm.fixture", 0);
                 return -ENODEV;
+        }
+        fd = vm_process_fixture_init(fixture);
+        if (fd < 0) {
+                frog_test_case("vm.pfn-map", 0);
+                return fd;
         }
         for (int fail_after = 0; fail_after <= 3; fail_after++)
                 rollback_ok = vm_process_failure_round(fixture, fail_after) &&
@@ -1113,40 +1181,7 @@ int_32 mm_vm_process_prepare(void)
         frog_test_case("vm.pfn-rollback", rollback_ok);
         frog_test_case("vm.pfn-cross-pde",
                        vm_process_cross_pde_round(fixture));
-
-        if (vm_process_new_vma(fixture, &mapping, &vma) != 0 ||
-            vm_map_pfn_range(mm, vma, &mapped) != 0) {
-                if (vma != NULL) {
-                        kfree(vma);
-                        vm_mapping_put(mapping);
-                }
-                frog_test_case("vm.pfn-map", 0);
-                (void) vm_process_fixture_destroy(fixture);
-                return -ENOMEM;
-        }
-
-        bool map_ok = mapped == VM_MMAP_START &&
-                      vm_process_pte_range_matches(mapped,
-                                                   VM_PROCESS_TEST_PHYSICAL,
-                                                   VM_PROCESS_TEST_LENGTH) &&
-                      vm_process_bitmap_range(mm, mapped,
-                                              VM_PROCESS_TEST_LENGTH, 1) &&
-                      refcount_read(&mapping->refs) == 1 &&
-                      refcount_read(&fixture->resource.refs) == 2 &&
-                      refcount_read(&fixture->device.refs) == 2 &&
-                      fixture->file != NULL && fixture->file->f_count == 1 &&
-                      refcount_read(&fixture->file->f_refs) == 2 &&
-                      fixture->file_close_count == 0;
-        frog_test_case("vm.pfn-map", map_ok);
-        fixture->mapping = mapping;
-        fixture->mapped = mapped;
-        fixture->active_close_count = fixture->close_count;
-        fixture->saved_byte =
-            *(volatile uint_8 *) VM_PROCESS_TEST_KERNEL_ALIAS;
-        *(volatile uint_8 *) VM_PROCESS_TEST_KERNEL_ALIAS =
-            FROG_TEST_VM_SEED;
-        fixture->active = true;
-        return (int_32) mapped;
+        return fd;
 }
 
 int_32 mm_vm_process_arm_fork_failure(uint_32 step)
@@ -1174,23 +1209,36 @@ int_32 mm_vm_process_verify_refs(uint_32 expected)
         struct vm_process_test_fixture *fixture = &vm_process_fixture;
         struct mm_struct *mm = running_thread()->mm;
         struct vm_area *vma;
+        uint_32 mapped;
         bool passed;
 
-        if (!fixture->initialized || !fixture->active || mm == NULL ||
-            expected == 0)
+        if (!fixture->initialized || !fixture->active ||
+            fixture->mapping == NULL || fixture->vma == NULL ||
+            mm == NULL || expected == 0)
                 return -EINVAL;
 
+        mapped = fixture->vma->start;
         lock_fetch(&mm->mmap_lock);
-        vma = vm_area_find_exact(mm, fixture->mapped,
-                                 fixture->mapped + VM_PROCESS_TEST_LENGTH);
+        vma = vm_area_find_exact(mm, mapped,
+                                 mapped + VM_PROCESS_TEST_LENGTH);
         passed = vma != NULL && vma->state == VM_ACTIVE &&
                  vma->mapping == fixture->mapping &&
-                 vm_process_pte_range_matches(fixture->mapped,
+                 mapped == FROG_TEST_VM_EXPECTED_ADDR &&
+                 vm_process_pte_range_matches(mapped,
                                               VM_PROCESS_TEST_PHYSICAL,
                                               VM_PROCESS_TEST_LENGTH) &&
-                 vm_process_bitmap_range(mm, fixture->mapped,
+                 vm_process_bitmap_range(mm, mapped,
                                          VM_PROCESS_TEST_LENGTH, 1);
         lock_release(&mm->mmap_lock);
+        fixture->mapped = mapped;
+
+        if (!fixture->busy_checked) {
+                fixture->busy_ok =
+                    device_begin_unregister(&fixture->device) == -EBUSY &&
+                    fixture->device.state == DEVICE_LIVE;
+                fixture->busy_checked = true;
+                frog_test_case("vm.device-busy", fixture->busy_ok);
+        }
 
         passed = refcount_read(&fixture->mapping->refs) == expected &&
                  refcount_read(&fixture->resource.refs) == 2 &&
@@ -1199,7 +1247,8 @@ int_32 mm_vm_process_verify_refs(uint_32 expected)
                  fixture->file->f_count == expected &&
                  refcount_read(&fixture->file->f_refs) == expected + 1 &&
                  fixture->file_close_count == 0 &&
-                 fixture->close_count == fixture->active_close_count && passed;
+                 fixture->close_count == fixture->active_close_count &&
+                 fixture->busy_ok && passed;
 
         if (fixture->rollback_pending) {
                 passed = expected == 1 &&
@@ -1212,116 +1261,49 @@ int_32 mm_vm_process_verify_refs(uint_32 expected)
         return passed ? 0 : -EUCLEAN;
 }
 
-int_32 mm_vm_process_unmap_current(void)
-{
-        struct vm_process_test_fixture *fixture = &vm_process_fixture;
-        struct mm_struct *mm = running_thread()->mm;
-        uint_32 refs;
-        int result;
-
-        if (!fixture->initialized || !fixture->active || mm == NULL)
-                return -EINVAL;
-        refs = refcount_read(&fixture->mapping->refs);
-        if (refs < 2)
-                return -EINVAL;
-
-        result = vm_unmap_exact(mm, fixture->mapped,
-                                VM_PROCESS_TEST_LENGTH);
-        if (result != 0)
-                return result;
-        if (vm_area_find_exact(mm, fixture->mapped,
-                               fixture->mapped + VM_PROCESS_TEST_LENGTH) !=
-                NULL ||
-            !vm_process_pte_range_absent(fixture->mapped,
-                                         VM_PROCESS_TEST_LENGTH) ||
-            !vm_process_bitmap_range(mm, fixture->mapped,
-                                     VM_PROCESS_TEST_LENGTH, 0) ||
-            refcount_read(&fixture->mapping->refs) != refs - 1 ||
-            fixture->close_count != fixture->active_close_count)
-                return -EUCLEAN;
-        return 0;
-}
-
 int_32 mm_vm_process_verify_cleanup(void)
 {
         struct vm_process_test_fixture *fixture = &vm_process_fixture;
         struct mm_struct *mm = running_thread()->mm;
-
-        if (!fixture->initialized || !fixture->active || mm == NULL)
-                return -EINVAL;
+        TCB_t *thread = running_thread();
         uint_32 mapped = fixture->mapped;
-        uint_32 close_before = fixture->close_count;
+
+        if (!fixture->initialized || fixture->active ||
+            fixture->mapping != NULL || fixture->vma != NULL || mm == NULL)
+                return -EINVAL;
         bool alias_ok =
             *(volatile uint_8 *) VM_PROCESS_TEST_KERNEL_ALIAS ==
             FROG_TEST_VM_WRITTEN;
-        bool busy_ok = device_begin_unregister(&fixture->device) == -EBUSY &&
-                       fixture->device.state == DEVICE_LIVE;
-        bool exact_ok =
-            vm_unmap_exact(mm, mapped, 2U * PAGE_SIZE) == -EINVAL &&
-            vm_unmap_exact(mm, mapped + PAGE_SIZE, PAGE_SIZE) == -EINVAL &&
-            vm_unmap_exact(mm, mapped + PAGE_SIZE, 2U * PAGE_SIZE) == -EINVAL &&
-            vm_process_pte_range_matches(mapped,
-                                         VM_PROCESS_TEST_PHYSICAL,
-                                         VM_PROCESS_TEST_LENGTH) &&
-            vm_process_bitmap_range(mm, mapped,
-                                    VM_PROCESS_TEST_LENGTH, 1) &&
-            fixture->close_count == close_before &&
-            refcount_read(&fixture->mapping->refs) == 1;
-
-        TCB_t *thread = running_thread();
-        int file_fd = fixture->file_fd;
-        int global_fd = file_fd >= 0 &&
-                                file_fd < MAX_FILES_OPEN_PER_PROC
-                            ? thread->fd_table[file_fd]
-                            : -1;
-        struct file *file = fixture->file;
-        bool file_before_close = file != NULL && file_fd >= 0 &&
-                                 file->f_count == 1 &&
-                                 refcount_read(&file->f_refs) == 2 &&
-                                 fixture->file_close_count == 0;
-        int close_result = fd_close_for(thread, file_fd);
-        if (file_fd >= 0 && file_fd < MAX_FILES_OPEN_PER_PROC &&
-            thread->fd_table[file_fd] == -1)
-                fixture->file_fd = -1;
-        struct file *closed_lookup = fdget(file_fd);
-        bool lookup_gone = closed_lookup == NULL;
-        if (closed_lookup != NULL)
-                (void) file_put(closed_lookup);
-        bool file_after_close =
-            file_before_close && close_result == 0 && lookup_gone &&
-            global_fd >= 0 && global_fd < MAX_FILE_OPEN &&
-            g_file_table[global_fd] == NULL && fixture->file == file &&
-            file->f_count == 0 && refcount_read(&file->f_refs) == 1 &&
-            fixture->file_close_count == 0 &&
-            refcount_read(&fixture->mapping->refs) == 1;
-
-        int unmap_result =
-            vm_unmap_exact(mm, mapped, VM_PROCESS_TEST_LENGTH);
-        fixture->mapping = NULL;
-        fixture->active = false;
-        bool lifetime_ok = unmap_result == 0 &&
-                           fixture->close_count == close_before + 1 &&
+        bool descriptor_gone =
+            fixture->file_fd >= 0 &&
+            fixture->file_fd < MAX_FILES_OPEN_PER_PROC &&
+            thread->fd_table[fixture->file_fd] == -1 &&
+            fixture->global_fd >= 0 && fixture->global_fd < MAX_FILE_OPEN &&
+            g_file_table[fixture->global_fd] == NULL;
+        bool lifetime_ok = mapped == FROG_TEST_VM_EXPECTED_ADDR &&
+                           fixture->busy_checked && fixture->busy_ok &&
+                           fixture->close_count ==
+                               fixture->active_close_count + 1 &&
                            refcount_read(&fixture->resource.refs) == 1 &&
                            refcount_read(&fixture->device.refs) == 1 &&
                            fixture->file == NULL &&
                            fixture->file_close_count == 1 &&
-                           fixture->inode.i_count == 0 &&
+                           fixture->inode.i_count == 0 && descriptor_gone &&
                            vm_process_pte_range_absent(
                                mapped, VM_PROCESS_TEST_LENGTH) &&
                            vm_process_bitmap_range(
                                mm, mapped, VM_PROCESS_TEST_LENGTH, 0);
 
         *(volatile uint_8 *) VM_PROCESS_TEST_KERNEL_ALIAS = fixture->saved_byte;
+        if (descriptor_gone) {
+                fixture->file_fd = -1;
+                fixture->global_fd = -1;
+        }
         bool fixture_destroyed = vm_process_fixture_destroy(fixture);
         bool destroy_ok = lifetime_ok && fixture_destroyed;
         frog_test_case("vm.user-alias", alias_ok);
-        frog_test_case("vm.device-busy", busy_ok);
-        frog_test_case("vm.exact-unmap", exact_ok);
-        frog_test_case("vm.file-after-close", file_after_close);
         frog_test_case("vm.mapping-lifetime", destroy_ok);
-        return alias_ok && busy_ok && exact_ok && file_after_close && destroy_ok
-                   ? 0
-                   : -EUCLEAN;
+        return alias_ok && destroy_ok ? 0 : -EUCLEAN;
 }
 
 static void mm_test_invlpg(uint_32 addr)
