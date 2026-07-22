@@ -78,7 +78,7 @@ init_boot_code: $(INIT_BOOT_CODE)
 	dd if=$< of=$(DISK) bs=512 count=360 conv=notrunc
 
 # mount all things
-# mount_debug ONLY ONE difference is core_symbol.img were used.
+# mount_debug keeps core_symbol.img for GDB, but boots the stripped core.img.
 #
 # 1. Burn `bootloader code` 
 # 2. Burn `kernel code`
@@ -104,21 +104,21 @@ mount: init_boot_code loader.img core.img font
 	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=3000 conv=notrunc
 	dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place to 3M img size < 150k
 
-mount_debug: init_boot_code loader.img core_symbol.img font
+mount_debug: init_boot_code loader.img core.img core_symbol.img font
 	@loader_size=$$(wc -c < "$(LOADER)"); \
 	loader_limit=$$(($(LOADER_SECTOR_COUNT) * $(SECTOR_SIZE))); \
 	if [ "$$loader_size" -gt "$$loader_limit" ]; then \
 		printf '%s is %s bytes; MBR loader limit is %s\n' \
 			"$(LOADER)" "$$loader_size" "$$loader_limit" >&2; exit 1; \
 	fi
-	@core_size=$$(wc -c < "$(CORESYM)"); \
+	@core_size=$$(wc -c < "$(CORE)"); \
 	core_limit=$$(($(CORE_SECTOR_COUNT) * $(SECTOR_SIZE))); \
 	if [ "$$core_size" -gt "$$core_limit" ]; then \
 		printf '%s is %s bytes; boot image limit is %s\n' \
-			"$(CORESYM)" "$$core_size" "$$core_limit" >&2; exit 1; \
+			"$(CORE)" "$$core_size" "$$core_limit" >&2; exit 1; \
 	fi
 	dd if=$(LOADER) of=$(DISK) bs=$(SECTOR_SIZE) count=$(LOADER_SECTOR_COUNT) seek=2 conv=notrunc #loader
-	dd if=$(CORESYM) of=$(DISK) bs=$(SECTOR_SIZE) count=$(CORE_SECTOR_COUNT) seek=$(CORE_START_SECTOR) conv=notrunc #core, reserved through sector 524
+	dd if=$(CORE) of=$(DISK) bs=$(SECTOR_SIZE) count=$(CORE_SECTOR_COUNT) seek=$(CORE_START_SECTOR) conv=notrunc #core, reserved through sector 524
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=2048 conv=notrunc #font.img for now size 4k
 	# dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=3000 conv=notrunc
 	# dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place at 3M, img size < 150k
