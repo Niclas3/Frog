@@ -10,4 +10,8 @@ bool access_ok(const void *user_ptr, uint_32 size);
 int_32 copy_from_user(void *kernel_dst, const void *user_src, uint_32 size);
 int_32 copy_to_user(void *user_dst, const void *kernel_src, uint_32 size);
 
+/* capacity includes the trailing NUL; length_out excludes it. */
+int_32 copy_string_from_user(char *kernel_dst, const char *user_src,
+                            uint_32 capacity, uint_32 *length_out);
+
 #endif

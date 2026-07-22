@@ -87,6 +87,13 @@ void *get_phy_free_page_with_vaddr(enum mem_pool_type poolt,
 // init block descriptors
 void block_desc_init(struct mem_block_desc *desc_array);
 
+/* Fork preserves user free-list node VAs and rebases only their list heads. */
+int_32 block_desc_validate_user_for_fork(
+    const struct mem_block_desc *descs);
+int_32 block_desc_clone_prepare(struct mem_block_desc *child,
+                                const struct mem_block_desc *parent);
+void block_desc_clone_fixup(struct mem_block_desc *child);
+
 // // get or free 4k phy memory aka 1 page -> pte
 // void* get_physical_page(struct pool *mpool);
 // void free_physical_page(struct pool *mpool, uint_32 phy_addr_page);

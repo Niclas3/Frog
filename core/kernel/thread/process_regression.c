@@ -23,7 +23,7 @@ void process_regression_run_user(void)
 {
 #ifdef CONFIG_FROG_TEST_PROCESS
         volatile int private_value = 7;
-        uint_32 child_pid = fork();
+        pid_t child_pid = fork();
 
         if (child_pid == 0) {
                 private_value = 19;
@@ -33,8 +33,8 @@ void process_regression_run_user(void)
         }
 
         frog_test_case("process.fork.parent-result",
-                       child_pid != (uint_32) -1 && child_pid != 0);
-        if (child_pid == (uint_32) -1)
+                       child_pid != -1 && child_pid != 0);
+        if (child_pid == -1)
                 return;
 
         int_32 status = -1;

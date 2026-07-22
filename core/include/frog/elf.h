@@ -40,6 +40,17 @@ typedef struct {
 #define EI_MAG3		3		/* File identification byte 3 index */
 #define ELFMAG3		'F'		/* Magic number byte 3 */
 
+#define EI_CLASS        4
+#define EI_DATA         5
+#define EI_VERSION      6
+
+#define ELFCLASS32      1
+#define ELFDATA2LSB     1
+#define EV_CURRENT      1
+
+#define ET_EXEC         2
+#define EM_386          3
+
 // 32bits Section headers
 typedef struct {
     Elf32_Word    sh_name;
@@ -98,4 +109,3 @@ typedef struct
 #define PF_R		(1 << 2)	/* Segment is readable */
 #define PF_MASKOS	0x0ff00000	/* OS-specific */
 #define PF_MASKPROC	0xf0000000	/* Processor-specific */
-

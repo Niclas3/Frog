@@ -79,6 +79,20 @@ struct mm_struct *mm_clone_for_fork(struct mm_struct *parent);
 void mm_release_address_space(struct mm_struct *mm);
 int vm_handle_user_page_fault(struct mm_struct *mm, uint_32 address);
 
+/*
+ * Image builders use these on an unpublished mm. Each mapped page owns its
+ * RAM frame, and mm_release_address_space() reclaims it on rollback.
+ */
+int vm_user_map_owned_page(struct mm_struct *mm, uint_32 address);
+int vm_user_write_owned(struct mm_struct *mm,
+                        uint_32 address,
+                        const void *source,
+                        uint_32 length);
+int vm_user_protect_owned(struct mm_struct *mm,
+                          uint_32 start,
+                          uint_32 length,
+                          bool writable);
+
 struct vm_mapping *vm_mapping_alloc(enum vm_backing_type backing_type,
                                     const struct vm_operations *vm_ops);
 bool vm_mapping_get_live(struct vm_mapping *mapping);

@@ -15,7 +15,7 @@
 
 struct pid_pool {
         struct bitmap pid_bm;
-        uint_32 pid_start;
+        pid_t pid_start;
         struct lock pid_lock;
 };
 
@@ -101,7 +101,7 @@ static pid_t allocate_pid(void)
         }
         set_value_bitmap(&pid_pool.pid_bm, pos, 1);
         lock_release(&pid_pool.pid_lock);
-        return base + pos;
+        return base + (pid_t) pos;
 }
 
 static void release_pid(pid_t pid)
@@ -109,12 +109,12 @@ static void release_pid(pid_t pid)
         lock_fetch(&pid_pool.pid_lock);
         ASSERT(pid >= pid_pool.pid_start);
         pid_t base = pid_pool.pid_start;
-        uint_32 pos = pid - base;
+        uint_32 pos = (uint_32) (pid - base);
         set_value_bitmap(&pid_pool.pid_bm, pos, 0);
         lock_release(&pid_pool.pid_lock);
 }
 
-uint_32 fork_pid(void)
+pid_t fork_pid(void)
 {
         return allocate_pid();
 }

@@ -1,7 +1,7 @@
 #include <frog/syscall.h>
 #include <asm/i386_syscall_common.h>
 
-uint_32 getpid(void)
+pid_t getpid(void)
 {
     return _syscall0(SYS_GETPID);
 }
@@ -15,7 +15,7 @@ void free(void *ptr)
     _syscall1(SYS_FREE, ptr);
 }
 
-uint_32 fork(void)
+pid_t fork(void)
 {
     return _syscall0(SYS_FORK);
 }

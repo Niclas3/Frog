@@ -84,3 +84,33 @@ int_32 copy_to_user(void *user_dst, const void *kernel_src, uint_32 size)
         memcpy(user_dst, kernel_src, size);
         return 0;
 }
+
+int_32 copy_string_from_user(char *kernel_dst, const char *user_src,
+                            uint_32 capacity, uint_32 *length_out)
+{
+        uint_32 length;
+
+        if (kernel_dst == NULL || capacity == 0)
+                return -EINVAL;
+        if (user_src == NULL)
+                return -EFAULT;
+
+        kernel_dst[0] = '\0';
+        for (length = 0; length < capacity; length++) {
+                char ch;
+
+                if (copy_from_user(&ch, user_src + length, sizeof(ch)) < 0) {
+                        kernel_dst[0] = '\0';
+                        return -EFAULT;
+                }
+                kernel_dst[length] = ch;
+                if (ch == '\0') {
+                        if (length_out != NULL)
+                                *length_out = length;
+                        return 0;
+                }
+        }
+
+        kernel_dst[0] = '\0';
+        return -ENAMETOOLONG;
+}

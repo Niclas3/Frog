@@ -355,7 +355,7 @@ static void run_profile(void)
 {
         volatile int private_value = 7;
         (void) run_basic_checks();
-        uint_32 child_pid = raw_syscall0(SYS_FORK);
+        pid_t child_pid = raw_syscall0(SYS_FORK);
 
         if (child_pid == 0) {
                 private_value = 19;
@@ -365,8 +365,8 @@ static void run_profile(void)
         }
 
         report(FROG_TEST_PROCESS_FORK_PARENT_RESULT,
-               child_pid != (uint_32) -1 && child_pid != 0);
-        if (child_pid != (uint_32) -1) {
+               child_pid != -1 && child_pid != 0);
+        if (child_pid != -1) {
                 int_32 status = -1;
                 int_32 waited_pid =
                     raw_syscall1(SYS_WAIT, (uint_32) &status);
@@ -387,7 +387,7 @@ static void run_profile(void)
         finish(1);
 }
 #elif defined(USER_SMOKE_DISK_PREPARE)
-static bool wait_for_child(uint_32 expected_pid)
+static bool wait_for_child(pid_t expected_pid)
 {
         int_32 status = -1;
         int_32 waited = raw_syscall1(SYS_WAIT, (uint_32) &status);
@@ -406,7 +406,7 @@ static bool test_child_close_parent_uses_fd(void)
         bool passed = fd == 0 &&
                       raw_syscall3(SYS_WRITE, fd, (uint_32) value, 1) == 1 &&
                       raw_syscall3(SYS_SEEK, fd, 0, USER_SEEK_SET) == 0;
-        uint_32 pid = raw_syscall0(SYS_FORK);
+        pid_t pid = raw_syscall0(SYS_FORK);
 
         if (pid == 0) {
                 bool child_ok = raw_syscall1(SYS_CLOSE, fd) == 0;
@@ -414,7 +414,7 @@ static bool test_child_close_parent_uses_fd(void)
                 for (;;)
                         __asm__ volatile("pause");
         }
-        if (pid == (uint_32) -1) {
+        if (pid == -1) {
                 passed = false;
         } else {
                 char read_value = 0;
@@ -438,7 +438,7 @@ static bool test_parent_close_child_uses_fd(void)
         bool passed = fd == 0 &&
                       raw_syscall3(SYS_WRITE, fd, (uint_32) value, 1) == 1 &&
                       raw_syscall3(SYS_SEEK, fd, 0, USER_SEEK_SET) == 0;
-        uint_32 pid = raw_syscall0(SYS_FORK);
+        pid_t pid = raw_syscall0(SYS_FORK);
 
         if (pid == 0) {
                 char read_value = 0;
@@ -451,7 +451,7 @@ static bool test_parent_close_child_uses_fd(void)
                         __asm__ volatile("pause");
         }
         passed = raw_syscall1(SYS_CLOSE, fd) == 0 && passed;
-        if (pid == (uint_32) -1)
+        if (pid == -1)
                 passed = false;
         else
                 passed = wait_for_child(pid) && passed;

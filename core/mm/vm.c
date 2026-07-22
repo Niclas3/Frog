@@ -53,6 +53,8 @@ struct vm_clone_reserve {
         uint_32 acquired_vmas;
 };
 
+extern struct list_head thread_all_list;
+
 static bool vm_page_table_empty(uint_32 address);
 
 #ifdef CONFIG_QEMU_TEST
@@ -160,6 +162,27 @@ static bool vm_current_mm(const struct mm_struct *mm)
         __asm__ volatile("movl %%cr3, %0" : "=r"(cr3));
         return (cr3 & 0xfffff000U) ==
                (addr_v2p((uint_32) mm->pgdir) & 0xfffff000U);
+}
+
+static bool vm_owned_builder_mm(const struct mm_struct *mm)
+{
+        struct list_head *position;
+        unsigned long flags;
+        bool unpublished = true;
+
+        if (mm == NULL || mm->pgdir == NULL)
+                return false;
+        local_irq_save(flags);
+        list_for_each(position, &thread_all_list) {
+                TCB_t *thread = list_entry(position, TCB_t, all_list_tag);
+
+                if (thread->mm == mm) {
+                        unpublished = false;
+                        break;
+                }
+        }
+        local_irq_restore(flags);
+        return unpublished;
 }
 
 static int vm_checked_range(uint_32 start,
@@ -1588,6 +1611,227 @@ void mm_release_address_space(struct mm_struct *mm)
                 mm->pgdir = NULL;
         }
         mm_destroy(mm);
+}
+
+int vm_user_map_owned_page(struct mm_struct *mm, uint_32 address)
+{
+        uint_32 user_frame;
+        uint_32 pt_frame;
+        uint_32 previous;
+        uint_32 *pde;
+        uint_32 *pte;
+        bool installed_pde = false;
+        int result;
+
+        if (!vm_owned_builder_mm(mm))
+                return -EBUSY;
+        if (mm == NULL || mm->pgdir == NULL ||
+            address < USER_VADDR_START || address >= 0xc0000000U ||
+            (address & (PAGE_SIZE - 1U)) != 0)
+                return -EINVAL;
+
+        user_frame = alloc_user_page_frame();
+        if (user_frame == 0)
+                return -ENOMEM;
+        pt_frame = alloc_kernel_page_frame();
+        if (pt_frame == 0) {
+                free_user_page_frame(user_frame);
+                return -ENOMEM;
+        }
+
+        lock_fetch(&mm->mmap_lock);
+        if (!vm_bitmap_range_free(mm, address, PAGE_SIZE, NULL) ||
+            vm_area_find(mm, address) != NULL) {
+                result = -EEXIST;
+                goto unlock;
+        }
+        result = vm_bitmap_set_range(mm, address, PAGE_SIZE, 1);
+        if (result != 0)
+                goto unlock;
+
+        spin_lock(mm->pt_lock);
+        previous = vm_activate_target_locked(mm);
+        pde = pde_ptr(address);
+        if (!(*pde & PG_P_SET)) {
+                *pde = pt_frame | PG_P_SET | PG_RW_W | PG_US_U;
+                pt_frame = 0;
+                installed_pde = true;
+                vm_reload_cr3();
+                memset((void *) ((uint_32) pte_ptr(address) & 0xfffff000U),
+                       0, PAGE_SIZE);
+        } else if ((*pde & (PG_US_U | PG_RW_W)) !=
+                   (PG_US_U | PG_RW_W)) {
+                result = -EACCES;
+                goto restore;
+        }
+
+        pte = pte_ptr(address);
+        if (*pte & PG_P_SET) {
+                result = -EEXIST;
+                goto restore;
+        }
+        *pte = user_frame | PG_P_SET | PG_RW_W | PG_US_U;
+        user_frame = 0;
+        vm_invlpg(address);
+        memset((void *) address, 0, PAGE_SIZE);
+        mm->generation++;
+        result = 0;
+
+restore:
+        if (result != 0 && installed_pde) {
+                ASSERT(vm_page_table_empty(address));
+                pt_frame = *pde & 0xfffff000U;
+                *pde = 0;
+                vm_reload_cr3();
+        }
+        vm_restore_target_locked(previous);
+        spin_unlock(mm->pt_lock);
+        if (result != 0)
+                ASSERT(vm_bitmap_set_range(mm, address, PAGE_SIZE, 0) == 0);
+
+unlock:
+        lock_release(&mm->mmap_lock);
+        if (user_frame != 0)
+                free_user_page_frame(user_frame);
+        if (pt_frame != 0)
+                free_kernel_page_frame(pt_frame);
+        return result;
+}
+
+int vm_user_write_owned(struct mm_struct *mm,
+                        uint_32 address,
+                        const void *source,
+                        uint_32 length)
+{
+        unsigned long long end;
+        const uint_8 *input = source;
+        int result = 0;
+
+        if (!vm_owned_builder_mm(mm))
+                return -EBUSY;
+        if (length == 0)
+                return 0;
+        end = (unsigned long long) address + length;
+        if (mm == NULL || mm->pgdir == NULL || source == NULL ||
+            address < USER_VADDR_START || end > 0xc0000000ULL)
+                return -EINVAL;
+
+        lock_fetch(&mm->mmap_lock);
+        while (length != 0) {
+                uint_32 page = address & ~(PAGE_SIZE - 1U);
+                uint_32 offset = address & (PAGE_SIZE - 1U);
+                uint_32 chunk = PAGE_SIZE - offset;
+                uint_32 first_bit;
+                uint_32 page_count;
+                uint_32 previous;
+                uint_32 pde;
+                uint_32 pte;
+
+                if (chunk > length)
+                        chunk = length;
+                if (vm_bitmap_bounds(mm, page, PAGE_SIZE, &first_bit,
+                                     &page_count) != 0 || page_count != 1 ||
+                    !get_value_bitmap(&mm->user_vaddr.vaddr_bitmap,
+                                      first_bit) ||
+                    vm_area_find(mm, page) != NULL) {
+                        result = -EFAULT;
+                        break;
+                }
+
+                spin_lock(mm->pt_lock);
+                previous = vm_activate_target_locked(mm);
+                pde = *pde_ptr(page);
+                pte = *pte_ptr(page);
+                if ((pde & (PG_P_SET | PG_RW_W | PG_US_U)) !=
+                        (PG_P_SET | PG_RW_W | PG_US_U) ||
+                    (pte & (PG_P_SET | PG_RW_W | PG_US_U)) !=
+                        (PG_P_SET | PG_RW_W | PG_US_U)) {
+                        result = -EACCES;
+                } else {
+                        memcpy((void *) address, input, chunk);
+                }
+                vm_restore_target_locked(previous);
+                spin_unlock(mm->pt_lock);
+                if (result != 0)
+                        break;
+
+                address += chunk;
+                input += chunk;
+                length -= chunk;
+        }
+        lock_release(&mm->mmap_lock);
+        return result;
+}
+
+int vm_user_protect_owned(struct mm_struct *mm,
+                          uint_32 start,
+                          uint_32 length,
+                          bool writable)
+{
+        uint_32 end;
+        int result;
+
+        if (!vm_owned_builder_mm(mm))
+                return -EBUSY;
+        if (mm == NULL || mm->pgdir == NULL ||
+            vm_checked_range(start, length, USER_VADDR_START,
+                             0xc0000000U, &end) != 0)
+                return -EINVAL;
+
+        lock_fetch(&mm->mmap_lock);
+        for (uint_32 address = start; address < end;
+             address += PAGE_SIZE) {
+                uint_32 first_bit;
+                uint_32 page_count;
+                uint_32 previous;
+                uint_32 pde;
+                uint_32 pte;
+
+                if (vm_bitmap_bounds(mm, address, PAGE_SIZE, &first_bit,
+                                     &page_count) != 0 || page_count != 1 ||
+                    !get_value_bitmap(&mm->user_vaddr.vaddr_bitmap,
+                                      first_bit) ||
+                    vm_area_find(mm, address) != NULL) {
+                        result = -EFAULT;
+                        goto unlock;
+                }
+                spin_lock(mm->pt_lock);
+                previous = vm_activate_target_locked(mm);
+                pde = *pde_ptr(address);
+                pte = *pte_ptr(address);
+                vm_restore_target_locked(previous);
+                spin_unlock(mm->pt_lock);
+                if ((pde & (PG_P_SET | PG_US_U)) !=
+                        (PG_P_SET | PG_US_U) ||
+                    (pte & (PG_P_SET | PG_US_U)) !=
+                        (PG_P_SET | PG_US_U)) {
+                        result = -EFAULT;
+                        goto unlock;
+                }
+        }
+
+        for (uint_32 address = start; address < end;
+             address += PAGE_SIZE) {
+                uint_32 previous;
+                uint_32 *pte;
+
+                spin_lock(mm->pt_lock);
+                previous = vm_activate_target_locked(mm);
+                pte = pte_ptr(address);
+                if (writable)
+                        *pte |= PG_RW_W;
+                else
+                        *pte &= ~PG_RW_W;
+                vm_invlpg(address);
+                vm_restore_target_locked(previous);
+                spin_unlock(mm->pt_lock);
+        }
+        mm->generation++;
+        result = 0;
+
+unlock:
+        lock_release(&mm->mmap_lock);
+        return result;
 }
 
 static bool vm_user_fault_reserved_locked(struct mm_struct *mm,

@@ -28,7 +28,10 @@ int kasan_posion(uintptr_t addr,
                  char redzone_flag);
 unsigned char kasan_check(uintptr_t addr, uint_32 size, bool is_write);
 
-struct mem_block *kasan_posion_arena2block(struct arena *a, uint_32 idx, uint_32 redzone_sz);
+struct mem_block *kasan_posion_arena2block(struct arena *a,
+                                           uint_32 idx,
+                                           uint_32 block_size,
+                                           uint_32 redzone_sz);
 void kasan_protect_free(int blk_sz, uintptr_t addr);
 
 

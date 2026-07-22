@@ -35,6 +35,39 @@ static int mm_test_failures;
                 WARN("[mm-test]: FAIL  " name, ##__VA_ARGS__);           \
         } while (0)
 
+static void mm_block_desc_fork_metadata(void)
+{
+        struct mem_block_desc parent[DESC_CNT];
+        struct mem_block_desc child[DESC_CNT];
+        struct list_head first;
+        struct list_head last;
+        bool passed;
+
+        block_desc_init(parent);
+        INIT_LIST_HEAD(&first);
+        INIT_LIST_HEAD(&last);
+        list_add_tail(&first, &parent[0].free_list);
+        list_add_tail(&last, &parent[0].free_list);
+
+        passed = sizeof(struct arena) == 12 &&
+                 block_desc_clone_prepare(child, parent) == 0;
+        if (passed) {
+                block_desc_clone_fixup(child);
+                passed = child[0].free_list.next == &first &&
+                         child[0].free_list.prev == &last &&
+                         first.prev == &child[0].free_list &&
+                         first.next == &last && last.prev == &first &&
+                         last.next == &child[0].free_list &&
+                         child[1].free_list.next == &child[1].free_list &&
+                         child[1].free_list.prev == &child[1].free_list;
+        }
+
+        if (passed)
+                PASS("block_desc_fork_metadata");
+        else
+                FAIL("block_desc_fork_metadata");
+}
+
 /*
  * 1. Slab basic: alloc/fill/free one block per slab tier (16..1024 bytes).
  *    Catches double-free, free_list corruption, or zero-size-block bugs.
@@ -1458,6 +1491,7 @@ int mm_regression_test(void)
 {
         mm_test_failures = 0;
         INFO("[mm-test]: ===== memory regression tests =====");
+        mm_block_desc_fork_metadata();
         mm_slab_basic();
         mm_slab_isolation();
         mm_large_alloc_offset();

@@ -4,7 +4,6 @@ CORE = core
 CORE_IMAGE := $(BUILD_DIR)/core.img
 CORE_SYMBOL_IMAGE := $(BUILD_DIR)/core_symbol.img
 
-# $(BUILD_DIR)/exec.o
 # $(BUILD_DIR)/exit.o
 # $(BUILD_DIR)/fork.o
 
@@ -14,7 +13,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/user_smoke_process_blob.o \
 	 $(BUILD_DIR)/user_smoke_disk_prepare_blob.o \
 	 $(BUILD_DIR)/user_smoke_framebuffer_mmap_blob.o \
-	 $(BUILD_DIR)/process.o $(BUILD_DIR)/process_regression.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/semaphore.o \
+	 $(BUILD_DIR)/exec.o $(BUILD_DIR)/process.o $(BUILD_DIR)/process_regression.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/semaphore.o \
 	 $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o \
 	 $(BUILD_DIR)/timer.o \
 	 $(BUILD_DIR)/controller.o $(BUILD_DIR)/irq.o $(BUILD_DIR)/softirq.o \

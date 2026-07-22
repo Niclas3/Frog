@@ -158,7 +158,7 @@ static void rest_init(void)
 {
         // dive into user mode, start first process init.
         unsigned long flags;
-        uint_32 init_pid;
+        pid_t init_pid;
         const uint_8 *image_start;
         const uint_8 *image_end;
 
@@ -185,8 +185,8 @@ static void rest_init(void)
         };
 
         local_irq_save(flags);
-        init_pid = process_execute_image(&image, "init");
-        if (init_pid == (uint_32) -1) {
+        init_pid = process_execute_init_image(&image);
+        if (init_pid == -1) {
                 local_irq_restore(flags);
 #ifdef CONFIG_QEMU_TEST
                 frog_test_abort("user-image-load");

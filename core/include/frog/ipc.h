@@ -31,7 +31,6 @@
 
 typedef struct thread_control_block TCB_t;
 
-typedef uint_32 pid_t; // process id for IPC
 /**
  * @enum msgtype
  * @brief MESSAGE types

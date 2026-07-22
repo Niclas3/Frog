@@ -386,7 +386,7 @@ void fs_regression_run_kernel(int init_result,
 #endif
 }
 
-static int wait_for_child(uint_32 expected_pid, int expected_status)
+static int wait_for_child(pid_t expected_pid, int expected_status)
 {
         int_32 status = -1;
         pid_t waited = wait(&status);
@@ -400,14 +400,14 @@ static int test_child_close_parent_uses_fd(void)
                 return 0;
         int passed = fd == 0 && write(fd, "A", 1) == 1 &&
                      lseek(fd, 0, SEEK_SET) == 0;
-        uint_32 pid = fork();
+        pid_t pid = fork();
         if (pid == 0) {
                 int child_ok = close(fd) == 0;
                 exit(child_ok ? 0 : 1);
                 for (;;) {
                 }
         }
-        if (pid == (uint_32) -1)
+        if (pid == -1)
                 passed = 0;
         else {
                 passed = wait_for_child(pid, 0) && passed;
@@ -425,7 +425,7 @@ static int test_parent_close_child_uses_fd(void)
                 return 0;
         int passed = fd == 0 && write(fd, "B", 1) == 1 &&
                      lseek(fd, 0, SEEK_SET) == 0;
-        uint_32 pid = fork();
+        pid_t pid = fork();
         if (pid == 0) {
                 char value = 0;
                 int child_ok = read(fd, &value, 1) == 1 && value == 'B';
@@ -435,7 +435,7 @@ static int test_parent_close_child_uses_fd(void)
                 }
         }
         passed = close(fd) == 0 && passed;
-        if (pid == (uint_32) -1)
+        if (pid == -1)
                 passed = 0;
         else
                 passed = wait_for_child(pid, 0) && passed;

@@ -1,4 +1,5 @@
 #include <frog/irqflags.h>
+#include <frog/errno.h>
 #include <frog/math.h>
 #include <frog/string.h>
 #include <frog/process.h>
@@ -62,34 +63,6 @@ static void start_process(void *filename)
             : "memory");
 }
 
-static void start_process_ring1(void *filename)
-{
-        void *function = filename;
-        TCB_t *cur = running_thread();
-        cur->self_kstack +=
-            sizeof(struct thread_stack);  // To the bottom of context_register
-        struct context_registers *proc_stack =
-            (struct context_registers *) cur->self_kstack;
-        proc_stack->edi = proc_stack->esi = proc_stack->ebp = proc_stack->esp =
-            0;
-        proc_stack->eax = proc_stack->ebx = proc_stack->ecx = proc_stack->edx =
-            0;
-        proc_stack->gs = 0;
-        proc_stack->ds = proc_stack->es = proc_stack->fs =
-            CREATE_SELECTOR(SEL_IDX_DATA_DPL_1, TI_GDT, RPL1);
-        proc_stack->cs = CREATE_SELECTOR(SEL_IDX_CODE_DPL_1, TI_GDT, RPL1);
-        proc_stack->eip = function;
-        proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED);
-
-        // stack top
-        proc_stack->esp_ptr = (void *) (USER_STACK3_VADDR + PAGE_SIZE);
-        proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_1, TI_GDT, RPL1);
-        __asm__ volatile(
-            "movl %0, %%esp;\
-                      jmp intr_exit" ::"g"(proc_stack)
-            : "memory");
-}
-
 /*
  * Change current process page dir to new physical address
  * If current thread does not have an mm use default page dir aka
@@ -148,6 +121,71 @@ static int create_user_vaddr_bitmap(struct mm_struct *mm)
         return 0;
 }
 
+struct mm_struct *process_create_user_mm(void)
+{
+        struct mm_struct *mm = mm_create();
+
+        if (mm == NULL)
+                return NULL;
+        if (create_user_vaddr_bitmap(mm) < 0)
+                goto fail;
+        mm->pgdir = create_page_dir();
+        if (mm->pgdir == NULL)
+                goto fail;
+        return mm;
+
+fail:
+        mm_release_address_space(mm);
+        return NULL;
+}
+
+int process_commit_user_image(struct mm_struct *new_mm,
+                              const char *name,
+                              uint_32 entry,
+                              uint_32 stack,
+                              uint_32 argc,
+                              uint_32 argv,
+                              struct mm_struct **old_mm_out)
+{
+        TCB_t *current = running_thread();
+        struct context_registers *context;
+        struct mm_struct *old_mm;
+        unsigned long flags;
+
+        if (current == NULL || current->mm == NULL || new_mm == NULL ||
+            new_mm == current->mm ||
+            new_mm->pgdir == NULL || name == NULL || old_mm_out == NULL ||
+            entry < USER_VADDR_START || entry >= 0xc0000000U ||
+            stack < USER_VADDR_START || stack >= 0xc0000000U ||
+            argv < USER_VADDR_START || argv >= 0xc0000000U)
+                return -EINVAL;
+
+        context = (struct context_registers *)
+            ((uint_32) current + PAGE_SIZE - sizeof(*context));
+        local_irq_save(flags);
+        old_mm = current->mm;
+        current->mm = new_mm;
+        page_dir_activate(current);
+
+        memset(context, 0, sizeof(*context));
+        context->ebx = argv;
+        context->ecx = argc;
+        context->ds = context->es = context->fs =
+            CREATE_SELECTOR(SEL_IDX_DATA_DPL_3, TI_GDT, RPL3);
+        context->cs = CREATE_SELECTOR(SEL_IDX_CODE_DPL_3, TI_GDT, RPL3);
+        context->eip = (void *) entry;
+        context->eflags = EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED;
+        context->esp_ptr = (void *) stack;
+        context->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_3, TI_GDT, RPL3);
+
+        strncpy(current->name, name, TASK_NAME_LEN - 1);
+        current->name[TASK_NAME_LEN - 1] = '\0';
+        block_desc_init(current->u_block_descs);
+        *old_mm_out = old_mm;
+        local_irq_restore(flags);
+        return 0;
+}
+
 static int create_initial_user_stack(TCB_t *thread)
 {
         TCB_t *current = running_thread();
@@ -160,6 +198,8 @@ static int create_initial_user_stack(TCB_t *thread)
         page_dir_activate(thread);
         void *stack = get_phy_free_page_with_vaddr(
             MP_USER, USER_STACK3_VADDR, thread->mm);
+        if (stack != NULL)
+                memset(stack, 0, PAGE_SIZE);
         page_dir_activate(current);
         local_irq_restore(flags);
         if (stack == NULL)
@@ -226,58 +266,45 @@ void process_release_address_space(TCB_t *thread)
         mm_release_address_space(mm);
 }
 
-uint_32 process_execute(void *filename, char *name)
+static bool process_has_published_user_mm(void)
 {
-        TCB_t *thread = get_kernel_page(1);
-        if (thread == NULL)
-                return (uint_32) -1;
-        if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
-                goto fail_tcb;
-        thread->mm = mm_create();
-        if (thread->mm == NULL)
-                goto fail_pid;
-        if (create_user_vaddr_bitmap(thread->mm) < 0)
-                goto fail_address_space;
-        create_thread(thread, start_process, filename);
-        thread->mm->pgdir = create_page_dir();
-        if (thread->mm->pgdir == NULL)
-                goto fail_address_space;
-        if (create_initial_user_stack(thread) < 0)
-                goto fail_address_space;
-        block_desc_init(thread->u_block_descs);
-        if (thread_publish(thread) < 0)
-                goto fail_address_space;
-        return thread->pid;
+        struct list_head *position;
+        unsigned long flags;
+        bool found = false;
 
-fail_address_space:
-        process_release_address_space(thread);
-fail_pid:
-        thread_release_pid(thread->pid);
-fail_tcb:
-        free_page(MP_KERNEL, thread, 1);
-        return (uint_32) -1;
+        local_irq_save(flags);
+        list_for_each(position, &thread_all_list) {
+                TCB_t *thread = list_entry(position, TCB_t, all_list_tag);
+
+                if (thread->mm != NULL) {
+                        found = true;
+                        break;
+                }
+        }
+        local_irq_restore(flags);
+        return found;
 }
 
-uint_32 process_execute_image(const struct user_image *image,
-                              const char *name)
+pid_t process_execute_init_image(const struct user_image *image)
 {
+        TCB_t *current = running_thread();
         TCB_t *thread;
 
-        if (!user_image_valid(image))
-                return (uint_32) -1;
+        ASSERT(current != NULL);
+        if (current->mm != NULL || process_has_published_user_mm() ||
+            !user_image_valid(image))
+                return -1;
         thread = get_kernel_page(1);
         if (thread == NULL)
-                return (uint_32) -1;
-        if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
+                return -1;
+        if (init_thread(thread, "init", DEFAULT_PRIORITY) < 0)
                 goto fail_tcb;
-        thread->mm = mm_create();
+        ASSERT(thread->parent_pid == -1);
+        thread->mm = process_create_user_mm();
         if (thread->mm == NULL)
-                goto fail_pid;
-        if (create_user_vaddr_bitmap(thread->mm) < 0)
                 goto fail_address_space;
         create_thread(thread, start_process, (void *) image->entry);
-        thread->mm->pgdir = create_page_dir();
-        if (thread->mm->pgdir == NULL || load_user_image(thread, image) < 0 ||
+        if (load_user_image(thread, image) < 0 ||
             create_initial_user_stack(thread) < 0)
                 goto fail_address_space;
         block_desc_init(thread->u_block_descs);
@@ -287,37 +314,8 @@ uint_32 process_execute_image(const struct user_image *image,
 
 fail_address_space:
         process_release_address_space(thread);
-fail_pid:
         thread_release_pid(thread->pid);
 fail_tcb:
         free_page(MP_KERNEL, thread, 1);
-        return (uint_32) -1;
-}
-
-void process_execute_ring1(void *filename, char *name)
-{
-        TCB_t *thread = get_kernel_page(1);
-        if (thread == NULL)
-                return;
-        if (init_thread(thread, name, DEFAULT_PRIORITY) < 0)
-                goto fail_tcb;
-        thread->mm = mm_create();
-        if (thread->mm == NULL)
-                goto fail_pid;
-        if (create_user_vaddr_bitmap(thread->mm) < 0)
-                goto fail_address_space;
-        create_thread(thread, start_process_ring1, filename);
-        thread->mm->pgdir = create_page_dir();
-        if (thread->mm->pgdir == NULL ||
-            create_initial_user_stack(thread) < 0 ||
-            thread_publish(thread) < 0)
-                goto fail_address_space;
-        return;
-
-fail_address_space:
-        process_release_address_space(thread);
-fail_pid:
-        thread_release_pid(thread->pid);
-fail_tcb:
-        free_page(MP_KERNEL, thread, 1);
+        return -1;
 }

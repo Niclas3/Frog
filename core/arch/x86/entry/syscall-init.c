@@ -9,6 +9,7 @@
 #include <frog/exit.h>
 #include <frog/fork.h>
 #include <frog/errno.h>
+#include <frog/exec.h>
 #include <frog/irqflags.h>
 #include <frog/test.h>
 #include <kernel/debug.h>
@@ -276,6 +277,7 @@ void syscall_init(void)
     syscall_table[SYS_TEST_SYNC] = sys_test_sync;
     syscall_table[SYS_FORK]    = sys_fork;
     syscall_table[SYS_EXIT]    = sys_exit;
+    syscall_table[SYS_EXECV]   = sys_execv;
     syscall_table[SYS_WAIT]    = sys_wait;
     syscall_table[SYS_TESTSYSCALL] = sys_testsyscall;
 #ifdef CONFIG_QEMU_TEST

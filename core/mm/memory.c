@@ -6,6 +6,7 @@
 #include <frog/semaphore.h>
 #include <frog/string.h>
 #include <frog/threads.h>
+#include <frog/uaccess.h>
 #include <frog/vm.h>
 
 #include <frog/math.h>  // for DIV_ROUND_UP
@@ -642,10 +643,12 @@ static void reserve_bootstrap_stack_vaddr(void)
 
 
 // Return a mem_block from a arena[idx]
-static inline struct mem_block *arena2block(struct arena *a, uint_32 idx)
+static inline struct mem_block *arena2block(struct arena *a,
+                                            uint_32 idx,
+                                            uint_32 block_size)
 {
         return (struct mem_block *) ((uint_32) a + sizeof(struct arena) +
-                                     idx * a->desc->block_size);
+                                     idx * block_size);
 }
 
 // Return a given mem_block
@@ -722,14 +725,17 @@ struct mem_block *set_posion_memory(struct arena *area,
              block_idx++) {
 #ifdef CONFIG_POSION_MEMORY
                 block = kasan_posion_arena2block(area, block_idx,
+                                                 descs[desc_idx].block_size,
                                                  KASAN_SAFE_REDZONE_SIZE);
                 kasan_posion((uintptr_t) block, descs[desc_idx].block_size,
                              KASAN_SAFE_REDZONE_SIZE,
                              (char) KASAN_KMALLOC_REDZONE);
 #else
-                block = arena2block(area, block_idx);
+                block = arena2block(area, block_idx,
+                                    descs[desc_idx].block_size);
 #endif
-                list_add_tail(&block->free_elem, &area->desc->free_list);
+                list_add_tail(&block->free_elem,
+                              &descs[desc_idx].free_list);
         }
         local_irq_restore(flags);
         return block;
@@ -769,7 +775,7 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
 
                 if (area != NULL) {
                         memset(area, 0, PAGE_SIZE * page_cnt);
-                        area->desc = NULL;
+                        area->desc_idx = ARENA_DESC_LARGE;
                         area->cnt = page_cnt;
                         area->large = true;
                         lock_release(&mem_pool->lock);
@@ -799,7 +805,7 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
                         }
                         memset(area, 0, PAGE_SIZE);
 
-                        area->desc = &descs[desc_idx];
+                        area->desc_idx = desc_idx;
                         area->large = false;
                         area->cnt = descs[desc_idx].blocks_per_arena;
                         uint_32 block_idx;
@@ -810,16 +816,20 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
                              block_idx++) {
 #ifdef CONFIG_POSION_MEMORY
                                 block = kasan_posion_arena2block(
-                                    area, block_idx, KASAN_SAFE_REDZONE_SIZE);
+                                    area, block_idx,
+                                    descs[desc_idx].block_size,
+                                    KASAN_SAFE_REDZONE_SIZE);
                                 kasan_posion((uintptr_t) block,
                                              descs[desc_idx].block_size,
                                              KASAN_SAFE_REDZONE_SIZE,
                                              (char) KASAN_KMALLOC_REDZONE);
 #else
-                                block = arena2block(area, block_idx);
+                                block = arena2block(
+                                    area, block_idx,
+                                    descs[desc_idx].block_size);
 #endif
                                 list_add_tail(&block->free_elem,
-                                              &area->desc->free_list);
+                                              &descs[desc_idx].free_list);
                         }
                         local_irq_restore(flags);
                 } else {
@@ -851,12 +861,15 @@ void *umalloc(uint_32 size)
 static void free_internal(void *ptr, pool_type p_type)
 {
         struct pool *mem_pool;
+        struct mem_block_desc *descs;
         if (ptr != NULL) {
                 if (p_type == MP_KERNEL) {
                         ASSERT((uint_32) ptr >= K_HEAP_START);
                         mem_pool = &kernel_pool;
+                        descs = k_block_descs;
                 } else if (p_type == MP_USER) {  // is process
                         mem_pool = &user_pool;
+                        descs = running_thread()->u_block_descs;
                 } else {
                         PANIC("[WORNG:mm]: at free pool type");
                 }
@@ -865,38 +878,44 @@ static void free_internal(void *ptr, pool_type p_type)
                 struct mem_block *block = ptr;
                 struct arena *a = block2arena(block);
 
-                if (a->desc) {
+                if (!a->large) {
+                        ASSERT(a->desc_idx < DESC_CNT);
 #ifdef CONFIG_POSION_MEMORY
-                        kasan_protect_free(a->desc->block_size,
+                        kasan_protect_free(descs[a->desc_idx].block_size,
                                            (uintptr_t) block);
 #endif
                 }
                 ASSERT(a->large == 0 || a->large == 1);
-                if (a->desc == NULL &&
-                    a->large == true) {  // arena is equal or over 1024B
+                if (a->large == true) {  // arena is equal or over 1024B
+                        ASSERT(a->desc_idx == ARENA_DESC_LARGE);
                         free_page(p_type, a, a->cnt);
                 } else {
+                        struct mem_block_desc *desc =
+                            &descs[a->desc_idx];
+
                         /* If less than 1024B, first free memory to
                          * desc->free_list
                          **/
                         memset(block, 0, sizeof(struct list_head));
                         INIT_LIST_HEAD(&block->free_elem);
 
-                        list_add_tail(&block->free_elem, &a->desc->free_list);
+                        list_add_tail(&block->free_elem, &desc->free_list);
                         // Test all arena free_list are free, if true release
                         // arena
-                        if (++a->cnt == a->desc->blocks_per_arena) {
+                        if (++a->cnt == desc->blocks_per_arena) {
                                 uint_32 block_idx;
                                 for (block_idx = 0;
-                                     block_idx < a->desc->blocks_per_arena;
+                                     block_idx < desc->blocks_per_arena;
                                      block_idx++) {
                                         struct mem_block *b;
 #ifdef CONFIG_POSION_MEMORY
                                         b = kasan_posion_arena2block(
                                             a, block_idx,
-                                            a->desc->redzone_size);
+                                            desc->block_size,
+                                            desc->redzone_size);
 #else
-                                        b = arena2block(a, block_idx);
+                                        b = arena2block(a, block_idx,
+                                                        desc->block_size);
 #endif
                                         list_del_init(&b->free_elem);
                                 }
@@ -1114,6 +1133,97 @@ void block_desc_init(struct mem_block_desc *desc_array)
 
                 INIT_LIST_HEAD(&desc_array[desc_idx].free_list);
                 block_size *= 2;
+        }
+}
+
+static bool block_desc_head_is_empty(const struct list_head *head)
+{
+        return head->next == head && head->prev == head;
+}
+
+static bool block_desc_head_is_consistent(const struct list_head *head)
+{
+        bool next_is_head = head->next == head;
+        bool prev_is_head = head->prev == head;
+
+        return next_is_head == prev_is_head && head->next != NULL &&
+               head->prev != NULL;
+}
+
+int_32 block_desc_validate_user_for_fork(
+    const struct mem_block_desc *descs)
+{
+        struct mem_block_desc expected[DESC_CNT];
+        uint_32 desc_idx;
+
+        if (descs == NULL)
+                return -1;
+        block_desc_init(expected);
+        for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
+                const struct list_head *head = &descs[desc_idx].free_list;
+                struct list_head first;
+                struct list_head last;
+
+                if (descs[desc_idx].block_size !=
+                        expected[desc_idx].block_size ||
+                    descs[desc_idx].blocks_per_arena !=
+                        expected[desc_idx].blocks_per_arena ||
+                    descs[desc_idx].redzone_size !=
+                        expected[desc_idx].redzone_size ||
+                    !block_desc_head_is_consistent(head))
+                        return -1;
+                if (block_desc_head_is_empty(head))
+                        continue;
+                if (copy_from_user(&first, head->next, sizeof(first)) < 0 ||
+                    copy_from_user(&last, head->prev, sizeof(last)) < 0 ||
+                    first.prev != head || last.next != head)
+                        return -1;
+        }
+        return 0;
+}
+
+int_32 block_desc_clone_prepare(struct mem_block_desc *child,
+                                const struct mem_block_desc *parent)
+{
+        uint_32 desc_idx;
+
+        if (child == NULL || parent == NULL)
+                return -1;
+        block_desc_init(child);
+        for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
+                const struct list_head *parent_head =
+                    &parent[desc_idx].free_list;
+                struct list_head *child_head = &child[desc_idx].free_list;
+
+                if (parent[desc_idx].block_size !=
+                        child[desc_idx].block_size ||
+                    parent[desc_idx].blocks_per_arena !=
+                        child[desc_idx].blocks_per_arena ||
+                    parent[desc_idx].redzone_size !=
+                        child[desc_idx].redzone_size ||
+                    !block_desc_head_is_consistent(parent_head))
+                        return -1;
+                if (!block_desc_head_is_empty(parent_head)) {
+                        child_head->next = parent_head->next;
+                        child_head->prev = parent_head->prev;
+                }
+        }
+        return 0;
+}
+
+void block_desc_clone_fixup(struct mem_block_desc *child)
+{
+        uint_32 desc_idx;
+
+        ASSERT(child != NULL);
+        for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
+                struct list_head *head = &child[desc_idx].free_list;
+
+                ASSERT(block_desc_head_is_consistent(head));
+                if (block_desc_head_is_empty(head))
+                        continue;
+                head->next->prev = head;
+                head->prev->next = head;
         }
 }
 

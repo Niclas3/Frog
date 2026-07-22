@@ -16,6 +16,9 @@ typedef unsigned char uint_8;
 // sizeof(uint_32); // 0x4
 typedef int int_32;
 
+/* Process IDs share the signed 32-bit syscall return ABI. */
+typedef int_32 pid_t;
+
 // sizeof(uint_16); // 0x2
 typedef short int_16;
 

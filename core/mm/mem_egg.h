@@ -18,10 +18,12 @@
  * So the smallest arena can hold 2 int numbers.
  */
 struct arena {
-        struct mem_block_desc *desc;
+        uint_32 desc_idx;
         uint_32 cnt;
         bool large;  // flag about this arena is over 1024b or not
 };
+
+#define ARENA_DESC_LARGE 0xffffffffU
 
 struct mem_block {
         struct list_head free_elem;

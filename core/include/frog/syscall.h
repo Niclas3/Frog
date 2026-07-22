@@ -239,12 +239,12 @@ enum SYSCALL_NR {
  +------------------------------------------------------------------------------------------------------------
  *
  */
-uint_32 getpid(void);
+pid_t getpid(void);
 
 void *malloc(uint_32 size);
 void free(void *ptr);
 
-uint_32 fork(void);
+pid_t fork(void);
 
 int_32 execv(const char *path, const char *argv[]);
 

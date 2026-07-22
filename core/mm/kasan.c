@@ -43,10 +43,11 @@ unsigned char kasan_check(uintptr_t addr, uint_32 size, bool is_write)
 // Return a mem_block from a arena[idx]
 struct mem_block *kasan_posion_arena2block(struct arena *a,
                                            uint_32 idx,
+                                           uint_32 block_size,
                                            uint_32 redzone_sz)
 {
         return (struct mem_block *) ((uintptr_t) a + sizeof(struct arena) +
-                                     (idx * a->desc->block_size) +
+                                     (idx * block_size) +
                                      ((idx + 1) * redzone_sz));
 }
 

@@ -29,13 +29,25 @@ static int_32 copy_tcb_stack0(TCB_t *child_thread, TCB_t *parent_thread)
         if (child_thread->pid == (pid_t) -1)
                 return -1;
         child_thread->elapsed_ticks = 0;
+        child_thread->need_schedule = false;
+        child_thread->exit_status = 0;
         child_thread->status = THREAD_TASK_READY;
         child_thread->ticks = child_thread->priority;
         child_thread->parent_pid = parent_thread->pid;
         INIT_LIST_HEAD(&child_thread->general_tag);
         INIT_LIST_HEAD(&child_thread->all_list_tag);
         INIT_LIST_HEAD(&child_thread->proc_list_tag);
-        block_desc_init(child_thread->u_block_descs);
+        if (block_desc_clone_prepare(child_thread->u_block_descs,
+                                     parent_thread->u_block_descs) < 0)
+                return -1;
+        memset(&child_thread->p_message, 0,
+               sizeof(child_thread->p_message));
+        child_thread->p_recvfrom = NO_TASK;
+        child_thread->p_sendto = NO_TASK;
+        child_thread->p_flags = 0;
+        child_thread->p_intr_present = 0;
+        child_thread->p_sending_queue = NULL;
+        child_thread->p_next_sending = NULL;
 
         uint_32 name_len = strlen(child_thread->name);
         strncpy(child_thread->name + name_len, "_fork",
@@ -70,11 +82,21 @@ static int_32 build_child_stack(TCB_t *child_thread, TCB_t *parent_thread)
 
 static int copy_process(TCB_t *child_thread, TCB_t *parent_thread)
 {
+        unsigned long flags;
+
+        if (block_desc_validate_user_for_fork(
+                parent_thread->u_block_descs) < 0)
+                goto fail;
         if (copy_tcb_stack0(child_thread, parent_thread) == -1)
                 goto fail;
         child_thread->mm = mm_clone_for_fork(parent_thread->mm);
         if (child_thread->mm == NULL)
                 goto fail;
+        local_irq_save(flags);
+        page_dir_activate(child_thread);
+        block_desc_clone_fixup(child_thread->u_block_descs);
+        page_dir_activate(parent_thread);
+        local_irq_restore(flags);
         build_child_stack(child_thread, parent_thread);
         return 0;
 
@@ -82,12 +104,12 @@ fail:
         return -1;
 }
 
-uint_32 sys_fork(void)
+pid_t sys_fork(void)
 {
         TCB_t *parent_thread = running_thread();
         TCB_t *child_thread;
         unsigned long syscall_flags;
-        uint_32 result;
+        pid_t result;
         bool files_retained = false;
 
         /* The syscall interrupt gate enters with IF clear; cloning may sleep. */
@@ -96,7 +118,7 @@ uint_32 sys_fork(void)
         child_thread = get_kernel_page(1);
 
         if (child_thread == NULL) {
-                result = (uint_32) -1;
+                result = -1;
                 goto restore_irqs;
         }
         memset(child_thread, 0, PAGE_SIZE);
@@ -127,7 +149,7 @@ fail:
         process_release_address_space(child_thread);
         thread_release_pid(child_thread->pid);
         free_page(MP_KERNEL, child_thread, 1);
-        result = (uint_32) -1;
+        result = -1;
 
 restore_irqs:
         local_irq_restore(syscall_flags);
