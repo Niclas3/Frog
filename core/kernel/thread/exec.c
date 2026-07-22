@@ -47,6 +47,40 @@ struct exec_image_plan {
 
 extern void intr_exit(void);
 
+#ifdef CONFIG_QEMU_TEST
+int_32 exec_test_arm_fail_before_commit(void)
+{
+        TCB_t *current = running_thread();
+        unsigned long flags;
+        int_32 result = 0;
+
+        if (current == NULL || current->mm == NULL)
+                return -EPERM;
+        local_irq_save(flags);
+        if (current->exec_test_fail_before_commit)
+                result = -EBUSY;
+        else
+                current->exec_test_fail_before_commit = true;
+        local_irq_restore(flags);
+        return result;
+}
+
+static bool exec_test_consume_fail_before_commit(void)
+{
+        TCB_t *current = running_thread();
+        unsigned long flags;
+        bool fail = false;
+
+        local_irq_save(flags);
+        if (current != NULL && current->exec_test_fail_before_commit) {
+                current->exec_test_fail_before_commit = false;
+                fail = true;
+        }
+        local_irq_restore(flags);
+        return fail;
+}
+#endif
+
 static void exec_release_arguments(struct exec_arguments *arguments)
 {
         if (arguments == NULL)
@@ -553,6 +587,14 @@ int_32 sys_execv(const char *path, const char *argv[])
                                     &user_argv);
         if (result != 0)
                 goto release_arguments;
+#ifdef CONFIG_QEMU_TEST
+        if (exec_test_consume_fail_before_commit()) {
+                mm_release_address_space(new_mm);
+                new_mm = NULL;
+                result = -ENOMEM;
+                goto release_arguments;
+        }
+#endif
         result = process_commit_user_image(
             new_mm, exec_image_name(arguments.path), entry, stack,
             arguments.argc, user_argv, &old_mm);

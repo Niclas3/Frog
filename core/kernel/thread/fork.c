@@ -48,6 +48,9 @@ static int_32 copy_tcb_stack0(TCB_t *child_thread, TCB_t *parent_thread)
         child_thread->p_intr_present = 0;
         child_thread->p_sending_queue = NULL;
         child_thread->p_next_sending = NULL;
+#ifdef CONFIG_QEMU_TEST
+        child_thread->exec_test_fail_before_commit = false;
+#endif
 
         uint_32 name_len = strlen(child_thread->name);
         strncpy(child_thread->name + name_len, "_fork",

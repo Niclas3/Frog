@@ -117,6 +117,9 @@ typedef struct thread_control_block {
             *p_sending_queue;  // a queue for sender to this process.
         struct thread_control_block
             *p_next_sending;  // a queue for sender to this process.
+#ifdef CONFIG_QEMU_TEST
+        bool exec_test_fail_before_commit;
+#endif
         uint_32 stack_magic;  // mark the board of stack 0x19900921;
 } TCB_t;
 

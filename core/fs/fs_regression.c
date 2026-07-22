@@ -18,6 +18,11 @@
 #define PERSIST_PATH PERSIST_DIR "/blob"
 #define PERSIST_SIZE (12U * 1024U + 37U)
 
+#ifdef CONFIG_FROG_TEST_STAGE_PREPARE
+extern const uint_8 _binary_exec_target_elf_start[];
+extern const uint_8 _binary_exec_target_elf_end[];
+#endif
+
 #if (defined(CONFIG_FROG_TEST_STAGE_PREPARE) +                         \
      defined(CONFIG_FROG_TEST_STAGE_VERIFY) +                          \
      defined(CONFIG_FROG_TEST_STAGE_CORRUPT)) != 1
@@ -32,6 +37,26 @@ static int close_file(struct file **file)
         *file = NULL;
         return ret;
 }
+
+#ifdef CONFIG_FROG_TEST_STAGE_PREPARE
+static int install_exec_fixture(void)
+{
+        const uint_8 *start = _binary_exec_target_elf_start;
+        uint_32 size = (uint_32) (_binary_exec_target_elf_end - start);
+        struct file *file = NULL;
+        int result = vfs_open_file("/test/exec-target",
+                                   O_CREAT | O_EXCL | O_WRONLY, &file);
+        int passed = result == 0;
+
+        if (passed)
+                passed = vfs_write(file, start, size) == (int_32) size;
+        if (file != NULL)
+                passed = close_file(&file) == 0 && passed;
+        if (!passed)
+                (void) vfs_unlink_path("/test/exec-target");
+        return passed;
+}
+#endif
 
 static int test_access_modes(void)
 {
@@ -365,6 +390,7 @@ void fs_regression_run_kernel(int init_result,
         if (!mounted)
                 return;
 #ifdef CONFIG_FROG_TEST_STAGE_PREPARE
+        frog_test_case("exec.fixture-install", install_exec_fixture());
         frog_test_case("frogfs.flags-access", test_access_modes());
         frog_test_case("frogfs.exclusive-create", test_exclusive_create());
         frog_test_case("frogfs.append-truncate-seek",

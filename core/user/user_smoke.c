@@ -82,7 +82,7 @@ static void process_exit(int_32 status) __attribute__((noreturn));
 
 static void process_exit(int_32 status)
 {
-        raw_syscall1(SYS_EXIT, (uint_32) status);
+        exit(status);
         for (;;)
                 __asm__ volatile("pause");
 }
@@ -93,13 +93,97 @@ static bool vm_refs_are(uint_32 expected)
                             FROG_TEST_VM_VERIFY_REFS_BASE + expected) == 0;
 }
 
-static bool wait_for_status(int_32 pid, int_32 expected)
+static bool wait_for_status(pid_t pid, int_32 expected)
 {
         int_32 status = 0;
 
-        return pid > 0 &&
-               raw_syscall1(SYS_WAIT, (uint_32) &status) == pid &&
+        return pid > 0 && wait(&status) == pid &&
                status == expected;
+}
+
+static bool test_wait_fault_retry(void)
+{
+        pid_t child = fork();
+        int_32 status = -1;
+
+        if (child == 0)
+                process_exit(38);
+        if (child < 0)
+                return false;
+        return wait((int_32 *) 0xc0000000U) == -EFAULT &&
+               wait(&status) == child && status == 38;
+}
+
+static bool test_zombie_adoption(void)
+{
+        pid_t worker = fork();
+        int_32 first_status = -1;
+        int_32 second_status = -1;
+        pid_t first;
+        pid_t second;
+
+        if (worker == 0) {
+                pid_t grandchild = fork();
+
+                if (grandchild == 0)
+                        process_exit(62);
+                if (grandchild < 0)
+                        process_exit(63);
+
+                /* -EFAULT proves the grandchild is already a zombie. */
+                process_exit(wait((int_32 *) 0xc0000000U) == -EFAULT ?
+                                 61 : 64);
+        }
+        if (worker < 0)
+                return false;
+
+        first = wait(&first_status);
+        second = wait(&second_status);
+        return first > 0 && second > 0 && first != second &&
+               ((first == worker && first_status == 61 &&
+                 second_status == 62) ||
+                (second == worker && second_status == 61 &&
+                 first_status == 62));
+}
+
+static bool test_user_heap_fork(void)
+{
+        volatile uint_8 *seed = (volatile uint_8 *) (uint_32)
+            raw_syscall1(SYS_TESTSYSCALL, FROG_TEST_HEAP_ALLOC_16);
+        int_32 child_block = -1;
+
+        if (seed == NULL)
+                return false;
+        *seed = 0x31U;
+
+        pid_t child = fork();
+        if (child == 0) {
+                volatile uint_8 *block = (volatile uint_8 *) (uint_32)
+                    raw_syscall1(SYS_TESTSYSCALL,
+                                 FROG_TEST_HEAP_ALLOC_16);
+                bool valid = *seed == 0x31U && block != NULL &&
+                             block != seed;
+
+                if (valid) {
+                        *block = 0x42U;
+                        valid = *block == 0x42U && *seed == 0x31U;
+                }
+                process_exit(valid ? (int_32) (uint_32) block : -1);
+        }
+        if (child < 0 || wait(&child_block) != child || child_block <= 0 ||
+            *seed != 0x31U)
+                return false;
+
+        volatile uint_8 *parent_block = (volatile uint_8 *) (uint_32)
+            raw_syscall1(SYS_TESTSYSCALL, FROG_TEST_HEAP_ALLOC_16);
+        bool valid = parent_block != NULL &&
+                     (int_32) (uint_32) parent_block == child_block;
+
+        if (valid) {
+                *parent_block = 0x53U;
+                valid = *parent_block == 0x53U && *seed == 0x31U;
+        }
+        return valid;
 }
 
 static bool test_vm_fork_rollback(void)
@@ -355,21 +439,18 @@ static void run_profile(void)
 {
         volatile int private_value = 7;
         (void) run_basic_checks();
-        pid_t child_pid = raw_syscall0(SYS_FORK);
+        pid_t child_pid = fork();
 
         if (child_pid == 0) {
                 private_value = 19;
-                raw_syscall1(SYS_EXIT, 37);
-                for (;;)
-                        __asm__ volatile("pause");
+                process_exit(37);
         }
 
         report(FROG_TEST_PROCESS_FORK_PARENT_RESULT,
                child_pid != -1 && child_pid != 0);
         if (child_pid != -1) {
                 int_32 status = -1;
-                int_32 waited_pid =
-                    raw_syscall1(SYS_WAIT, (uint_32) &status);
+                pid_t waited_pid = wait(&status);
 
                 report(FROG_TEST_PROCESS_WAIT_PID,
                        waited_pid == (int_32) child_pid);
@@ -381,8 +462,13 @@ static void run_profile(void)
                 report(FROG_TEST_PROCESS_WAIT_STATUS, false);
                 report(FROG_TEST_PROCESS_FORK_ADDRESS_SPACE, false);
         }
+        report(FROG_TEST_PROCESS_WAIT_FAULT_RETRY,
+               test_wait_fault_retry());
+        report(FROG_TEST_PROCESS_ZOMBIE_ADOPTION,
+               test_zombie_adoption());
+        report(FROG_TEST_PROCESS_HEAP_FORK, test_user_heap_fork());
         report(FROG_TEST_PROCESS_WAIT_NO_CHILD,
-               raw_syscall1(SYS_WAIT, 0) == -1);
+               wait(NULL) == -1);
         (void) run_vm_mapping_checks();
         finish(1);
 }
@@ -393,6 +479,145 @@ static bool wait_for_child(pid_t expected_pid)
         int_32 waited = raw_syscall1(SYS_WAIT, (uint_32) &status);
 
         return waited == (int_32) expected_pid && status == 0;
+}
+
+static bool wait_for_child_status(pid_t expected_pid, int_32 expected_status)
+{
+        int_32 status = -1;
+
+        return expected_pid > 0 && wait(&status) == expected_pid &&
+               status == expected_status;
+}
+
+static bool reset_and_read_q(int_32 fd)
+{
+        char value = 0;
+
+        return lseek(fd, 0, USER_SEEK_SET) == 0 &&
+               read(fd, &value, 1) == 1 && value == 'Q';
+}
+
+static bool test_exec_failpoint_lifecycle(void)
+{
+        pid_t owner = fork();
+
+        if (owner == 0) {
+                bool armed = raw_syscall1(
+                    SYS_TESTSYSCALL,
+                    FROG_TEST_EXEC_FAIL_PRECOMMIT) == 0;
+                pid_t child = armed ? fork() : -1;
+
+                if (child == 0) {
+                        bool cleared = raw_syscall1(
+                            SYS_TESTSYSCALL,
+                            FROG_TEST_EXEC_FAIL_PRECOMMIT) == 0;
+                        exit(cleared ? FROG_TEST_EXEC_ARM_EXIT_STATUS : 94);
+                        for (;;)
+                                __asm__ volatile("pause");
+                }
+                bool child_cleared = wait_for_child_status(
+                    child, FROG_TEST_EXEC_ARM_EXIT_STATUS);
+                exit(child_cleared ? FROG_TEST_EXEC_ARM_EXIT_STATUS : 95);
+                for (;;)
+                        __asm__ volatile("pause");
+        }
+        return wait_for_child_status(owner,
+                                     FROG_TEST_EXEC_ARM_EXIT_STATUS);
+}
+
+static void run_exec_checks(void)
+{
+        static const char target[] = "/test/exec-target";
+        static const char input_path[] = "/test/exec-input";
+        static const char invalid_path[] = "/test/not-elf";
+        static const char input[] = "Q";
+        static const char invalid[] = "not-elf";
+        static const char arg0[] = "exec-target";
+        static const char arg1[] = "alpha";
+        static const char arg2[] = "beta";
+        static const char overflow_value[] = "x";
+        const char *valid_argv[] = {arg0, arg1, arg2, NULL};
+        const char *overflow_argv[34];
+        int_32 input_fd = -1;
+        int_32 invalid_fd = -1;
+        bool cleanup_ok = true;
+
+        report(FROG_TEST_EXEC_BAD_PATH,
+               execv("/test/missing-exec", valid_argv) == -ENOENT);
+        bool bad_pointers =
+            execv((const char *) 0xc0000000U, valid_argv) == -EFAULT &&
+            execv(target, (const char **) 0xc0000000U) == -EFAULT;
+        report(FROG_TEST_EXEC_BAD_POINTERS, bad_pointers);
+
+        for (uint_32 index = 0; index < 33; index++)
+                overflow_argv[index] = overflow_value;
+        overflow_argv[33] = NULL;
+        report(FROG_TEST_EXEC_ARG_OVERFLOW,
+               execv(target, overflow_argv) == -E2BIG);
+
+        invalid_fd = open(invalid_path, O_CREAT | O_EXCL | O_WRONLY);
+        bool invalid_elf = invalid_fd >= 0 &&
+            write(invalid_fd, invalid, sizeof(invalid) - 1U) ==
+                (int_32) sizeof(invalid) - 1 &&
+            close(invalid_fd) == 0;
+        invalid_fd = -1;
+        invalid_elf = invalid_elf &&
+                      execv(invalid_path, valid_argv) == -ENOEXEC;
+        report(FROG_TEST_EXEC_INVALID_ELF, invalid_elf);
+
+        input_fd = open(input_path, O_CREAT | O_EXCL | O_RDWR);
+        bool input_ready = input_fd == 0 &&
+                           write(input_fd, input, 1) == 1 &&
+                           lseek(input_fd, 0, USER_SEEK_SET) == 0;
+        pid_t failed_child = input_ready ? fork() : -1;
+
+        if (failed_child == 0) {
+                volatile uint_32 canary = 0x4f4c444dU;
+                bool armed = raw_syscall1(
+                    SYS_TESTSYSCALL,
+                    FROG_TEST_EXEC_FAIL_PRECOMMIT) == 0;
+                int_32 result = execv(target, valid_argv);
+                char inherited = 0;
+                bool preserved = armed && result == -ENOMEM &&
+                                 canary == 0x4f4c444dU &&
+                                 read(input_fd, &inherited, 1) == 1 &&
+                                 inherited == 'Q';
+
+                exit(preserved ? FROG_TEST_EXEC_FAIL_STATUS : 92);
+                for (;;)
+                        __asm__ volatile("pause");
+        }
+
+        bool failure_preserved = input_ready &&
+            wait_for_child_status(failed_child,
+                                  FROG_TEST_EXEC_FAIL_STATUS) &&
+            reset_and_read_q(input_fd);
+        report(FROG_TEST_EXEC_FAILURE_PRESERVES, failure_preserved);
+
+        bool reset = failure_preserved &&
+                     lseek(input_fd, 0, USER_SEEK_SET) == 0;
+        bool lifecycle_ok = reset && test_exec_failpoint_lifecycle();
+        pid_t exec_child = lifecycle_ok ? fork() : -1;
+        if (exec_child == 0) {
+                (void) execv(target, valid_argv);
+                exit(93);
+                for (;;)
+                        __asm__ volatile("pause");
+        }
+        bool exec_success = lifecycle_ok &&
+            wait_for_child_status(exec_child,
+                                  FROG_TEST_EXEC_TARGET_STATUS);
+        report(FROG_TEST_EXEC_SUCCESS, exec_success);
+
+        bool fd_inherit = exec_success && reset_and_read_q(input_fd);
+        if (input_fd >= 0)
+                cleanup_ok = close(input_fd) == 0 && cleanup_ok;
+        if (invalid_fd >= 0)
+                cleanup_ok = close(invalid_fd) == 0 && cleanup_ok;
+        cleanup_ok = unlink(input_path) == 0 && cleanup_ok;
+        cleanup_ok = unlink(invalid_path) == 0 && cleanup_ok;
+        cleanup_ok = unlink(target) == 0 && cleanup_ok;
+        report(FROG_TEST_EXEC_FD_INHERIT, fd_inherit && cleanup_ok);
 }
 
 static bool test_child_close_parent_uses_fd(void)
@@ -465,6 +690,7 @@ static void run_profile(void)
                test_child_close_parent_uses_fd());
         report(FROG_TEST_FD_FORK_PARENT_CLOSE,
                test_parent_close_child_uses_fd());
+        run_exec_checks();
         finish(1);
 }
 #else

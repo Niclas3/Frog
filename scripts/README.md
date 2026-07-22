@@ -16,14 +16,25 @@ build log, debugcon output, QEMU trace, and copied images under
 `build/qemu-test/<timestamp>-boot-smoke-<classification>/`.
 
 `./scripts/qemu-test.sh disk-smoke` additionally enables the destructive disk
-and FrogFS cases. These operations still run only against disposable image
-copies. Set `FROG_QEMU_TIMEOUT` to change the 30-second deadline or
-`FROG_QEMU_KEEP=1` to retain all artifacts from a passing run.
+and FrogFS cases. Its prepare stage installs and executes a real static i386
+ET_EXEC with separate RX and RW load segments, then checks argc/argv,
+initialized data, zero-filled BSS, and an inherited file descriptor. It also
+checks invalid paths, pointers, argument counts, and ELF input, plus a test-only
+failure after candidate address-space construction to prove that the old image
+survives and a subsequent exec still succeeds. The one-shot failure state is
+also checked across fork, process exit, and PID reuse. These operations still
+run only against disposable image copies. Set `FROG_QEMU_TIMEOUT` to change the
+30-second deadline or `FROG_QEMU_KEEP=1` to retain all artifacts from a passing
+run.
 
 Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
 syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait
-case. The guest cases live in `core/kernel/thread/process_regression.c`.
+case. It also verifies that a bad wait status pointer leaves the same zombie
+available for retry, init adopts an already-zombie grandchild, and fork rebases
+a real nonempty user-heap free list without sharing allocation state. Kernel
+cases live in `core/kernel/thread/process_regression.c`; ring-3 cases live in
+`core/user/user_smoke.c`.
 
 All normal and QEMU-test boots now enter ring 3 through a separately linked
 image copied to `0x08048000`; kernel-linked `init()` remains only as legacy

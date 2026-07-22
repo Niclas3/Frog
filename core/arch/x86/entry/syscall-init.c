@@ -11,6 +11,7 @@
 #include <frog/errno.h>
 #include <frog/exec.h>
 #include <frog/irqflags.h>
+#include <frog/memory.h>
 #include <frog/test.h>
 #include <kernel/debug.h>
 #include <kernel/framebuffer.h>
@@ -156,6 +157,36 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_VM_MMAP_BUSY:
         name = "vm.mmap-busy";
         break;
+    case FROG_TEST_PROCESS_WAIT_FAULT_RETRY:
+        name = "process.wait-fault-retry";
+        break;
+    case FROG_TEST_PROCESS_ZOMBIE_ADOPTION:
+        name = "process.zombie-adoption";
+        break;
+    case FROG_TEST_PROCESS_HEAP_FORK:
+        name = "process.heap-fork";
+        break;
+    case FROG_TEST_EXEC_BAD_PATH:
+        name = "exec.bad-path";
+        break;
+    case FROG_TEST_EXEC_BAD_POINTERS:
+        name = "exec.bad-pointers";
+        break;
+    case FROG_TEST_EXEC_ARG_OVERFLOW:
+        name = "exec.arg-overflow";
+        break;
+    case FROG_TEST_EXEC_INVALID_ELF:
+        name = "exec.invalid-elf";
+        break;
+    case FROG_TEST_EXEC_FAILURE_PRESERVES:
+        name = "exec.failure-preserves-image";
+        break;
+    case FROG_TEST_EXEC_SUCCESS:
+        name = "exec.success";
+        break;
+    case FROG_TEST_EXEC_FD_INHERIT:
+        name = "exec.fd-inherit";
+        break;
     default:
         return -EINVAL;
     }
@@ -227,6 +258,8 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
 int_32 sys_testsyscall(uint_32 command)
 {
 #ifdef CONFIG_FROG_TEST_PROCESS
+    if (command == FROG_TEST_HEAP_ALLOC_16)
+        return (int_32) (uint_32) umalloc(16);
     if (command == FROG_TEST_VM_PREPARE)
         return mm_vm_process_prepare();
     if (command == FROG_TEST_VM_VERIFY_CLEANUP)
@@ -240,6 +273,10 @@ int_32 sys_testsyscall(uint_32 command)
                        FROG_TEST_VM_FORK_FAIL_COUNT)
         return mm_vm_process_verify_refs(
             command - FROG_TEST_VM_VERIFY_REFS_BASE);
+#endif
+#ifdef CONFIG_FROG_TEST_DISK
+    if (command == FROG_TEST_EXEC_FAIL_PRECOMMIT)
+        return exec_test_arm_fail_before_commit();
 #endif
 #if !defined(CONFIG_FROG_TEST_USER) && \
     !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)

@@ -818,11 +818,14 @@ static void *malloc_internal(uint_32 size, pool_type pool_t)
                                 block = kasan_posion_arena2block(
                                     area, block_idx,
                                     descs[desc_idx].block_size,
-                                    KASAN_SAFE_REDZONE_SIZE);
-                                kasan_posion((uintptr_t) block,
-                                             descs[desc_idx].block_size,
-                                             KASAN_SAFE_REDZONE_SIZE,
-                                             (char) KASAN_KMALLOC_REDZONE);
+                                    descs[desc_idx].redzone_size);
+                                if (pool_t == MP_KERNEL) {
+                                        kasan_posion(
+                                            (uintptr_t) block,
+                                            descs[desc_idx].block_size,
+                                            descs[desc_idx].redzone_size,
+                                            (char) KASAN_KMALLOC_REDZONE);
+                                }
 #else
                                 block = arena2block(
                                     area, block_idx,
@@ -881,8 +884,11 @@ static void free_internal(void *ptr, pool_type p_type)
                 if (!a->large) {
                         ASSERT(a->desc_idx < DESC_CNT);
 #ifdef CONFIG_POSION_MEMORY
-                        kasan_protect_free(descs[a->desc_idx].block_size,
-                                           (uintptr_t) block);
+                        if (p_type == MP_KERNEL) {
+                                kasan_protect_free(
+                                    descs[a->desc_idx].block_size,
+                                    (uintptr_t) block);
+                        }
 #endif
                 }
                 ASSERT(a->large == 0 || a->large == 1);
