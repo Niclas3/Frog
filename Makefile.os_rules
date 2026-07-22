@@ -32,6 +32,7 @@ C_FNO_FLAG += -fno-stack-protector
 C_FNO_FLAG += -fno-builtin
 C_NO_LINK += -c
 C_NO_GOT += -fno-pie
+C_SECTION_GC += -ffunction-sections -fdata-sections
 C_DEBUG := -g
 # C_ASAN += -fsanitize=address
 C_ASAN +=
@@ -115,7 +116,7 @@ endif
 endif
 C_DMACRO := $(MACRO_DEBUG)
 
-C_OPT := $(C_NO_LINK) $(C_NO_GOT) $(C_WARNG) $(C_MARCH386) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM) $(C_ASAN)
+C_OPT := $(C_NO_LINK) $(C_NO_GOT) $(C_SECTION_GC) $(C_WARNG) $(C_MARCH386) $(C_OUT_FMT) $(C_FNO_FLAG) $(C_DEBUG) $(C_OPTIM) $(C_ASAN)
 C_FLAG = $(C_OPT) $(C_DMACRO) $(foreach D, $(INCLUDES), -I$(D)) $(DEPFLAGS)
 
 # Object targets live in the shared build directory, so make can compare the
@@ -140,5 +141,5 @@ $(BUILD_DIR)/%.o: %.c
 # -M print a map
 # LD_FLAG := -s -m elf_i386 -Ttext $(CORE_VADDR) 
 CORE_VADDR := 0xc0070000
-LD_FLAG := -s -m elf_i386 -T ./scripts/kernel_dbg.ld
-LD_DEBUG_FLAG := -M -m elf_i386 -T ./scripts/kernel_dbg.ld
+LD_FLAG := -s --gc-sections -m elf_i386 -T ./scripts/kernel_dbg.ld
+LD_DEBUG_FLAG := -M --gc-sections -m elf_i386 -T ./scripts/kernel_dbg.ld

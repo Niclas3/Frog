@@ -27,24 +27,8 @@
 #define MEM_BITMAP_BASE 0xc0060000UL
 #define MEM_BITMAP_END  0xc0070000UL
 
-// 1 page dir table
-#define PDT_COUNT 1UL
-// no.254 is upper 1G memory start at 0xc000_0000
-//
-// [PDE no.768       map-> pg0 address ] represents size 4MB
-// 0xc000_0000
-//
-// [PDE no.769       ~ no.1023 pde -> pg1 2nd page address] represent size 1GB
-// 0xc040_0000       ~ 0xFFC0_0000 : virtual address range
-
-#define MAX_KPT_COUNT 255  // represent real 1GB  memory
-
-#define PG0_COUNT 1
-// In real world Frog don't need all Upper vaddress I will give it 4MB
-#define PGT_COUNT (MAX_KPT_COUNT / 255 + PG0_COUNT)
-
-#define MEM_POOL_START \
-        (KPAGE_TABLE_START + PAGE_SIZE * (PDT_COUNT + PGT_COUNT))
+/* setup_page() owns physical [KPAGE_TABLE_START, BOOTSTRAP_PAGING_END). */
+#define MEM_POOL_START BOOTSTRAP_PAGING_END
 
 #define PG_OCCUPIED 1
 #define PG_VACANT 0
@@ -1018,14 +1002,13 @@ static void mem_pool_init(uint_32 alloc_end)
          *       0x0000_c508       |   GDT            |   100bytes     |
          *       0x0000_c588       |   IDT            |   255 * 8bytes |
          *       0x0006_0000       | MEM_BITMAP_BASE  |
-         *[0x0007_0000,0x0007cfcc] |   kernel code    |   20 pages     |
+         *[0x0007_0000,0x0009e000) | kernel PT_LOAD  | <= 184 KiB     |
+         *[0x0009_e000,0x0009f000) | early stack     |   1 page       |
          *       0x000a_0000       |   vga            |   x pages      |
          *       0x000b_8000       |   text view      |   x pages      |
          *--------------------------------------------+----------------+
-         *[0x0010_0000, PG_SZ *    |                  |
-         * (PDT_COUNT+PGT_COUNT)]  |                  |
-         *                         |   page table     |   3 pages
-         *                         |                  |
+         *[0x0010_0000,0x0020_0000)| bootstrap paging|   256 pages
+         *                         | PD + 255 PTs     |
          * ------------------------+------------------+-----------------
          * physical memory available usage
          *

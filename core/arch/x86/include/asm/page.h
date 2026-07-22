@@ -4,6 +4,8 @@
 // 32bit for now
 #define PAGE_SIZE       4096U
 #define KPAGE_TABLE_START 0x00100000UL
+/* Loader-owned page directory and page tables: physical [1 MiB, 2 MiB). */
+#define BOOTSTRAP_PAGING_END 0x00200000UL
 /* P bit shows if or not this entry in memory
  * R/W W bit shows read / execute
  * R/W R bit shows read / execute

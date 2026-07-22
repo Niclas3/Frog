@@ -13,14 +13,14 @@
 ;     6 K | unused                | 0x0000_E800 - 0x0001_0000
 ;   256 K | core.img (ELF image)  | 0x0001_0000 - 0x0005_0000
 ;   128 K | unused                | 0x0005_0000 - 0x0007_0000
-;   192 K | core (decompressed)   | 0x0007_0000 - 0x000A_0000
-;         |   _end ≈ 0x0007_CFCC  |
+;  <=184K | core PT_LOAD          | 0x0007_0000 - 0x0009_E000
+;     4 K | early kernel stack    | 0x0009_E000 - 0x0009_F000
+;     4 K | unused/stack guard    | 0x0009_F000 - 0x000A_0000
 ;    64 K | VGA framebuffer       | 0x000A_0000 - 0x000B_0000  (mode 13h etc.)
 ;    32 K | VGA text + alt        | 0x000B_0000 - 0x000C_0000  (text @ 0xB8000)
 ;   256 K | BIOS ROM / reserved   | 0x000C_0000 - 0x0010_0000
-;    N K  | page tables           | 0x0010_0000 - 0x0010_0000+P
-;         |   (PD + PTs, sized by | (P = PAGE_SIZE * (PDT_COUNT+PGT_COUNT))
-;         |    PDT_COUNT/PGT_COUNT)|
+;     1 M | bootstrap paging      | 0x0010_0000 - 0x0020_0000
+;         |   (1 PD + 255 PTs)    |
 ;   rest  | kernel pool / user    | above page tables;
 ;         | pool                  | mem_pool_init splits free RAM 50/50.
 ;
@@ -40,8 +40,10 @@
 ;                        |   - user_pool.pool_bitmap.bits   (back-to-back)
 ;                        |   - kernel_viraddr.vaddr_bitmap.bits
 ;   0xC007_0000          | kernel .text (link base, kernel_dbg.ld)
-;  ≈0xC007_CFCC          | _end
-;  ≈0xC007_D000          | K_HEAP_START  ((_end & ~0xfff) + 0x1000)
+; <=0xC009_E000          | _end (enforced by kernel_dbg.ld)
+;   0xC009_E000          | early kernel stack page
+;   0xC009_F000          | initial esp
+;                        | K_HEAP_START follows _end; mem_init reserves stack
 ;                        |   kernel heap grows upward; managed by
 ;                        |   kernel_viraddr.vaddr_bitmap; served by
 ;                        |   kmalloc / kfree.
@@ -247,6 +249,9 @@ TI_LDT  equ  100b
 
 ;;Page 
 PAGE_DIR_START equ 0x100000
+; setup_page reserves one page directory plus 255 page tables.  Keep this
+; contract synchronized with BOOTSTRAP_PAGING_END in asm/page.h.
+BOOTSTRAP_PAGING_END equ 0x200000
 ; PAGE_DIR_START equ 0x0
 PG_P equ 1b
 PG_RW_R equ 00b

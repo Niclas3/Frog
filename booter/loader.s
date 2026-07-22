@@ -676,11 +676,10 @@ setup_page:
     ; size   counts
     ;   4b x  1024 = 4096d aka 0x1000
     ; It is size of all entries.
-    ; To clear 4096 byte memory from PAGE_DIR_START.
-    ; This is for page directory !
+    ; Clear the loader-owned page directory and page tables.
 ;  ebp+4 ---> size in byte
 ;  ebp+8 ---> start_addr
-;; clear up 5 * 4KB size memory for 1 PDT and 4 PT like linux
+;; Clear the complete loader-owned paging region: one PD plus 255 PTs.
 
 ;     mov ecx, 4096
 ;     mov esi, 0
@@ -689,8 +688,11 @@ setup_page:
 ;     inc esi
 ;     loop .clear_page_dir
 
-    push PAGE_DIR_START  ;;push 0x100000
-    push 4096 * 9        ;;size of 1 page dir table + 8 page tables
+%if BOOTSTRAP_PAGING_END <= PAGE_DIR_START
+    %error "bootstrap paging range is invalid"
+%endif
+    push PAGE_DIR_START
+    push BOOTSTRAP_PAGING_END - PAGE_DIR_START
     call clearmem
     add esp, 8
 
@@ -763,7 +765,7 @@ PG_MSIZE_4M   equ 1024
     mov ecx, 254
     mov esi, 769
 .create_kernel_pde:
-    mov [ebx+esi*4], eax ; no.769 ~ no.1023 pde -> 2nd page address
+    mov [ebx+esi*4], eax ; no.769 ~ no.1022 pde -> 2nd page address
     inc esi
     add eax, 0x1000 ;4096 = size page table
     loop .create_kernel_pde
@@ -997,6 +999,18 @@ load_program:
     push eax         ; dest of copy
     call copyMem
     add esp, 12   ; Clean up the stack after the function call
+
+    ; ELF PT_LOAD requires the in-memory tail to be zero when memsz > filesz.
+    mov eax, [ebx+20] ; p_memsz
+    sub eax, [ebx+16] ; p_filesz
+    jbe .load_program_segment_done
+    mov edx, [ebx+8]  ; p_vaddr
+    add edx, [ebx+16]
+    push edx           ; start address
+    push eax           ; byte count
+    call clearmem
+    add esp, 8
+.load_program_segment_done:
     inc esi
 .load_program_continue:
     loop .load_program_start
@@ -1034,12 +1048,18 @@ copyMem:
 ;     ebp+8 ---> start_addr
 ;===============================================================================
 clearmem:
+    push ebp
     mov ebp, esp
-    mov ecx, [ebp+4]
-    mov esi, 0
-.clear_mem:
-    mov eax, [ebp+8]
-    mov byte [eax + esi],0
-    inc esi
-    loop .clear_mem
+    push eax
+    push ecx
+    push edi
+    mov ecx, [ebp+8]
+    mov edi, [ebp+12]
+    xor eax, eax
+    cld
+    rep stosb
+    pop edi
+    pop ecx
+    pop eax
+    pop ebp
     ret
