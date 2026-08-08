@@ -94,37 +94,29 @@ int_32 frog_pkg_server_send(int_32 fd, frog_pkg_peer_id peer_id,
 static int_32 frog_pkg_receive(int_32 fd, struct frog_pkg_message *message,
                                bool server_role)
 {
-        uint_8 storage[FROG_PKG_RECORD_MAX];
-        struct frog_pkg_record *record = (struct frog_pkg_record *) storage;
         int_32 result;
 
         if (message == NULL)
                 return -EINVAL;
-        result = read(fd, record, sizeof(storage));
+        result = read(fd, message, sizeof(*message));
         if (result <= 0)
                 return result;
         if (result < (int_32) FROG_PKG_HEADER_SIZE ||
             result > (int_32) FROG_PKG_RECORD_MAX ||
-            record->payload_size > FROG_PKG_PAYLOAD_MAX ||
+            message->payload_size > FROG_PKG_PAYLOAD_MAX ||
             result != (int_32) (FROG_PKG_HEADER_SIZE +
-                                record->payload_size))
+                                message->payload_size))
                 return -EPROTO;
-        if (record->event != FROG_PKG_DATA &&
-            record->event != FROG_PKG_DISCONNECT &&
-            record->event != FROG_PKG_WRITABLE)
+        if (message->event != FROG_PKG_DATA &&
+            message->event != FROG_PKG_DISCONNECT &&
+            message->event != FROG_PKG_WRITABLE)
                 return -EPROTO;
-        if (record->event != FROG_PKG_DATA && record->payload_size != 0)
+        if (message->event != FROG_PKG_DATA && message->payload_size != 0)
                 return -EPROTO;
-        if ((server_role && record->peer_id == 0) ||
-            (!server_role && (record->peer_id != 0 ||
-                              record->event != FROG_PKG_DATA)))
+        if ((server_role && message->peer_id == 0) ||
+            (!server_role && (message->peer_id != 0 ||
+                              message->event != FROG_PKG_DATA)))
                 return -EPROTO;
-
-        message->peer_id = record->peer_id;
-        message->event = record->event;
-        message->payload_size = record->payload_size;
-        for (uint_32 index = 0; index < record->payload_size; index++)
-                message->payload[index] = record->payload[index];
         return result;
 }
 

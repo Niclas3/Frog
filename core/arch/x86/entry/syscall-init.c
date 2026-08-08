@@ -393,6 +393,48 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_PACKAGEFS_USERLIB_BROADCAST_RESULTS:
         name = "packagefs-userlib.broadcast-independent-results";
         break;
+    case FROG_TEST_POUDLAND_V1_CONNECT_HANDSHAKE:
+        name = "poudland-v1.connect-delayed-bind-handshake";
+        break;
+    case FROG_TEST_POUDLAND_V1_WINDOW_LIFECYCLE:
+        name = "poudland-v1.window-create-success";
+        break;
+    case FROG_TEST_POUDLAND_V1_CONNECT_ERRNO:
+        name = "poudland-v1.connect-non-enoent-not-retried";
+        break;
+    case FROG_TEST_POUDLAND_V1_INCOMPATIBLE_VERSION:
+        name = "poudland-v1.incompatible-version";
+        break;
+    case FROG_TEST_POUDLAND_V1_ERROR_RESPONSE:
+        name = "poudland-v1.error-response-consumes-pending";
+        break;
+    case FROG_TEST_POUDLAND_V1_WRAPPER_TIMEOUT_RESET:
+        name = "poudland-v1.wrapper-timeout-resets-context";
+        break;
+    case FROG_TEST_POUDLAND_V1_ID_WRAP_SKIP:
+        name = "poudland-v1.request-id-wrap-skip-pending";
+        break;
+    case FROG_TEST_POUDLAND_V1_REORDERED_RESPONSE_EVENT:
+        name = "poudland-v1.reordered-response-and-event";
+        break;
+    case FROG_TEST_POUDLAND_V1_ERROR_TIMEOUT_REWAIT:
+        name = "poudland-v1.error-and-timeout-rewait";
+        break;
+    case FROG_TEST_POUDLAND_V1_WINDOW_CLOSE:
+        name = "poudland-v1.window-close-success";
+        break;
+    case FROG_TEST_POUDLAND_V1_MALFORMED_FRAME:
+        name = "poudland-v1.malformed-frame-fatal";
+        break;
+    case FROG_TEST_POUDLAND_V1_ROUTING_FATAL:
+        name = "poudland-v1.unknown-id-and-wrong-type-fatal";
+        break;
+    case FROG_TEST_POUDLAND_V1_INBOX_OVERFLOW:
+        name = "poudland-v1.ninth-inbox-item-overflow-fatal";
+        break;
+    case FROG_TEST_POUDLAND_V1_HUP_DRAIN:
+        name = "poudland-v1.pollin-hup-drains-response-first";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;

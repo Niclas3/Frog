@@ -129,6 +129,90 @@ $(error packagefs-userlib-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_PACKAGEFS_USERLIB
 endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-connect-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-connect-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_CONNECT
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-lifecycle-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-lifecycle-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_LIFECYCLE
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-version-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-version-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_VERSION
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-errno-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-errno-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_ERRNO
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-routing-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-routing-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_ROUTING
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-id-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-id-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_ID
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-retry-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-retry-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_RETRY
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-create-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-create-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_CREATE
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-close-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-close-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_CLOSE
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-error-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-error-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_ERROR
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-protocol-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-protocol-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_PROTOCOL
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-fatal-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-fatal-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_FATAL
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-overflow-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-overflow-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_OVERFLOW
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-v1-hup-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-v1-hup-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_V1_HUP
+endif
 ifeq ($(FROG_TEST_PROFILE),input-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error input-smoke requires QEMU_TEST=1)

@@ -18,6 +18,20 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/user_smoke_packagefs_blob.o \
 	 $(BUILD_DIR)/user_smoke_packagefs_lifecycle_blob.o \
 	 $(BUILD_DIR)/user_smoke_packagefs_userlib_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_connect_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_lifecycle_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_version_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_errno_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_id_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_routing_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_retry_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_create_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_close_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_error_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_protocol_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_fatal_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_overflow_blob.o \
+	 $(BUILD_DIR)/user_smoke_poudland_v1_hup_blob.o \
 	 $(BUILD_DIR)/user_smoke_input_blob.o \
 	 $(BUILD_DIR)/user_smoke_time_blob.o \
 	 $(BUILD_DIR)/user_smoke_wait2_blob.o \

@@ -23,6 +23,9 @@ ls.o: ls.c
 packagefs.o: lib/packagefs.c
 	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
 
+poudland_v1.o: lib/gua/poudland_v1.c
+	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
+
 # home brew C runtime
 crt.o: start.s
 	nasm -f elf -o $@ $^

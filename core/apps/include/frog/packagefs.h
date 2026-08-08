@@ -13,6 +13,17 @@ struct frog_pkg_message {
         uint_8 payload[FROG_PKG_PAYLOAD_MAX];
 };
 
+typedef char frog_pkg_message_must_match_record_size[
+    sizeof(struct frog_pkg_message) == FROG_PKG_RECORD_MAX ? 1 : -1];
+typedef char frog_pkg_message_must_match_record_layout[
+    __builtin_offsetof(struct frog_pkg_message, peer_id) == 0U &&
+            __builtin_offsetof(struct frog_pkg_message, event) == 4U &&
+            __builtin_offsetof(struct frog_pkg_message, payload_size) == 8U &&
+            __builtin_offsetof(struct frog_pkg_message, payload) ==
+                FROG_PKG_HEADER_SIZE
+        ? 1
+        : -1];
+
 enum frog_pkg_delivery_class {
         FROG_PKG_DELIVERED = 1,
         FROG_PKG_WOULD_BLOCK,

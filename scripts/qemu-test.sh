@@ -28,11 +28,25 @@ case "$profile" in
     packagefs-smoke) stages=(boot) ;;
     packagefs-lifecycle-smoke) stages=(boot) ;;
     packagefs-userlib-smoke) stages=(boot) ;;
+    poudland-v1-connect-smoke) stages=(boot) ;;
+    poudland-v1-lifecycle-smoke) stages=(boot) ;;
+    poudland-v1-version-smoke) stages=(boot) ;;
+    poudland-v1-errno-smoke) stages=(boot) ;;
+    poudland-v1-id-smoke) stages=(boot) ;;
+    poudland-v1-routing-smoke) stages=(boot) ;;
+    poudland-v1-retry-smoke) stages=(boot) ;;
+    poudland-v1-create-smoke) stages=(boot) ;;
+    poudland-v1-close-smoke) stages=(boot) ;;
+    poudland-v1-error-smoke) stages=(boot) ;;
+    poudland-v1-protocol-smoke) stages=(boot) ;;
+    poudland-v1-fatal-smoke) stages=(boot) ;;
+    poudland-v1-overflow-smoke) stages=(boot) ;;
+    poudland-v1-hup-smoke) stages=(boot) ;;
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")

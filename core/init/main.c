@@ -125,6 +125,34 @@ extern const uint_8 _binary_user_smoke_packagefs_lifecycle_bin_start[];
 extern const uint_8 _binary_user_smoke_packagefs_lifecycle_bin_end[];
 extern const uint_8 _binary_user_smoke_packagefs_userlib_bin_start[];
 extern const uint_8 _binary_user_smoke_packagefs_userlib_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_connect_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_connect_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_lifecycle_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_lifecycle_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_version_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_version_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_errno_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_errno_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_id_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_id_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_routing_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_routing_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_retry_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_retry_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_create_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_create_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_close_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_close_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_error_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_error_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_protocol_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_protocol_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_fatal_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_fatal_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_overflow_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_overflow_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_v1_hup_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_v1_hup_bin_end[];
 extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
 extern const uint_8 _binary_user_smoke_time_bin_start[];
@@ -206,6 +234,48 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_PACKAGEFS_USERLIB)
         image_start = _binary_user_smoke_packagefs_userlib_bin_start;
         image_end = _binary_user_smoke_packagefs_userlib_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_CONNECT)
+        image_start = _binary_user_smoke_poudland_v1_connect_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_connect_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_LIFECYCLE)
+        image_start = _binary_user_smoke_poudland_v1_lifecycle_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_lifecycle_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_VERSION)
+        image_start = _binary_user_smoke_poudland_v1_version_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_version_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ERRNO)
+        image_start = _binary_user_smoke_poudland_v1_errno_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_errno_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ID)
+        image_start = _binary_user_smoke_poudland_v1_id_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_id_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ROUTING)
+        image_start = _binary_user_smoke_poudland_v1_routing_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_routing_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_RETRY)
+        image_start = _binary_user_smoke_poudland_v1_retry_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_retry_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_CREATE)
+        image_start = _binary_user_smoke_poudland_v1_create_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_create_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_CLOSE)
+        image_start = _binary_user_smoke_poudland_v1_close_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_close_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ERROR)
+        image_start = _binary_user_smoke_poudland_v1_error_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_error_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_PROTOCOL)
+        image_start = _binary_user_smoke_poudland_v1_protocol_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_protocol_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_FATAL)
+        image_start = _binary_user_smoke_poudland_v1_fatal_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_fatal_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_OVERFLOW)
+        image_start = _binary_user_smoke_poudland_v1_overflow_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_overflow_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_HUP)
+        image_start = _binary_user_smoke_poudland_v1_hup_bin_start;
+        image_end = _binary_user_smoke_poudland_v1_hup_bin_end;
 #elif defined(CONFIG_FROG_TEST_INPUT)
         image_start = _binary_user_smoke_input_bin_start;
         image_end = _binary_user_smoke_input_bin_end;
@@ -325,6 +395,34 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("packagefs-lifecycle-smoke");
 #elif defined(CONFIG_FROG_TEST_PACKAGEFS_USERLIB)
         frog_test_begin("packagefs-userlib-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_CONNECT)
+        frog_test_begin("poudland-v1-connect-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_LIFECYCLE)
+        frog_test_begin("poudland-v1-lifecycle-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_VERSION)
+        frog_test_begin("poudland-v1-version-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ERRNO)
+        frog_test_begin("poudland-v1-errno-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ID)
+        frog_test_begin("poudland-v1-id-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ROUTING)
+        frog_test_begin("poudland-v1-routing-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_RETRY)
+        frog_test_begin("poudland-v1-retry-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_CREATE)
+        frog_test_begin("poudland-v1-create-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_CLOSE)
+        frog_test_begin("poudland-v1-close-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_ERROR)
+        frog_test_begin("poudland-v1-error-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_PROTOCOL)
+        frog_test_begin("poudland-v1-protocol-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_FATAL)
+        frog_test_begin("poudland-v1-fatal-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_OVERFLOW)
+        frog_test_begin("poudland-v1-overflow-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_V1_HUP)
+        frog_test_begin("poudland-v1-hup-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)
         frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_TIME)
