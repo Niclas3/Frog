@@ -13,6 +13,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/user_smoke_process_blob.o \
 	 $(BUILD_DIR)/user_smoke_disk_prepare_blob.o \
 	 $(BUILD_DIR)/user_smoke_framebuffer_mmap_blob.o \
+	 $(BUILD_DIR)/user_smoke_anonymous_mmap_blob.o \
 	 $(BUILD_DIR)/user_smoke_input_blob.o \
 	 $(BUILD_DIR)/user_smoke_time_blob.o \
 	 $(BUILD_DIR)/user_smoke_wait2_blob.o \

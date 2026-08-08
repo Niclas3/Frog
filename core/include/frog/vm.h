@@ -13,6 +13,8 @@
 #define VM_MAP_MAX_LENGTH  (16U * 1024U * 1024U)
 #define VM_DEVICE_PTE_FLAGS \
         (PG_P_SET | PG_RW_W | PG_US_U | PG_PWT | PG_PCD)
+#define VM_RAM_PTE_FLAGS \
+        (PG_P_SET | PG_RW_W | PG_US_U)
 
 struct device;
 struct file;
@@ -103,6 +105,8 @@ int vm_mapping_prepare_device(struct vm_mapping *mapping,
                               struct device *device,
                               struct phys_resource *resource,
                               void *private_data);
+/* RAM-owned mappings carry no file, device, resource or close callback. */
+int vm_mapping_prepare_owned(struct vm_mapping *mapping);
 struct vm_area *vm_area_alloc(uint_32 length,
                               uint_32 prot,
                               uint_32 flags,
@@ -122,15 +126,19 @@ struct vm_area *vm_area_remove_exact(struct mm_struct *mm,
                                      uint_32 end);
 
 /*
- * On success vm_map_pfn_range() transfers vma and its mapping reference to mm.
- * On failure ownership remains with the caller. vm_unmap_exact() consumes and
- * frees the matching VMA and drops its mapping reference after releasing locks.
- * Both operations currently require mm to be the active, single-CPU address
- * space; SMP remains disabled until cross-CPU TLB shootdown exists.
+ * On success either map helper transfers vma and its mapping reference to mm.
+ * vm_map_owned_range() eagerly allocates private RAM; vm_map_pfn_range() maps
+ * borrowed device pages. On failure ownership remains with the caller.
+ * vm_unmap_exact() consumes and frees the exact matching VMA. These operations
+ * currently require the active, single-CPU address space; SMP remains disabled
+ * until cross-CPU TLB shootdown exists.
  */
 int vm_map_pfn_range(struct mm_struct *mm,
                      struct vm_area *vma,
                      uint_32 *mapped_start);
+int vm_map_owned_range(struct mm_struct *mm,
+                       struct vm_area *vma,
+                       uint_32 *mapped_start);
 int vm_unmap_exact(struct mm_struct *mm, uint_32 start, uint_32 length);
 
 /* The caller holds mm->mmap_lock. Zero means no fitting range. */
@@ -138,6 +146,7 @@ uint_32 vm_find_unmapped_area(struct mm_struct *mm, uint_32 length);
 
 #ifdef CONFIG_QEMU_TEST
 void vm_test_fail_map_after(int installed_ptes);
+void vm_test_fail_owned_alloc_after(int allocated_frames);
 void vm_test_fail_fork_after(int clone_steps);
 #endif
 

@@ -2,13 +2,17 @@ include ../../Makefile.os_rules
 
 OBJCOPY ?= objcopy
 
-USER_PROFILES := basic process disk_prepare framebuffer_mmap input time wait2
+USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap input time wait2
 USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 EXEC_TARGET_BLOB := $(BUILD_DIR)/exec_target_blob.o
 USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
 	$(foreach D, $(INCLUDES), -I$(D))
+ANONYMOUS_MMAP_TEST_CFLAGS :=
+ifeq ($(FROG_TEST_ALLOW_MAX_OOM),1)
+ANONYMOUS_MMAP_TEST_CFLAGS += -DFROG_TEST_ALLOW_MAX_OOM
+endif
 
 .PHONY: all clean
 all: $(USER_BLOBS) $(EXEC_TARGET_BLOB)
@@ -31,6 +35,11 @@ $(BUILD_DIR)/user_smoke_disk_prepare_user.o: user_smoke.c
 $(BUILD_DIR)/user_smoke_framebuffer_mmap_user.o: framebuffer_mmap_smoke.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_framebuffer_mmap_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_anonymous_mmap_user.o: anonymous_mmap_smoke.c
+	$(CC) $(USER_CFLAGS) $(ANONYMOUS_MMAP_TEST_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_anonymous_mmap_user.d \
 		-o $@ $<
 
 $(BUILD_DIR)/user_smoke_input_user.o: input_smoke.c

@@ -1487,6 +1487,72 @@ int_32 mm_vm_process_prepare(void) { return -EOPNOTSUPP; }
 int_32 mm_vm_process_verify_cleanup(void) { return -EOPNOTSUPP; }
 #endif
 
+#ifdef CONFIG_FROG_TEST_ANONYMOUS_MMAP
+extern struct pool user_pool;
+static uint_32 anon_mmap_user_frames;
+static bool anon_mmap_snapshot_live;
+
+static uint_32 anon_mmap_pool_frames_used(struct pool *pool)
+{
+        uint_32 used = 0;
+        uint_32 capacity = pool->pool_bitmap.map_bytes_length * 8U;
+
+        for (uint_32 bit = 0; bit < capacity; bit++) {
+                if (get_value_bitmap(&pool->pool_bitmap, bit))
+                        used++;
+        }
+        return used;
+}
+
+int_32 mm_anon_mmap_test_command(uint_32 command)
+{
+        if (command == FROG_TEST_ANON_MMAP_SNAPSHOT) {
+                if (anon_mmap_snapshot_live)
+                        return -EBUSY;
+                anon_mmap_user_frames =
+                    anon_mmap_pool_frames_used(&user_pool);
+                anon_mmap_snapshot_live = true;
+                return 0;
+        }
+        if (command == FROG_TEST_ANON_MMAP_VERIFY) {
+                bool passed = anon_mmap_snapshot_live &&
+                    anon_mmap_pool_frames_used(&user_pool) ==
+                        anon_mmap_user_frames;
+
+                anon_mmap_snapshot_live = false;
+                return passed ? 0 : -EUCLEAN;
+        }
+        if (command >= FROG_TEST_ANON_MMAP_FAIL_BASE &&
+            command < FROG_TEST_ANON_MMAP_FAIL_BASE +
+                          FROG_TEST_ANON_MMAP_FAIL_COUNT) {
+                vm_test_fail_map_after(
+                    command - FROG_TEST_ANON_MMAP_FAIL_BASE);
+                return 0;
+        }
+        if (command >= FROG_TEST_ANON_ALLOC_FAIL_BASE &&
+            command < FROG_TEST_ANON_ALLOC_FAIL_BASE +
+                          FROG_TEST_ANON_ALLOC_FAIL_COUNT) {
+                vm_test_fail_owned_alloc_after(
+                    command - FROG_TEST_ANON_ALLOC_FAIL_BASE);
+                return 0;
+        }
+        if (command >= FROG_TEST_ANON_FORK_FAIL_BASE &&
+            command < FROG_TEST_ANON_FORK_FAIL_BASE +
+                          FROG_TEST_ANON_FORK_FAIL_COUNT) {
+                vm_test_fail_fork_after(
+                    command - FROG_TEST_ANON_FORK_FAIL_BASE);
+                return 0;
+        }
+        return -EINVAL;
+}
+#else
+int_32 mm_anon_mmap_test_command(uint_32 command)
+{
+        (void) command;
+        return -EOPNOTSUPP;
+}
+#endif
+
 int mm_regression_test(void)
 {
         mm_test_failures = 0;

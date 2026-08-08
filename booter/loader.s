@@ -504,11 +504,12 @@ LABEL_SEG_CODE32:
 
 ;;==============================================================================
 ;; Load the packaged kernel ELF at 0x10000.  The 512-sector reservation ends
-;; at 0x50000, below the first unpacked kernel segment at physical 0x70000.
+;; at 0x50000.  The bitmap window occupies 0x50000..0x60000, immediately below
+;; the first unpacked kernel segment at physical 0x60000.
 ;;==============================================================================
     KERNELBIN_START equ 0x10000
     ; KERNEL_START    equ 0xc0080000
-    KERNEL_START    equ 0xc0070000
+    KERNEL_START    equ 0xc0060000
 
 ; eax = LBA sector number
 ; ebx  = base address 
@@ -526,8 +527,8 @@ LABEL_SEG_CODE32:
 %if KERNEL_START_SECTOR + KERNEL_SECTOR_COUNT > FONT_START_SECTOR
     %error "kernel disk reservation overlaps font image"
 %endif
-%if KERNELBIN_START + KERNEL_SECTOR_COUNT * DISK_SECTOR_SIZE > 0x70000
-    %error "kernel staging buffer overlaps unpacked kernel"
+%if KERNELBIN_START + KERNEL_SECTOR_COUNT * DISK_SECTOR_SIZE > 0x50000
+    %error "kernel staging buffer overlaps memory bitmap window"
 %endif
 %if KERNEL_SECTOR_COUNT <= ATA_PIO_MAX_SECTORS * 2 || \
     KERNEL_SECTOR_COUNT > ATA_PIO_MAX_SECTORS * 3

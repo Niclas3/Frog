@@ -6,10 +6,16 @@ repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 profile=${1:-boot-smoke}
 timeout_seconds=${FROG_QEMU_TIMEOUT:-30}
 keep=${FROG_QEMU_KEEP:-0}
+qemu_memory=${FROG_QEMU_MEMORY:-1G}
 sector_size=512
 loader_sector_count=11
 kernel_start_sector=13
 kernel_sector_count=512
+
+if [[ ! "$qemu_memory" =~ ^[1-9][0-9]*[MG]$ ]]; then
+    echo "FROG_QEMU_MEMORY must be a positive integer followed by M or G" >&2
+    exit 2
+fi
 
 case "$profile" in
     boot-smoke) stages=(boot) ;;
@@ -17,11 +23,12 @@ case "$profile" in
     user-smoke) stages=(boot) ;;
     framebuffer-smoke) stages=(boot) ;;
     framebuffer-mmap-smoke) stages=(boot) ;;
+    anonymous-mmap-smoke) stages=(boot) ;;
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")
@@ -44,6 +51,7 @@ write_result()
     RESULT_JSON="$result_json" PROFILE="$profile" \
     CLASSIFICATION="$classification" FAILED_STAGE="$failed_stage" \
     QEMU_STATUS="$qemu_status" STARTED_AT="$started_at" \
+    QEMU_MEMORY="$qemu_memory" \
     DISK_SHA_BEFORE="$disk_sha_before" DISK_SHA_AFTER="$disk_sha_after" \
     FRAMEBUFFER_WIDTH="$framebuffer_width" \
     FRAMEBUFFER_HEIGHT="$framebuffer_height" \
@@ -60,6 +68,7 @@ data = {
                      else os.environ["FAILED_STAGE"]),
     "qemu_exit_status": int(os.environ["QEMU_STATUS"]),
     "started_at": os.environ["STARTED_AT"],
+    "qemu_memory": os.environ["QEMU_MEMORY"],
     "corrupt_disk_sha256_before": os.environ["DISK_SHA_BEFORE"] or None,
     "corrupt_disk_sha256_after": os.environ["DISK_SHA_AFTER"] or None,
     "framebuffer_width": (int(os.environ["FRAMEBUFFER_WIDTH"])
@@ -99,6 +108,10 @@ build_stage()
 
     make -C "$repo_dir/core" clean >"$build_log" 2>&1 || return 1
     make_args=(QEMU_TEST=1 FROG_TEST_PROFILE="$profile")
+    if [ "$profile" = anonymous-mmap-smoke ] &&
+       [ "$qemu_memory" = 16M ]; then
+        make_args+=(FROG_TEST_ALLOW_MAX_OOM=1)
+    fi
     if [ "$profile" = disk-smoke ]; then
         make_args+=(FROG_TEST_STAGE="$stage")
     fi
@@ -165,7 +178,7 @@ run_stage()
     timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
         qemu-system-i386 \
         -display none -monitor none -serial none -no-reboot -vga std \
-        -m 1G \
+        -m "$qemu_memory" \
         -drive "format=raw,file=$stage_dir/hd.img,if=ide,index=0,media=disk" \
         -drive "format=raw,file=$data_disk,if=ide,index=1,media=disk" \
         -chardev "file,id=frogdebug,path=$debug_log" \
@@ -443,7 +456,7 @@ run_framebuffer_stage()
     timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
         qemu-system-i386 \
         -display none -monitor none -serial none -no-reboot -vga std \
-        -m 1G -smp 1 \
+        -m "$qemu_memory" -smp 1 \
         -drive "format=raw,file=$stage_dir/hd.img,if=ide,index=0,media=disk" \
         -drive "format=raw,file=$data_disk,if=ide,index=1,media=disk" \
         -chardev "file,id=frogdebug,path=$debug_log" \
@@ -538,7 +551,7 @@ run_input_stage()
     timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
         qemu-system-i386 \
         -display none -monitor none -serial none -no-reboot -vga std \
-        -m 1G -smp 1 \
+        -m "$qemu_memory" -smp 1 \
         -drive "format=raw,file=$stage_dir/hd.img,if=ide,index=0,media=disk" \
         -drive "format=raw,file=$data_disk,if=ide,index=1,media=disk" \
         -chardev "file,id=frogdebug,path=$debug_log" \

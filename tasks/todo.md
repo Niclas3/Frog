@@ -13,7 +13,7 @@
 
 ## Phase 2: Runtime and transport
 
-- [ ] Task 4: Add eager private anonymous mappings.
+- [x] Task 4: Add eager private anonymous mappings.
 - [ ] Task 5: Implement user-space `malloc/free`.
 - [ ] Task 6: Implement packagefs bind/connect/directed records.
 - [ ] Task 7: Complete packagefs lifecycle/readiness.

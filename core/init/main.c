@@ -114,6 +114,8 @@ extern const uint_8 _binary_user_smoke_disk_prepare_bin_start[];
 extern const uint_8 _binary_user_smoke_disk_prepare_bin_end[];
 extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_start[];
 extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_end[];
+extern const uint_8 _binary_user_smoke_anonymous_mmap_bin_start[];
+extern const uint_8 _binary_user_smoke_anonymous_mmap_bin_end[];
 extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
 extern const uint_8 _binary_user_smoke_time_bin_start[];
@@ -180,6 +182,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
         image_start = _binary_user_smoke_framebuffer_mmap_bin_start;
         image_end = _binary_user_smoke_framebuffer_mmap_bin_end;
+#elif defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP)
+        image_start = _binary_user_smoke_anonymous_mmap_bin_start;
+        image_end = _binary_user_smoke_anonymous_mmap_bin_end;
 #elif defined(CONFIG_FROG_TEST_INPUT)
         image_start = _binary_user_smoke_input_bin_start;
         image_end = _binary_user_smoke_input_bin_end;
@@ -289,6 +294,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("user-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
         frog_test_begin("framebuffer-mmap-smoke");
+#elif defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP)
+        frog_test_begin("anonymous-mmap-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)
         frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_TIME)
@@ -353,6 +360,12 @@ __visible void __noreturn start_kernel(void)
 
         if (root_fs_init() < 0)
                 PANIC("rootfs initialization failed");
+#ifdef CONFIG_FROG_TEST_ANONYMOUS_MMAP
+        if (vfs_mkdir_path("/test") != 0)
+                frog_test_abort("anonymous-exec-fixture-directory");
+        if (!fs_test_install_exec_fixture())
+                frog_test_abort("anonymous-exec-fixture-install");
+#endif
         if (dev_fs_init() < 0)
                 PANIC("devfs initialization failed");
         if (framebuffer_result == 0 &&

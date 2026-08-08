@@ -4,6 +4,7 @@
 #include <frog/errno.h>
 #include <frog/math.h>
 #include <frog/memory.h>
+#include <frog/mman.h>
 #include <frog/phys_resource.h>
 #include <frog/process.h>
 #include <frog/string.h>
@@ -44,6 +45,7 @@ struct vm_clone_pt {
 struct vm_clone_reserve {
         struct mm_struct *child;
         struct vm_area **vmas;
+        struct vm_mapping **private_mappings;
         struct vm_clone_page *pages;
         struct vm_clone_pt *pts;
         void *copy_page;
@@ -59,11 +61,17 @@ static bool vm_page_table_empty(uint_32 address);
 
 #ifdef CONFIG_QEMU_TEST
 static int vm_fail_after_ptes = -1;
+static int vm_fail_after_owned_frames = -1;
 static int vm_fail_after_fork_steps = -1;
 
 void vm_test_fail_map_after(int installed_ptes)
 {
         vm_fail_after_ptes = installed_ptes;
+}
+
+void vm_test_fail_owned_alloc_after(int allocated_frames)
+{
+        vm_fail_after_owned_frames = allocated_frames;
 }
 
 void vm_test_fail_fork_after(int clone_steps)
@@ -89,6 +97,17 @@ static int vm_take_fork_fail_after(void)
         int fail_after = vm_fail_after_fork_steps;
 
         vm_fail_after_fork_steps = -1;
+        return fail_after;
+#endif
+        return -1;
+}
+
+static int vm_take_owned_alloc_fail_after(void)
+{
+#ifdef CONFIG_QEMU_TEST
+        int fail_after = vm_fail_after_owned_frames;
+
+        vm_fail_after_owned_frames = -1;
         return fail_after;
 #endif
         return -1;
@@ -511,6 +530,102 @@ static int vm_install_device_ptes(struct mm_struct *mm,
         return 0;
 }
 
+static int vm_install_owned_ptes(struct mm_struct *mm,
+                                 struct vm_area *vma,
+                                 const uint_32 *frames,
+                                 struct vm_pt_reserve *reserve,
+                                 uint_32 *release_frames,
+                                 uint_32 *release_count,
+                                 int fail_after)
+{
+        uint_32 new_pde_indexes[VM_MAX_PT_RESERVE];
+        uint_32 new_pde_count = 0;
+        uint_32 installed = 0;
+        uint_32 pages = (vma->end - vma->start) / PAGE_SIZE;
+
+        for (uint_32 batch = 0; batch < pages;
+             batch += VM_PT_BATCH_PAGES) {
+                uint_32 batch_end = batch + VM_PT_BATCH_PAGES;
+
+                if (batch_end > pages)
+                        batch_end = pages;
+                spin_lock(mm->pt_lock);
+                for (uint_32 page = batch; page < batch_end; page++) {
+                        uint_32 address = vma->start + page * PAGE_SIZE;
+                        uint_32 *pde = pde_ptr(address);
+
+                        if (*pde & PG_P_SET) {
+                                if ((*pde & (PG_US_U | PG_RW_W)) !=
+                                    (PG_US_U | PG_RW_W)) {
+                                        spin_unlock(mm->pt_lock);
+                                        return -EACCES;
+                                }
+                                if (*pte_ptr(address) & PG_P_SET) {
+                                        spin_unlock(mm->pt_lock);
+                                        return -EEXIST;
+                                }
+                        }
+                }
+                spin_unlock(mm->pt_lock);
+        }
+
+        for (uint_32 address = vma->start & ~(VM_PDE_SIZE - 1U);
+             address < vma->end; address += VM_PDE_SIZE) {
+                uint_32 *pde;
+                uint_32 frame;
+
+                spin_lock(mm->pt_lock);
+                pde = pde_ptr(address);
+                if (*pde & PG_P_SET) {
+                        spin_unlock(mm->pt_lock);
+                        continue;
+                }
+                frame = vm_pt_reserve_take(reserve);
+                if (frame == 0)
+                        PANIC("VM page-table reserve was underestimated");
+                *pde = frame | PG_P_SET | PG_RW_W | PG_US_U;
+                new_pde_indexes[new_pde_count++] = address >> 22;
+                vm_reload_cr3();
+                memset((void *) ((uint_32) pte_ptr(address) & 0xfffff000U),
+                       0, PAGE_SIZE);
+                spin_unlock(mm->pt_lock);
+        }
+
+        if (fail_after == 0) {
+                vm_rollback_ptes(mm, vma, installed, new_pde_indexes,
+                                  new_pde_count, release_frames,
+                                  release_count);
+                return -ENOMEM;
+        }
+        for (uint_32 batch = 0; batch < pages;
+             batch += VM_PT_BATCH_PAGES) {
+                uint_32 batch_end = batch + VM_PT_BATCH_PAGES;
+
+                if (batch_end > pages)
+                        batch_end = pages;
+                spin_lock(mm->pt_lock);
+                for (uint_32 page = batch; page < batch_end; page++) {
+                        uint_32 address = vma->start + page * PAGE_SIZE;
+                        uint_32 *pte = pte_ptr(address);
+
+                        ASSERT(!(*pte & PG_P_SET));
+                        *pte = frames[page] | VM_RAM_PTE_FLAGS;
+                        vm_invlpg(address);
+                        installed++;
+                        if (fail_after == (int) installed) {
+                                spin_unlock(mm->pt_lock);
+                                vm_rollback_ptes(
+                                    mm, vma, installed, new_pde_indexes,
+                                    new_pde_count, release_frames,
+                                    release_count);
+                                return -ENOMEM;
+                        }
+                }
+                spin_unlock(mm->pt_lock);
+        }
+        return 0;
+}
+
 static bool vm_page_table_empty(uint_32 address)
 {
         uint_32 *table =
@@ -578,10 +693,22 @@ void vm_mapping_put(struct vm_mapping *mapping)
         if (!refcount_put(&mapping->refs))
                 return;
         if (mapping->state == VM_MAPPING_PREPARED) {
-                ASSERT(mapping->vm_ops != NULL &&
-                       mapping->vm_ops->close != NULL);
                 mapping->state = VM_MAPPING_CLOSED;
-                mapping->vm_ops->close(mapping);
+                if (mapping->backing_type ==
+                    VM_BACKING_DEVICE_BORROWED) {
+                        ASSERT(mapping->vm_ops != NULL &&
+                               mapping->vm_ops->close != NULL);
+                        mapping->vm_ops->close(mapping);
+                } else {
+                        ASSERT(mapping->backing_type ==
+                                   VM_BACKING_RAM_OWNED &&
+                               mapping->vm_ops == NULL &&
+                               mapping->file == NULL &&
+                               mapping->device == NULL &&
+                               mapping->resource == NULL &&
+                               mapping->private_data == NULL &&
+                               mapping->pte_flags == VM_RAM_PTE_FLAGS);
+                }
         } else {
                 ASSERT(mapping->state == VM_MAPPING_NEW);
         }
@@ -615,6 +742,22 @@ int vm_mapping_prepare_device(struct vm_mapping *mapping,
         mapping->resource = resource;
         mapping->private_data = private_data;
         mapping->pte_flags = VM_DEVICE_PTE_FLAGS;
+        mapping->state = VM_MAPPING_PREPARED;
+        return 0;
+}
+
+int vm_mapping_prepare_owned(struct vm_mapping *mapping)
+{
+        if (mapping == NULL ||
+            mapping->backing_type != VM_BACKING_RAM_OWNED ||
+            mapping->state != VM_MAPPING_NEW ||
+            refcount_read(&mapping->refs) != 1 ||
+            mapping->file != NULL || mapping->device != NULL ||
+            mapping->resource != NULL || mapping->vm_ops != NULL ||
+            mapping->private_data != NULL || mapping->pte_flags != 0)
+                return -EINVAL;
+
+        mapping->pte_flags = VM_RAM_PTE_FLAGS;
         mapping->state = VM_MAPPING_PREPARED;
         return 0;
 }
@@ -880,6 +1023,131 @@ unlock:
         return result;
 }
 
+int vm_map_owned_range(struct mm_struct *mm,
+                       struct vm_area *vma,
+                       uint_32 *mapped_start)
+{
+        struct vm_pt_reserve reserve;
+        struct vm_mapping *mapping;
+        uint_32 release_frames[VM_MAX_PT_RESERVE];
+        uint_32 release_count = 0;
+        uint_32 original_length;
+        uint_32 *frames = NULL;
+        uint_32 frame_count = 0;
+        uint_32 pages;
+        uint_32 chosen;
+        int fail_after = vm_take_fail_after();
+        int alloc_fail_after;
+        int result;
+
+        if (mapped_start == NULL)
+                return -EINVAL;
+        *mapped_start = 0;
+        if (mm == NULL || vma == NULL || !vm_current_mm(mm) ||
+            vma->mm != NULL || !vm_area_unlinked(vma) ||
+            vma->state != VM_PREPARING || vma->start != 0 ||
+            vma->end == 0 || vma->end > VM_MAP_MAX_LENGTH ||
+            (vma->end & (PAGE_SIZE - 1U)) != 0 ||
+            vma->prot != (PROT_READ | PROT_WRITE) ||
+            vma->flags != (MAP_PRIVATE | MAP_ANONYMOUS) ||
+            vma->page_offset != 0 || vma->mapping == NULL)
+                return -EINVAL;
+        mapping = vma->mapping;
+        if (mapping->backing_type != VM_BACKING_RAM_OWNED ||
+            mapping->state != VM_MAPPING_PREPARED ||
+            mapping->vm_ops != NULL || mapping->file != NULL ||
+            mapping->device != NULL || mapping->resource != NULL ||
+            mapping->private_data != NULL ||
+            mapping->pte_flags != VM_RAM_PTE_FLAGS)
+                return -EINVAL;
+
+        alloc_fail_after = vm_take_owned_alloc_fail_after();
+        original_length = vma->end;
+        pages = original_length / PAGE_SIZE;
+        if (pages > 0xffffffffU / sizeof(*frames))
+                return -EOVERFLOW;
+        frames = kmalloc(pages * sizeof(*frames));
+        if (frames == NULL)
+                return -ENOMEM;
+        memset(frames, 0, pages * sizeof(*frames));
+        for (; frame_count < pages; frame_count++) {
+                if (alloc_fail_after == (int) frame_count) {
+                        result = -ENOMEM;
+                        goto release_user_frames;
+                }
+                frames[frame_count] = alloc_user_page_frame();
+                if (frames[frame_count] == 0) {
+                        result = -ENOMEM;
+                        goto release_user_frames;
+                }
+        }
+        if (alloc_fail_after == (int) frame_count) {
+                result = -ENOMEM;
+                goto release_user_frames;
+        }
+        result = vm_pt_reserve_prepare(&reserve, original_length);
+        if (result != 0)
+                goto release_user_frames;
+
+        lock_fetch(&mm->mmap_lock);
+        chosen = vm_find_unmapped_area(mm, original_length);
+        if (chosen == 0) {
+                result = -ENOMEM;
+                goto unlock;
+        }
+        result = vm_bitmap_set_range(mm, chosen, original_length, 1);
+        if (result != 0)
+                goto unlock;
+        vma->start = chosen;
+        vma->end = chosen + original_length;
+        result = vm_area_insert(mm, vma);
+        if (result != 0)
+                goto release_bitmap;
+
+        result = vm_install_owned_ptes(mm, vma, frames, &reserve,
+                                       release_frames, &release_count,
+                                       fail_after);
+        if (result == 0) {
+                memset((void *) chosen, 0, original_length);
+                spin_lock(mm->pt_lock);
+                vma->state = VM_ACTIVE;
+                mm->generation++;
+                spin_unlock(mm->pt_lock);
+        } else {
+                ASSERT(vm_area_remove_exact(mm, vma->start,
+                                            vma->end) == vma);
+                goto release_bitmap;
+        }
+
+        *mapped_start = chosen;
+        lock_release(&mm->mmap_lock);
+        vm_pt_reserve_release_unused(&reserve);
+        vm_release_frames(release_frames, release_count);
+        frame_count = 0;
+        kfree(frames);
+        return 0;
+
+release_bitmap:
+        ASSERT(vm_bitmap_set_range(mm, chosen, original_length, 0) == 0);
+        vma->start = 0;
+        vma->end = original_length;
+        vma->state = VM_PREPARING;
+unlock:
+        lock_release(&mm->mmap_lock);
+        vm_pt_reserve_release_unused(&reserve);
+        vm_release_frames(release_frames, release_count);
+release_user_frames:
+        for (uint_32 index = 0; index < frame_count; index++)
+                free_user_page_frame(frames[index]);
+        kfree(frames);
+        return result;
+}
+
+/*
+ * The caller holds mmap_lock. RAM teardown may temporarily drop it only after
+ * publishing VM_UNMAPPING, so user frames can be returned outside both VM
+ * locks while the VMA continues to reserve and identify the range.
+ */
 static void vm_detach_active_vma_locked(
     struct mm_struct *mm,
     struct vm_area *vma,
@@ -890,13 +1158,25 @@ static void vm_detach_active_vma_locked(
         uint_32 end = vma->end;
         uint_32 length = end - start;
         uint_32 pages = length / PAGE_SIZE;
+        struct vm_mapping *mapping = vma->mapping;
+        bool owned;
         int result;
 
         ASSERT(mm != NULL && mm->pgdir != NULL && vma != NULL &&
                vma->mm == mm && vma->state == VM_ACTIVE &&
-               vma->mapping != NULL &&
-               vma->mapping->backing_type == VM_BACKING_DEVICE_BORROWED &&
+               mapping != NULL &&
                release_frames != NULL && release_count != NULL);
+        owned = mapping->backing_type == VM_BACKING_RAM_OWNED;
+        ASSERT((owned && mapping->state == VM_MAPPING_PREPARED &&
+                mapping->vm_ops == NULL && mapping->file == NULL &&
+                mapping->device == NULL && mapping->resource == NULL &&
+                mapping->private_data == NULL &&
+                mapping->pte_flags == VM_RAM_PTE_FLAGS) ||
+               (!owned && mapping->backing_type ==
+                              VM_BACKING_DEVICE_BORROWED &&
+                mapping->state == VM_MAPPING_PREPARED &&
+                mapping->resource != NULL &&
+                mapping->pte_flags == VM_DEVICE_PTE_FLAGS));
 
         for (uint_32 batch = 0; batch < pages;
              batch += VM_PT_BATCH_PAGES) {
@@ -911,14 +1191,26 @@ static void vm_detach_active_vma_locked(
                         uint_32 address = start + page * PAGE_SIZE;
                         uint_32 *pde = pde_ptr(address);
                         uint_32 *pte = pte_ptr(address);
-                        uint_32 expected =
-                            ((uint_32) vma->mapping->resource->start +
-                             vma->page_offset + page * PAGE_SIZE) |
-                            vma->mapping->pte_flags;
+                        uint_32 actual = *pte & ~VM_PTE_CPU_BITS;
 
-                        if (!(*pde & PG_P_SET) ||
-                            (*pte & ~VM_PTE_CPU_BITS) != expected)
+                        if (!(*pde & PG_P_SET))
                                 PANIC("active VMA page-table entry changed");
+                        if (owned) {
+                                uint_32 flags = actual &
+                                    VM_PAGE_ENTRY_MASK;
+
+                                if ((actual & 0xfffff000U) == 0 ||
+                                    flags != VM_RAM_PTE_FLAGS)
+                                        PANIC("active RAM VMA entry changed");
+                        } else {
+                                uint_32 expected =
+                                    ((uint_32) mapping->resource->start +
+                                     vma->page_offset + page * PAGE_SIZE) |
+                                    mapping->pte_flags;
+
+                                if (actual != expected)
+                                        PANIC("active device VMA entry changed");
+                        }
                 }
                 vm_restore_target_locked(previous);
                 spin_unlock(mm->pt_lock);
@@ -932,6 +1224,8 @@ static void vm_detach_active_vma_locked(
         for (uint_32 batch = 0; batch < pages;
              batch += VM_PT_BATCH_PAGES) {
                 uint_32 batch_end = batch + VM_PT_BATCH_PAGES;
+                uint_32 owned_frames[VM_PT_BATCH_PAGES];
+                uint_32 owned_count = 0;
                 uint_32 previous;
 
                 if (batch_end > pages)
@@ -942,11 +1236,24 @@ static void vm_detach_active_vma_locked(
                         uint_32 address = start + page * PAGE_SIZE;
                         uint_32 *pte = pte_ptr(address);
 
+                        if (owned)
+                                owned_frames[owned_count++] =
+                                    *pte & 0xfffff000U;
                         *pte = 0;
                         vm_invlpg(address);
                 }
                 vm_restore_target_locked(previous);
                 spin_unlock(mm->pt_lock);
+                if (owned_count != 0) {
+                        lock_release(&mm->mmap_lock);
+                        for (uint_32 index = 0; index < owned_count;
+                             index++)
+                                free_user_page_frame(owned_frames[index]);
+                        lock_fetch(&mm->mmap_lock);
+                        ASSERT(vma->mm == mm &&
+                               vma->state == VM_UNMAPPING &&
+                               vma->mapping == mapping);
+                }
         }
 
         for (uint_32 address = start & ~(VM_PDE_SIZE - 1U);
@@ -1026,11 +1333,26 @@ static int vm_clone_count_locked(struct mm_struct *parent,
                 struct vm_area *vma =
                     list_entry(position, struct vm_area, elem);
 
+                uint_32 vma_pages =
+                    (vma->end - vma->start) / PAGE_SIZE;
+
                 if (vma->state != VM_ACTIVE || vma->mapping == NULL ||
-                    vma->mapping->state != VM_MAPPING_PREPARED ||
-                    vma->mapping->backing_type !=
-                        VM_BACKING_DEVICE_BORROWED)
+                    vma->mapping->state != VM_MAPPING_PREPARED)
                         return -EINVAL;
+                if (vma->mapping->backing_type == VM_BACKING_RAM_OWNED) {
+                        if (vma->mapping->vm_ops != NULL ||
+                            vma->mapping->file != NULL ||
+                            vma->mapping->device != NULL ||
+                            vma->mapping->resource != NULL ||
+                            vma->mapping->private_data != NULL ||
+                            vma->mapping->pte_flags != VM_RAM_PTE_FLAGS ||
+                            vma_pages > 0xffffffffU - pages)
+                                return -EINVAL;
+                        pages += vma_pages;
+                } else if (vma->mapping->backing_type !=
+                           VM_BACKING_DEVICE_BORROWED) {
+                        return -EINVAL;
+                }
                 vmas++;
         }
 
@@ -1060,8 +1382,13 @@ static int vm_clone_count_locked(struct mm_struct *parent,
                 spin_lock(parent->pt_lock);
                 pde = pde_ptr(address);
                 if ((*pde & PG_P_SET) &&
-                    (*pte_ptr(address) & PG_P_SET))
+                    (*pte_ptr(address) & PG_P_SET)) {
+                        if (pages == 0xffffffffU) {
+                                spin_unlock(parent->pt_lock);
+                                return -EOVERFLOW;
+                        }
                         pages++;
+                }
                 spin_unlock(parent->pt_lock);
         }
 
@@ -1075,11 +1402,17 @@ static void vm_clone_release_aux(struct vm_clone_reserve *reserve)
 {
         if (reserve->copy_page != NULL)
                 free_page(MP_KERNEL, reserve->copy_page, 1);
+        for (uint_32 index = 0;
+             reserve->private_mappings != NULL &&
+             index < reserve->vma_count; index++)
+                vm_mapping_put(reserve->private_mappings[index]);
         kfree(reserve->vmas);
+        kfree(reserve->private_mappings);
         kfree(reserve->pages);
         kfree(reserve->pts);
         reserve->copy_page = NULL;
         reserve->vmas = NULL;
+        reserve->private_mappings = NULL;
         reserve->pages = NULL;
         reserve->pts = NULL;
 }
@@ -1189,6 +1522,12 @@ static int vm_clone_reserve_prepare(struct mm_struct *parent,
                         goto fail;
                 memset(reserve->vmas, 0,
                        vma_count * sizeof(*reserve->vmas));
+                reserve->private_mappings =
+                    kmalloc(vma_count * sizeof(*reserve->private_mappings));
+                if (reserve->private_mappings == NULL)
+                        goto fail;
+                memset(reserve->private_mappings, 0,
+                       vma_count * sizeof(*reserve->private_mappings));
                 for (uint_32 index = 0; index < vma_count; index++) {
                         reserve->vmas[index] = kmalloc(sizeof(struct vm_area));
                         if (reserve->vmas[index] == NULL)
@@ -1196,6 +1535,10 @@ static int vm_clone_reserve_prepare(struct mm_struct *parent,
                         memset(reserve->vmas[index], 0,
                                sizeof(struct vm_area));
                         INIT_LIST_HEAD(&reserve->vmas[index]->elem);
+                        reserve->private_mappings[index] =
+                            vm_mapping_alloc(VM_BACKING_RAM_OWNED, NULL);
+                        if (reserve->private_mappings[index] == NULL)
+                                goto fail;
                 }
         }
         if (page_count != 0) {
@@ -1319,8 +1662,8 @@ static int vm_clone_commit_locked(struct mm_struct *parent,
 
                 if (vma_index == reserve->vma_count ||
                     source->state != VM_ACTIVE || source->mapping == NULL ||
-                    vm_clone_should_fail(fail_after, &step) ||
-                    !vm_mapping_get_live(source->mapping))
+                    source->mapping->state != VM_MAPPING_PREPARED ||
+                    vm_clone_should_fail(fail_after, &step))
                         return -ENOMEM;
 
                 clone = reserve->vmas[vma_index];
@@ -1330,7 +1673,21 @@ static int vm_clone_commit_locked(struct mm_struct *parent,
                 clone->flags = source->flags;
                 clone->page_offset = source->page_offset;
                 clone->state = VM_ACTIVE;
-                clone->mapping = source->mapping;
+                if (source->mapping->backing_type ==
+                    VM_BACKING_DEVICE_BORROWED) {
+                        if (!vm_mapping_get_live(source->mapping))
+                                return -ENOMEM;
+                        clone->mapping = source->mapping;
+                } else if (source->mapping->backing_type ==
+                           VM_BACKING_RAM_OWNED) {
+                        clone->mapping =
+                            reserve->private_mappings[vma_index];
+                        if (vm_mapping_prepare_owned(clone->mapping) != 0)
+                                return -EINVAL;
+                        reserve->private_mappings[vma_index] = NULL;
+                } else {
+                        return -EINVAL;
+                }
                 if (vm_area_insert(child, clone) != 0) {
                         vm_mapping_put(clone->mapping);
                         clone->mapping = NULL;
@@ -1375,7 +1732,10 @@ static int vm_clone_commit_locked(struct mm_struct *parent,
                 if (address < parent->user_vaddr.vaddr_start ||
                     address >= 0xc0000000U)
                         break;
-                if (vm_area_find(parent, address) != NULL)
+                struct vm_area *vma = vm_area_find(parent, address);
+
+                if (vma != NULL && vma->mapping->backing_type ==
+                                       VM_BACKING_DEVICE_BORROWED)
                         continue;
 
                 spin_lock(parent->pt_lock);
@@ -1407,7 +1767,18 @@ static int vm_clone_commit_locked(struct mm_struct *parent,
                 uint_32 pages = (clone->end - clone->start) / PAGE_SIZE;
 
                 if (source == NULL || source->state != VM_ACTIVE ||
-                    source->mapping != clone->mapping)
+                    source->mapping == NULL || clone->mapping == NULL)
+                        return -EAGAIN;
+                if (source->mapping->backing_type ==
+                    VM_BACKING_RAM_OWNED) {
+                        if (clone->mapping->backing_type !=
+                            VM_BACKING_RAM_OWNED)
+                                return -EAGAIN;
+                        continue;
+                }
+                if (source->mapping != clone->mapping ||
+                    source->mapping->backing_type !=
+                        VM_BACKING_DEVICE_BORROWED)
                         return -EAGAIN;
                 for (uint_32 page = 0; page < pages; page++) {
                         uint_32 address = clone->start + page * PAGE_SIZE;

@@ -65,6 +65,31 @@ syscall checks that all mapping, file, device, and physical-resource references
 returned to their baseline before QMP captures and validates every pixel.
 Failures retain the QMP transcript in addition to the graphical diagnostics.
 
+Run `./scripts/qemu-test.sh anonymous-mmap-smoke` for the eager private-RAM
+mapping contract. Its low-address ring-3 fixture checks the exact anonymous
+request shape, one-page and multi-page zero filling and writes, exact unmap,
+private fork copies, exit cleanup, successful `execv` cleanup through a
+test-only read-only ELF fixture, and all-or-nothing rollback after injected
+PTE-install and fork-copy failures. Under its default 1 GiB QEMU memory it also
+checks allocation, PTE-install, and fork-copy rollback without leaked user
+frames. The exec case replaces a child with a live three-page anonymous image
+and verifies that its final user-frame count returns to the parent's baseline.
+It fully scans a zero-filled 3 MiB compositor backbuffer, checks writes at both
+ends and across a page boundary, exactly unmaps it, and verifies the user-frame
+baseline. Under the default 1 GiB QEMU memory it also requires a zero-filled
+mapping at the 16 MiB parameter ceiling. With the explicit 16 MiB test
+configuration that ceiling request may validly return `-ENOMEM`, but no other
+error; the 3 MiB compositor budget must still succeed. This profile is headless
+and does not use QMP. The
+one-page limit on built-in smoke image blobs is only a fixture packaging rule;
+it is not an `mmap` or `exec` ABI limit.
+
+All QEMU profiles default to `-m 1G`. Set `FROG_QEMU_MEMORY` to a positive
+integer with an `M` or `G` suffix, for example
+`FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh anonymous-mmap-smoke`. The chosen
+value is used by every runner path and recorded as `qemu_memory` in the result
+JSON.
+
 Run `./scripts/qemu-test.sh input-smoke` after PS/2, interrupt, devfs, fd, or
 input ABI changes. A separate ring-3 image opens `/dev/input/event0` and
 `/dev/input/event1`, checks nonblocking empty reads and close, then performs

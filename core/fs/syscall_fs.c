@@ -95,6 +95,37 @@ static int_32 do_sys_mmap(const struct frog_mmap_args *user_args)
 
         if (copy_from_user(&args, user_args, sizeof(args)) != 0)
                 return -EFAULT;
+        if (args.flags == (MAP_PRIVATE | MAP_ANONYMOUS)) {
+                if (args.addr != 0 || args.length == 0 ||
+                    (args.length & (PAGE_SIZE - 1U)) != 0 ||
+                    args.length > VM_MAP_MAX_LENGTH ||
+                    args.prot != (PROT_READ | PROT_WRITE) ||
+                    args.fd != -1 || args.offset != 0)
+                        return -EINVAL;
+
+                mapping = vm_mapping_alloc(VM_BACKING_RAM_OWNED, NULL);
+                if (mapping == NULL)
+                        return -ENOMEM;
+                result = vm_mapping_prepare_owned(mapping);
+                if (result != 0) {
+                        vm_mapping_put(mapping);
+                        return result;
+                }
+                vma = vm_area_alloc(args.length, args.prot, args.flags,
+                                    args.offset, mapping);
+                if (vma == NULL) {
+                        vm_mapping_put(mapping);
+                        return -ENOMEM;
+                }
+                result = vm_map_owned_range(running_thread()->mm, vma,
+                                            &mapped);
+                if (result < 0) {
+                        kfree(vma);
+                        vm_mapping_put(mapping);
+                        return result;
+                }
+                return (int_32) mapped;
+        }
         if (args.addr != 0 || args.length == 0 ||
             (args.length & (PAGE_SIZE - 1U)) != 0 ||
             args.length > VM_MAP_MAX_LENGTH ||

@@ -1,5 +1,159 @@
 #include <kernel/fs_regression.h>
 
+#if defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP)
+#include <frog/errno.h>
+#include <frog/fcntl.h>
+#include <frog/memory.h>
+#include <frog/string.h>
+#include <frog/types.h>
+#include <kernel/vfs.h>
+
+extern const uint_8 _binary_exec_target_elf_start[];
+extern const uint_8 _binary_exec_target_elf_end[];
+
+static int_32 exec_fixture_read(struct file *file, void *buffer,
+                                uint_32 count)
+{
+        uint_32 size = file->f_inode->i_size;
+
+        if (file->f_pos >= size)
+                return 0;
+        if (count > size - file->f_pos)
+                count = size - file->f_pos;
+        memcpy(buffer,
+               (const uint_8 *) file->f_inode->i_private + file->f_pos,
+               count);
+        file->f_pos += count;
+        return (int_32) count;
+}
+
+static int_32 exec_fixture_lseek(struct file *file, int_32 offset,
+                                 uint_8 whence)
+{
+        long long position;
+
+        if (whence == SEEK_SET)
+                position = offset;
+        else if (whence == SEEK_CUR)
+                position = (long long) file->f_pos + offset;
+        else if (whence == SEEK_END)
+                position = (long long) file->f_inode->i_size + offset;
+        else
+                return -EINVAL;
+        if (position < 0 || position > file->f_inode->i_size)
+                return -EINVAL;
+        file->f_pos = (uint_32) position;
+        return (int_32) file->f_pos;
+}
+
+static struct file_operations exec_fixture_fops = {
+    .read = exec_fixture_read,
+    .lseek = exec_fixture_lseek,
+};
+
+static struct dentry *alloc_readonly_test_file(
+    struct dentry *parent, const char *name,
+    const uint_8 *data, uint_32 size)
+{
+        struct inode *inode = kmalloc(sizeof(*inode));
+        struct dentry *dentry = kmalloc(sizeof(*dentry));
+        char *stored_name = kmalloc(strlen(name) + 1U);
+
+        if (inode == NULL || dentry == NULL || stored_name == NULL) {
+                kfree(stored_name);
+                kfree(dentry);
+                kfree(inode);
+                return NULL;
+        }
+        memset(inode, 0, sizeof(*inode));
+        memset(dentry, 0, sizeof(*dentry));
+        strcpy(stored_name, name);
+        inode->i_mode = FT_REGULAR << 11;
+        inode->i_size = size;
+        inode->i_nlink = 1;
+        inode->i_sb = parent->d_inode->i_sb;
+        inode->i_fop = &exec_fixture_fops;
+        inode->i_private = (void *) data;
+        INIT_LIST_HEAD(&inode->i_active_node);
+        dentry->d_name = stored_name;
+        dentry->d_inode = inode;
+        dentry->d_parent = parent;
+        dentry->d_sb = parent->d_sb;
+        dentry->d_type = FT_REGULAR;
+        INIT_LIST_HEAD(&dentry->d_subdirs);
+        INIT_LIST_HEAD(&dentry->d_child_node);
+        return dentry;
+}
+
+static void free_readonly_test_file(struct dentry *dentry)
+{
+        if (dentry == NULL)
+                return;
+        kfree(dentry->d_inode);
+        kfree(dentry->d_name);
+        kfree(dentry);
+}
+
+int fs_test_install_exec_fixture(void)
+{
+        const uint_8 *start = _binary_exec_target_elf_start;
+        uint_32 size = (uint_32) (_binary_exec_target_elf_end - start);
+        static const uint_8 input[] = "Q";
+        int passed = 0;
+        struct dentry *target = NULL;
+        struct dentry *input_file = NULL;
+
+        vfs_namespace_lock();
+        struct dentry *parent = vfs_lookup("/test");
+
+        if (parent != NULL && parent->d_type == FT_DIRECTORY &&
+            dentry_lookup(parent, "exec-target") == NULL &&
+            dentry_lookup(parent, "exec-input") == NULL) {
+                target = alloc_readonly_test_file(
+                    parent, "exec-target", start, size);
+                input_file = alloc_readonly_test_file(
+                    parent, "exec-input", input, 1);
+                if (target != NULL && input_file != NULL) {
+                        /* Test-only immutable nodes live until QEMU exits. */
+                        dentry_add_child(parent, target);
+                        dentry_add_child(parent, input_file);
+                        passed = 1;
+                } else {
+                        free_readonly_test_file(input_file);
+                        free_readonly_test_file(target);
+                }
+        }
+        vfs_namespace_unlock();
+        return passed;
+}
+#elif defined(CONFIG_FROG_TEST_DISK) && \
+      defined(CONFIG_FROG_TEST_STAGE_PREPARE)
+#include <frog/fcntl.h>
+#include <frog/types.h>
+#include <kernel/vfs.h>
+
+extern const uint_8 _binary_exec_target_elf_start[];
+extern const uint_8 _binary_exec_target_elf_end[];
+
+int fs_test_install_exec_fixture(void)
+{
+        const uint_8 *start = _binary_exec_target_elf_start;
+        uint_32 size = (uint_32) (_binary_exec_target_elf_end - start);
+        struct file *file = NULL;
+        int result = vfs_open_file("/test/exec-target",
+                                   O_CREAT | O_EXCL | O_WRONLY, &file);
+        int passed = result == 0;
+
+        if (passed)
+                passed = vfs_write(file, start, size) == (int_32) size;
+        if (file != NULL)
+                passed = vfs_close(file) == 0 && passed;
+        if (!passed)
+                (void) vfs_unlink_path("/test/exec-target");
+        return passed;
+}
+#endif
+
 #ifdef CONFIG_FROG_TEST_DISK
 
 #include <asm/i386_syscall_common.h>
@@ -18,11 +172,6 @@
 #define PERSIST_PATH PERSIST_DIR "/blob"
 #define PERSIST_SIZE (12U * 1024U + 37U)
 
-#ifdef CONFIG_FROG_TEST_STAGE_PREPARE
-extern const uint_8 _binary_exec_target_elf_start[];
-extern const uint_8 _binary_exec_target_elf_end[];
-#endif
-
 #if (defined(CONFIG_FROG_TEST_STAGE_PREPARE) +                         \
      defined(CONFIG_FROG_TEST_STAGE_VERIFY) +                          \
      defined(CONFIG_FROG_TEST_STAGE_CORRUPT)) != 1
@@ -37,26 +186,6 @@ static int close_file(struct file **file)
         *file = NULL;
         return ret;
 }
-
-#ifdef CONFIG_FROG_TEST_STAGE_PREPARE
-static int install_exec_fixture(void)
-{
-        const uint_8 *start = _binary_exec_target_elf_start;
-        uint_32 size = (uint_32) (_binary_exec_target_elf_end - start);
-        struct file *file = NULL;
-        int result = vfs_open_file("/test/exec-target",
-                                   O_CREAT | O_EXCL | O_WRONLY, &file);
-        int passed = result == 0;
-
-        if (passed)
-                passed = vfs_write(file, start, size) == (int_32) size;
-        if (file != NULL)
-                passed = close_file(&file) == 0 && passed;
-        if (!passed)
-                (void) vfs_unlink_path("/test/exec-target");
-        return passed;
-}
-#endif
 
 static int test_access_modes(void)
 {
@@ -390,7 +519,8 @@ void fs_regression_run_kernel(int init_result,
         if (!mounted)
                 return;
 #ifdef CONFIG_FROG_TEST_STAGE_PREPARE
-        frog_test_case("exec.fixture-install", install_exec_fixture());
+        frog_test_case("exec.fixture-install",
+                       fs_test_install_exec_fixture());
         frog_test_case("frogfs.flags-access", test_access_modes());
         frog_test_case("frogfs.exclusive-create", test_exclusive_create());
         frog_test_case("frogfs.append-truncate-seek",

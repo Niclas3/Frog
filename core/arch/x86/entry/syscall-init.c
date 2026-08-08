@@ -239,6 +239,45 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_INPUT_WAIT2_CLOSE:
         name = "input.wait2.close";
         break;
+    case FROG_TEST_ANON_MMAP_SUPPORTED:
+        name = "anonymous-mmap.supported";
+        break;
+    case FROG_TEST_ANON_MMAP_ARGUMENTS:
+        name = "anonymous-mmap.arguments";
+        break;
+    case FROG_TEST_ANON_MMAP_ONE_PAGE:
+        name = "anonymous-mmap.one-page";
+        break;
+    case FROG_TEST_ANON_MMAP_MULTIPAGE:
+        name = "anonymous-mmap.multi-page";
+        break;
+    case FROG_TEST_ANON_MUNMAP_EXACT:
+        name = "anonymous-mmap.munmap-exact";
+        break;
+    case FROG_TEST_ANON_MMAP_FORK_PRIVATE:
+        name = "anonymous-mmap.fork-private";
+        break;
+    case FROG_TEST_ANON_MMAP_EXIT_CLEANUP:
+        name = "anonymous-mmap.exit-cleanup";
+        break;
+    case FROG_TEST_ANON_MMAP_ROLLBACK:
+        name = "anonymous-mmap.rollback";
+        break;
+    case FROG_TEST_ANON_MMAP_FORK_ROLLBACK:
+        name = "anonymous-mmap.fork-rollback";
+        break;
+    case FROG_TEST_ANON_MMAP_MAX_LENGTH:
+        name = "anonymous-mmap.max-length";
+        break;
+    case FROG_TEST_ANON_MMAP_ALLOC_ROLLBACK:
+        name = "anonymous-mmap.alloc-rollback";
+        break;
+    case FROG_TEST_ANON_MMAP_BACKBUFFER:
+        name = "anonymous-mmap.backbuffer-3m";
+        break;
+    case FROG_TEST_ANON_MMAP_EXEC_CLEANUP:
+        name = "anonymous-mmap.exec-cleanup";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;
@@ -360,6 +399,10 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
 
 int_32 sys_testsyscall(uint_32 command)
 {
+#ifdef CONFIG_FROG_TEST_ANONYMOUS_MMAP
+    if (command != FROG_TEST_ANON_MMAP_FINISH)
+        return mm_anon_mmap_test_command(command);
+#endif
 #ifdef CONFIG_FROG_TEST_PROCESS
     if (command == FROG_TEST_HEAP_ALLOC_16)
         return (int_32) (uint_32) umalloc(16);

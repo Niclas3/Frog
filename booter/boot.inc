@@ -12,8 +12,8 @@
 ;     4 K | font.img              | 0x0000_D800 - 0x0000_E800
 ;     6 K | unused                | 0x0000_E800 - 0x0001_0000
 ;   256 K | core.img (ELF image)  | 0x0001_0000 - 0x0005_0000
-;   128 K | unused                | 0x0005_0000 - 0x0007_0000
-;  <=184K | core PT_LOAD          | 0x0007_0000 - 0x0009_E000
+;    64 K | memory bitmaps        | 0x0005_0000 - 0x0006_0000
+;  <=248K | core PT_LOAD          | 0x0006_0000 - 0x0009_E000
 ;     4 K | early kernel stack    | 0x0009_E000 - 0x0009_F000
 ;     4 K | unused/stack guard    | 0x0009_F000 - 0x000A_0000
 ;    64 K | VGA framebuffer       | 0x000A_0000 - 0x000B_0000  (mode 13h etc.)
@@ -35,11 +35,11 @@
 ;   virtual address      | region
 ;  ----------------------+-------------------------------------------------
 ;   0xC000_0000          | start of kernel high half (phys 0 mirrored here)
-;   0xC006_0000          | MEM_BITMAP_BASE
+;   0xC005_0000          | MEM_BITMAP_BASE
 ;                        |   - kernel_pool.pool_bitmap.bits
 ;                        |   - user_pool.pool_bitmap.bits   (back-to-back)
 ;                        |   - kernel_viraddr.vaddr_bitmap.bits
-;   0xC007_0000          | kernel .text (link base, kernel_dbg.ld)
+;   0xC006_0000          | kernel .text (link base, kernel_dbg.ld)
 ; <=0xC009_E000          | _end (enforced by kernel_dbg.ld)
 ;   0xC009_E000          | early kernel stack page
 ;   0xC009_F000          | initial esp

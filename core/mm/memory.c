@@ -25,8 +25,8 @@
 #include "./mem_egg.h"    // structure of small memory
 #include "./mm_helper.h"  // helper on PTE/PDE etc
 
-#define MEM_BITMAP_BASE 0xc0060000UL
-#define MEM_BITMAP_END  0xc0070000UL
+#define MEM_BITMAP_BASE 0xc0050000UL
+#define MEM_BITMAP_END  0xc0060000UL
 
 /* setup_page() owns physical [KPAGE_TABLE_START, BOOTSTRAP_PAGING_END). */
 #define MEM_POOL_START BOOTSTRAP_PAGING_END
@@ -1019,15 +1019,15 @@ static void mem_pool_init(uint_32 alloc_end)
         // clang-format off
         /* uint_32 used_mem = page_table_size + 0x0010_0000;
          * I put page table at    0x0010_0000
-         * MEM_BITMAP_BASE at 0xc0060000
-         *                    0x0006_0000
+         * MEM_BITMAP_BASE at 0xc0050000
+         *                    0x0005_0000
          * +-----------------------+------------------+----------------+
          * |      address          |   name           |     size       |
          * +-----------------------+------------------+----------------+
          *       0x0000_c508       |   GDT            |   100bytes     |
          *       0x0000_c588       |   IDT            |   255 * 8bytes |
-         *       0x0006_0000       | MEM_BITMAP_BASE  |
-         *[0x0007_0000,0x0009e000) | kernel PT_LOAD  | <= 184 KiB     |
+         *       0x0005_0000       | MEM_BITMAP_BASE  |   64 KiB      |
+         *[0x0006_0000,0x0009e000) | kernel PT_LOAD  | <= 248 KiB     |
          *[0x0009_e000,0x0009f000) | early stack     |   1 page       |
          *       0x000a_0000       |   vga            |   x pages      |
          *       0x000b_8000       |   text view      |   x pages      |
@@ -1096,7 +1096,7 @@ static void mem_pool_init(uint_32 alloc_end)
                 MEM_BITMAP_END - MEM_BITMAP_BASE - kbm_length - ubm_length)
                 PANIC("[mm]: memory bitmaps exceed reserved window");
 
-        // kernel pool bit map fix at MEM_BITMAP_BASE 0xc0060000
+        // kernel pool bit map fix at MEM_BITMAP_BASE 0xc0050000
         kernel_pool.pool_bitmap.bits = (void *) MEM_BITMAP_BASE;
         user_pool.pool_bitmap.bits = (void *) (MEM_BITMAP_BASE + kbm_length);
 

@@ -99,6 +99,12 @@ $(error framebuffer-mmap-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_FRAMEBUFFER_MMAP
 endif
+ifeq ($(FROG_TEST_PROFILE),anonymous-mmap-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error anonymous-mmap-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_ANONYMOUS_MMAP
+endif
 ifeq ($(FROG_TEST_PROFILE),input-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error input-smoke requires QEMU_TEST=1)
@@ -158,6 +164,6 @@ $(BUILD_DIR)/%.o: %.c
 # -Ttext set start virtual address
 # -M print a map
 # LD_FLAG := -s -m elf_i386 -Ttext $(CORE_VADDR) 
-CORE_VADDR := 0xc0070000
+CORE_VADDR := 0xc0060000
 LD_FLAG := -s --gc-sections -m elf_i386 -T ./scripts/kernel_dbg.ld
 LD_DEBUG_FLAG := -M --gc-sections -m elf_i386 -T ./scripts/kernel_dbg.ld
