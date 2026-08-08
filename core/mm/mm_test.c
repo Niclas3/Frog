@@ -1487,12 +1487,11 @@ int_32 mm_vm_process_prepare(void) { return -EOPNOTSUPP; }
 int_32 mm_vm_process_verify_cleanup(void) { return -EOPNOTSUPP; }
 #endif
 
-#ifdef CONFIG_FROG_TEST_ANONYMOUS_MMAP
+#if defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP) || \
+    defined(CONFIG_FROG_TEST_USER_ALLOCATOR)
 extern struct pool user_pool;
-static uint_32 anon_mmap_user_frames;
-static bool anon_mmap_snapshot_live;
 
-static uint_32 anon_mmap_pool_frames_used(struct pool *pool)
+static uint_32 mm_test_pool_frames_used(struct pool *pool)
 {
         uint_32 used = 0;
         uint_32 capacity = pool->pool_bitmap.map_bytes_length * 8U;
@@ -1503,6 +1502,11 @@ static uint_32 anon_mmap_pool_frames_used(struct pool *pool)
         }
         return used;
 }
+#endif
+
+#ifdef CONFIG_FROG_TEST_ANONYMOUS_MMAP
+static uint_32 anon_mmap_user_frames;
+static bool anon_mmap_snapshot_live;
 
 int_32 mm_anon_mmap_test_command(uint_32 command)
 {
@@ -1510,13 +1514,13 @@ int_32 mm_anon_mmap_test_command(uint_32 command)
                 if (anon_mmap_snapshot_live)
                         return -EBUSY;
                 anon_mmap_user_frames =
-                    anon_mmap_pool_frames_used(&user_pool);
+                    mm_test_pool_frames_used(&user_pool);
                 anon_mmap_snapshot_live = true;
                 return 0;
         }
         if (command == FROG_TEST_ANON_MMAP_VERIFY) {
                 bool passed = anon_mmap_snapshot_live &&
-                    anon_mmap_pool_frames_used(&user_pool) ==
+                    mm_test_pool_frames_used(&user_pool) ==
                         anon_mmap_user_frames;
 
                 anon_mmap_snapshot_live = false;
@@ -1547,6 +1551,42 @@ int_32 mm_anon_mmap_test_command(uint_32 command)
 }
 #else
 int_32 mm_anon_mmap_test_command(uint_32 command)
+{
+        (void) command;
+        return -EOPNOTSUPP;
+}
+#endif
+
+#ifdef CONFIG_FROG_TEST_USER_ALLOCATOR
+static uint_32 user_allocator_frames;
+static bool user_allocator_snapshot_live;
+
+int_32 mm_user_allocator_test_command(uint_32 command)
+{
+        if (command == FROG_TEST_USER_ALLOC_SNAPSHOT) {
+                if (user_allocator_snapshot_live)
+                        return -EBUSY;
+                user_allocator_frames =
+                    mm_test_pool_frames_used(&user_pool);
+                user_allocator_snapshot_live = true;
+                return 0;
+        }
+        if (command == FROG_TEST_USER_ALLOC_VERIFY) {
+                bool passed = user_allocator_snapshot_live &&
+                    mm_test_pool_frames_used(&user_pool) ==
+                        user_allocator_frames;
+
+                user_allocator_snapshot_live = false;
+                return passed ? 0 : -EUCLEAN;
+        }
+        if (command == FROG_TEST_USER_ALLOC_FAIL_NEXT) {
+                vm_test_fail_owned_alloc_after(0);
+                return 0;
+        }
+        return -EINVAL;
+}
+#else
+int_32 mm_user_allocator_test_command(uint_32 command)
 {
         (void) command;
         return -EOPNOTSUPP;

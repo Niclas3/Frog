@@ -84,6 +84,15 @@ and does not use QMP. The
 one-page limit on built-in smoke image blobs is only a fixture packaging rule;
 it is not an `mmap` or `exec` ABI limit.
 
+Run `./scripts/qemu-test.sh user-allocator-smoke` for the single-threaded user
+allocator built on private anonymous mappings. The ring-3 fixture checks
+`malloc(0)`, `free(NULL)`, 16-byte alignment, power-of-two small arenas,
+in-arena reuse, empty-arena release, a zero-filled 3 MiB dedicated mapping,
+forced mmap failure cleanup, fork isolation, and repeated child exit without
+freeing allocations. It also verifies that the legacy `SYS_MALLOC` and
+`SYS_FREE` numbers remain unsupported. Run the same profile with
+`FROG_QEMU_MEMORY=16M` for the P0 memory budget.
+
 All QEMU profiles default to `-m 1G`. Set `FROG_QEMU_MEMORY` to a positive
 integer with an `M` or `G` suffix, for example
 `FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh anonymous-mmap-smoke`. The chosen

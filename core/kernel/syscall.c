@@ -6,15 +6,6 @@ pid_t getpid(void)
     return _syscall0(SYS_GETPID);
 }
 
-void *malloc(uint_32 size)
-{
-    return (void *) _syscall1(SYS_MALLOC, size);
-}
-void free(void *ptr)
-{
-    _syscall1(SYS_FREE, ptr);
-}
-
 pid_t fork(void)
 {
     return _syscall0(SYS_FORK);

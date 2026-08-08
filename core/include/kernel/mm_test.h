@@ -10,5 +10,6 @@ int_32 mm_vm_process_verify_cleanup(void);
 int_32 mm_vm_process_arm_fork_failure(uint_32 step);
 int_32 mm_vm_process_verify_refs(uint_32 expected);
 int_32 mm_anon_mmap_test_command(uint_32 command);
+int_32 mm_user_allocator_test_command(uint_32 command);
 
 #endif

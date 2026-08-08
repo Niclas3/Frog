@@ -278,6 +278,36 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_ANON_MMAP_EXEC_CLEANUP:
         name = "anonymous-mmap.exec-cleanup";
         break;
+    case FROG_TEST_USER_ALLOC_ZERO_NULL:
+        name = "user-allocator.zero-null";
+        break;
+    case FROG_TEST_USER_ALLOC_ALIGNMENT_WRITE:
+        name = "user-allocator.alignment-write";
+        break;
+    case FROG_TEST_USER_ALLOC_SMALL_REUSE:
+        name = "user-allocator.small-reuse";
+        break;
+    case FROG_TEST_USER_ALLOC_ARENA_RELEASE:
+        name = "user-allocator.arena-release";
+        break;
+    case FROG_TEST_USER_ALLOC_LARGE_RELEASE:
+        name = "user-allocator.large-release";
+        break;
+    case FROG_TEST_USER_ALLOC_FORCED_OOM:
+        name = "user-allocator.forced-oom";
+        break;
+    case FROG_TEST_USER_ALLOC_FORK_ISOLATION:
+        name = "user-allocator.fork-isolation";
+        break;
+    case FROG_TEST_USER_ALLOC_EXIT_CLEANUP:
+        name = "user-allocator.exit-cleanup";
+        break;
+    case FROG_TEST_USER_ALLOC_LEGACY_SYSCALLS:
+        name = "user-allocator.legacy-syscalls";
+        break;
+    case FROG_TEST_USER_ALLOC_LIMITS:
+        name = "user-allocator.limits";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;
@@ -403,6 +433,10 @@ int_32 sys_testsyscall(uint_32 command)
     if (command != FROG_TEST_ANON_MMAP_FINISH)
         return mm_anon_mmap_test_command(command);
 #endif
+#ifdef CONFIG_FROG_TEST_USER_ALLOCATOR
+    if (command != FROG_TEST_USER_ALLOC_FINISH)
+        return mm_user_allocator_test_command(command);
+#endif
 #ifdef CONFIG_FROG_TEST_PROCESS
     if (command == FROG_TEST_HEAP_ALLOC_16)
         return (int_32) (uint_32) umalloc(16);
@@ -425,6 +459,7 @@ int_32 sys_testsyscall(uint_32 command)
         return exec_test_arm_fail_before_commit();
 #endif
 #if !defined(CONFIG_FROG_TEST_USER) && \
+    !defined(CONFIG_FROG_TEST_USER_ALLOCATOR) && \
     !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) && \
     !defined(CONFIG_FROG_TEST_INPUT)
     INFO("[init]: ring3 reached, testsyscall a=%d", command);

@@ -14,7 +14,7 @@
 ## Phase 2: Runtime and transport
 
 - [x] Task 4: Add eager private anonymous mappings.
-- [ ] Task 5: Implement user-space `malloc/free`.
+- [x] Task 5: Implement user-space `malloc/free`.
 - [ ] Task 6: Implement packagefs bind/connect/directed records.
 - [ ] Task 7: Complete packagefs lifecycle/readiness.
 - [ ] Checkpoint B: Anonymous memory, allocator, and packagefs pass under 16 MiB.

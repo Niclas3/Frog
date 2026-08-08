@@ -2,7 +2,7 @@ include ../../Makefile.os_rules
 
 OBJCOPY ?= objcopy
 
-USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap input time wait2
+USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap user_allocator input time wait2
 USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 EXEC_TARGET_BLOB := $(BUILD_DIR)/exec_target_blob.o
 USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
@@ -42,6 +42,16 @@ $(BUILD_DIR)/user_smoke_anonymous_mmap_user.o: anonymous_mmap_smoke.c
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_anonymous_mmap_user.d \
 		-o $@ $<
 
+$(BUILD_DIR)/user_smoke_user_allocator_user.o: user_allocator_smoke.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_user_allocator_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_user_allocator_allocator.o: ../lib/user_malloc.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_user_allocator_allocator.d \
+		-o $@ $<
+
 $(BUILD_DIR)/user_smoke_input_user.o: input_smoke.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_input_user.d \
@@ -63,7 +73,8 @@ $(BUILD_DIR)/user_smoke_framebuffer_mmap_runtime.o: ../kernel/syscall.c
 		-o $@ $<
 
 $(BUILD_DIR)/user_smoke_process_runtime.o \
-$(BUILD_DIR)/user_smoke_disk_prepare_runtime.o: ../kernel/syscall.c
+$(BUILD_DIR)/user_smoke_disk_prepare_runtime.o \
+$(BUILD_DIR)/user_smoke_user_allocator_runtime.o: ../kernel/syscall.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/$(@F:.o=.d) \
 		-o $@ $<
@@ -81,6 +92,15 @@ $(BUILD_DIR)/user_smoke_disk_prepare.elf: \
 	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
 		$(BUILD_DIR)/user_smoke_disk_prepare_user.o \
 		$(BUILD_DIR)/user_smoke_disk_prepare_runtime.o
+
+$(BUILD_DIR)/user_smoke_user_allocator.elf: \
+	$(BUILD_DIR)/user_smoke_user_allocator_user.o \
+	$(BUILD_DIR)/user_smoke_user_allocator_runtime.o \
+	$(BUILD_DIR)/user_smoke_user_allocator_allocator.o user_smoke.ld
+	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
+		$(BUILD_DIR)/user_smoke_user_allocator_user.o \
+		$(BUILD_DIR)/user_smoke_user_allocator_runtime.o \
+		$(BUILD_DIR)/user_smoke_user_allocator_allocator.o
 
 $(BUILD_DIR)/user_smoke_framebuffer_mmap.elf: \
 	$(BUILD_DIR)/user_smoke_framebuffer_mmap_user.o \
