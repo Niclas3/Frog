@@ -378,6 +378,21 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_PACKAGEFS_CONTROL_NOT_STARVED:
         name = "packagefs-lifecycle.control-not-starved-by-data";
         break;
+    case FROG_TEST_PACKAGEFS_USERLIB_BIND_CONNECT:
+        name = "packagefs-userlib.bind-connect";
+        break;
+    case FROG_TEST_PACKAGEFS_USERLIB_EXACT_RECORDS:
+        name = "packagefs-userlib.zero-one-max-exact-records";
+        break;
+    case FROG_TEST_PACKAGEFS_USERLIB_DIRECTED_REPLY:
+        name = "packagefs-userlib.directed-reply";
+        break;
+    case FROG_TEST_PACKAGEFS_USERLIB_CONTROL_ERRNO:
+        name = "packagefs-userlib.control-and-negative-errno";
+        break;
+    case FROG_TEST_PACKAGEFS_USERLIB_BROADCAST_RESULTS:
+        name = "packagefs-userlib.broadcast-independent-results";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;

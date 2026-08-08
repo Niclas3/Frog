@@ -21,7 +21,7 @@
 
 ## Phase 3: Independent vertical slices
 
-- [ ] Task 8: Build the pointer-free packagefs user library.
+- [x] Task 8: Build the pointer-free packagefs user library.
 - [ ] Task 9: Implement the Poudland Version 1 client runtime.
 - [ ] Task 10: Establish the modern built-in compositor slice.
 - [ ] Task 11: Create the deterministic FrogFS host image builder.

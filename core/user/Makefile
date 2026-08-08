@@ -2,7 +2,7 @@ include ../../Makefile.os_rules
 
 OBJCOPY ?= objcopy
 
-USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap user_allocator packagefs packagefs_lifecycle input time wait2
+USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap user_allocator packagefs packagefs_lifecycle packagefs_userlib input time wait2
 USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 EXEC_TARGET_BLOB := $(BUILD_DIR)/exec_target_blob.o
 USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
@@ -62,6 +62,21 @@ $(BUILD_DIR)/user_smoke_packagefs_lifecycle_user.o: packagefs_lifecycle_smoke.c
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_packagefs_lifecycle_user.d \
 		-o $@ $<
 
+$(BUILD_DIR)/user_smoke_packagefs_userlib_user.o: packagefs_userlib_smoke.c
+	$(CC) -I../apps/include $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_packagefs_userlib_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_packagefs_userlib_lib.o: ../apps/lib/packagefs.c
+	$(CC) -I../apps/include $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_packagefs_userlib_lib.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_packagefs_userlib_runtime.o: ../kernel/syscall.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_packagefs_userlib_runtime.d \
+		-o $@ $<
+
 $(BUILD_DIR)/user_smoke_input_user.o: input_smoke.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_input_user.d \
@@ -118,6 +133,15 @@ $(BUILD_DIR)/user_smoke_framebuffer_mmap.elf: \
 	$(LD) -m elf_i386 -T user_smoke.ld -o $@ \
 		$(BUILD_DIR)/user_smoke_framebuffer_mmap_user.o \
 		$(BUILD_DIR)/user_smoke_framebuffer_mmap_runtime.o
+
+$(BUILD_DIR)/user_smoke_packagefs_userlib.elf: \
+	$(BUILD_DIR)/user_smoke_packagefs_userlib_user.o \
+	$(BUILD_DIR)/user_smoke_packagefs_userlib_lib.o \
+	$(BUILD_DIR)/user_smoke_packagefs_userlib_runtime.o user_smoke.ld
+	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
+		$(BUILD_DIR)/user_smoke_packagefs_userlib_user.o \
+		$(BUILD_DIR)/user_smoke_packagefs_userlib_lib.o \
+		$(BUILD_DIR)/user_smoke_packagefs_userlib_runtime.o
 
 $(BUILD_DIR)/user_smoke_%.elf: $(BUILD_DIR)/user_smoke_%_user.o user_smoke.ld
 	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ $<

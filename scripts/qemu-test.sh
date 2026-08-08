@@ -27,11 +27,12 @@ case "$profile" in
     user-allocator-smoke) stages=(boot) ;;
     packagefs-smoke) stages=(boot) ;;
     packagefs-lifecycle-smoke) stages=(boot) ;;
+    packagefs-userlib-smoke) stages=(boot) ;;
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")

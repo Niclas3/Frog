@@ -5,7 +5,7 @@ CFLAGS := -g -c -O1 -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prot
 #     Omit all symbol information from the output
 #     file.
 LD_FLAG := -m elf_i386
-CINCLUDE= -I../include
+CINCLUDE= -Iinclude -I../include -I../arch/x86/include
 OBJS= ../build/stdio.o ../lib/oslib.o ../build/string.o \
       ../build/usr.o ../build/libdebug.o \
       ../build/list.o 
@@ -18,6 +18,9 @@ DISK = ../../hd.img
 
 
 ls.o: ls.c
+	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
+
+packagefs.o: lib/packagefs.c
 	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
 
 # home brew C runtime
