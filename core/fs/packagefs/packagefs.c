@@ -1,479 +1,958 @@
-// For client - server IPC
-#include <kernel/assert.h>
-#include <device/devno-base.h>
-#include <device/ide.h>
-#include <forg/errno.h>
+#include <asm/page.h>
+
+#include <frog/errno.h>
+#include <frog/fcntl.h>
+#include <frog/fork.h>
 #include <frog/irqflags.h>
-#include <fs/dir.h>
-#include <fs/fcntl.h>
-#include <fs/file.h>
-#include <fs/fs.h>
-#include <fs/inode.h>
-#include <fs/packagefs.h>
-#include <list.h>
-#include <string.h>
-#include <sys/memory.h>
-#include <sys/semaphore.h>
-#include <sys/threads.h>
+#include <frog/list.h>
+#include <frog/memory.h>
+#include <frog/packagefs.h>
+#include <frog/poll.h>
+#include <frog/sched.h>
+#include <frog/semaphore.h>
+#include <frog/string.h>
+#include <frog/threads.h>
+#include <frog/uaccess.h>
+#include <frog/wait.h>
+#include <kernel/assert.h>
+#include <kernel/dev.h>
+#include <kernel/mount.h>
+#ifdef CONFIG_FROG_TEST_PACKAGEFS
+#include <kernel/qemu_test.h>
+#endif
+#include <kernel/vfs.h>
 
-#include <ioqueue.h>
+#include "packagefs.h"
 
-extern struct file g_file_table[MAX_FILE_OPEN];
-extern struct lock g_ft_lock;
+#define PACKAGEFS_MAGIC        0x504b4746U
+enum packagefs_endpoint_role {
+        PACKAGEFS_ENDPOINT_SERVER = 1,
+        PACKAGEFS_ENDPOINT_CLIENT,
+};
 
-#define CLIENT_MARK 0xdeadbeef
-#define MAX_PACKET_SIZE 1024
+struct packagefs_service;
 
-#define intr_lock(lock, flags)        \
-        do {                           \
-                local_irq_save(flags); \
-                lock_fetch(lock);      \
-        } while (0)
-
-#define intr_unlock(lock, flags)         \
-        do {                              \
-                lock_release((lock));     \
-                local_irq_restore(flags); \
-        } while (0)
-
-// contain all exist servers list
-
-// server structure
-typedef struct {
-        char *name;  // server name
-        struct list_head server_target;
-        struct lock lock;
-        CircleQueue *msg_list;
-        struct list_head clients;  // all clients communicate to this server
-} pkg_server_t;
-
-// client structure
-typedef struct {
-        pkg_server_t *server;            // server this client to connect
-        struct list_head client_target;  // target to server clients list
-        CircleQueue *msg_list;           // event message list to this client
-} pkg_client_t;
-
-typedef struct {
-        uint_32 size;
-        pkg_client_t *source;
-        char data[];
-} package_t;
-
-typedef struct server_write_header {
-        pkg_client_t *target;
+struct packagefs_queue {
+        wait_queue_head_t read_wait;
+        wait_queue_head_t write_wait;
+        uint_32 head;
+        uint_32 tail;
+        uint_32 used;
+        uint_32 capacity;
         uint_8 data[];
-} header_t;
+};
 
-typedef struct {
-        struct list_head servers;
-        pkg_server_t *cur_server;
-} pkg_monitor;
+struct packagefs_session {
+        struct packagefs_service *service;
+        struct list_head node;
+        uint_32 peer_id;
+        uint_32 io_refs;
+        struct packagefs_queue *s2c;
+        bool connected;
+};
 
+struct packagefs_endpoint {
+        enum packagefs_endpoint_role role;
+        struct packagefs_service *service;
+        struct packagefs_session *session;
+};
 
-bool is_pkg_file(struct partition *part, int_32 inode_nr)
+struct packagefs_service {
+        struct lock lock;
+        struct list_head clients;
+        struct dentry *dentry;
+        uint_32 client_count;
+        struct packagefs_queue *c2s;
+        bool server_live;
+};
+
+static uint_32 packagefs_service_count;
+static uint_32 packagefs_next_peer_id = 1U;
+
+static int_32 packagefs_close(struct file *file);
+static int_32 packagefs_read(struct file *file, void *buf, uint_32 count);
+static int_32 packagefs_write(struct file *file, const void *buf,
+                              uint_32 count);
+static uint_32 packagefs_poll(struct file *file,
+                              struct poll_table_struct *wait);
+
+static struct file_operations packagefs_fops = {
+    .close = packagefs_close,
+    .read = packagefs_read,
+    .write = packagefs_write,
+    .poll = packagefs_poll,
+};
+
+typedef char packagefs_record_header_must_be_12_bytes[
+    sizeof(struct frog_pkg_record) == FROG_PKG_HEADER_SIZE ? 1 : -1];
+
+static struct packagefs_queue *packagefs_queue_alloc(void)
 {
-        // can not find client from inode_open
-        struct inode *inode_char_file = inode_open(part, inode_nr);
-        return IS_FT_FIFO(inode_char_file);
+        struct packagefs_queue *queue = get_kernel_page(1);
+
+        if (queue == NULL)
+                return NULL;
+        memset(queue, 0, PAGE_SIZE);
+        init_waitqueue_head(&queue->read_wait);
+        init_waitqueue_head(&queue->write_wait);
+        queue->capacity = PAGE_SIZE - sizeof(*queue);
+        return queue;
 }
 
-bool is_pkg_fd(int_32 fd)
+static void packagefs_queue_free(struct packagefs_queue *queue)
 {
-        uint_32 g_fd = fd_local2global(fd);
-        return IS_FT_FIFO(g_file_table[g_fd].fd_inode);
+        if (queue != NULL)
+                free_page(MP_KERNEL, queue, 1);
 }
 
-/**
- * Receive a packet from giving msg_list
- *
- *****************************************************************************/
-static uint_32 receive_packet(CircleQueue *msg_list, package_t **out)
+static uint_32 packagefs_queue_free_space(
+    const struct packagefs_queue *queue)
 {
-        // 4 to read first 4 bytes get real size
-        uint_32 data_size = 0;
-        ioqueue_get_data(msg_list, (char *) &data_size, 4);
-        package_t *tmp = sys_malloc(data_size + sizeof(package_t));
-        tmp->size = data_size;
-        uint_32 res = ioqueue_get_data(msg_list, (char *) tmp + 4,
-                                       data_size + sizeof(package_t) - 4);
-        *out = tmp;
-        return res + 4;
+        return queue->capacity - queue->used;
 }
 
-// Client will send message to server
-// Only client process will call this function
-static int send_to_server(pkg_server_t *serv,
-                          pkg_client_t *c,
-                          uint_32 size,
-                          void *data)
+static void packagefs_queue_copy_in(struct packagefs_queue *queue,
+                                    const uint_8 *source,
+                                    uint_32 length)
 {
-        // make a package
-        uint_32 psize = sizeof(package_t) + size;
-        package_t *pack = sys_malloc(psize);
-        pack->size = size;
-        pack->source = c;
-        memcpy(pack->data, data, size);
-        // add to server FIFO
-        // 2. If this server message list is full, block self process to wait
-        // server
-        //    flush server message list
-        // test serv->msg_list left size is bigger than this package size send
-        // the data
-        uint_32 res = ioqueue_put_data(serv->msg_list, (char *) pack, psize);
-        return res;
+        uint_32 first = queue->capacity - queue->tail;
+
+        if (first > length)
+                first = length;
+        memcpy(queue->data + queue->tail, source, first);
+        if (length > first)
+                memcpy(queue->data, source + first, length - first);
+        queue->tail = (queue->tail + length) % queue->capacity;
+        queue->used += length;
 }
 
-static int send_to_client(pkg_server_t *serv,
-                          pkg_client_t *c,
-                          uint_32 size,
-                          void *data)
+static void packagefs_queue_copy_out(const struct packagefs_queue *queue,
+                                     uint_32 offset,
+                                     uint_8 *destination,
+                                     uint_32 length)
 {
-        // make a package
-        uint_32 psize = sizeof(package_t) + size;
-        package_t *pack = sys_malloc(psize);
-        pack->size = size;
-        pack->source = NULL;  // AKA server
-        memcpy(pack->data, data, size);
-        // add to Client FIFO
-        // 2. if this client message list is full
-        uint_32 res = ioqueue_put_data(c->msg_list, (char *) pack, psize);
-        return res;
+        uint_32 start = (queue->head + offset) % queue->capacity;
+        uint_32 first = queue->capacity - start;
+
+        if (first > length)
+                first = length;
+        memcpy(destination, queue->data + start, first);
+        if (length > first)
+                memcpy(destination + first, queue->data, length - first);
 }
 
-// create more clients
-static pkg_client_t *create_client(pkg_server_t *server)
+static int packagefs_queue_peek(const struct packagefs_queue *queue,
+                                struct frog_pkg_record *header,
+                                uint_32 *record_size)
 {
-        TCB_t *cur = running_thread();
-        struct mm_struct *cur_mm_bak = cur->mm;
-        cur->mm = NULL;
-        // this memory at kernel for share
-        pkg_client_t *client = sys_malloc(sizeof(pkg_client_t));
-        cur->mm = cur_mm_bak;
-
-        client->msg_list = init_ioqueue(4000);
-        client->server = server;
-        list_add_tail(&client->client_target, &server->clients);
-        return client;
+        if (queue->used == 0)
+                return -EAGAIN;
+        if (queue->used < FROG_PKG_HEADER_SIZE)
+                return -EUCLEAN;
+        packagefs_queue_copy_out(queue, 0, (uint_8 *) header,
+                                 FROG_PKG_HEADER_SIZE);
+        if (header->payload_size > FROG_PKG_PAYLOAD_MAX)
+                return -EUCLEAN;
+        *record_size = FROG_PKG_HEADER_SIZE + header->payload_size;
+        if (*record_size > queue->used)
+                return -EUCLEAN;
+        return 0;
 }
 
-/* static pkg_server_t *create_server(char *name, pkg_monitor *monitor) */
-static pkg_server_t *create_server(char *name)
+static void packagefs_queue_consume(struct packagefs_queue *queue,
+                                    uint_32 length)
 {
-        TCB_t *cur = running_thread();
-        struct mm_struct *cur_mm_bak = cur->mm;
-        cur->mm = NULL;
-        // this memory at kernel for share
-        pkg_server_t *server = sys_malloc(sizeof(pkg_server_t));
-        cur->mm = cur_mm_bak;
-
-        server->msg_list = init_ioqueue(4000);
-        INIT_LIST_HEAD(&server->clients);
-        server->name = sys_malloc(strlen(name));
-        strcpy(server->name, name);
-        lock_init(&server->lock);
-        /* list_add_tail(&server->server_target, &monitor->servers); */
-        return server;
+        ASSERT(length <= queue->used);
+        queue->head = (queue->head + length) % queue->capacity;
+        queue->used -= length;
+        if (queue->used == 0)
+                queue->head = queue->tail = 0;
 }
 
-/**
- * create a char type file
- *
- * @return reture a global file table index
- *****************************************************************************/
-int_32 packagefs_create(struct partition *part,
-                        struct dir *parent_d,
-                        char *name,
-                        void *target)
+static int packagefs_queue_enqueue(struct packagefs_queue *queue,
+                                   const uint_8 *record,
+                                   uint_32 record_size)
 {
-        uint_8 rollback_step = 0;
-        char *buf = sys_malloc(1024);
-        if (!buf) {
-                //  kprint("Not enough memory for io buf");
-                return -1;
+        if (packagefs_queue_free_space(queue) < record_size)
+                return -EAGAIN;
+        packagefs_queue_copy_in(queue, record, record_size);
+        wake_up_interruptible(&queue->read_wait);
+        return 0;
+}
+
+#ifdef CONFIG_FROG_TEST_PACKAGEFS
+static void packagefs_test_make_record(uint_8 *storage, uint_32 peer_id,
+                                       uint_8 value)
+{
+        struct frog_pkg_record *record =
+            (struct frog_pkg_record *) storage;
+
+        record->peer_id = peer_id;
+        record->event = FROG_PKG_DATA;
+        record->payload_size = FROG_PKG_PAYLOAD_MAX;
+        memset(record->payload, value, FROG_PKG_PAYLOAD_MAX);
+}
+
+static bool packagefs_test_expect_record(struct packagefs_queue *queue,
+                                         uint_8 *scratch,
+                                         uint_32 peer_id,
+                                         uint_8 value)
+{
+        struct frog_pkg_record header;
+        struct frog_pkg_record *record =
+            (struct frog_pkg_record *) scratch;
+        uint_32 record_size;
+
+        if (packagefs_queue_peek(queue, &header, &record_size) != 0 ||
+            record_size != FROG_PKG_RECORD_MAX)
+                return false;
+        packagefs_queue_copy_out(queue, 0, scratch, record_size);
+        if (record->peer_id != peer_id || record->event != FROG_PKG_DATA ||
+            record->payload_size != FROG_PKG_PAYLOAD_MAX)
+                return false;
+        for (uint_32 index = 0; index < FROG_PKG_PAYLOAD_MAX; index++) {
+                if (record->payload[index] != value)
+                        return false;
+        }
+        packagefs_queue_consume(queue, record_size);
+        return true;
+}
+
+static bool packagefs_queue_regression_test(void)
+{
+        struct packagefs_queue *queue = packagefs_queue_alloc();
+        uint_8 *record = kmalloc(FROG_PKG_RECORD_MAX);
+        uint_8 *scratch = kmalloc(FROG_PKG_RECORD_MAX);
+        bool passed = queue != NULL && record != NULL && scratch != NULL;
+
+        if (!passed)
+                goto out;
+        packagefs_test_make_record(record, 1, 0x11U);
+        passed = packagefs_queue_enqueue(queue, record,
+                                         FROG_PKG_RECORD_MAX) == 0;
+        packagefs_test_make_record(record, 2, 0x22U);
+        passed = packagefs_queue_enqueue(queue, record,
+                                         FROG_PKG_RECORD_MAX) == 0 &&
+                 passed;
+        passed = packagefs_test_expect_record(queue, scratch, 1,
+                                              0x11U) && passed;
+        packagefs_test_make_record(record, 3, 0x33U);
+        passed = packagefs_queue_enqueue(queue, record,
+                                         FROG_PKG_RECORD_MAX) == 0 &&
+                 passed;
+        passed = packagefs_test_expect_record(queue, scratch, 2,
+                                              0x22U) && passed;
+        packagefs_test_make_record(record, 4, 0x44U);
+        passed = queue->tail + FROG_PKG_RECORD_MAX > queue->capacity &&
+                 passed;
+        passed = packagefs_queue_enqueue(queue, record,
+                                         FROG_PKG_RECORD_MAX) == 0 &&
+                 passed;
+        passed = packagefs_test_expect_record(queue, scratch, 3,
+                                              0x33U) && passed;
+        passed = packagefs_test_expect_record(queue, scratch, 4,
+                                              0x44U) && passed;
+        passed = queue->used == 0 && passed;
+out:
+        kfree(scratch);
+        kfree(record);
+        packagefs_queue_free(queue);
+        return passed;
+}
+#endif
+
+static uint_32 packagefs_accepted_server_flags(void)
+{
+        return O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC;
+}
+
+static uint_32 packagefs_accepted_client_flags(void)
+{
+        return O_RDWR | O_CLOEXEC;
+}
+
+static bool packagefs_flags_match(uint_32 flags, uint_32 accepted)
+{
+        return flags == accepted || flags == (accepted | O_NONBLOCK);
+}
+
+static int packagefs_validate_name(const char *name)
+{
+        uint_32 length;
+
+        if (name == NULL || name[0] == '\0')
+                return -EINVAL;
+        length = strlen(name);
+        if (length > FROG_PKG_NAME_MAX)
+                return -ENAMETOOLONG;
+        if ((length == 1 && name[0] == '.') ||
+            (length == 2 && name[0] == '.' && name[1] == '.'))
+                return -EINVAL;
+        for (uint_32 index = 0; index < length; index++) {
+                if (name[index] == '/')
+                        return -EINVAL;
+        }
+        return 0;
+}
+
+static struct inode *packagefs_alloc_service_inode(
+    struct inode *parent, struct packagefs_service *service)
+{
+        struct inode *inode = kmalloc(sizeof(*inode));
+
+        if (inode == NULL)
+                return NULL;
+        memset(inode, 0, sizeof(*inode));
+        inode->i_mode = FT_FIFO << 11;
+        inode->i_nlink = 1;
+        inode->i_sb = parent->i_sb;
+        inode->i_fop = &packagefs_fops;
+        inode->i_private = service;
+        INIT_LIST_HEAD(&inode->i_active_node);
+        return inode;
+}
+
+static int packagefs_init_file(struct file *file,
+                               struct dentry *dentry,
+                               struct packagefs_endpoint *endpoint)
+{
+        if (file == NULL || dentry == NULL || dentry->d_inode == NULL ||
+            endpoint == NULL)
+                return -EINVAL;
+        file->f_pos = 0;
+        file->f_count = 0;
+        file->f_inode = dentry->d_inode;
+        file->f_op = &packagefs_fops;
+        file->f_dentry = dentry;
+        file->private_data = endpoint;
+        return 0;
+}
+
+static int packagefs_bind(struct inode *dir,
+                          struct dentry *candidate,
+                          struct file *file)
+{
+        struct packagefs_service *service;
+        struct packagefs_endpoint *endpoint;
+        struct inode *inode;
+        int result;
+
+        if (dentry_lookup(candidate->d_parent, candidate->d_name) != NULL)
+                return -EEXIST;
+        if (packagefs_service_count >= FROG_PKG_SERVICE_MAX)
+                return -ENOSPC;
+
+        service = kmalloc(sizeof(*service));
+        endpoint = kmalloc(sizeof(*endpoint));
+        if (service == NULL || endpoint == NULL) {
+                kfree(endpoint);
+                kfree(service);
+                return -ENOMEM;
+        }
+        memset(service, 0, sizeof(*service));
+        memset(endpoint, 0, sizeof(*endpoint));
+        lock_init(&service->lock);
+        INIT_LIST_HEAD(&service->clients);
+        service->server_live = true;
+        service->c2s = packagefs_queue_alloc();
+        if (service->c2s == NULL) {
+                kfree(endpoint);
+                kfree(service);
+                return -ENOMEM;
         }
 
-        // 1. Need new inode aka create a inode (inode_open())
-        uint_32 inode_nr = inode_bitmap_alloc(part);
-        if (inode_nr == -1) {
-                // TODO:
-                //  kprint("Not enough inode bitmap position.");
-                return -1;
+        inode = packagefs_alloc_service_inode(dir, service);
+        if (inode == NULL) {
+                packagefs_queue_free(service->c2s);
+                kfree(endpoint);
+                kfree(service);
+                return -ENOMEM;
         }
-        ASSERT(inode_nr != -1);
-
-        //--------------------------------------------------------------------
-        // alloc memory struct inode at kernel memory
-        TCB_t *cur = running_thread();
-        struct mm_struct *cur_mm_bak = cur->mm;
-        cur->mm = NULL;
-        // this memory at kernel for share
-        struct inode *new_f_inode = sys_malloc(sizeof(struct inode));
-        cur->mm = cur_mm_bak;
-        //--------------------------------------------------------------------
-
-        if (!new_f_inode) {
-                // TODO:
-                //  kprint("Not enough memory for inode .");
-                // Recover! Need recover inode bitmap set
-                rollback_step = 1;
-                goto roll_back;
+        candidate->d_inode = inode;
+        candidate->d_type = FT_FIFO;
+        candidate->d_flags |= DENTRY_EPHEMERAL;
+        service->dentry = candidate;
+        endpoint->role = PACKAGEFS_ENDPOINT_SERVER;
+        endpoint->service = service;
+        result = packagefs_init_file(file, candidate, endpoint);
+        if (result != 0) {
+                candidate->d_inode = NULL;
+                candidate->d_type = FT_UNKOWN;
+                candidate->d_flags &= ~DENTRY_EPHEMERAL;
+                packagefs_queue_free(service->c2s);
+                kfree(inode);
+                kfree(endpoint);
+                kfree(service);
+                return result;
         }
-        new_inode(inode_nr, new_f_inode);
+        dentry_add_child(candidate->d_parent, candidate);
+        packagefs_service_count++;
+        return 0;
+}
 
-        new_f_inode->i_mode = FT_FIFO << 11;
-        new_f_inode->i_zones[0] = (uint_32 *) target;
-        new_f_inode->i_count++;
-        new_f_inode->i_dev = DNOPKGFS;
-        // 2. new dir_entry
-        struct dir_entry new_entry;
-        new_dir_entry(name, inode_nr, FT_FIFO, &new_entry);
-        // 3.get file slot form global file_table
-        lock_fetch(&g_ft_lock);
-        // global file table index
-        uint_32 fd_idx = occupy_file_table_slot();
-        if (fd_idx == -1) {
-                // TODO:
-                //  kprint("Not enough slot at file table.");
-                // Recover! Need recover inode bitmap set
-                //        ! free new_f_inode
-                rollback_step = 2;
-                goto roll_back;
+static int packagefs_connect(struct dentry *candidate, struct file *file)
+{
+        struct dentry *dentry = dentry_lookup(candidate->d_parent,
+                                              candidate->d_name);
+        struct packagefs_service *service;
+        struct packagefs_session *session;
+        struct packagefs_endpoint *endpoint;
+        int result;
+
+        if (dentry == NULL || dentry->d_inode == NULL)
+                return -ENOENT;
+        service = dentry->d_inode->i_private;
+        if (service == NULL)
+                return -ENOENT;
+        if (dentry->d_inode->i_count == 0xffffU)
+                return -EMFILE;
+        if (packagefs_next_peer_id == 0)
+                return -ENOSPC;
+
+        session = kmalloc(sizeof(*session));
+        endpoint = kmalloc(sizeof(*endpoint));
+        if (session == NULL || endpoint == NULL) {
+                kfree(endpoint);
+                kfree(session);
+                return -ENOMEM;
+        }
+        memset(session, 0, sizeof(*session));
+        memset(endpoint, 0, sizeof(*endpoint));
+        session->service = service;
+        session->peer_id = packagefs_next_peer_id++;
+        session->s2c = packagefs_queue_alloc();
+        if (session->s2c == NULL) {
+                kfree(endpoint);
+                kfree(session);
+                return -ENOMEM;
+        }
+        session->connected = true;
+        INIT_LIST_HEAD(&session->node);
+        endpoint->role = PACKAGEFS_ENDPOINT_CLIENT;
+        endpoint->service = service;
+        endpoint->session = session;
+        result = packagefs_init_file(file, dentry, endpoint);
+        if (result != 0) {
+                packagefs_queue_free(session->s2c);
+                kfree(endpoint);
+                kfree(session);
+                return result;
         }
 
-        g_file_table[fd_idx].fd_pos = 0;
-        g_file_table[fd_idx].fd_inode = new_f_inode;
-        g_file_table[fd_idx].fd_inode->i_lock = false;
-        lock_release(&g_ft_lock);
+        /* VFS holds namespace_lock; publish under the per-service lock. */
+        lock_fetch(&service->lock);
+        if (!service->server_live)
+                result = -ENOENT;
+        else if (service->client_count >= FROG_PKG_CLIENT_MAX)
+                result = -ENOSPC;
+        else {
+                list_add_tail(&session->node, &service->clients);
+                service->client_count++;
+                result = 0;
+        }
+        lock_release(&service->lock);
+        if (result != 0) {
+                file->f_inode = NULL;
+                file->f_op = NULL;
+                file->f_dentry = NULL;
+                file->private_data = NULL;
+                packagefs_queue_free(session->s2c);
+                kfree(endpoint);
+                kfree(session);
+                return result;
+        }
+        return 0;
+}
 
-        // 4. flush dir_entry to parents directory
-        // search new entry first
-        int_32 failed = search_dir_entry(part, name, parent_d, &new_entry);
-        if (!failed) {
-                list_add(&new_f_inode->inode_tag, &part->open_inodes);
-                sys_free(buf);
-                return fd_idx;
-        } else {
-                if (flush_dir_entry(part, parent_d, &new_entry, buf)) {
-                        // TODO:
-                        //  kprint("Failed at flush directory entry");
-                        rollback_step = 3;
-                        // Recover! Need recover inode bitmap set
-                        //        ! free new_f_inode
-                        //        ! clear g_file_table[fd_idx]
-                        goto roll_back;
+static int packagefs_atomic_open(struct inode *dir,
+                                 struct dentry *candidate,
+                                 struct file *file,
+                                 uint_32 flags)
+{
+        int result;
+
+        if (dir == NULL || candidate == NULL || candidate->d_parent == NULL ||
+            file == NULL)
+                return -EINVAL;
+        result = packagefs_validate_name(candidate->d_name);
+        if (result != 0)
+                return result;
+        if (packagefs_flags_match(flags,
+                                  packagefs_accepted_server_flags()))
+                return packagefs_bind(dir, candidate, file);
+        if (packagefs_flags_match(flags,
+                                  packagefs_accepted_client_flags()))
+                return packagefs_connect(candidate, file);
+        return -EINVAL;
+}
+
+static struct dentry *packagefs_lookup(struct inode *dir,
+                                       struct dentry *target)
+{
+        (void) dir;
+        if (target == NULL || target->d_parent == NULL ||
+            target->d_name == NULL)
+                return NULL;
+        return dentry_lookup(target->d_parent, target->d_name);
+}
+
+static struct packagefs_session *packagefs_find_session(
+    struct packagefs_service *service, uint_32 peer_id)
+{
+        struct list_head *position;
+
+        list_for_each(position, &service->clients) {
+                struct packagefs_session *session = list_entry(
+                    position, struct packagefs_session, node);
+
+                if (session->connected && session->peer_id == peer_id)
+                        return session;
+        }
+        return NULL;
+}
+
+static void packagefs_destroy_session_locked(
+    struct packagefs_service *service,
+    struct packagefs_session *session)
+{
+        ASSERT(service != NULL && session != NULL &&
+               session->service == service && !session->connected &&
+               session->io_refs == 0);
+        list_del_init(&session->node);
+        packagefs_queue_free(session->s2c);
+        session->s2c = NULL;
+        kfree(session);
+}
+
+static void packagefs_put_session_locked(
+    struct packagefs_service *service,
+    struct packagefs_session *session)
+{
+        ASSERT(service != NULL && session != NULL &&
+               session->service == service && session->io_refs > 0);
+        session->io_refs--;
+        if (!session->connected && session->io_refs == 0)
+                packagefs_destroy_session_locked(service, session);
+}
+
+static void packagefs_wait_locked(struct packagefs_service *service,
+                                  wait_queue_head_t *wait_address)
+{
+        TCB_t *current = running_thread();
+        DECLARE_WAITQUEUE(wait, current);
+        unsigned long flags;
+
+        local_irq_save(flags);
+        add_wait_queue(wait_address, &wait);
+        lock_release(&service->lock);
+        thread_block(THREAD_TASK_WAITING);
+        lock_fetch(&service->lock);
+        remove_wait_queue(wait_address, &wait);
+        local_irq_restore(flags);
+}
+
+static int packagefs_do_read(struct file *file, void *buf, uint_32 count)
+{
+        struct packagefs_endpoint *endpoint = file->private_data;
+        struct packagefs_service *service;
+        struct packagefs_queue *queue;
+        uint_8 *scratch;
+        int result;
+
+        if (endpoint == NULL || endpoint->service == NULL)
+                return -EUCLEAN;
+        service = endpoint->service;
+        scratch = kmalloc(FROG_PKG_RECORD_MAX);
+        if (scratch == NULL)
+                return -ENOMEM;
+
+        lock_fetch(&service->lock);
+        for (;;) {
+                struct frog_pkg_record header;
+                uint_32 record_size;
+
+                if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
+                        queue = service->c2s;
+                } else if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT &&
+                           endpoint->session != NULL) {
+                        queue = endpoint->session->s2c;
+                } else {
+                        result = -EUCLEAN;
+                        break;
                 }
-                list_add(&new_f_inode->inode_tag, &part->open_inodes);
-                sys_free(buf);
-                return fd_idx;
-        }
 
-roll_back:
-        switch (rollback_step) {
-        case 3:
-                memset(&g_file_table[fd_idx], 0, sizeof(struct file));
-        case 2:
-                sys_free(new_f_inode);
-        case 1:
-                set_value_bitmap(&part->inode_bitmap, inode_nr, 0);
+                result = packagefs_queue_peek(queue, &header,
+                                              &record_size);
+                if (result == -EAGAIN) {
+                        if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT &&
+                            !service->server_live) {
+                                result = 0;
+                                break;
+                        }
+                        if (file->f_flag & O_NONBLOCK)
+                                break;
+                        packagefs_wait_locked(service, &queue->read_wait);
+                        continue;
+                }
+                if (result != 0)
+                        break;
+                if (count < record_size) {
+                        result = -EMSGSIZE;
+                        break;
+                }
+                packagefs_queue_copy_out(queue, 0, scratch, record_size);
+                result = copy_to_user(buf, scratch, record_size);
+                if (result != 0)
+                        break;
+                packagefs_queue_consume(queue, record_size);
+                wake_up_interruptible(&queue->write_wait);
+                result = (int) record_size;
                 break;
         }
-        sys_free(buf);
-        return -1;
+        lock_release(&service->lock);
+        kfree(scratch);
+        return result;
 }
 
-int_32 open_pkg(struct partition *part,
-                struct dir *parent_d,
-                char *name,
-                uint_32 inode_nr,
-                uint_8 flags)
+static int_32 packagefs_read(struct file *file, void *buf, uint_32 count)
 {
-        if ((flags & O_CREAT) == O_CREAT) {
-                // create server
-                /* int_32 fd = sys_open("/dev/pkg", O_RDONLY); */
-                /* if (fd == -1) { */
-                /*     return -1; */
-                /* } */
-                /* pkg_monitor *m = (pkg_monitor *)
-                 * get_file(fd)->fd_inode->i_zones[0];
-                 */
-                /* pkg_server_t *server = server = create_server(name, m); */
-                pkg_server_t *server = create_server(name);
-                // create a dir entry /dev/pkg/****(name)
-                int_32 gidx = packagefs_create(part, parent_d, name, server);
-                return install_thread_fd(gidx);
+        unsigned long flags;
+        int result;
+
+        local_irq_save(flags);
+        local_irq_enable();
+        result = packagefs_do_read(file, buf, count);
+        local_irq_restore(flags);
+        return result;
+}
+
+static int packagefs_copy_write_record(const void *buf,
+                                       uint_32 count,
+                                       uint_8 **scratch_out)
+{
+        struct frog_pkg_record header;
+        uint_8 *scratch;
+
+        *scratch_out = NULL;
+        if (count < FROG_PKG_HEADER_SIZE)
+                return -EINVAL;
+        if (copy_from_user(&header, buf, FROG_PKG_HEADER_SIZE) != 0)
+                return -EFAULT;
+        if (header.payload_size > FROG_PKG_PAYLOAD_MAX)
+                return -EMSGSIZE;
+        if (count != FROG_PKG_HEADER_SIZE + header.payload_size ||
+            header.event != FROG_PKG_DATA)
+                return -EINVAL;
+
+        scratch = kmalloc(count);
+        if (scratch == NULL)
+                return -ENOMEM;
+        if (copy_from_user(scratch, buf, count) != 0) {
+                kfree(scratch);
+                return -EFAULT;
+        }
+        struct frog_pkg_record *copied =
+            (struct frog_pkg_record *) scratch;
+        if (copied->payload_size != header.payload_size ||
+            copied->event != FROG_PKG_DATA) {
+                kfree(scratch);
+                return -EINVAL;
+        }
+        *scratch_out = scratch;
+        return 0;
+}
+
+static int packagefs_do_write(struct file *file,
+                              const void *buf,
+                              uint_32 count)
+{
+        struct packagefs_endpoint *endpoint = file->private_data;
+        struct packagefs_service *service;
+        struct packagefs_session *held_session = NULL;
+        struct frog_pkg_record *record;
+        struct packagefs_queue *queue;
+        uint_8 *scratch;
+        uint_32 requested_peer;
+        int result;
+
+        if (endpoint == NULL || endpoint->service == NULL)
+                return -EUCLEAN;
+        result = packagefs_copy_write_record(buf, count, &scratch);
+        if (result != 0)
+                return result;
+        service = endpoint->service;
+        record = (struct frog_pkg_record *) scratch;
+        requested_peer = record->peer_id;
+        if ((endpoint->role == PACKAGEFS_ENDPOINT_CLIENT &&
+             requested_peer != 0) ||
+            (endpoint->role == PACKAGEFS_ENDPOINT_SERVER &&
+             requested_peer == 0)) {
+                kfree(scratch);
+                return -EINVAL;
+        }
+
+        lock_fetch(&service->lock);
+        if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
+                held_session = packagefs_find_session(service,
+                                                      requested_peer);
+                if (held_session == NULL) {
+                        result = -ENOENT;
+                        goto unlock;
+                }
+                if (held_session->io_refs == UINT_MAX) {
+                        result = -EOVERFLOW;
+                        held_session = NULL;
+                        goto unlock;
+                }
+                held_session->io_refs++;
+        }
+        for (;;) {
+                if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT) {
+                        if (!service->server_live) {
+                                result = -EPIPE;
+                                break;
+                        }
+                        queue = service->c2s;
+                        record->peer_id = endpoint->session->peer_id;
+                } else if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
+                        if (!held_session->connected) {
+                                result = -ENOENT;
+                                break;
+                        }
+                        queue = held_session->s2c;
+                        record->peer_id = 0;
+                } else {
+                        result = -EUCLEAN;
+                        break;
+                }
+
+                result = packagefs_queue_enqueue(queue, scratch, count);
+                if (result == 0) {
+                        result = (int) count;
+                        break;
+                }
+                if (result != -EAGAIN || (file->f_flag & O_NONBLOCK))
+                        break;
+                packagefs_wait_locked(service, &queue->write_wait);
+                record->peer_id = requested_peer;
+        }
+        if (held_session != NULL)
+                packagefs_put_session_locked(service, held_session);
+unlock:
+        lock_release(&service->lock);
+        kfree(scratch);
+        return result;
+}
+
+static int_32 packagefs_write(struct file *file, const void *buf,
+                              uint_32 count)
+{
+        unsigned long flags;
+        int result;
+
+        local_irq_save(flags);
+        local_irq_enable();
+        result = packagefs_do_write(file, buf, count);
+        local_irq_restore(flags);
+        return result;
+}
+
+static uint_32 packagefs_poll(struct file *file,
+                              struct poll_table_struct *wait)
+{
+        struct packagefs_endpoint *endpoint = file->private_data;
+        struct packagefs_service *service;
+        uint_32 mask = 0;
+
+        if (endpoint == NULL || endpoint->service == NULL)
+                return POLLERR;
+        service = endpoint->service;
+        lock_fetch(&service->lock);
+        if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
+                poll_wait(file, &service->c2s->read_wait, wait);
+                if (service->c2s->used != 0)
+                        mask |= POLLIN;
+        } else if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT &&
+                   endpoint->session != NULL) {
+                struct packagefs_queue *s2c = endpoint->session->s2c;
+
+                poll_wait(file, &s2c->read_wait, wait);
+                poll_wait(file, &service->c2s->write_wait, wait);
+                if (s2c->used != 0)
+                        mask |= POLLIN;
+                if (!service->server_live)
+                        mask |= POLLHUP;
+                else if (packagefs_queue_free_space(service->c2s) >=
+                         FROG_PKG_RECORD_MAX)
+                        mask |= POLLOUT;
         } else {
-                // create client
-                pkg_server_t *ser =
-                    (pkg_server_t *) inode_open(part, inode_nr)->i_zones[0];
-                pkg_client_t *client = create_client(ser);
-                lock_fetch(&g_ft_lock);
-                int_32 gidx = occupy_file_table_slot();
-                if (gidx == -1) {
-                        // TODO:
-                        // kprint("Not enough global file table slots. when open
-                        // file");
-                        return -1;
+                mask = POLLERR;
+        }
+        lock_release(&service->lock);
+        return mask;
+}
+
+static int_32 packagefs_close(struct file *file)
+{
+        struct packagefs_endpoint *endpoint;
+        struct packagefs_service *service;
+
+        if (file == NULL || file->private_data == NULL)
+                return -EINVAL;
+        endpoint = file->private_data;
+        service = endpoint->service;
+        if (service == NULL) {
+                kfree(endpoint);
+                file->private_data = NULL;
+                return -EUCLEAN;
+        }
+
+        lock_fetch(&service->lock);
+        if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT) {
+                struct packagefs_session *session = endpoint->session;
+
+                if (session == NULL || session->service != service) {
+                        lock_release(&service->lock);
+                        kfree(endpoint);
+                        file->private_data = NULL;
+                        return -EUCLEAN;
                 }
-
-                TCB_t *cur = running_thread();
-                struct mm_struct *cur_mm_bak = cur->mm;
-                cur->mm = NULL;
-                // this memory at kernel for share
-                struct inode *client_inode = sys_malloc(sizeof(struct inode));
-                cur->mm = cur_mm_bak;
-
-                client_inode->i_zones[0] = client;
-                client_inode->i_mode = FT_FIFO << 11;
-                client_inode->i_count++;
-                client_inode->i_dev = DNOPKGFS;
-
-                g_file_table[gidx].fd_inode = client_inode;
-                g_file_table[gidx].fd_pos =
-                    CLIENT_MARK;  // client fd_pos as a mark
-                g_file_table[gidx].fd_flag = flags;
-                lock_release(&g_ft_lock);
-                return install_thread_fd(gidx);
-        }
-}
-
-
-// server read server fifo
-uint_32 read_server(struct file *file, void *buf, uint_32 count)
-{
-        package_t *packet = NULL;
-        pkg_server_t *server = (pkg_server_t *) file->fd_inode->i_zones[0];
-        uint_32 response_size = receive_packet(server->msg_list, &packet);
-        if (response_size < 0)
-                return response_size;
-        if (!packet)
-                return -1;
-
-        if (packet->size + sizeof(package_t) > count) {
-                return -1;
-        }
-
-        uint_32 out_size = packet->size + sizeof(package_t);
-        memcpy(buf, packet, out_size);
-
-        sys_free(packet);
-        return out_size;
-}
-
-// server write to client
-uint_32 write_server(struct file *file, const void *buf, uint_32 count)
-{
-        pkg_server_t *p = (pkg_server_t *) file->fd_inode->i_zones[0];
-        header_t *head = (header_t *) buf;
-
-        if (count - sizeof(header_t) > MAX_PACKET_SIZE) {
-                return -1;
-        }
-
-        if (head->target == NULL) {
-                /* Brodcast packet */
-                lock_fetch(&p->lock);
-                struct list_head *pos;
-                list_for_each (pos, &p->clients) {
-                        pkg_client_t *c =
-                            list_entry(pos, pkg_client_t, client_target);
-                        send_to_client(p, (pkg_client_t *) c,
-                                       count - sizeof(header_t), head->data);
+                if (session->connected) {
+                        session->connected = false;
+                        ASSERT(service->client_count > 0);
+                        service->client_count--;
+                        wake_up_interruptible_all(
+                            &session->s2c->read_wait);
+                        wake_up_interruptible_all(
+                            &session->s2c->write_wait);
                 }
-                lock_release(&p->lock);
-                return count;
-        } else if (head->target->server != p) {
-                return -1;
+                endpoint->session = NULL;
+                if (session->io_refs == 0)
+                        packagefs_destroy_session_locked(service, session);
+        } else if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
+                if (service->server_live) {
+                        service->server_live = false;
+                        list_del_init(&service->dentry->d_child_node);
+                        ASSERT(packagefs_service_count > 0);
+                        packagefs_service_count--;
+                        wake_up_interruptible_all(
+                            &service->c2s->read_wait);
+                        wake_up_interruptible_all(
+                            &service->c2s->write_wait);
+                        struct list_head *position;
+                        list_for_each(position, &service->clients) {
+                                struct packagefs_session *session =
+                                    list_entry(position,
+                                               struct packagefs_session,
+                                               node);
+                                wake_up_interruptible_all(
+                                    &session->s2c->read_wait);
+                                wake_up_interruptible_all(
+                                    &session->s2c->write_wait);
+                        }
+                }
+        } else {
+                lock_release(&service->lock);
+                kfree(endpoint);
+                file->private_data = NULL;
+                return -EUCLEAN;
         }
-
-        return send_to_client(p, head->target, count - sizeof(header_t),
-                              head->data) +
-               sizeof(header_t);
+        lock_release(&service->lock);
+        kfree(endpoint);
+        file->private_data = NULL;
+        return 0;
 }
 
-int_32 ioctl_server(struct file *file, unsigned long request, void *argp)
+static void packagefs_evict_inode(struct inode *inode)
 {
-        switch (request) {
-        case IO_PACKAGEFS_QUEUE: {
-                validate(argp);
-                pkg_server_t *s = (pkg_server_t *) file->fd_inode->i_zones[0];
-                uint_32 size = ioqueue_size(s->msg_list);
+        struct packagefs_service *service;
+        struct dentry *dentry;
 
-                return size;
-        }
-        default:
-                return -EINVAL;
-        }
-}
-/* close_server() */
-/* wait_server()  */
-/* check_server() */
-
-uint_32 read_client(struct file *file, void *buf, uint_32 count)
-{
-        pkg_client_t *c = (pkg_client_t *) file->fd_inode->i_zones[0];
-        package_t *packet = NULL;
-        uint_32 response_size = receive_packet(c->msg_list, &packet);
-
-        if (response_size < 0)
-                return response_size;
-        if (!packet)
-                return -1;
-
-        if (packet->size + sizeof(package_t) > count) {
-                /* printf("pex: read in server would be incomplete\n"); */
-                return -1;
-        }
-
-        memcpy((char *) buf, packet->data, packet->size);
-        uint_32 out = packet->size;
-
-        sys_free(packet);
-        return out;
-}
-
-uint_32 write_client(struct file *file, const void *buf, uint_32 count)
-{
-        pkg_client_t *c = (pkg_client_t *) file->fd_inode->i_zones[0];
-
-        if (count > MAX_PACKET_SIZE) {
-                /* debug_print(WARNING, "Size of %lu is too big.", size); */
-                return -EINVAL;
-        }
-        /* send_to_client(c->server, c, count, buf); */
-        send_to_server(c->server, c, count, buf);
-        return count;
-}
-
-int_32 ioctl_client(struct file *file, unsigned long request, void *argp)
-{
-        switch (request) {
-        case IO_PACKAGEFS_QUEUE: {
-                validate(argp);
-                pkg_client_t *c = (pkg_client_t *) file->fd_inode->i_zones[0];
-                uint_32 size = ioqueue_size(c->msg_list);
-
-                return size;
-        }
-        default:
-                return -EINVAL;
+        if (inode == NULL)
+                return;
+        service = inode->i_private;
+        if (service == NULL)
+                return;
+        ASSERT(!service->server_live && service->client_count == 0 &&
+               inode->i_count == 0);
+        ASSERT(list_is_empty(&service->clients));
+        dentry = service->dentry;
+        packagefs_queue_free(service->c2s);
+        inode->i_private = NULL;
+        kfree(service);
+        kfree(inode);
+        if (dentry != NULL) {
+                kfree(dentry->d_name);
+                kfree(dentry);
         }
 }
-/* close_client()   */
-/* wait_client()  */
-/* check_client() */
 
+static struct super_operations packagefs_sops = {
+    .evict_inode = packagefs_evict_inode,
+};
 
-static pkg_monitor *create_packetfs_monitor()
+static struct inode_operations packagefs_root_iops = {
+    .atomic_open = packagefs_atomic_open,
+    .lookup = packagefs_lookup,
+};
+
+static struct super_block *packagefs_mount(struct fs_type *fs,
+                                           int flags,
+                                           const char *dev,
+                                           void *data)
 {
-        pkg_monitor *monitor = sys_malloc(sizeof(pkg_monitor));
-        INIT_LIST_HEAD(&monitor->servers);
-        monitor->cur_server = NULL;
-        return monitor;
+        struct super_block *sb;
+        struct inode *root;
+
+        (void) fs;
+        (void) flags;
+        (void) dev;
+        (void) data;
+        sb = kmalloc(sizeof(*sb));
+        root = kmalloc(sizeof(*root));
+        if (sb == NULL || root == NULL) {
+                kfree(root);
+                kfree(sb);
+                return NULL;
+        }
+        memset(sb, 0, sizeof(*sb));
+        memset(root, 0, sizeof(*root));
+        sb->s_magic = PACKAGEFS_MAGIC;
+        sb->s_op = &packagefs_sops;
+        sb->s_root = root;
+        INIT_LIST_HEAD(&sb->s_inodes);
+        root->i_mode = FT_DIRECTORY << 11;
+        root->i_nlink = 2;
+        root->i_sb = sb;
+        root->i_op = &packagefs_root_iops;
+        INIT_LIST_HEAD(&root->i_active_node);
+        return sb;
 }
 
-void packagefs_init(void)
+static struct fs_type packagefs_type = {
+    .name = "packagefs",
+    .mount = packagefs_mount,
+};
+
+int packagefs_init(void)
 {
-        pkg_monitor *m = create_packetfs_monitor();
-        sys_mount_device("/dev/pkg/monitor", DNOPKGFS, m);
+        int result = register_fs(&packagefs_type);
+
+        if (result != 0)
+                return result;
+        result = devfs_create_directory("pkg");
+        if (result != 0)
+                goto unregister;
+        result = vfs_mount("/dev/pkg", "packagefs", 0, NULL, NULL);
+        if (result != 0)
+                goto unregister;
+#ifdef CONFIG_FROG_TEST_PACKAGEFS
+        frog_test_case("packagefs.queue-wrap-fifo",
+                       packagefs_queue_regression_test());
+#endif
+        return 0;
+
+unregister:
+        (void) unregister_fs(&packagefs_type);
+        return result;
 }

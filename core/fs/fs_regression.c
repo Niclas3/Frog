@@ -1,6 +1,7 @@
 #include <kernel/fs_regression.h>
 
-#if defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP)
+#if defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP) || \
+    defined(CONFIG_FROG_TEST_PACKAGEFS)
 #include <frog/errno.h>
 #include <frog/fcntl.h>
 #include <frog/memory.h>

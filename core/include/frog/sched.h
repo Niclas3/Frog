@@ -17,9 +17,12 @@ typedef enum task_status {
 } task_status_t;
 
 void __wake_up(wait_queue_head_t *q, unsigned int mode, int nr);
+void __wake_up_all(wait_queue_head_t *q, unsigned int mode);
 
 #define wake_up(x)			__wake_up((x), THREAD_TASK_WAITING | THREAD_TASK_BLOCKED, 1)
 #define wake_up_interruptible(x)	__wake_up((x), THREAD_TASK_WAITING, 1)
+#define wake_up_interruptible_all(x) \
+        __wake_up_all((x), THREAD_TASK_WAITING)
 
 void init_timer_manager(void);
 /* int 0x20;

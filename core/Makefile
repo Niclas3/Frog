@@ -15,6 +15,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/user_smoke_framebuffer_mmap_blob.o \
 	 $(BUILD_DIR)/user_smoke_anonymous_mmap_blob.o \
 	 $(BUILD_DIR)/user_smoke_user_allocator_blob.o \
+	 $(BUILD_DIR)/user_smoke_packagefs_blob.o \
 	 $(BUILD_DIR)/user_smoke_input_blob.o \
 	 $(BUILD_DIR)/user_smoke_time_blob.o \
 	 $(BUILD_DIR)/user_smoke_wait2_blob.o \
@@ -30,7 +31,7 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o $(BUILD_DIR)/framebuffer.o $(BUILD_DIR)/framebuffer_smoke.o \
 	 $(BUILD_DIR)/msdos.o \
 	 $(BUILD_DIR)/blk_core.o \
-	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o $(BUILD_DIR)/fs_regression.o \
+	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/packagefs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o $(BUILD_DIR)/fs_regression.o \
 	 $(BUILD_DIR)/frogfs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/ffs_utils.o $(BUILD_DIR)/ffs_super_block.o \
 	 $(BUILD_DIR)/kasan.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/bootmem.o $(BUILD_DIR)/phys_resource.o $(BUILD_DIR)/mm_test.o $(BUILD_DIR)/uaccess.o $(BUILD_DIR)/vm.o \
 	 $(BUILD_DIR)/panic.o $(BUILD_DIR)/qemu_test.o \

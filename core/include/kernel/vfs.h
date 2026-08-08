@@ -12,6 +12,8 @@
 #define FILE_NAME_MAX 255
 #define PATH_NAME_MAX 4096
 
+#define DENTRY_EPHEMERAL 0x00000001U
+
 enum file_type {
         FT_UNKOWN = 0,
         FT_FIFO = 1,

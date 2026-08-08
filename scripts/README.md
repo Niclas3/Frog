@@ -93,6 +93,16 @@ freeing allocations. It also verifies that the legacy `SYS_MALLOC` and
 `SYS_FREE` numbers remain unsupported. Run the same profile with
 `FROG_QEMU_MEMORY=16M` for the P0 memory budget.
 
+Run `./scripts/qemu-test.sh packagefs-smoke` after changing VFS atomic open,
+devfs mounts, fd lifetime, exec, wait queues, or packagefs itself. The headless
+ring-3 fixture covers exact bind/connect flags and limits, pointer-free bounded
+records, two-client directed routing, invalid pointers and IDs, nonblocking
+backpressure, blocking wakeup, stale IDs after rebind, and `O_CLOEXEC` across
+`execv`. A kernel-side case also forces a byte-ring wrap and reads every record
+back in FIFO order. Repeat with
+`FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh packagefs-smoke` for the P0 memory
+budget. This profile does not use QMP.
+
 All QEMU profiles default to `-m 1G`. Set `FROG_QEMU_MEMORY` to a positive
 integer with an `M` or `G` suffix, for example
 `FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh anonymous-mmap-smoke`. The chosen

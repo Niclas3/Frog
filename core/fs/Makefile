@@ -1,6 +1,6 @@
 include ../../Makefile.os_rules
 subdir += frogfs/
-# subdir += packagefs/
+subdir += packagefs/
 subdir += tmpfs/
 subdir += vfs/
 subdir += devfs/

@@ -14,5 +14,6 @@
 
 int devfs_create_node(const char *pathname, int type, int major, int minor);
 int devfs_remove_node(const char *pathname, int type, int major, int minor);
+int devfs_create_directory(const char *pathname);
 
 #endif

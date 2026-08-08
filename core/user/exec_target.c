@@ -1,4 +1,6 @@
 #include <frog/syscall.h>
+#include <frog/errno.h>
+#include <frog/test.h>
 #include <frog/types.h>
 
 #define EXEC_TARGET_STATUS 73
@@ -46,6 +48,14 @@ int exec_target_main(uint_32 argc, const char *const argv[])
                          target_string_equal(argv[1], "alpha") &&
                          target_string_equal(argv[2], "beta");
         bool data_ok = initialized_data == 0x13579bdfU;
+        if (argc == 1 && argv != NULL && argv[0] != NULL &&
+            argv[1] == NULL &&
+            target_string_equal(argv[0], "cloexec-target")) {
+                bool fd_closed = target_read(0, &inherited, 1) == -EBADF;
+
+                return data_ok && bss_zero && fd_closed ?
+                           FROG_TEST_PACKAGEFS_CLOEXEC_STATUS : 91;
+        }
         bool fd_ok = target_read(0, &inherited, 1) == 1 && inherited == 'Q';
 
         return arguments && data_ok && bss_zero && fd_ok ?

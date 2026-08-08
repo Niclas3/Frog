@@ -11,6 +11,7 @@
 #include <frog/threads.h>
 #include <frog/uaccess.h>
 #include <frog/vm.h>
+#include <kernel/fd.h>
 #include <kernel/vfs.h>
 
 #define EXEC_MAX_ARGC              32U
@@ -603,6 +604,7 @@ int_32 sys_execv(const char *path, const char *argv[])
                 goto release_arguments;
         }
 
+        fd_close_cloexec(running_thread());
         exec_release_arguments(&arguments);
         mm_release_address_space(old_mm);
         context = (struct context_registers *)

@@ -9,6 +9,9 @@
 
 struct file *g_file_table[MAX_FILE_OPEN];
 
+typedef char fd_cloexec_bitmap_must_cover_table[
+    MAX_FILES_OPEN_PER_PROC <= 32 ? 1 : -1];
+
 int fd_alloc(struct file *file)
 {
         if (file == NULL || refcount_read(&file->f_refs) == 0)
@@ -67,6 +70,10 @@ int fd_alloc(struct file *file)
 
         file->f_count++;
         thread->fd_table[local_fd] = global_fd;
+        if (file->f_flag & O_CLOEXEC)
+                thread->close_on_exec |= 1U << local_fd;
+        else
+                thread->close_on_exec &= ~(1U << local_fd);
         local_irq_restore(flags);
         return local_fd;
 }
@@ -109,6 +116,7 @@ static int fd_detach(TCB_t *thread, int local_fd, struct file **file_out)
         }
         if (global_fd < 0 || global_fd >= MAX_FILE_OPEN) {
                 thread->fd_table[local_fd] = -1;
+                thread->close_on_exec &= ~(1U << local_fd);
                 local_irq_restore(flags);
                 return -EUCLEAN;
         }
@@ -116,6 +124,7 @@ static int fd_detach(TCB_t *thread, int local_fd, struct file **file_out)
         struct file *file = g_file_table[global_fd];
         if (file == NULL || file->f_count == 0) {
                 thread->fd_table[local_fd] = -1;
+                thread->close_on_exec &= ~(1U << local_fd);
                 if (file != NULL)
                         g_file_table[global_fd] = NULL;
                 local_irq_restore(flags);
@@ -123,6 +132,7 @@ static int fd_detach(TCB_t *thread, int local_fd, struct file **file_out)
         }
 
         thread->fd_table[local_fd] = -1;
+        thread->close_on_exec &= ~(1U << local_fd);
         file->f_count--;
         if (file->f_count == 0)
                 g_file_table[global_fd] = NULL;
@@ -152,6 +162,17 @@ void fd_close_all(TCB_t *thread)
                 return;
         for (int local_fd = 0; local_fd < MAX_FILES_OPEN_PER_PROC; local_fd++) {
                 if (thread->fd_table[local_fd] != -1)
+                        (void) fd_close_for(thread, local_fd);
+        }
+}
+
+void fd_close_cloexec(TCB_t *thread)
+{
+        if (thread == NULL)
+                return;
+        for (int local_fd = 0; local_fd < MAX_FILES_OPEN_PER_PROC;
+             local_fd++) {
+                if (thread->close_on_exec & (1U << local_fd))
                         (void) fd_close_for(thread, local_fd);
         }
 }

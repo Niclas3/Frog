@@ -24,6 +24,16 @@ struct file_operations {
 };
 
 struct inode_operations {
+        /*
+         * Opens one dynamically named child atomically.  VFS supplies an
+         * unlinked candidate dentry and an initialized, otherwise empty file.
+         * Success must publish or select the dentry and fill file identity;
+         * failure must leave the namespace unchanged.
+         */
+        int_32 (*atomic_open)(struct inode *dir,
+                              struct dentry *candidate,
+                              struct file *file,
+                              uint_32 flags);
         int_32 (*create)(struct inode *dir,
                          struct dentry *target,
                          uint_32 mode);

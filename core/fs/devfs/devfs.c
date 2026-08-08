@@ -273,6 +273,61 @@ create_node_fail:
         return ret;
 }
 
+int devfs_create_directory(const char *pathname)
+{
+        if (!devfs_valid_path(pathname))
+                return -EINVAL;
+
+        vfs_namespace_lock();
+        struct mount_entry *mount = find_mount_entry("devfs");
+        if (!mount || !mount->mounted_root) {
+                vfs_namespace_unlock();
+                return -ENODEV;
+        }
+
+        struct dentry *current = mount->mounted_root;
+        struct dentry *first_created = NULL;
+        const char *cursor = pathname;
+        int result = 0;
+
+        for (;;) {
+                const char *end = cursor;
+                while (*end && *end != '/')
+                        end++;
+                uint_32 component_len = end - cursor;
+                char component[FILE_NAME_MAX + 1];
+                memcpy(component, cursor, component_len);
+                component[component_len] = '\0';
+
+                struct dentry *next = dentry_lookup(current, component);
+                if (next == NULL) {
+                        next = make_virtual_node(current, component);
+                        if (next == NULL) {
+                                result = -ENOMEM;
+                                goto fail;
+                        }
+                        if (first_created == NULL)
+                                first_created = next;
+                } else if (next->d_type != FT_DIRECTORY) {
+                        result = -ENOTDIR;
+                        goto fail;
+                }
+                current = next;
+                if (*end == '\0')
+                        break;
+                cursor = end + 1;
+        }
+
+        vfs_namespace_unlock();
+        return 0;
+
+fail:
+        if (first_created != NULL)
+                devfs_destroy_subtree(first_created);
+        vfs_namespace_unlock();
+        return result;
+}
+
 int devfs_remove_node(const char *pathname, int type, int major, int minor)
 {
         struct mount_entry *mount;

@@ -31,6 +31,7 @@
 #include <kernel/panic.h>
 #include <kernel/process_regression.h>
 #include <kernel/qemu_test.h>
+#include "../fs/packagefs/packagefs.h"
 
 extern void init(void);
 extern void cpu_idle(void);
@@ -118,6 +119,8 @@ extern const uint_8 _binary_user_smoke_anonymous_mmap_bin_start[];
 extern const uint_8 _binary_user_smoke_anonymous_mmap_bin_end[];
 extern const uint_8 _binary_user_smoke_user_allocator_bin_start[];
 extern const uint_8 _binary_user_smoke_user_allocator_bin_end[];
+extern const uint_8 _binary_user_smoke_packagefs_bin_start[];
+extern const uint_8 _binary_user_smoke_packagefs_bin_end[];
 extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
 extern const uint_8 _binary_user_smoke_time_bin_start[];
@@ -190,6 +193,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_USER_ALLOCATOR)
         image_start = _binary_user_smoke_user_allocator_bin_start;
         image_end = _binary_user_smoke_user_allocator_bin_end;
+#elif defined(CONFIG_FROG_TEST_PACKAGEFS)
+        image_start = _binary_user_smoke_packagefs_bin_start;
+        image_end = _binary_user_smoke_packagefs_bin_end;
 #elif defined(CONFIG_FROG_TEST_INPUT)
         image_start = _binary_user_smoke_input_bin_start;
         image_end = _binary_user_smoke_input_bin_end;
@@ -303,6 +309,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("anonymous-mmap-smoke");
 #elif defined(CONFIG_FROG_TEST_USER_ALLOCATOR)
         frog_test_begin("user-allocator-smoke");
+#elif defined(CONFIG_FROG_TEST_PACKAGEFS)
+        frog_test_begin("packagefs-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)
         frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_TIME)
@@ -367,14 +375,17 @@ __visible void __noreturn start_kernel(void)
 
         if (root_fs_init() < 0)
                 PANIC("rootfs initialization failed");
-#ifdef CONFIG_FROG_TEST_ANONYMOUS_MMAP
+#if defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP) || \
+    defined(CONFIG_FROG_TEST_PACKAGEFS)
         if (vfs_mkdir_path("/test") != 0)
-                frog_test_abort("anonymous-exec-fixture-directory");
+                frog_test_abort("exec-fixture-directory");
         if (!fs_test_install_exec_fixture())
-                frog_test_abort("anonymous-exec-fixture-install");
+                frog_test_abort("exec-fixture-install");
 #endif
         if (dev_fs_init() < 0)
                 PANIC("devfs initialization failed");
+        if (packagefs_init() < 0)
+                PANIC("packagefs initialization failed");
         if (framebuffer_result == 0 &&
             pc_framebuffer_register_chardev() != 0)
                 PANIC("framebuffer chardev registration failed");

@@ -13,8 +13,26 @@
 
 int_32 sys_open(const char *path, uint_32 flags)
 {
+        char *kernel_path;
+        uint_32 path_length;
         struct file *f = NULL;
-        int ret = vfs_open_file(path, flags, &f);
+        int ret;
+
+        kernel_path = kmalloc(PATH_NAME_MAX + 1U);
+        if (kernel_path == NULL)
+                return -ENOMEM;
+        ret = copy_string_from_user(kernel_path, path, PATH_NAME_MAX + 1U,
+                                    &path_length);
+        if (ret != 0) {
+                kfree(kernel_path);
+                return ret;
+        }
+        if (path_length == 0) {
+                kfree(kernel_path);
+                return -ENOENT;
+        }
+        ret = vfs_open_file(kernel_path, flags, &f);
+        kfree(kernel_path);
         if (ret < 0)
                 return ret;
         int fd = fd_alloc(f);

@@ -102,6 +102,7 @@ typedef struct thread_control_block {
         // File things
         int_32 fd_table[MAX_FILES_OPEN_PER_PROC];  // file description of each
                                                    // thread
+        uint_32 close_on_exec;
         uint_32 cwd_inode_nr;  // current thread working directory inode number
         // IPC things
         message p_message;  // pointer to message

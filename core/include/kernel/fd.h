@@ -14,6 +14,7 @@ struct file *fdget(int local_fd);
 int fd_close(int local_fd);
 int fd_close_for(struct thread_control_block *thread, int local_fd);
 void fd_close_all(struct thread_control_block *thread);
+void fd_close_cloexec(struct thread_control_block *thread);
 int fd_retain_table(struct thread_control_block *thread);
 
 #endif

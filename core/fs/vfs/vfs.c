@@ -257,6 +257,71 @@ static int open_filep(struct dentry *d,
         return 0;
 }
 
+static int atomic_open_file(struct dentry *parent,
+                            const char *name,
+                            uint_32 name_len,
+                            uint_32 flags,
+                            struct file **file_out)
+{
+        struct dentry *candidate;
+        struct dentry *opened_dentry;
+        struct file *file;
+        struct inode *inode;
+        int result;
+        int failure;
+
+        if (parent == NULL || parent->d_inode == NULL ||
+            parent->d_inode->i_op == NULL ||
+            parent->d_inode->i_op->atomic_open == NULL)
+                return -EOPNOTSUPP;
+        candidate = alloc_lookup_dentry(parent, name, name_len);
+        if (candidate == NULL)
+                return -ENOMEM;
+        file = kmalloc(sizeof(*file));
+        if (file == NULL) {
+                free_lookup_dentry(candidate);
+                return -ENOMEM;
+        }
+        memset(file, 0, sizeof(*file));
+        file->f_flag = flags;
+        refcount_init(&file->f_refs, 1);
+
+        result = parent->d_inode->i_op->atomic_open(
+            parent->d_inode, candidate, file, flags);
+        if (result < 0) {
+                free_lookup_dentry(candidate);
+                kfree(file);
+                return result;
+        }
+        inode = file->f_inode;
+        opened_dentry = file->f_dentry;
+        if (file->f_inode == NULL || file->f_dentry == NULL ||
+            file->f_op == NULL || file->f_inode->i_count == 0xffffU) {
+                failure = inode != NULL && inode->i_count == 0xffffU
+                              ? -EMFILE
+                              : -EIO;
+                if (file->f_op != NULL && file->f_op->close != NULL)
+                        (void) file->f_op->close(file);
+                if (opened_dentry == candidate && inode != NULL &&
+                    (candidate->d_flags & DENTRY_EPHEMERAL) != 0 &&
+                    inode->i_count == 0 && inode->i_sb != NULL &&
+                    inode->i_sb->s_op != NULL &&
+                    inode->i_sb->s_op->evict_inode != NULL) {
+                        inode->i_sb->s_op->evict_inode(inode);
+                        candidate = NULL;
+                }
+                if (candidate != NULL)
+                        free_lookup_dentry(candidate);
+                kfree(file);
+                return failure;
+        }
+        if (file->f_dentry != candidate)
+                free_lookup_dentry(candidate);
+        file->f_inode->i_count++;
+        *file_out = file;
+        return 0;
+}
+
 static int lookup_parent(const char *path,
                          struct dentry **parent_out,
                          const char **name_out,
@@ -345,13 +410,27 @@ int_32 vfs_open_file(const char *path,
         *file_out = NULL;
         vfs_namespace_lock();
         uint_32 supported_flags = O_ACCMODE | O_CREAT | O_EXCL | O_TRUNC |
-                                  O_APPEND | O_NONBLOCK | O_DIRECTORY;
+                                  O_APPEND | O_NONBLOCK | O_DIRECTORY |
+                                  O_CLOEXEC;
         if (!validate_path(path) || (flags & ~supported_flags) ||
             (flags & O_ACCMODE) > O_RDWR ||
             ((flags & O_EXCL) && !(flags & O_CREAT)) ||
             ((flags & O_TRUNC) && (flags & O_ACCMODE) == O_RDONLY)) {
                 vfs_namespace_unlock();
                 return -EINVAL;
+        }
+
+        struct dentry *parent = NULL;
+        const char *name = NULL;
+        uint_32 name_len = 0;
+        int parent_result = lookup_parent(path, &parent, &name, &name_len);
+        if (parent_result == 0 && parent->d_inode != NULL &&
+            parent->d_inode->i_op != NULL &&
+            parent->d_inode->i_op->atomic_open != NULL) {
+                int ret = atomic_open_file(parent, name, name_len, flags,
+                                           file_out);
+                vfs_namespace_unlock();
+                return ret;
         }
 
         struct dentry *d = vfs_lookup(path);
@@ -418,6 +497,11 @@ int_32 file_put(struct file *f)
                         ret = -EUCLEAN;
         } else {
                 inode->i_count--;
+                if (inode->i_count == 0 && f->f_dentry != NULL &&
+                    (f->f_dentry->d_flags & DENTRY_EPHEMERAL) != 0 &&
+                    inode->i_sb != NULL && inode->i_sb->s_op != NULL &&
+                    inode->i_sb->s_op->evict_inode != NULL)
+                        inode->i_sb->s_op->evict_inode(inode);
         }
 
         kfree(f);

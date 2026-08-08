@@ -308,6 +308,39 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_USER_ALLOC_LIMITS:
         name = "user-allocator.limits";
         break;
+    case FROG_TEST_PACKAGEFS_BIND_CONNECT:
+        name = "packagefs.bind-connect";
+        break;
+    case FROG_TEST_PACKAGEFS_DIRECTED_ROUTING:
+        name = "packagefs.directed-routing";
+        break;
+    case FROG_TEST_PACKAGEFS_RECORD_BOUNDARIES:
+        name = "packagefs.record-boundaries";
+        break;
+    case FROG_TEST_PACKAGEFS_READ_PRESERVES_RECORD:
+        name = "packagefs.read-preserves-record";
+        break;
+    case FROG_TEST_PACKAGEFS_INVALID_IO:
+        name = "packagefs.invalid-io";
+        break;
+    case FROG_TEST_PACKAGEFS_OPEN_CONTRACT:
+        name = "packagefs.open-contract";
+        break;
+    case FROG_TEST_PACKAGEFS_STALE_GENERATION:
+        name = "packagefs.stale-generation";
+        break;
+    case FROG_TEST_PACKAGEFS_LIMITS:
+        name = "packagefs.limits";
+        break;
+    case FROG_TEST_PACKAGEFS_BLOCKING_WAKE:
+        name = "packagefs.blocking-wake";
+        break;
+    case FROG_TEST_PACKAGEFS_BACKPRESSURE:
+        name = "packagefs.backpressure";
+        break;
+    case FROG_TEST_PACKAGEFS_CLOEXEC:
+        name = "packagefs.cloexec";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;

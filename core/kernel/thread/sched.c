@@ -92,10 +92,13 @@ out:
 static inline void __wake_up_common(wait_queue_head_t *q,
                                     unsigned int mode,
                                     int nr_exclusive,
-                                    const int sync)
+                                    const int sync,
+                                    bool wake_all)
 {
         struct list_head *tmp;
         TCB_t *p;
+
+        (void) nr_exclusive;
 
         CHECK_MAGIC_WQHEAD(q);
         WQ_CHECK_LIST_HEAD(&q->task_list);
@@ -109,7 +112,7 @@ static inline void __wake_up_common(wait_queue_head_t *q,
                 state = p->status;
                 if (state & mode) {
                         WQ_NOTE_WAKER(curr);
-                        if (try_to_wake_up(p, sync))
+                        if (try_to_wake_up(p, sync) && !wake_all)
                                 break;
                 }
         }
@@ -118,7 +121,14 @@ static inline void __wake_up_common(wait_queue_head_t *q,
 void __wake_up(wait_queue_head_t *q, unsigned int mode, int nr)
 {
         if (q) {
-                __wake_up_common(q, mode, nr, 0);
+                __wake_up_common(q, mode, nr, 0, false);
+        }
+}
+
+void __wake_up_all(wait_queue_head_t *q, unsigned int mode)
+{
+        if (q) {
+                __wake_up_common(q, mode, 0, 0, true);
         }
 }
 

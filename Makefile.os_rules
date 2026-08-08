@@ -111,6 +111,12 @@ $(error user-allocator-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_USER_ALLOCATOR
 endif
+ifeq ($(FROG_TEST_PROFILE),packagefs-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error packagefs-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_PACKAGEFS
+endif
 ifeq ($(FROG_TEST_PROFILE),input-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error input-smoke requires QEMU_TEST=1)
