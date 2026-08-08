@@ -112,6 +112,8 @@ extern const uint_8 _binary_user_smoke_disk_prepare_bin_start[];
 extern const uint_8 _binary_user_smoke_disk_prepare_bin_end[];
 extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_start[];
 extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_end[];
+extern const uint_8 _binary_user_smoke_input_bin_start[];
+extern const uint_8 _binary_user_smoke_input_bin_end[];
 
 static void do_basic_setup(void)
 {
@@ -168,6 +170,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
         image_start = _binary_user_smoke_framebuffer_mmap_bin_start;
         image_end = _binary_user_smoke_framebuffer_mmap_bin_end;
+#elif defined(CONFIG_FROG_TEST_INPUT)
+        image_start = _binary_user_smoke_input_bin_start;
+        image_end = _binary_user_smoke_input_bin_end;
 #elif defined(CONFIG_FROG_TEST_DISK) && \
       defined(CONFIG_FROG_TEST_STAGE_PREPARE)
         image_start = _binary_user_smoke_disk_prepare_bin_start;
@@ -268,6 +273,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("user-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
         frog_test_begin("framebuffer-mmap-smoke");
+#elif defined(CONFIG_FROG_TEST_INPUT)
+        frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER)
         frog_test_begin("framebuffer-smoke");
 #else

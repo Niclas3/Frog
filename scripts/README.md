@@ -64,3 +64,12 @@ parent-first exit order plus a child-only post-unmap fault. The test-only ready
 syscall checks that all mapping, file, device, and physical-resource references
 returned to their baseline before QMP captures and validates every pixel.
 Failures retain the QMP transcript in addition to the graphical diagnostics.
+
+Run `./scripts/qemu-test.sh input-smoke` after PS/2, interrupt, devfs, fd, or
+input ABI changes. A separate ring-3 image opens `/dev/input/event0` and
+`/dev/input/event1`, checks nonblocking empty reads and close, then performs
+blocking reads while the host injects a qcode `a`, relative X movement `+7`,
+and left-button down through QMP. Debugcon synchronization markers order each
+injection. A successful run requires the keyboard byte and complete shared
+`mouse_device_packet_t` values to match exactly; failed runs retain the QMP
+transcript and guest logs.

@@ -17,8 +17,9 @@ case "$profile" in
     user-smoke) stages=(boot) ;;
     framebuffer-smoke) stages=(boot) ;;
     framebuffer-mmap-smoke) stages=(boot) ;;
+    input-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|input-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")
@@ -244,6 +245,110 @@ sock.close()
 PY
 }
 
+qmp_inject_input()
+{
+    local socket_path=$1
+    local debug_log=$2
+    local transcript_path=$3
+    QMP_SOCKET="$socket_path" DEBUG_LOG="$debug_log" \
+    QMP_TRANSCRIPT="$transcript_path" QMP_TIMEOUT="$timeout_seconds" \
+    python3 - <<'PY'
+import json
+import os
+import socket
+import time
+
+deadline = time.monotonic() + int(os.environ["QMP_TIMEOUT"])
+transcript = open(os.environ["QMP_TRANSCRIPT"], "w", encoding="ascii")
+
+def record(direction, payload):
+    transcript.write(f"{direction} {payload}\n")
+    transcript.flush()
+
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.settimeout(1)
+while True:
+    try:
+        sock.connect(os.environ["QMP_SOCKET"])
+        break
+    except (FileNotFoundError, ConnectionRefusedError):
+        if time.monotonic() >= deadline:
+            raise RuntimeError("QMP socket was not ready")
+        time.sleep(0.05)
+stream = sock.makefile("rwb", buffering=0)
+
+def receive():
+    while True:
+        line = stream.readline().decode("ascii").rstrip("\n")
+        if not line:
+            raise RuntimeError("QMP connection closed")
+        record("<", line)
+        message = json.loads(line)
+        if "event" not in message:
+            return message
+
+def execute(command, arguments=None):
+    payload = {"execute": command}
+    if arguments is not None:
+        payload["arguments"] = arguments
+    line = json.dumps(payload, separators=(",", ":"))
+    record(">", line)
+    stream.write((line + "\n").encode("ascii"))
+    response = receive()
+    if "error" in response:
+        raise RuntimeError(response["error"])
+
+def guest_log():
+    try:
+        with open(os.environ["DEBUG_LOG"], "r", encoding="ascii",
+                  errors="replace") as source:
+            return source.read()
+    except FileNotFoundError:
+        return ""
+
+def wait_marker(marker):
+    expected = f"FROGTEST SYNC {marker}\n"
+    while time.monotonic() < deadline:
+        content = guest_log()
+        if expected in content:
+            return
+        if ("FROGTEST END " in content or "FROGTEST ABORT " in content or
+                "[PANIC]" in content or "ASSERT_FAILED" in content):
+            raise RuntimeError(f"guest stopped before {marker}")
+        time.sleep(0.05)
+    raise RuntimeError(f"timed out waiting for {marker}")
+
+receive()
+execute("qmp_capabilities")
+
+wait_marker("input-keyboard-ready")
+time.sleep(0.1)
+content = guest_log()
+if ("FROGTEST SYNC input-mouse-move-ready\n" in content or
+        "FROGTEST END " in content):
+    raise RuntimeError("keyboard read completed before host input")
+execute("input-send-event", {"events": [
+    {"type": "key", "data": {"down": True,
+     "key": {"type": "qcode", "data": "a"}}},
+    {"type": "key", "data": {"down": False,
+     "key": {"type": "qcode", "data": "a"}}},
+]})
+
+wait_marker("input-mouse-move-ready")
+execute("input-send-event", {"events": [
+    {"type": "rel", "data": {"axis": "x", "value": 7}},
+]})
+
+wait_marker("input-mouse-button-ready")
+execute("input-send-event", {"events": [
+    {"type": "btn", "data": {"down": True, "button": "left"}},
+]})
+
+transcript.close()
+sock.close()
+PY
+}
+
 validate_framebuffer_ppm()
 {
     local ppm=$1
@@ -410,6 +515,65 @@ run_framebuffer_stage()
     fi
 }
 
+run_input_stage()
+{
+    local stage=$1
+    local stage_dir="$work_dir/$stage"
+    local debug_log="$stage_dir/debugcon.log"
+    local qemu_log="$stage_dir/qemu.log"
+    local qmp_socket="$stage_dir/qmp.sock"
+    local qmp_transcript="$stage_dir/qmp-transcript.log"
+
+    timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
+        qemu-system-i386 \
+        -display none -monitor none -serial none -no-reboot -vga std \
+        -m 1G -smp 1 \
+        -drive "format=raw,file=$stage_dir/hd.img,if=ide,index=0,media=disk" \
+        -drive "format=raw,file=$data_disk,if=ide,index=1,media=disk" \
+        -chardev "file,id=frogdebug,path=$debug_log" \
+        -device isa-debugcon,iobase=0xe9,chardev=frogdebug \
+        -device isa-debug-exit,iobase=0xf4,iosize=0x01 \
+        -qmp "unix:$qmp_socket,server=on,wait=off" \
+        -d int,guest_errors,cpu_reset -D "$qemu_log" \
+        >"$stage_dir/qemu.stdout" 2>"$stage_dir/qemu.stderr" &
+    local runner_pid=$!
+    local qmp_ok=0
+
+    if qmp_inject_input "$qmp_socket" "$debug_log" "$qmp_transcript" \
+            2>"$stage_dir/qmp-error.log"; then
+        qmp_ok=1
+    else
+        kill "$runner_pid" 2>/dev/null || true
+    fi
+    wait "$runner_pid"
+    qemu_status=$?
+
+    if grep -q '\[PANIC\]' "$debug_log" 2>/dev/null; then
+        classification=PANIC
+    elif grep -q 'ASSERT_FAILED' "$debug_log" 2>/dev/null; then
+        classification=ASSERT_FAILED
+    elif grep -qi 'triple fault' "$qemu_log" 2>/dev/null; then
+        classification=TRIPLE_FAULT
+    elif grep -Eqi 'qmp.*(bind|listen)|Failed to bind socket' \
+                 "$stage_dir/qemu.stderr" 2>/dev/null; then
+        classification=QMP_FAILED
+    elif grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
+                 "$debug_log" 2>/dev/null; then
+        classification=GUEST_TEST_FAILED
+    elif [ "$qmp_ok" -ne 1 ]; then
+        classification=QMP_FAILED
+    elif [ "$qemu_status" -eq 1 ] &&
+         grep -q '^FROGTEST v=1 BEGIN profile=input-smoke$' \
+              "$debug_log" 2>/dev/null &&
+         grep -q '^FROGTEST END PASS$' "$debug_log" 2>/dev/null; then
+        classification=PASS
+    elif [ "$qemu_status" -eq 124 ] || [ "$qemu_status" -eq 137 ]; then
+        classification=BOOT_TIMEOUT
+    else
+        classification=EXPECTED_MARKER_MISSING
+    fi
+}
+
 cp "$repo_dir/../hd80M.img" "$data_disk" || {
     preserve_result
     exit 1
@@ -430,6 +594,8 @@ for stage in "${stages[@]}"; do
     if [ "$profile" = framebuffer-smoke ] ||
        [ "$profile" = framebuffer-mmap-smoke ]; then
         run_framebuffer_stage "$stage"
+    elif [ "$profile" = input-smoke ]; then
+        run_input_stage "$stage"
     else
         run_stage "$stage"
     fi

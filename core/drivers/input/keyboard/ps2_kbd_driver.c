@@ -173,11 +173,15 @@ static inline void handle_keyboard_event(uint_16 scan_code)
 
 void ps2_kbd_ISR(void)
 {
-        uint_16 scan_code = 0x0;
-        while (inb(PS2_STATUS) & PS2_STR_OUTPUT_BUFFER_FULL) {
-                scan_code = ps2_read_byte();  // get scan_code
+        for (;;) {
+                uint_8 status = inb(PS2_STATUS);
+
+                if (!(status & PS2_STR_OUTPUT_BUFFER_FULL) ||
+                    (status & PS2_STR_AUX_DATA))
+                        break;
+                uint_16 scan_code = ps2_read_byte();
+                handle_keyboard_event(scan_code);
         }
-        handle_keyboard_event(scan_code);
 
         ack(INT_VECTOR_KEYBOARD);
 }
@@ -257,15 +261,10 @@ static struct file_operations ps2_kbd_file_operations = {
 
 int ps2_kbd_probe(struct device *dev)
 {
-        // enable keyboard
-        ps2_wait_writeable();
-        outb(PS2_COMMAND, KBD_WRITE);
-        ps2_wait_writeable();
-        outb(PS2_DATA, KBDC_MODE);
+        unsigned long flags;
+        uint_8 ctrl;
+        bool have_ctrl = false;
 
-        register_r0_intr_handler(INT_VECTOR_KEYBOARD,
-                                 (Inthandle_t *) ps2_kbd_ISR);
-        // init kbd_queue
         queue = (struct ps2kbd_queue *) kmalloc(sizeof(*queue));
         if (queue == NULL) {
                 PANIC("[ps2kbd]: no memory for kbd queue");
@@ -274,6 +273,28 @@ int ps2_kbd_probe(struct device *dev)
         memset(queue, 0, sizeof(*queue));
         queue->head = queue->tail = 0;
         init_waitqueue_head(&queue->proc_list);
+
+        local_irq_save(flags);
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_COMMAND, PS2_READ_CONFIG);
+        if (ps2_wait_readable() != 0)
+                goto config_failed;
+        ctrl = inb(PS2_DATA);
+        have_ctrl = true;
+        ctrl &= ~0x02;  // mouse enables IRQ12 after its queue is ready
+        ctrl |= 0x41;   // enable IRQ1 and scan-code translation
+
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_COMMAND, KBD_WRITE);
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_DATA, ctrl);
+
+        register_r0_intr_handler(INT_VECTOR_KEYBOARD,
+                                 (Inthandle_t *) ps2_kbd_ISR);
+        local_irq_restore(flags);
 
         // add this ps2 kbd to chrdev list
 
@@ -284,6 +305,17 @@ int ps2_kbd_probe(struct device *dev)
         }
 
         return 0;
+
+config_failed:
+        if (have_ctrl && ps2_wait_writeable() == 0) {
+                outb(PS2_COMMAND, PS2_WRITE_CONFIG);
+                if (ps2_wait_writeable() == 0)
+                        outb(PS2_DATA, ctrl & ~0x01);
+        }
+        local_irq_restore(flags);
+        kfree(queue);
+        queue = NULL;
+        return -EIO;
 }
 
 uint_32 ps2_kbd_driver_init(void)

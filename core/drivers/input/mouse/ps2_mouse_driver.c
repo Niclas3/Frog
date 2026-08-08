@@ -19,19 +19,7 @@
 #include <frog/poll.h>
 #include <frog/string.h>
 #include <frog/threads.h>
-
-
-typedef enum {
-        LEFT_CLICK = 0x01,
-        RIGHT_CLICK = 0x02,
-        MIDDLE_CLICK = 0x04,
-
-        MOUSE_SCROLL_UP = 0x10,
-        MOUSE_SCROLL_DOWN = 0x20,
-} mouse_click_t;
-
-
-#define MOUSE_MAGIC 0xFEED1234
+#include <input/mouse.h>
 
 #define MOUSE_DEFAULT 0
 #define MOUSE_SCROLLWHEEL 1
@@ -39,13 +27,6 @@ typedef enum {
 #ifndef MOUSE_V_BIT
 #define MOUSE_V_BIT 0x08
 #endif
-
-typedef struct {
-        uint_32 magic;
-        int_32 x_difference;
-        int_32 y_difference;
-        mouse_click_t buttons;
-} mouse_device_packet_t;
 
 #define MOUSE_PKG_BUF_SIZE sizeof(mouse_device_packet_t) * 1024
 
@@ -150,8 +131,6 @@ static void make_mouse_packet(struct mouse_raw_data *mdata)
 
         int head = queue->head;
         uint_32 packet_size = sizeof(packet);
-        char *byte_packet = (char *) &packet;
-
         memcpy(&queue->buf[head], &packet, packet_size);
         head = (head + packet_size) & (MOUSE_PKG_BUF_SIZE - 1);
 
@@ -196,15 +175,17 @@ static inline void handle_ps2_mouse_scancode(uint_8 scancode)
 // 0x2C
 void ps2_mouse_ISR(void)
 {
-        uint_16 scan_code = 0x0;
-        while (inb(PS2_STATUS) & PS2_STR_OUTPUT_BUFFER_FULL) {
-                scan_code = ps2_read_byte();  // get scan_code
+        for (;;) {
+                uint_8 status = inb(PS2_STATUS);
+
+                if (!(status & PS2_STR_OUTPUT_BUFFER_FULL) ||
+                    !(status & PS2_STR_AUX_DATA))
+                        break;
+                uint_16 scan_code = ps2_read_byte();
+                handle_ps2_mouse_scancode(scan_code);
         }
 
         ack(INT_VECTOR_PS2_MOUSE);
-
-        // send scancode to make mouse package
-        handle_ps2_mouse_scancode(scan_code);
 
         irq_enter();
         irq_exit();
@@ -216,7 +197,7 @@ int_32 ps2_mouse_open(struct inode *inode, struct file *file)
 }
 int_32 ps2_mouse_close(struct file *file)
 {
-        return -1;
+        return 0;
 }
 
 int_32 ps2_mouse_read(struct file *file, void *buf, uint_32 count)
@@ -224,7 +205,7 @@ int_32 ps2_mouse_read(struct file *file, void *buf, uint_32 count)
         ASSERT(count % sizeof(mouse_device_packet_t) == 0);
         TCB_t *cur = running_thread();
         DECLARE_WAITQUEUE(wait, cur);
-        uint_32 index = count / sizeof(mouse_device_packet_t);
+        uint_32 packets_left = count / sizeof(mouse_device_packet_t);
         mouse_device_packet_t packet;
         if (queue_empty()) {
                 if (file->f_flag & O_NONBLOCK)
@@ -243,16 +224,13 @@ int_32 ps2_mouse_read(struct file *file, void *buf, uint_32 count)
                 remove_wait_queue(&queue->proc_list, &wait);
                 local_irq_restore(flag);
         }
-        while (index > 0 && !queue_empty()) {
+        while (packets_left > 0 && !queue_empty()) {
                 get_from_queue(&packet);
                 memcpy(buf, &packet, sizeof(packet));
                 buf += sizeof(packet);
-                index--;
+                packets_left--;
         }
-        if (count - index) {
-                return count - index;
-        }
-        return 0;
+        return count - packets_left * sizeof(mouse_device_packet_t);
 }
 
 uint_32 ps2_mouse_poll(struct file *file, struct poll_table_struct *wait)
@@ -268,35 +246,50 @@ int_32 ps2_mouse_ioctl(struct file *file, uint_32 request, void *argp)
 
 int ps2_mouse_probe(struct device *dev)
 {
-        // When dev and drv match then run this function
-        register_r0_intr_handler(INT_VECTOR_PS2_MOUSE,
-                                 (Inthandle_t *) ps2_mouse_ISR);
+        unsigned long flags;
+        uint_8 ctrl;
+        bool have_ctrl = false;
 
-        ps2_wait_writeable();
-        outb(PS2_COMMAND, PS2_READ_CONFIG);
-        uint_8 ctrl = inb(PS2_DATA);
-        ctrl |= 0x02;  // open IRQ12(bit1)
-        ps2_wait_readable();
-
-        outb(PS2_COMMAND, PS2_WRITE_CONFIG);
-        outb(PS2_DATA, ctrl);
-
-        ps2_wait_writeable();
-        outb(PS2_COMMAND, MOUSE_WRITE);
-        ps2_wait_writeable();
-        outb(PS2_DATA, MOUSE_ENABLE);
-        ps2_wait_readable();
-
-        // init queue
         queue = (struct pc_mouse_pkg_queue *) kmalloc(sizeof(*queue));
         if (queue == NULL) {
-                /* misc_deregister(&psaux_mouse); */
                 PANIC("[ps2/mouse]: not many memory for queue.");
                 return -ENOMEM;
         }
         memset(queue, 0, sizeof(*queue));
         queue->head = queue->tail = 0;
         init_waitqueue_head(&queue->proc_list);
+
+        local_irq_save(flags);
+
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_COMMAND, PS2_READ_CONFIG);
+        if (ps2_wait_readable() != 0)
+                goto config_failed;
+        ctrl = inb(PS2_DATA);
+        have_ctrl = true;
+        ctrl |= 0x02;  // open IRQ12(bit1)
+
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_COMMAND, PS2_WRITE_CONFIG);
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_DATA, ctrl);
+
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_COMMAND, MOUSE_WRITE);
+        if (ps2_wait_writeable() != 0)
+                goto config_failed;
+        outb(PS2_DATA, MOUSE_ENABLE);
+        if (ps2_wait_readable() != 0 || inb(PS2_DATA) != PS2_ACK)
+                goto config_failed;
+
+        register_r0_intr_handler(INT_VECTOR_PS2_MOUSE,
+                                 (Inthandle_t *) ps2_mouse_ISR);
+        local_irq_restore(flags);
+
         // add to chardev
         int major = register_chrdev(0, &ps2_mouse_fop);
 
@@ -305,6 +298,17 @@ int ps2_mouse_probe(struct device *dev)
         }
 
         return 0;
+
+config_failed:
+        if (have_ctrl && ps2_wait_writeable() == 0) {
+                outb(PS2_COMMAND, PS2_WRITE_CONFIG);
+                if (ps2_wait_writeable() == 0)
+                        outb(PS2_DATA, ctrl & ~0x02);
+        }
+        local_irq_restore(flags);
+        kfree(queue);
+        queue = NULL;
+        return -EIO;
 }
 
 uint_32 ps2_mouse_driver_init(void)

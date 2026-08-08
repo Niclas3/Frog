@@ -24,6 +24,7 @@
 #define MOUSE_DATA_ON      0xF4
 #define MOUSE_DATA_OFF     0xF5
 #define MOUSE_SET_DEFAULTS 0xF6
+#define PS2_ACK             0xFA
 
 
 //keyboard
@@ -36,6 +37,7 @@
 // TODO: finish all keyboard state
 #define PS2_STR_OUTPUT_BUFFER_FULL 0x01
 #define PS2_STR_SEND_NOTREADY      0x02
+#define PS2_STR_AUX_DATA           0x20
 #define AUX_BUF_SIZE 2048
 
 #define BUSY_WAIT_TIME 5000
@@ -59,19 +61,18 @@ static inline int_8 ps2_wait_readable(void)
 }
 
 /**
- * Wait PS/2 controller's input buffer is filled.
+ * Wait until the PS/2 controller's input buffer is clear.
  *
  * Use it before WRITING to the controller.
  *
- * return 0 means can not write 
- * return 1 means can write
+ * Return 0 when a byte can be written, 1 on timeout.
  *****************************************************************************/
 static inline int_8 ps2_wait_writeable(void)
 {
         uint_32 timeout = BUSY_WAIT_TIME;
         while (--timeout) {
                 /* PS2_STR_SEND_NOTREADY */
-                if (inb(PS2_STATUS) & (0x1 << 1)) 
+                if (!(inb(PS2_STATUS) & PS2_STR_SEND_NOTREADY))
                         return 0;
         }
         return 1;
@@ -106,7 +107,7 @@ static inline void ps2_command_arg(uint_8 cmd, uint_8 arg)
 {
         ps2_wait_writeable();
         outb(PS2_COMMAND, cmd);
-        ps2_wait_readable();
+        ps2_wait_writeable();
         outb(PS2_DATA, arg);
 }
 

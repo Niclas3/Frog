@@ -99,6 +99,7 @@ TRIPLE_FAULT
 EARLY_QEMU_EXIT
 EXPECTED_MARKER_MISSING
 TEST_FAILED
+GUEST_TEST_FAILED
 ```
 
 A host-side `result.json` may contain the classification, elapsed time, last
@@ -117,10 +118,12 @@ default:
 - `disk-smoke`: IDE and FrogFS round trips using disposable disk copies.
 - `soak-10m`: bounded stability run with heartbeat/progress markers.
 - `framebuffer-smoke`: fixed framebuffer rendering captured through QMP and
-  checked by dimensions and exact visible-frame pixels. Input scenarios remain
-  future work.
+  checked by dimensions and exact visible-frame pixels.
 - `framebuffer-mmap-smoke`: a real ring-3 `/dev/fb0` mapping, close/fork/unmap
   lifecycle checks, cleanup-reference validation, and exact QMP frame comparison.
+- `input-smoke`: ring-3 blocking and nonblocking reads from the keyboard and
+  mouse devfs nodes, with ordered keyboard, relative-motion, and button events
+  injected through QMP.
 
 Each profile has an explicit timeout and expected ordered milestones. A compile
 success or a single early marker never counts as a runtime pass.
@@ -128,8 +131,11 @@ success or a single early marker never counts as a runtime pass.
 ## Graphical Validation
 
 The `framebuffer-smoke` runner uses a private QMP Unix socket to request a P6
-PPM screenshot after the guest emits `FROGTEST SYNC framebuffer-ready`. Future
-profiles can also use QMP to inject keyboard or mouse events. Visual
+PPM screenshot after the guest emits `FROGTEST SYNC framebuffer-ready`.
+`input-smoke` uses the same private transport after the guest emits
+`input-keyboard-ready`, `input-mouse-move-ready`, and
+`input-mouse-button-ready`; it injects qcode `a`, relative X `+7`, and left
+button down respectively. Visual
 validation should combine three sources:
 
 1. Guest state markers, such as focused window and old/new coordinates.
@@ -158,8 +164,8 @@ must be reported separately.
 4. Implement a nondestructive, timeout-bounded `boot-smoke` host runner.
 5. Repair the image packaging graph so the runner consumes freshly built files.
 6. Move IDE and FrogFS writes into a disposable `disk-smoke` profile.
-7. Add QMP screenshots with the framebuffer milestone. Input injection remains
-   future work.
+7. Add QMP screenshots with the framebuffer milestone.
+8. Add ordered QMP keyboard and mouse injection through ring-3 devfs reads.
 
 This work implements the automated boot-smoke requirement in Milestone 0 and is
 the prerequisite for reliable unattended development loops.
@@ -185,3 +191,10 @@ ring-3 program has closed and unmapped `/dev/fb0`, all guest cases remain clean,
 and the kernel verifies zero live mapping/file/device references. Its exact
 `FROGTEST SYNC framebuffer-mmap-ready` marker gates the full-frame comparison;
 failed runs also retain the QMP transcript.
+`input-smoke` verifies the user-facing `/dev/input/event0` and
+`/dev/input/event1` chain. Empty nonblocking reads must return `-EAGAIN`, both
+devices must close successfully, a blocking keyboard read must return `a`, and
+blocking mouse reads must return complete packets with the public magic,
+relative movement, and button fields. The host waits for a distinct guest
+marker before each QMP injection, including a no-input window before the first
+keyboard event, and requires the guest's final debug-exit PASS.

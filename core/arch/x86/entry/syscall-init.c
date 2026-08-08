@@ -44,7 +44,7 @@ static int_32 sys_ni_syscall(void)
     return -ENOSYS;
 }
 
-static int_32 sys_test_sync(void)
+static int_32 sys_test_sync(uint_32 command)
 {
 #ifdef CONFIG_FROG_TEST_FRAMEBUFFER_MMAP
     unsigned long entry_flags;
@@ -68,7 +68,22 @@ static int_32 sys_test_sync(void)
     local_irq_disable();
     for (;;)
         __asm__ volatile("hlt");
+#elif defined(CONFIG_FROG_TEST_INPUT)
+    switch (command) {
+    case FROG_TEST_INPUT_KEYBOARD_READY:
+        frog_test_sync("input-keyboard-ready");
+        return 0;
+    case FROG_TEST_INPUT_MOUSE_MOVE_READY:
+        frog_test_sync("input-mouse-move-ready");
+        return 0;
+    case FROG_TEST_INPUT_MOUSE_BUTTON_READY:
+        frog_test_sync("input-mouse-button-ready");
+        return 0;
+    default:
+        return -EINVAL;
+    }
 #else
+    (void) command;
     return -EOPNOTSUPP;
 #endif
 }
@@ -187,6 +202,18 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_EXEC_FD_INHERIT:
         name = "exec.fd-inherit";
         break;
+    case FROG_TEST_INPUT_NONBLOCK:
+        name = "input.nonblock";
+        break;
+    case FROG_TEST_INPUT_KEYBOARD:
+        name = "input.keyboard";
+        break;
+    case FROG_TEST_INPUT_MOUSE_MOVE:
+        name = "input.mouse-move";
+        break;
+    case FROG_TEST_INPUT_MOUSE_BUTTON:
+        name = "input.mouse-button";
+        break;
     default:
         return -EINVAL;
     }
@@ -279,7 +306,8 @@ int_32 sys_testsyscall(uint_32 command)
         return exec_test_arm_fail_before_commit();
 #endif
 #if !defined(CONFIG_FROG_TEST_USER) && \
-    !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
+    !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) && \
+    !defined(CONFIG_FROG_TEST_INPUT)
     INFO("[init]: ring3 reached, testsyscall a=%d", command);
 #endif
 #ifdef CONFIG_QEMU_TEST
