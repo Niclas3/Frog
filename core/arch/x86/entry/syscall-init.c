@@ -19,6 +19,7 @@
 #include <kernel/syscall_fs.h>
 #include <kernel/timekeeping.h>
 #include <kernel/qemu_test.h>
+#include <kernel/wait2.h>
 
 /* #include <fs/fs.h>  // for sys_write/ sys_open/ sys_close */
 /* #include <sys/exec.h> */
@@ -83,6 +84,8 @@ static int_32 sys_test_sync(uint_32 command)
     default:
         return -EINVAL;
     }
+#elif defined(CONFIG_FROG_TEST_WAIT2)
+    return wait2_test_command(command);
 #else
     (void) command;
     return -EOPNOTSUPP;
@@ -233,6 +236,39 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_TIME_SETTIMEOFDAY_UNIMPLEMENTED:
         name = "time.settimeofday-unimplemented";
         break;
+    case FROG_TEST_WAIT2_AVAILABLE:
+        name = "wait2.available";
+        break;
+    case FROG_TEST_WAIT2_ABI:
+        name = "wait2.abi";
+        break;
+    case FROG_TEST_WAIT2_ARGUMENTS:
+        name = "wait2.arguments";
+        break;
+    case FROG_TEST_WAIT2_NEGATIVE_FD:
+        name = "wait2.negative-fd";
+        break;
+    case FROG_TEST_WAIT2_INVALID_FD:
+        name = "wait2.invalid-fd";
+        break;
+    case FROG_TEST_WAIT2_REVENTS_RESET:
+        name = "wait2.revents-reset";
+        break;
+    case FROG_TEST_WAIT2_TIMEOUT_ZERO:
+        name = "wait2.timeout-zero";
+        break;
+    case FROG_TEST_WAIT2_FINITE_SLEEP:
+        name = "wait2.finite-sleep";
+        break;
+    case FROG_TEST_WAIT2_BOUNDARY_SLEEP:
+        name = "wait2.boundary-sleep";
+        break;
+    case FROG_TEST_WAIT2_MULTIPLE_INVALID:
+        name = "wait2.multiple-invalid";
+        break;
+    case FROG_TEST_WAIT2_COPYOUT_CLEANUP:
+        name = "wait2.copyout-cleanup";
+        break;
     default:
         return -EINVAL;
     }
@@ -366,6 +402,7 @@ void syscall_init(void)
     syscall_table[SYS_EXIT]    = sys_exit;
     syscall_table[SYS_EXECV]   = sys_execv;
     syscall_table[SYS_WAIT]    = sys_wait;
+    syscall_table[SYS_WAIT2]   = sys_wait2;
     syscall_table[SYS_TESTSYSCALL] = sys_testsyscall;
 #ifdef CONFIG_QEMU_TEST
     syscall_table[SYS_TEST_REPORT] = sys_test_report;

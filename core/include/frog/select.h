@@ -1,7 +1,7 @@
 #ifndef __FS_SELECT_H
 #define __FS_SELECT_H
+#include <frog/poll.h>
 #include <frog/types.h>
-struct timeval;
 
-extern uint_32 sys_wait2(int n, int_32 *fds, struct timeval *tvp);
+int_32 wait2(struct pollfd *fds, uint_32 count, int_32 timeout_ms);
 #endif

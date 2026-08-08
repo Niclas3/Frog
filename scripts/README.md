@@ -79,3 +79,11 @@ The fixture checks monotonic normalization and forward progress, user-pointer
 and clock-ID errors, unavailable realtime behavior, PIT programming, and the
 fractional nanosecond accumulator. This profile is headless and does not use
 QMP.
+
+Run `./scripts/qemu-test.sh wait2-smoke` after changing poll, wait queues, fd
+lifetime, uaccess, scheduler, or monotonic timeout handling. The headless
+ring-3 fixture checks the frozen 8-byte `pollfd` ABI, whole-call validation,
+per-entry `POLLNVAL`, revents clearing and ready counts, nonblocking scans,
+absolute finite deadlines, and cleanup after an injected copy-out fault. It
+does not use QMP; input-driven `wait2` wakeup is deferred to the input
+profile's dedicated integration phase.

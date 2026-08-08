@@ -409,7 +409,7 @@ uint_32 poll_aux(struct file *file, poll_table *wait)
         // add this file to waiting list
         poll_wait(file, &queue->proc_list, wait);
         if (!queue_empty())
-                return POLLIN | POLLRDNORM;
+                return POLLIN;
         return 0;
 }
 

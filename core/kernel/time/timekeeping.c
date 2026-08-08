@@ -70,6 +70,13 @@ static int_32 timekeeping_snapshot(clockid_t clock_id, struct timespec *result)
         return 0;
 }
 
+int_32 timekeeping_get_monotonic(struct timespec *result)
+{
+        if (result == NULL)
+                return -EINVAL;
+        return timekeeping_snapshot(CLOCK_MONOTONIC, result);
+}
+
 static int_32 do_clock_gettime(clockid_t clock_id,
                                struct timespec *user_time)
 {

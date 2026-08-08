@@ -40,8 +40,9 @@ int_32 pipe(int_32 pipefd[2])
     return _syscall1(SYS_PIPE, pipefd);
 }
 
-uint_32 wait2(int n, int_32 *fds, struct timeval *tvp){
-    return _syscall3(SYS_WAIT2, n, fds, tvp);
+int_32 wait2(struct pollfd *fds, uint_32 count, int_32 timeout_ms)
+{
+    return _syscall3(SYS_WAIT2, fds, count, timeout_ms);
 }
 
 int_32 open(const char *pathname, uint_32 flags)

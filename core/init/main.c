@@ -118,6 +118,8 @@ extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
 extern const uint_8 _binary_user_smoke_time_bin_start[];
 extern const uint_8 _binary_user_smoke_time_bin_end[];
+extern const uint_8 _binary_user_smoke_wait2_bin_start[];
+extern const uint_8 _binary_user_smoke_wait2_bin_end[];
 
 static void do_basic_setup(void)
 {
@@ -184,6 +186,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_TIME)
         image_start = _binary_user_smoke_time_bin_start;
         image_end = _binary_user_smoke_time_bin_end;
+#elif defined(CONFIG_FROG_TEST_WAIT2)
+        image_start = _binary_user_smoke_wait2_bin_start;
+        image_end = _binary_user_smoke_wait2_bin_end;
 #elif defined(CONFIG_FROG_TEST_DISK) && \
       defined(CONFIG_FROG_TEST_STAGE_PREPARE)
         image_start = _binary_user_smoke_disk_prepare_bin_start;
@@ -288,6 +293,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_TIME)
         frog_test_begin("time-smoke");
+#elif defined(CONFIG_FROG_TEST_WAIT2)
+        frog_test_begin("wait2-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER)
         frog_test_begin("framebuffer-smoke");
 #else

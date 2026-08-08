@@ -186,7 +186,7 @@ uint_32 poll_kbd(struct file *file, poll_table *wait)
         poll_wait(file, &queue->proc_list, wait);
         if (!queue_empty())
                 // Trigger EPOLL_IN_EVENT callback function invoke
-                return POLLIN | POLLRDNORM;
+                return POLLIN;
         return 0;
 }
 

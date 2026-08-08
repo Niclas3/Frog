@@ -5,6 +5,7 @@
 
 struct dir;
 struct dir_entry;
+struct pollfd;
 struct stat;
 #include <frog/types.h>
 #include <frog/time.h>
@@ -255,7 +256,7 @@ pid_t wait(int_32 *status_loc);
 
 int_32 pipe(int_32 pipefd[2]);
 
-uint_32 wait2(int n, int_32 *fds, struct timeval *tvp);
+int_32 wait2(struct pollfd *fds, uint_32 count, int_32 timeout_ms);
 
 // System call: uint_32 write(char*)
 // return len of str

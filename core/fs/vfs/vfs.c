@@ -483,10 +483,13 @@ uint_32 vfs_poll(struct file *file, struct poll_table_struct *wait)
                 return file->f_op->poll(file, wait);
 
         uint_32 mask = 0;
+
+        if (!file->f_dentry || file->f_dentry->d_type != FT_REGULAR)
+                return POLLNVAL;
         if ((file->f_flag & O_ACCMODE) != O_WRONLY)
-                mask |= POLLIN | POLLRDNORM;
+                mask |= POLLIN;
         if ((file->f_flag & O_ACCMODE) != O_RDONLY)
-                mask |= POLLOUT | POLLWRNORM;
+                mask |= POLLOUT;
         return mask;
 }
 

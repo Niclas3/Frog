@@ -1,19 +1,23 @@
-#include <frog/poll.h>
-#include <kernel/vfs.h>
-
-#include <frog/fork.h>
-#include <frog/memory.h>
-#include <frog/sched.h>
-#include <frog/threads.h>
-
-#include <frog/irqflags.h>
 #include <asm/page.h>
-
-#include <const.h>
-#include <kernel/assert.h>
 #include <frog/errno.h>
+#include <frog/fork.h>
+#include <frog/irqflags.h>
+#include <frog/memory.h>
+#include <frog/poll.h>
+#include <frog/sched.h>
+#include <frog/test.h>
+#include <frog/threads.h>
+#include <frog/uaccess.h>
+#include <kernel/fd.h>
+#include <kernel/timekeeping.h>
+#include <kernel/vfs.h>
+#include <kernel/wait2.h>
 
-#include <frog/time.h>
+#define WAIT2_MAX_FDS      ((uint_32) MAX_FILES_OPEN_PER_PROC)
+#define WAIT2_REQUEST_BITS (POLLIN | POLLOUT)
+#define WAIT2_RESULT_BITS  (POLLERR | POLLHUP | POLLNVAL)
+#define NSEC_PER_SEC       1000000000
+#define NSEC_PER_MSEC      1000000
 
 struct poll_table_entry {
         struct file *filp;
@@ -26,146 +30,365 @@ struct poll_table_page {
         struct poll_table_entry *entry;
         struct poll_table_entry entries[0];
 };
-#define DEFAULT_POLLMASK (POLLIN | POLLOUT | POLLRDNORM | POLLWRNORM)
+
+struct wait2_entry {
+        struct pollfd descriptor;
+        struct file *file;
+};
+
+typedef char wait2_fd_limit_must_be_32[
+    MAX_FILES_OPEN_PER_PROC == 32 ? 1 : -1];
 
 #define POLL_TABLE_FULL(table)                  \
         ((unsigned long) ((table)->entry + 1) > \
          PAGE_SIZE + (unsigned long) (table))
 
-/* cur->status = THREAD_TASK_WAITING; */
-/* schedule_timeout(299); */
+#ifdef CONFIG_FROG_TEST_WAIT2
+static bool wait2_fail_copyout;
+static uint_32 wait2_active_file_refs;
+static uint_32 wait2_active_registrations;
+#endif
 
-void __pollwait(struct file *filp,
-                wait_queue_head_t *wait_address,
-                poll_table *p)
+static bool poll_table_contains(const poll_table *poll_table,
+                                wait_queue_head_t *wait_address)
 {
-        if (!p || !filp || !wait_address) {
-                if (p)
-                        p->error = -EINVAL;
+        const struct poll_table_page *page;
+
+        for (page = poll_table->table; page != NULL; page = page->next) {
+                const struct poll_table_entry *entry;
+
+                for (entry = page->entries; entry < page->entry; entry++) {
+                        if (entry->wait_address == wait_address)
+                                return true;
+                }
+        }
+        return false;
+}
+
+void __pollwait(struct file *filp, wait_queue_head_t *wait_address,
+                poll_table *poll_table)
+{
+        struct poll_table_page *page;
+        TCB_t *current;
+
+        if (poll_table == NULL || filp == NULL || wait_address == NULL) {
+                if (poll_table != NULL)
+                        poll_table->error = -EINVAL;
                 return;
         }
-        struct poll_table_page *table = p->table;
-        TCB_t *current = running_thread();
+        if (poll_table_contains(poll_table, wait_address))
+                return;
 
-        if (!table || POLL_TABLE_FULL(table)) {
-                struct poll_table_page *new_table;
+        page = poll_table->table;
+        current = running_thread();
+        if (page == NULL || POLL_TABLE_FULL(page)) {
+                struct poll_table_page *new_page = get_kernel_page(1);
 
-                new_table = (struct poll_table_page *) get_kernel_page(1);
-                if (!new_table) {
-                        p->error = -ENOMEM;
+                if (new_page == NULL) {
+                        poll_table->error = -ENOMEM;
                         return;
                 }
-                new_table->entry = new_table->entries;
-                new_table->next = table;
-                p->table = new_table;
-                table = new_table;
+                new_page->entry = new_page->entries;
+                new_page->next = page;
+                poll_table->table = new_page;
+                page = new_page;
         }
 
-        /* Add a new entry */
-        {
-                struct poll_table_entry *entry = table->entry;
-                table->entry = entry + 1;
-                entry->filp = filp;
-                entry->wait_address = wait_address;
-                init_waitqueue_entry(&entry->wait, current);
-                add_wait_queue(wait_address, &entry->wait);
-        }
+        struct poll_table_entry *entry = page->entry++;
+
+        entry->filp = filp;
+        entry->wait_address = wait_address;
+        init_waitqueue_entry(&entry->wait, current);
+        add_wait_queue(wait_address, &entry->wait);
+        poll_table->registrations++;
+#ifdef CONFIG_FROG_TEST_WAIT2
+        wait2_active_registrations++;
+#endif
 }
 
-void poll_freewait(poll_table *pt)
+void poll_freewait(poll_table *poll_table)
 {
-        if (!pt)
-                return;
-        struct poll_table_page *p = pt->table;
-        pt->table = NULL;
-        while (p) {
-                struct poll_table_entry *entry;
-                struct poll_table_page *old;
+        struct poll_table_page *page;
 
-                entry = p->entry;
-                do {
+        if (poll_table == NULL)
+                return;
+        page = poll_table->table;
+        poll_table->table = NULL;
+        while (page != NULL) {
+                struct poll_table_entry *entry = page->entry;
+                struct poll_table_page *old_page;
+
+                while (entry > page->entries) {
                         entry--;
                         remove_wait_queue(entry->wait_address, &entry->wait);
-                        /* fput(entry->filp); */
-                } while (entry > p->entries);
-                old = p;
-                p = p->next;
-                free_page(MP_KERNEL, old, 1);
+                        poll_table->registrations--;
+#ifdef CONFIG_FROG_TEST_WAIT2
+                        wait2_active_registrations--;
+#endif
+                }
+                old_page = page;
+                page = page->next;
+                free_page(MP_KERNEL, old_page, 1);
         }
 }
 
-#define POLLIN_SET (POLLRDNORM | POLLRDBAND | POLLIN | POLLHUP | POLLERR)
-#define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR)
-#define POLLEX_SET (POLLPRI)
+static int timespec_compare(const struct timespec *left,
+                            const struct timespec *right)
+{
+        if (left->tv_sec != right->tv_sec)
+                return left->tv_sec < right->tv_sec ? -1 : 1;
+        if (left->tv_nsec != right->tv_nsec)
+                return left->tv_nsec < right->tv_nsec ? -1 : 1;
+        return 0;
+}
 
-/* static int_32 do_wait2(int n, int_32 *fds, uint_32 *timeout) */
-/* { */
-/*         unsigned long flags; */
-/*         poll_table table, *wait; */
-/*         int retval = 0; */
-/*         int_32 __timeout = *timeout; */
-/*  */
-/*         poll_initwait(&table); */
-/*         wait = &table; */
-/*         if (!__timeout) */
-/*                 wait = NULL; */
-/*         retval = -1; */
-/*         TCB_t *cur = running_thread(); */
-/*         for (;;) { */
-/*                 local_irq_save(flags); */
-/*                 cur->status = THREAD_TASK_WAITING; */
-/*                 for (int i = 0; i < n; i++) { */
-/*                         uint_32 mask = DEFAULT_POLLMASK; */
-/*                         // go through all file */
-/*                         struct file *f = get_file(fds[i]); */
-/*                         mask = sys_poll(f, wait); */
-/*                         if ((mask & POLLIN_SET)) { */
-/*                                 retval = i; */
-/*                                 wait = NULL; */
-/*                         } */
-/*                 } */
-/*  */
-/*                 wait = NULL; */
-/*                 if ((retval != -1) || !__timeout) */
-/*                         break; */
-/*                 if (table.error) { */
-/*                         retval = table.error; */
-/*                         break; */
-/*                 } */
-/*                 __timeout = schedule_timeout(__timeout); */
-/*                 local_irq_restore(flags); */
-/*         } */
-/*  */
-/*         cur->status = THREAD_TASK_RUNNING; */
-/*  */
-/*         local_irq_save(flags); */
-/*         poll_freewait(&table); */
-/*         local_irq_restore(flags); */
-/*  */
-/*         #<{(| */
-/*          * Up-to-date the caller timeout. */
-/*          |)}># */
-/*         *timeout = __timeout; */
-/*         return retval; */
-/* } */
-/*  */
-/* #define MAX_SELECT_SECONDS ((uint_32) (MAX_SCHEDULE_TIMEOUT / HZ) - 1) */
-/* uint_32 sys_wait2(int n, int_32 *fds, struct timeval *tvp) */
-/* { */
-/*         ASSERT(fds != NULL); */
-/*         uint_32 wait_ticks = 0; */
-/*         if (tvp) { */
-/*                 // covert seconds to ticks */
-/*                 // 1000000 micoseconds = 1 seconds */
-/*                 wait_ticks = (tvp->tv_sec + tvp->tv_usec / 1000000) * HZ; */
-/*         } */
-/*  */
-/*         // test all fd is fds must be char devices (for now) */
-/*         for (int i = 0; i < n; i++) { */
-/*                 struct file *f = get_file(fds[i]); */
-/*                 ASSERT(IS_FT_CHAR(f->fd_inode)); */
-/*         } */
-/*         int_32 res = do_wait2(n, fds, &wait_ticks); */
-/*  */
-/*         return res; */
-/* } */
+static void wait2_make_deadline(struct timespec *deadline,
+                                const struct timespec *now,
+                                int_32 timeout_ms)
+{
+        deadline->tv_sec = now->tv_sec + timeout_ms / 1000;
+        deadline->tv_nsec = now->tv_nsec +
+                            (timeout_ms % 1000) * NSEC_PER_MSEC;
+        if (deadline->tv_nsec >= NSEC_PER_SEC) {
+                deadline->tv_nsec -= NSEC_PER_SEC;
+                deadline->tv_sec++;
+        }
+}
+
+static int_32 wait2_remaining_ticks(const struct timespec *deadline,
+                                    const struct timespec *now)
+{
+        int_32 nanoseconds;
+        int_32 ticks;
+
+        if (timespec_compare(now, deadline) >= 0)
+                return 0;
+        if (deadline->tv_sec - now->tv_sec > 1)
+                return 1000;
+        if (deadline->tv_sec != now->tv_sec)
+                nanoseconds = NSEC_PER_SEC - now->tv_nsec +
+                              deadline->tv_nsec;
+        else
+                nanoseconds = deadline->tv_nsec - now->tv_nsec;
+        ticks = nanoseconds / NSEC_PER_MSEC;
+        if (nanoseconds % NSEC_PER_MSEC != 0)
+                ticks++;
+        return ticks > 0 ? ticks : 1;
+}
+
+static int_32 wait2_scan(struct wait2_entry *entries, uint_32 count,
+                         poll_table *poll_table)
+{
+        int_32 ready = 0;
+
+        for (uint_32 index = 0; index < count; index++) {
+                struct wait2_entry *entry = &entries[index];
+                uint_32 mask;
+
+                entry->descriptor.revents = 0;
+                if (entry->descriptor.fd < 0)
+                        continue;
+                if (entry->file == NULL) {
+                        entry->descriptor.revents = POLLNVAL;
+                        ready++;
+                        continue;
+                }
+                mask = vfs_poll(entry->file, poll_table);
+                entry->descriptor.revents =
+                    (uint_16) (mask & (entry->descriptor.events |
+                                      WAIT2_RESULT_BITS));
+                if (entry->descriptor.revents != 0)
+                        ready++;
+        }
+        return ready;
+}
+
+static void wait2_release_entries(struct wait2_entry *entries,
+                                  uint_32 count)
+{
+        if (entries == NULL)
+                return;
+        for (uint_32 index = 0; index < count; index++) {
+                if (entries[index].file != NULL) {
+                        file_put(entries[index].file);
+#ifdef CONFIG_FROG_TEST_WAIT2
+                        wait2_active_file_refs--;
+#endif
+                }
+        }
+        kfree(entries);
+}
+
+static int_32 wait2_copy_revents(struct pollfd *user_fds,
+                                 const uint_16 *revents,
+                                 uint_32 count)
+{
+#ifdef CONFIG_FROG_TEST_WAIT2
+        if (wait2_fail_copyout) {
+                bool lifecycle_ok = wait2_active_file_refs != 0 &&
+                                    wait2_active_registrations == 0;
+
+                wait2_fail_copyout = false;
+                return lifecycle_ok ? -EFAULT : -EUCLEAN;
+        }
+#endif
+        for (uint_32 index = 0; index < count; index++) {
+                int_32 status = copy_to_user(&user_fds[index].revents,
+                                             &revents[index],
+                                             sizeof(user_fds[index].revents));
+
+                if (status != 0)
+                        return status;
+        }
+        return 0;
+}
+
+static int_32 do_wait2(struct pollfd *user_fds, uint_32 count,
+                       int_32 timeout_ms)
+{
+        struct wait2_entry *entries = NULL;
+        struct pollfd copied[WAIT2_MAX_FDS];
+        uint_16 revents[WAIT2_MAX_FDS];
+        struct timespec deadline;
+        poll_table table;
+        bool have_deadline = timeout_ms > 0;
+        int_32 result = 0;
+        int_32 status;
+
+        if (timeout_ms < -1 || count > WAIT2_MAX_FDS)
+                return -EINVAL;
+        if (count == 0 && timeout_ms == -1)
+                return -EINVAL;
+        if (count != 0) {
+                status = copy_from_user(copied, user_fds,
+                                        count * sizeof(struct pollfd));
+                if (status != 0)
+                        return status;
+                entries = kmalloc(count * sizeof(*entries));
+                if (entries == NULL)
+                        return -ENOMEM;
+                for (uint_32 index = 0; index < count; index++) {
+                        entries[index].descriptor = copied[index];
+                        entries[index].file = NULL;
+                        entries[index].descriptor.revents = 0;
+                }
+                for (uint_32 index = 0; index < count; index++) {
+                        if ((entries[index].descriptor.events &
+                             ~WAIT2_REQUEST_BITS) != 0) {
+                                wait2_release_entries(entries, count);
+                                return -EINVAL;
+                        }
+                }
+                for (uint_32 index = 0; index < count; index++) {
+                        if (entries[index].descriptor.fd < 0)
+                                continue;
+                        entries[index].file =
+                            fdget(entries[index].descriptor.fd);
+#ifdef CONFIG_FROG_TEST_WAIT2
+                        if (entries[index].file != NULL)
+                                wait2_active_file_refs++;
+#endif
+                }
+        }
+
+        if (have_deadline) {
+                struct timespec now;
+
+                timekeeping_get_monotonic(&now);
+                wait2_make_deadline(&deadline, &now, timeout_ms);
+        }
+
+        poll_initwait(&table);
+        for (;;) {
+                unsigned long scan_flags;
+                int_32 ready;
+
+                local_irq_save(scan_flags);
+                if (timeout_ms == 0) {
+                        result = wait2_scan(entries, count, NULL);
+                        running_thread()->status = THREAD_TASK_RUNNING;
+                        local_irq_restore(scan_flags);
+                        break;
+                }
+                running_thread()->status = THREAD_TASK_WAITING;
+                if (table.registrations == 0) {
+                        (void) wait2_scan(entries, count, &table);
+                        if (table.error != 0) {
+                                result = table.error;
+                                running_thread()->status = THREAD_TASK_RUNNING;
+                                local_irq_restore(scan_flags);
+                                break;
+                        }
+                }
+                ready = wait2_scan(entries, count, NULL);
+                if (ready > 0) {
+                        result = ready;
+                        running_thread()->status = THREAD_TASK_RUNNING;
+                        local_irq_restore(scan_flags);
+                        break;
+                }
+                if (timeout_ms == -1 && table.registrations == 0) {
+                        result = -EINVAL;
+                        running_thread()->status = THREAD_TASK_RUNNING;
+                        local_irq_restore(scan_flags);
+                        break;
+                }
+                if (have_deadline) {
+                        struct timespec now;
+                        int_32 remaining;
+
+                        timekeeping_get_monotonic(&now);
+                        remaining = wait2_remaining_ticks(&deadline, &now);
+                        if (remaining == 0) {
+                                running_thread()->status = THREAD_TASK_RUNNING;
+                                local_irq_restore(scan_flags);
+                                break;
+                        }
+                        (void) schedule_timeout(remaining);
+                } else {
+                        (void) schedule_timeout(MAX_SCHEDULE_TIMEOUT);
+                }
+                local_irq_restore(scan_flags);
+        }
+
+        for (uint_32 index = 0; index < count; index++)
+                revents[index] = entries[index].descriptor.revents;
+        poll_freewait(&table);
+        if (result >= 0 && count != 0) {
+                status = wait2_copy_revents(user_fds, revents, count);
+        } else {
+                status = 0;
+        }
+        wait2_release_entries(entries, count);
+        if (status != 0)
+                return status;
+        return result;
+}
+
+int_32 sys_wait2(struct pollfd *user_fds, uint_32 count, int_32 timeout_ms)
+{
+        unsigned long entry_flags;
+        int_32 result;
+
+        local_irq_save(entry_flags);
+        local_irq_enable();
+        result = do_wait2(user_fds, count, timeout_ms);
+        local_irq_restore(entry_flags);
+        return result;
+}
+
+#ifdef CONFIG_FROG_TEST_WAIT2
+int_32 wait2_test_command(uint_32 command)
+{
+        if (command == FROG_TEST_WAIT2_ARM_COPYOUT_FAULT) {
+                wait2_fail_copyout = true;
+                return 0;
+        }
+        if (command == FROG_TEST_WAIT2_VERIFY_CLEANUP)
+                return wait2_active_file_refs == 0 &&
+                               wait2_active_registrations == 0
+                           ? 0
+                           : -EUCLEAN;
+        return -EINVAL;
+}
+#endif

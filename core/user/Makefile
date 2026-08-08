@@ -2,7 +2,7 @@ include ../../Makefile.os_rules
 
 OBJCOPY ?= objcopy
 
-USER_PROFILES := basic process disk_prepare framebuffer_mmap input time
+USER_PROFILES := basic process disk_prepare framebuffer_mmap input time wait2
 USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 EXEC_TARGET_BLOB := $(BUILD_DIR)/exec_target_blob.o
 USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
@@ -41,6 +41,11 @@ $(BUILD_DIR)/user_smoke_input_user.o: input_smoke.c
 $(BUILD_DIR)/user_smoke_time_user.o: time_smoke.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_time_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_wait2_user.o: wait2_smoke.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_wait2_user.d \
 		-o $@ $<
 
 $(BUILD_DIR)/user_smoke_framebuffer_mmap_runtime.o: ../kernel/syscall.c

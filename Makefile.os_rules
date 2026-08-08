@@ -111,6 +111,12 @@ $(error time-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_TIME
 endif
+ifeq ($(FROG_TEST_PROFILE),wait2-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error wait2-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_WAIT2
+endif
 ifeq ($(FROG_TEST_PROFILE),disk-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error disk-smoke requires QEMU_TEST=1)

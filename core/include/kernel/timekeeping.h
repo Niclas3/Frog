@@ -12,6 +12,7 @@ struct timekeeping_state {
 
 void timekeeping_advance_state(struct timekeeping_state *state);
 void timekeeping_advance(void);
+int_32 timekeeping_get_monotonic(struct timespec *result);
 
 int_32 sys_clock_gettime(clockid_t clock_id, struct timespec *user_time);
 int_32 sys_gettimeofday(struct timeval *user_time, void *timezone);

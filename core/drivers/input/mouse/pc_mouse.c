@@ -293,7 +293,7 @@ uint_32 poll_pcmouse(struct file *file, poll_table *wait)
     // add this file to waiting list
     poll_wait(file, &queue->proc_list, wait);
     if (!queue_empty())
-        return POLLIN | POLLRDNORM;
+        return POLLIN;
     return 0;
 }
 
