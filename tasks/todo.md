@@ -23,7 +23,7 @@
 
 - [x] Task 8: Build the pointer-free packagefs user library.
 - [x] Task 9: Implement the Poudland Version 1 client runtime.
-- [ ] Task 10: Establish the modern built-in compositor slice.
+- [x] Task 10: Establish the modern built-in compositor slice.
 - [ ] Task 11: Create the deterministic FrogFS host image builder.
 - [ ] Checkpoint C: Protocol fixture, built-in compositor, and generated FrogFS image each work independently.
 

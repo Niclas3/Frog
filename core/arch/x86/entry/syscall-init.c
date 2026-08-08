@@ -71,6 +71,30 @@ static int_32 sys_test_sync(uint_32 command)
     local_irq_disable();
     for (;;)
         __asm__ volatile("hlt");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
+    switch (command) {
+    case FROG_TEST_POUDLAND_BUILTIN_INITIAL_READY:
+        frog_test_sync("poudland-builtin-initial-ready");
+        return 0;
+    case FROG_TEST_POUDLAND_BUILTIN_FOCUS_READY:
+        frog_test_sync("poudland-builtin-focus-ready");
+        return 0;
+    case FROG_TEST_POUDLAND_BUILTIN_KEYBOARD_READY:
+        frog_test_sync("poudland-builtin-keyboard-ready");
+        return 0;
+    case FROG_TEST_POUDLAND_BUILTIN_DRAG_READY:
+        frog_test_sync("poudland-builtin-drag-ready");
+        return 0;
+    case FROG_TEST_POUDLAND_BUILTIN_FINAL_READY:
+        if (frog_test_has_failures())
+            return -EUCLEAN;
+        frog_test_sync("poudland-builtin-final-ready");
+        local_irq_disable();
+        for (;;)
+            __asm__ volatile("hlt");
+    default:
+        return -EINVAL;
+    }
 #elif defined(CONFIG_FROG_TEST_INPUT)
     switch (command) {
     case FROG_TEST_INPUT_KEYBOARD_READY:
@@ -435,6 +459,36 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_POUDLAND_V1_HUP_DRAIN:
         name = "poudland-v1.pollin-hup-drains-response-first";
         break;
+    case FROG_TEST_POUDLAND_BUILTIN_EXEC:
+        name = "poudland-builtin.exec-multipage-elf";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_FRAMEBUFFER:
+        name = "poudland-builtin.framebuffer-open-map";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_BMP_CURSOR:
+        name = "poudland-builtin.bmp-cursor-stream";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_FORMATS:
+        name = "poudland-builtin.xrgb-8-16-32";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_INITIAL_DAMAGE:
+        name = "poudland-builtin.initial-frame-damage-exact";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_IDLE:
+        name = "poudland-builtin.idle-500ms-quiescent";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_FOCUS:
+        name = "poudland-builtin.focus-second-window";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_KEYBOARD:
+        name = "poudland-builtin.keyboard-to-focus";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_DRAG:
+        name = "poudland-builtin.drag-whole-window";
+        break;
+    case FROG_TEST_POUDLAND_BUILTIN_FINAL_DAMAGE:
+        name = "poudland-builtin.final-frame-damage-exact";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;
@@ -593,6 +647,7 @@ int_32 sys_testsyscall(uint_32 command)
 #if !defined(CONFIG_FROG_TEST_USER) && \
     !defined(CONFIG_FROG_TEST_USER_ALLOCATOR) && \
     !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) && \
+    !defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) && \
     !defined(CONFIG_FROG_TEST_INPUT)
     INFO("[init]: ring3 reached, testsyscall a=%d", command);
 #endif

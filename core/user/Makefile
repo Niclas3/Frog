@@ -2,9 +2,11 @@ include ../../Makefile.os_rules
 
 OBJCOPY ?= objcopy
 
-USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap user_allocator packagefs packagefs_lifecycle packagefs_userlib poudland_v1_connect poudland_v1_lifecycle poudland_v1_version poudland_v1_errno poudland_v1_id poudland_v1_routing poudland_v1_retry poudland_v1_create poudland_v1_close poudland_v1_error poudland_v1_protocol poudland_v1_fatal poudland_v1_overflow poudland_v1_hup input time wait2
+USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap user_allocator packagefs packagefs_lifecycle packagefs_userlib poudland_v1_connect poudland_v1_lifecycle poudland_v1_version poudland_v1_errno poudland_v1_id poudland_v1_routing poudland_v1_retry poudland_v1_create poudland_v1_close poudland_v1_error poudland_v1_protocol poudland_v1_fatal poudland_v1_overflow poudland_v1_hup poudland_builtin input time wait2
 USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 EXEC_TARGET_BLOB := $(BUILD_DIR)/exec_target_blob.o
+POUDLAND_P0_ELF_BLOB := $(BUILD_DIR)/poudland_p0_elf_blob.o
+POUDLAND_P0_CURSOR_BLOB := $(BUILD_DIR)/poudland_p0_cursor_blob.o
 USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
@@ -14,8 +16,13 @@ ifeq ($(FROG_TEST_ALLOW_MAX_OOM),1)
 ANONYMOUS_MMAP_TEST_CFLAGS += -DFROG_TEST_ALLOW_MAX_OOM
 endif
 
-.PHONY: all clean
+.PHONY: all clean FORCE
 all: $(USER_BLOBS) $(EXEC_TARGET_BLOB)
+ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
+all: $(POUDLAND_P0_ELF_BLOB) $(POUDLAND_P0_CURSOR_BLOB)
+endif
+
+FORCE:
 
 $(BUILD_DIR)/user_smoke_basic_user.o: user_smoke.c
 	$(CC) $(USER_CFLAGS) -DUSER_SMOKE_BASIC \
@@ -177,6 +184,16 @@ $(BUILD_DIR)/user_smoke_input_user.o: input_smoke.c
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_input_user.d \
 		-o $@ $<
 
+$(BUILD_DIR)/user_smoke_poudland_builtin_user.o: poudland_builtin_smoke.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_poudland_builtin_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_poudland_builtin_runtime.o: ../kernel/syscall.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_poudland_builtin_runtime.d \
+		-o $@ $<
+
 $(BUILD_DIR)/user_smoke_time_user.o: time_smoke.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_time_user.d \
@@ -292,6 +309,13 @@ $(BUILD_DIR)/user_smoke_poudland_v1_%.elf: \
 		$(BUILD_DIR)/user_smoke_poudland_v1_$*_client.o \
 		$(BUILD_DIR)/user_smoke_poudland_v1_$*_runtime.o
 
+$(BUILD_DIR)/user_smoke_poudland_builtin.elf: \
+	$(BUILD_DIR)/user_smoke_poudland_builtin_user.o \
+	$(BUILD_DIR)/user_smoke_poudland_builtin_runtime.o user_smoke.ld
+	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
+		$(BUILD_DIR)/user_smoke_poudland_builtin_user.o \
+		$(BUILD_DIR)/user_smoke_poudland_builtin_runtime.o
+
 $(BUILD_DIR)/user_smoke_%.elf: $(BUILD_DIR)/user_smoke_%_user.o user_smoke.ld
 	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ $<
 
@@ -329,6 +353,24 @@ $(EXEC_TARGET_BLOB): $(BUILD_DIR)/exec_target.elf
 		-o exec_target_blob.o
 	$(OBJCOPY) \
 		--rename-section .data=.rodata.exec_fixture,alloc,load,readonly,data,contents \
+		$@
+
+$(POUDLAND_P0_ELF_BLOB): FORCE
+	$(MAKE) -C ../apps/poudland_p0 QEMU_TEST=$(QEMU_TEST) \
+		FROG_TEST_PROFILE=$(FROG_TEST_PROFILE) all
+	cd ../apps/build && \
+		$(LD) -m elf_i386 -r -b binary poudland_p0.elf \
+		-o $(POUDLAND_P0_ELF_BLOB)
+	$(OBJCOPY) \
+		--rename-section .data=.rodata.poudland_p0_elf,alloc,load,readonly,data,contents \
+		$@
+
+$(POUDLAND_P0_CURSOR_BLOB): ../apps/test/b.bmp
+	cd ../apps/test && \
+		$(LD) -m elf_i386 -r -b binary b.bmp \
+		-o $(POUDLAND_P0_CURSOR_BLOB)
+	$(OBJCOPY) \
+		--rename-section .data=.rodata.poudland_p0_cursor,alloc,load,readonly,data,contents \
 		$@
 
 clean:

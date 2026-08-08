@@ -30,6 +30,7 @@
 #include <kernel/debug.h>
 #include <kernel/panic.h>
 #include <kernel/process_regression.h>
+#include <kernel/poudland_builtin_test.h>
 #include <kernel/qemu_test.h>
 #include "../fs/packagefs/packagefs.h"
 
@@ -153,6 +154,8 @@ extern const uint_8 _binary_user_smoke_poudland_v1_overflow_bin_start[];
 extern const uint_8 _binary_user_smoke_poudland_v1_overflow_bin_end[];
 extern const uint_8 _binary_user_smoke_poudland_v1_hup_bin_start[];
 extern const uint_8 _binary_user_smoke_poudland_v1_hup_bin_end[];
+extern const uint_8 _binary_user_smoke_poudland_builtin_bin_start[];
+extern const uint_8 _binary_user_smoke_poudland_builtin_bin_end[];
 extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
 extern const uint_8 _binary_user_smoke_time_bin_start[];
@@ -276,6 +279,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_POUDLAND_V1_HUP)
         image_start = _binary_user_smoke_poudland_v1_hup_bin_start;
         image_end = _binary_user_smoke_poudland_v1_hup_bin_end;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
+        image_start = _binary_user_smoke_poudland_builtin_bin_start;
+        image_end = _binary_user_smoke_poudland_builtin_bin_end;
 #elif defined(CONFIG_FROG_TEST_INPUT)
         image_start = _binary_user_smoke_input_bin_start;
         image_end = _binary_user_smoke_input_bin_end;
@@ -423,6 +429,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("poudland-v1-overflow-smoke");
 #elif defined(CONFIG_FROG_TEST_POUDLAND_V1_HUP)
         frog_test_begin("poudland-v1-hup-smoke");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
+        frog_test_begin("poudland-builtin-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)
         frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_TIME)
@@ -440,7 +448,8 @@ __visible void __noreturn start_kernel(void)
         int framebuffer_result = pc_framebuffer_snapshot_handoff();
         if (framebuffer_result != 0 && framebuffer_result != -ENODEV) {
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
-    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
+    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
+    defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
                 frog_test_abort("framebuffer-handoff-invalid");
 #else
                 PANIC("framebuffer handoff is invalid");
@@ -464,7 +473,8 @@ __visible void __noreturn start_kernel(void)
                     pc_framebuffer_register_aperture(platform_bus);
                 if (framebuffer_result != 0) {
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
-    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
+    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
+    defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
                         frog_test_abort("framebuffer-resource-register-failed");
 #else
                         PANIC("framebuffer resource registration failed");
@@ -473,7 +483,8 @@ __visible void __noreturn start_kernel(void)
         }
 
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
-    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP)
+    defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
+    defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
         if (framebuffer_result == -ENODEV)
                 frog_test_abort("framebuffer-unavailable");
 #endif
@@ -526,13 +537,18 @@ __visible void __noreturn start_kernel(void)
 #endif
 
         /****************************************/
-#if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK)
+#if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK) || \
+    defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
         int frogfs_init_ret = frogfs_init();
         int frogfs_mount_ret = frogfs_init_ret;
         int frogfs_rollback_ret = 0;
         int frogfs_mount_flags = 0;
 #ifdef CONFIG_FROG_TEST_DISK
         frogfs_mount_flags = fs_regression_mount_flags();
+#elif defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
+        /* The source image predates the current FrogFS format.  This test
+         * profile owns a disposable copy and installs both assets below. */
+        frogfs_mount_flags = FROGFS_MOUNT_FORMAT;
 #endif
         if (frogfs_init_ret == 0)
                 frogfs_mount_ret =
@@ -544,6 +560,12 @@ __visible void __noreturn start_kernel(void)
         frogfs_test_init_result = frogfs_init_ret;
         frogfs_test_mount_result = frogfs_mount_ret;
         frogfs_test_rollback_result = frogfs_rollback_ret;
+#elif defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
+        if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
+            frogfs_rollback_ret < 0)
+                frog_test_abort("poudland-builtin-frogfs-mount");
+        if (poudland_builtin_test_install_assets() != 0)
+                frog_test_abort("poudland-builtin-install-assets");
 #else
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)

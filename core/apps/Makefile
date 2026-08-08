@@ -26,6 +26,9 @@ packagefs.o: lib/packagefs.c
 poudland_v1.o: lib/gua/poudland_v1.c
 	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
 
+poudland-p0:
+	$(MAKE) -C poudland_p0 all
+
 # home brew C runtime
 crt.o: start.s
 	nasm -f elf -o $@ $^
@@ -68,3 +71,6 @@ load: compositor
 clean: 
 	rm -rf *.o
 	rm -rf ./build/*
+	$(MAKE) -C poudland_p0 clean
+
+.PHONY: poudland-p0
