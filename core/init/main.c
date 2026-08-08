@@ -121,6 +121,8 @@ extern const uint_8 _binary_user_smoke_user_allocator_bin_start[];
 extern const uint_8 _binary_user_smoke_user_allocator_bin_end[];
 extern const uint_8 _binary_user_smoke_packagefs_bin_start[];
 extern const uint_8 _binary_user_smoke_packagefs_bin_end[];
+extern const uint_8 _binary_user_smoke_packagefs_lifecycle_bin_start[];
+extern const uint_8 _binary_user_smoke_packagefs_lifecycle_bin_end[];
 extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
 extern const uint_8 _binary_user_smoke_time_bin_start[];
@@ -196,6 +198,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_PACKAGEFS)
         image_start = _binary_user_smoke_packagefs_bin_start;
         image_end = _binary_user_smoke_packagefs_bin_end;
+#elif defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE)
+        image_start = _binary_user_smoke_packagefs_lifecycle_bin_start;
+        image_end = _binary_user_smoke_packagefs_lifecycle_bin_end;
 #elif defined(CONFIG_FROG_TEST_INPUT)
         image_start = _binary_user_smoke_input_bin_start;
         image_end = _binary_user_smoke_input_bin_end;
@@ -311,6 +316,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("user-allocator-smoke");
 #elif defined(CONFIG_FROG_TEST_PACKAGEFS)
         frog_test_begin("packagefs-smoke");
+#elif defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE)
+        frog_test_begin("packagefs-lifecycle-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)
         frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_TIME)

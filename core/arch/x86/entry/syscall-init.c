@@ -20,6 +20,7 @@
 #include <kernel/timekeeping.h>
 #include <kernel/qemu_test.h>
 #include <kernel/wait2.h>
+#include "../../../fs/packagefs/packagefs.h"
 
 /* #include <fs/fs.h>  // for sys_write/ sys_open/ sys_close */
 /* #include <sys/exec.h> */
@@ -341,6 +342,42 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_PACKAGEFS_CLOEXEC:
         name = "packagefs.cloexec";
         break;
+    case FROG_TEST_PACKAGEFS_DATA_DISCONNECT_ORDER:
+        name = "packagefs-lifecycle.data-disconnect-order";
+        break;
+    case FROG_TEST_PACKAGEFS_DISCONNECT_EXACTLY_ONCE:
+        name = "packagefs-lifecycle.disconnect-exactly-once";
+        break;
+    case FROG_TEST_PACKAGEFS_BAD_CONTROL_READ_PRESERVES:
+        name = "packagefs-lifecycle.bad-control-read-preserves";
+        break;
+    case FROG_TEST_PACKAGEFS_TOMBSTONE_LIMIT:
+        name = "packagefs-lifecycle.tombstone-limit";
+        break;
+    case FROG_TEST_PACKAGEFS_SERVER_CLOSE_DRAIN:
+        name = "packagefs-lifecycle.server-close-drain-hup-epipe";
+        break;
+    case FROG_TEST_PACKAGEFS_WRITABLE_ARM_COALESCE:
+        name = "packagefs-lifecycle.writable-arm-coalesce-correct-peer";
+        break;
+    case FROG_TEST_PACKAGEFS_LIFECYCLE_WAIT2_MASKS:
+        name = "packagefs-lifecycle.wait2-masks";
+        break;
+    case FROG_TEST_PACKAGEFS_FORK_FINAL_REF:
+        name = "packagefs-lifecycle.fork-final-ref";
+        break;
+    case FROG_TEST_PACKAGEFS_PROCESS_EXIT:
+        name = "packagefs-lifecycle.process-exit";
+        break;
+    case FROG_TEST_PACKAGEFS_BLOCKED_CLOSE_RACES:
+        name = "packagefs-lifecycle.blocked-close-races";
+        break;
+    case FROG_TEST_PACKAGEFS_REBIND_LEAK_BASELINE:
+        name = "packagefs-lifecycle.rebind-repeat-leak-baseline";
+        break;
+    case FROG_TEST_PACKAGEFS_CONTROL_NOT_STARVED:
+        name = "packagefs-lifecycle.control-not-starved-by-data";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;
@@ -462,6 +499,11 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
 
 int_32 sys_testsyscall(uint_32 command)
 {
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+    if (command == FROG_TEST_PACKAGEFS_LIFECYCLE_SNAPSHOT ||
+        command == FROG_TEST_PACKAGEFS_LIFECYCLE_VERIFY)
+        return packagefs_lifecycle_test_command(command);
+#endif
 #ifdef CONFIG_FROG_TEST_ANONYMOUS_MMAP
     if (command != FROG_TEST_ANON_MMAP_FINISH)
         return mm_anon_mmap_test_command(command);

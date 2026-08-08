@@ -16,8 +16,8 @@
 - [x] Task 4: Add eager private anonymous mappings.
 - [x] Task 5: Implement user-space `malloc/free`.
 - [x] Task 6: Implement packagefs bind/connect/directed records.
-- [ ] Task 7: Complete packagefs lifecycle/readiness.
-- [ ] Checkpoint B: Anonymous memory, allocator, and packagefs pass under 16 MiB.
+- [x] Task 7: Complete packagefs lifecycle/readiness.
+- [x] Checkpoint B: Anonymous memory, allocator, and packagefs pass under 16 MiB.
 
 ## Phase 3: Independent vertical slices
 

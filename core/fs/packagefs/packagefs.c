@@ -11,13 +11,17 @@
 #include <frog/sched.h>
 #include <frog/semaphore.h>
 #include <frog/string.h>
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#include <frog/test.h>
+#endif
 #include <frog/threads.h>
 #include <frog/uaccess.h>
 #include <frog/wait.h>
 #include <kernel/assert.h>
 #include <kernel/dev.h>
 #include <kernel/mount.h>
-#ifdef CONFIG_FROG_TEST_PACKAGEFS
+#if defined(CONFIG_FROG_TEST_PACKAGEFS) || \
+    defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE)
 #include <kernel/qemu_test.h>
 #endif
 #include <kernel/vfs.h>
@@ -28,6 +32,12 @@
 enum packagefs_endpoint_role {
         PACKAGEFS_ENDPOINT_SERVER = 1,
         PACKAGEFS_ENDPOINT_CLIENT,
+};
+
+enum packagefs_writable_state {
+        PACKAGEFS_WRITABLE_IDLE = 0,
+        PACKAGEFS_WRITABLE_ARMED,
+        PACKAGEFS_WRITABLE_PENDING,
 };
 
 struct packagefs_service;
@@ -47,8 +57,12 @@ struct packagefs_session {
         struct list_head node;
         uint_32 peer_id;
         uint_32 io_refs;
+        uint_32 pending_c2s;
+        uint_32 writable_required;
         struct packagefs_queue *s2c;
+        enum packagefs_writable_state writable_state;
         bool connected;
+        bool disconnect_consumed;
 };
 
 struct packagefs_endpoint {
@@ -62,12 +76,24 @@ struct packagefs_service {
         struct list_head clients;
         struct dentry *dentry;
         uint_32 client_count;
+        uint_32 session_count;
         struct packagefs_queue *c2s;
         bool server_live;
 };
 
 static uint_32 packagefs_service_count;
 static uint_32 packagefs_next_peer_id = 1U;
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+struct packagefs_test_counters {
+        uint_32 services;
+        uint_32 sessions;
+        uint_32 endpoints;
+        uint_32 queues;
+};
+
+static struct packagefs_test_counters packagefs_test_live;
+static struct packagefs_test_counters packagefs_test_snapshot;
+#endif
 
 static int_32 packagefs_close(struct file *file);
 static int_32 packagefs_read(struct file *file, void *buf, uint_32 count);
@@ -96,13 +122,21 @@ static struct packagefs_queue *packagefs_queue_alloc(void)
         init_waitqueue_head(&queue->read_wait);
         init_waitqueue_head(&queue->write_wait);
         queue->capacity = PAGE_SIZE - sizeof(*queue);
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+        packagefs_test_live.queues++;
+#endif
         return queue;
 }
 
 static void packagefs_queue_free(struct packagefs_queue *queue)
 {
-        if (queue != NULL)
+        if (queue != NULL) {
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+                ASSERT(packagefs_test_live.queues > 0);
+                packagefs_test_live.queues--;
+#endif
                 free_page(MP_KERNEL, queue, 1);
+        }
 }
 
 static uint_32 packagefs_queue_free_space(
@@ -387,6 +421,10 @@ static int packagefs_bind(struct inode *dir,
         }
         dentry_add_child(candidate->d_parent, candidate);
         packagefs_service_count++;
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+        packagefs_test_live.services++;
+        packagefs_test_live.endpoints++;
+#endif
         return 0;
 }
 
@@ -443,11 +481,12 @@ static int packagefs_connect(struct dentry *candidate, struct file *file)
         lock_fetch(&service->lock);
         if (!service->server_live)
                 result = -ENOENT;
-        else if (service->client_count >= FROG_PKG_CLIENT_MAX)
+        else if (service->session_count >= FROG_PKG_CLIENT_MAX)
                 result = -ENOSPC;
         else {
                 list_add_tail(&session->node, &service->clients);
                 service->client_count++;
+                service->session_count++;
                 result = 0;
         }
         lock_release(&service->lock);
@@ -461,6 +500,10 @@ static int packagefs_connect(struct dentry *candidate, struct file *file)
                 kfree(session);
                 return result;
         }
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+        packagefs_test_live.sessions++;
+        packagefs_test_live.endpoints++;
+#endif
         return 0;
 }
 
@@ -511,16 +554,68 @@ static struct packagefs_session *packagefs_find_session(
         return NULL;
 }
 
+static struct packagefs_session *packagefs_find_any_session(
+    struct packagefs_service *service, uint_32 peer_id)
+{
+        struct list_head *position;
+
+        list_for_each(position, &service->clients) {
+                struct packagefs_session *session = list_entry(
+                    position, struct packagefs_session, node);
+
+                if (session->peer_id == peer_id)
+                        return session;
+        }
+        return NULL;
+}
+
+static struct packagefs_session *packagefs_ready_disconnect(
+    struct packagefs_service *service)
+{
+        struct list_head *position;
+
+        list_for_each(position, &service->clients) {
+                struct packagefs_session *session = list_entry(
+                    position, struct packagefs_session, node);
+
+                if (!session->connected && !session->disconnect_consumed &&
+                    session->pending_c2s == 0)
+                        return session;
+        }
+        return NULL;
+}
+
+static struct packagefs_session *packagefs_ready_writable(
+    struct packagefs_service *service)
+{
+        struct list_head *position;
+
+        list_for_each(position, &service->clients) {
+                struct packagefs_session *session = list_entry(
+                    position, struct packagefs_session, node);
+
+                if (session->connected &&
+                    session->writable_state == PACKAGEFS_WRITABLE_PENDING)
+                        return session;
+        }
+        return NULL;
+}
+
 static void packagefs_destroy_session_locked(
     struct packagefs_service *service,
     struct packagefs_session *session)
 {
         ASSERT(service != NULL && session != NULL &&
                session->service == service && !session->connected &&
-               session->io_refs == 0);
+               session->io_refs == 0 &&
+               (!service->server_live || session->disconnect_consumed));
         list_del_init(&session->node);
         packagefs_queue_free(session->s2c);
         session->s2c = NULL;
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+        ASSERT(packagefs_test_live.sessions > 0);
+        packagefs_test_live.sessions--;
+#endif
         kfree(session);
 }
 
@@ -531,7 +626,8 @@ static void packagefs_put_session_locked(
         ASSERT(service != NULL && session != NULL &&
                session->service == service && session->io_refs > 0);
         session->io_refs--;
-        if (!session->connected && session->io_refs == 0)
+        if (!session->connected && session->io_refs == 0 &&
+            (!service->server_live || session->disconnect_consumed))
                 packagefs_destroy_session_locked(service, session);
 }
 
@@ -569,6 +665,7 @@ static int packagefs_do_read(struct file *file, void *buf, uint_32 count)
         lock_fetch(&service->lock);
         for (;;) {
                 struct frog_pkg_record header;
+                struct packagefs_session *control_session = NULL;
                 uint_32 record_size;
 
                 if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
@@ -578,6 +675,42 @@ static int packagefs_do_read(struct file *file, void *buf, uint_32 count)
                         queue = endpoint->session->s2c;
                 } else {
                         result = -EUCLEAN;
+                        break;
+                }
+
+                if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
+                        control_session =
+                            packagefs_ready_disconnect(service);
+                        if (control_session == NULL)
+                                control_session =
+                                    packagefs_ready_writable(service);
+                }
+                if (control_session != NULL) {
+                        header.peer_id = control_session->peer_id;
+                        header.event = control_session->connected ?
+                            FROG_PKG_WRITABLE : FROG_PKG_DISCONNECT;
+                        header.payload_size = 0;
+                        record_size = FROG_PKG_HEADER_SIZE;
+                        if (count < record_size) {
+                                result = -EMSGSIZE;
+                                break;
+                        }
+                        result = copy_to_user(buf, &header, record_size);
+                        if (result != 0)
+                                break;
+                        if (control_session->connected) {
+                                control_session->writable_state =
+                                    PACKAGEFS_WRITABLE_IDLE;
+                                control_session->writable_required = 0;
+                        } else {
+                                control_session->disconnect_consumed = true;
+                                ASSERT(service->session_count > 0);
+                                service->session_count--;
+                                if (control_session->io_refs == 0)
+                                        packagefs_destroy_session_locked(
+                                            service, control_session);
+                        }
+                        result = (int) record_size;
                         break;
                 }
 
@@ -606,6 +739,34 @@ static int packagefs_do_read(struct file *file, void *buf, uint_32 count)
                         break;
                 packagefs_queue_consume(queue, record_size);
                 wake_up_interruptible(&queue->write_wait);
+                if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
+                        struct packagefs_session *source =
+                            packagefs_find_any_session(service,
+                                                       header.peer_id);
+
+                        if (source != NULL) {
+                                ASSERT(source->pending_c2s > 0);
+                                source->pending_c2s--;
+                                if (!source->connected &&
+                                    source->pending_c2s == 0)
+                                        wake_up_interruptible(
+                                            &service->c2s->read_wait);
+                        }
+                } else if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT) {
+                        struct packagefs_session *session =
+                            endpoint->session;
+
+                        if (session->connected &&
+                            session->writable_state ==
+                                PACKAGEFS_WRITABLE_ARMED &&
+                            packagefs_queue_free_space(session->s2c) >=
+                                session->writable_required) {
+                                session->writable_state =
+                                    PACKAGEFS_WRITABLE_PENDING;
+                                wake_up_interruptible(
+                                    &service->c2s->read_wait);
+                        }
+                }
                 result = (int) record_size;
                 break;
         }
@@ -728,11 +889,27 @@ static int packagefs_do_write(struct file *file,
 
                 result = packagefs_queue_enqueue(queue, scratch, count);
                 if (result == 0) {
+                        if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT)
+                                endpoint->session->pending_c2s++;
                         result = (int) count;
                         break;
                 }
-                if (result != -EAGAIN || (file->f_flag & O_NONBLOCK))
+                if (result != -EAGAIN)
                         break;
+                if (file->f_flag & O_NONBLOCK) {
+                        if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER &&
+                            held_session->connected) {
+                                if (held_session->writable_state ==
+                                    PACKAGEFS_WRITABLE_IDLE)
+                                        held_session->writable_state =
+                                            PACKAGEFS_WRITABLE_ARMED;
+                                if (held_session->writable_state ==
+                                        PACKAGEFS_WRITABLE_ARMED &&
+                                    held_session->writable_required < count)
+                                        held_session->writable_required = count;
+                        }
+                        break;
+                }
                 packagefs_wait_locked(service, &queue->write_wait);
                 record->peer_id = requested_peer;
         }
@@ -771,6 +948,10 @@ static uint_32 packagefs_poll(struct file *file,
         if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
                 poll_wait(file, &service->c2s->read_wait, wait);
                 if (service->c2s->used != 0)
+                        mask |= POLLIN;
+                else if (packagefs_ready_disconnect(service) != NULL)
+                        mask |= POLLIN;
+                else if (packagefs_ready_writable(service) != NULL)
                         mask |= POLLIN;
         } else if (endpoint->role == PACKAGEFS_ENDPOINT_CLIENT &&
                    endpoint->session != NULL) {
@@ -819,15 +1000,28 @@ static int_32 packagefs_close(struct file *file)
                 }
                 if (session->connected) {
                         session->connected = false;
+                        session->writable_state = PACKAGEFS_WRITABLE_IDLE;
+                        session->writable_required = 0;
                         ASSERT(service->client_count > 0);
                         service->client_count--;
                         wake_up_interruptible_all(
                             &session->s2c->read_wait);
                         wake_up_interruptible_all(
                             &session->s2c->write_wait);
+                        wake_up_interruptible_all(
+                            &service->c2s->read_wait);
                 }
                 endpoint->session = NULL;
-                if (session->io_refs == 0)
+                if (!service->server_live) {
+                        if (!session->disconnect_consumed) {
+                                ASSERT(service->session_count > 0);
+                                service->session_count--;
+                                session->disconnect_consumed = true;
+                        }
+                }
+                if (session->io_refs == 0 &&
+                    (!service->server_live ||
+                     session->disconnect_consumed))
                         packagefs_destroy_session_locked(service, session);
         } else if (endpoint->role == PACKAGEFS_ENDPOINT_SERVER) {
                 if (service->server_live) {
@@ -840,15 +1034,32 @@ static int_32 packagefs_close(struct file *file)
                         wake_up_interruptible_all(
                             &service->c2s->write_wait);
                         struct list_head *position;
-                        list_for_each(position, &service->clients) {
+                        struct list_head *next;
+                        for (position = service->clients.next;
+                             position != &service->clients;
+                             position = next) {
                                 struct packagefs_session *session =
                                     list_entry(position,
                                                struct packagefs_session,
                                                node);
+                                next = position->next;
                                 wake_up_interruptible_all(
                                     &session->s2c->read_wait);
                                 wake_up_interruptible_all(
                                     &session->s2c->write_wait);
+                                session->writable_state =
+                                    PACKAGEFS_WRITABLE_IDLE;
+                                session->writable_required = 0;
+                                if (!session->connected) {
+                                        if (!session->disconnect_consumed) {
+                                                ASSERT(service->session_count > 0);
+                                                service->session_count--;
+                                                session->disconnect_consumed = true;
+                                        }
+                                        if (session->io_refs == 0)
+                                                packagefs_destroy_session_locked(
+                                                    service, session);
+                                }
                         }
                 }
         } else {
@@ -858,6 +1069,10 @@ static int_32 packagefs_close(struct file *file)
                 return -EUCLEAN;
         }
         lock_release(&service->lock);
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+        ASSERT(packagefs_test_live.endpoints > 0);
+        packagefs_test_live.endpoints--;
+#endif
         kfree(endpoint);
         file->private_data = NULL;
         return 0;
@@ -874,10 +1089,15 @@ static void packagefs_evict_inode(struct inode *inode)
         if (service == NULL)
                 return;
         ASSERT(!service->server_live && service->client_count == 0 &&
+               service->session_count == 0 &&
                inode->i_count == 0);
         ASSERT(list_is_empty(&service->clients));
         dentry = service->dentry;
         packagefs_queue_free(service->c2s);
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+        ASSERT(packagefs_test_live.services > 0);
+        packagefs_test_live.services--;
+#endif
         inode->i_private = NULL;
         kfree(service);
         kfree(inode);
@@ -956,3 +1176,19 @@ unregister:
         (void) unregister_fs(&packagefs_type);
         return result;
 }
+
+#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+int packagefs_lifecycle_test_command(uint_32 command)
+{
+        if (command == FROG_TEST_PACKAGEFS_LIFECYCLE_SNAPSHOT) {
+                packagefs_test_snapshot = packagefs_test_live;
+                return 0;
+        }
+        if (command == FROG_TEST_PACKAGEFS_LIFECYCLE_VERIFY)
+                return memcmp(&packagefs_test_snapshot,
+                              &packagefs_test_live,
+                              sizeof(packagefs_test_live)) == 0 ? 0 :
+                                                                  -EUCLEAN;
+        return -EINVAL;
+}
+#endif

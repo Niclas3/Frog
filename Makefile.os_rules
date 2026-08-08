@@ -117,6 +117,12 @@ $(error packagefs-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_PACKAGEFS
 endif
+ifeq ($(FROG_TEST_PROFILE),packagefs-lifecycle-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error packagefs-lifecycle-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+endif
 ifeq ($(FROG_TEST_PROFILE),input-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error input-smoke requires QEMU_TEST=1)
