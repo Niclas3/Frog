@@ -3,6 +3,7 @@
 #include <frog/errno.h>
 #include <frog/irqflags.h>
 #include <frog/syscall-init.h>
+#include <asm/i8253.h>
 
 #include <frog/block.h>
 #include <frog/fcntl.h>
@@ -21,6 +22,7 @@
 #include <kernel/framebuffer_smoke.h>
 #include <kernel/frogfs.h>
 #include <kernel/mm_test.h>
+#include <kernel/timekeeping.h>
 #include <kernel/vfs.h>
 
 /* #include <frog/block.h> */
@@ -114,6 +116,8 @@ extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_start[];
 extern const uint_8 _binary_user_smoke_framebuffer_mmap_bin_end[];
 extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
+extern const uint_8 _binary_user_smoke_time_bin_start[];
+extern const uint_8 _binary_user_smoke_time_bin_end[];
 
 static void do_basic_setup(void)
 {
@@ -147,6 +151,10 @@ static void do_basic_setup(void)
 #ifdef CONFIG_FROG_TEST_PROCESS
         process_regression_run_kernel();
 #endif
+#ifdef CONFIG_FROG_TEST_TIME
+        i8253_regression_test();
+        timekeeping_regression_test();
+#endif
 #ifdef CONFIG_FROG_TEST_DISK
         fs_regression_run_kernel(frogfs_test_init_result,
                                  frogfs_test_mount_result,
@@ -173,6 +181,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_INPUT)
         image_start = _binary_user_smoke_input_bin_start;
         image_end = _binary_user_smoke_input_bin_end;
+#elif defined(CONFIG_FROG_TEST_TIME)
+        image_start = _binary_user_smoke_time_bin_start;
+        image_end = _binary_user_smoke_time_bin_end;
 #elif defined(CONFIG_FROG_TEST_DISK) && \
       defined(CONFIG_FROG_TEST_STAGE_PREPARE)
         image_start = _binary_user_smoke_disk_prepare_bin_start;
@@ -275,6 +286,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("framebuffer-mmap-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)
         frog_test_begin("input-smoke");
+#elif defined(CONFIG_FROG_TEST_TIME)
+        frog_test_begin("time-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER)
         frog_test_begin("framebuffer-smoke");
 #else

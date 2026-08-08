@@ -172,6 +172,11 @@ int settimeofday(struct timeval *t, void *z)
     return _syscall2(SYS_SETTIMEOFDAY, t, z);
 }
 
+int clock_gettime(clockid_t clock_id, struct timespec *tp)
+{
+    return _syscall2(SYS_CLOCK_GETTIME, clock_id, tp);
+}
+
 void testsyscall(int a)
 {
     _syscall1(SYS_TESTSYSCALL, a);

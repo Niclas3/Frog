@@ -17,6 +17,7 @@
 #include <kernel/framebuffer.h>
 #include <kernel/mm_test.h>
 #include <kernel/syscall_fs.h>
+#include <kernel/timekeeping.h>
 #include <kernel/qemu_test.h>
 
 /* #include <fs/fs.h>  // for sys_write/ sys_open/ sys_close */
@@ -214,6 +215,24 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_INPUT_MOUSE_BUTTON:
         name = "input.mouse-button";
         break;
+    case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
+        name = "time.monotonic.normalized";
+        break;
+    case FROG_TEST_TIME_MONOTONIC_ADVANCES:
+        name = "time.monotonic.advances";
+        break;
+    case FROG_TEST_TIME_MONOTONIC_BAD_POINTERS:
+        name = "time.monotonic.bad-pointers";
+        break;
+    case FROG_TEST_TIME_INVALID_CLOCK:
+        name = "time.clock.invalid";
+        break;
+    case FROG_TEST_TIME_REALTIME_UNAVAILABLE:
+        name = "time.realtime.unavailable";
+        break;
+    case FROG_TEST_TIME_SETTIMEOFDAY_UNIMPLEMENTED:
+        name = "time.settimeofday-unimplemented";
+        break;
     default:
         return -EINVAL;
     }
@@ -339,6 +358,9 @@ void syscall_init(void)
     syscall_table[SYS_IOCTL]   = sys_ioctl;
     syscall_table[SYS_MMAP]    = sys_mmap;
     syscall_table[SYS_MUNMAP]  = sys_munmap;
+    syscall_table[SYS_CLOCK_GETTIME] = sys_clock_gettime;
+    syscall_table[SYS_GETTIMEOFDAY] = sys_gettimeofday;
+    syscall_table[SYS_SETTIMEOFDAY] = sys_settimeofday;
     syscall_table[SYS_TEST_SYNC] = sys_test_sync;
     syscall_table[SYS_FORK]    = sys_fork;
     syscall_table[SYS_EXIT]    = sys_exit;

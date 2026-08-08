@@ -14,10 +14,11 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/user_smoke_disk_prepare_blob.o \
 	 $(BUILD_DIR)/user_smoke_framebuffer_mmap_blob.o \
 	 $(BUILD_DIR)/user_smoke_input_blob.o \
+	 $(BUILD_DIR)/user_smoke_time_blob.o \
 	 $(BUILD_DIR)/exec_target_blob.o \
 	 $(BUILD_DIR)/exec.o $(BUILD_DIR)/process.o $(BUILD_DIR)/process_regression.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/semaphore.o \
 	 $(BUILD_DIR)/switch.o $(BUILD_DIR)/threads.o \
-	 $(BUILD_DIR)/timer.o \
+	 $(BUILD_DIR)/timer.o $(BUILD_DIR)/timekeeping.o \
 	 $(BUILD_DIR)/controller.o $(BUILD_DIR)/irq.o $(BUILD_DIR)/softirq.o \
 	 $(BUILD_DIR)/syscall-init.o $(BUILD_DIR)/descriptor.o \
 	 $(BUILD_DIR)/page_fault.o \

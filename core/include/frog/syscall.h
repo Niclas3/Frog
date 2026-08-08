@@ -53,7 +53,8 @@ enum SYSCALL_NR {
     SYS_MMAP = 31,
     SYS_MUNMAP = 32,
     SYS_TEST_SYNC = 33,
-    SYS_NR_COUNT = 34,
+    SYS_CLOCK_GETTIME = 34,
+    SYS_NR_COUNT = 35,
 };
 
 /**
@@ -301,6 +302,7 @@ uint_32 sendrec(uint_32 func, uint_32 src_dest, message *p_msg);
 
 int gettimeofday(struct timeval *t, void *z);
 int settimeofday(struct timeval *t, void *z);
+int clock_gettime(clockid_t clock_id, struct timespec *tp);
 void testsyscall(int a);
 
 #endif

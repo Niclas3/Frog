@@ -9,6 +9,7 @@
 #include <const.h>
 #include <kernel/assert.h>
 #include <kernel/debug.h>
+#include <kernel/timekeeping.h>
 
 #include <kernel/cpu.h>
 
@@ -142,6 +143,7 @@ void inthandler20(void)
         TCB_t *cur_thread = this_cpu()->current_thread;
 
         ASSERT(cur_thread->stack_magic == 0x19900921);
+        timekeeping_advance();
         cur_thread->elapsed_ticks++;
         (*(uint_32 *) &ticks)++;
         raise_softirq(TIMER_SOFTIRQ);

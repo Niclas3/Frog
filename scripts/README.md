@@ -73,3 +73,9 @@ and left-button down through QMP. Debugcon synchronization markers order each
 injection. A successful run requires the keyboard byte and complete shared
 `mouse_device_packet_t` values to match exactly; failed runs retain the QMP
 transcript and guest logs.
+
+Run `./scripts/qemu-test.sh time-smoke` for the ring-3 time syscall contract.
+The fixture checks monotonic normalization and forward progress, user-pointer
+and clock-ID errors, unavailable realtime behavior, PIT programming, and the
+fractional nanosecond accumulator. This profile is headless and does not use
+QMP.
