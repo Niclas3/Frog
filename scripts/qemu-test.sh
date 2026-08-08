@@ -320,31 +320,40 @@ def wait_marker(marker):
         time.sleep(0.05)
     raise RuntimeError(f"timed out waiting for {marker}")
 
+def inject_after_block(marker, next_marker, events):
+    wait_marker(marker)
+    time.sleep(0.1)
+    content = guest_log()
+    if (f"FROGTEST SYNC {next_marker}\n" in content or
+            "FROGTEST END " in content):
+        raise RuntimeError(f"guest advanced past {marker} before host input")
+    execute("input-send-event", {"events": events})
+
 receive()
 execute("qmp_capabilities")
 
-wait_marker("input-keyboard-ready")
-time.sleep(0.1)
-content = guest_log()
-if ("FROGTEST SYNC input-mouse-move-ready\n" in content or
-        "FROGTEST END " in content):
-    raise RuntimeError("keyboard read completed before host input")
-execute("input-send-event", {"events": [
+inject_after_block("input-keyboard-ready", "input-mouse-move-ready", [
     {"type": "key", "data": {"down": True,
      "key": {"type": "qcode", "data": "a"}}},
     {"type": "key", "data": {"down": False,
      "key": {"type": "qcode", "data": "a"}}},
-]})
+])
 
-wait_marker("input-mouse-move-ready")
-execute("input-send-event", {"events": [
+inject_after_block("input-mouse-move-ready", "input-mouse-button-ready", [
     {"type": "rel", "data": {"axis": "x", "value": 7}},
-]})
+])
 
-wait_marker("input-mouse-button-ready")
-execute("input-send-event", {"events": [
+inject_after_block("input-mouse-button-ready", "input-both-ready", [
     {"type": "btn", "data": {"down": True, "button": "left"}},
-]})
+])
+
+inject_after_block("input-both-ready", "input-never", [
+    {"type": "key", "data": {"down": True,
+     "key": {"type": "qcode", "data": "a"}}},
+    {"type": "key", "data": {"down": False,
+     "key": {"type": "qcode", "data": "a"}}},
+    {"type": "rel", "data": {"axis": "x", "value": 3}},
+])
 
 transcript.close()
 sock.close()

@@ -81,6 +81,9 @@ static int_32 sys_test_sync(uint_32 command)
     case FROG_TEST_INPUT_MOUSE_BUTTON_READY:
         frog_test_sync("input-mouse-button-ready");
         return 0;
+    case FROG_TEST_INPUT_BOTH_READY:
+        frog_test_sync("input-both-ready");
+        return 0;
     default:
         return -EINVAL;
     }
@@ -217,6 +220,24 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
         break;
     case FROG_TEST_INPUT_MOUSE_BUTTON:
         name = "input.mouse-button";
+        break;
+    case FROG_TEST_INPUT_WAIT2_EMPTY:
+        name = "input.wait2.empty";
+        break;
+    case FROG_TEST_INPUT_WAIT2_KEYBOARD:
+        name = "input.wait2.keyboard";
+        break;
+    case FROG_TEST_INPUT_WAIT2_MOUSE_MOVE:
+        name = "input.wait2.mouse-move";
+        break;
+    case FROG_TEST_INPUT_WAIT2_MOUSE_BUTTON:
+        name = "input.wait2.mouse-button";
+        break;
+    case FROG_TEST_INPUT_WAIT2_BOTH:
+        name = "input.wait2.both";
+        break;
+    case FROG_TEST_INPUT_WAIT2_CLOSE:
+        name = "input.wait2.close";
         break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";

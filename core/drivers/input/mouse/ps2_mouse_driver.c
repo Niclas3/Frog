@@ -235,6 +235,9 @@ int_32 ps2_mouse_read(struct file *file, void *buf, uint_32 count)
 
 uint_32 ps2_mouse_poll(struct file *file, struct poll_table_struct *wait)
 {
+        poll_wait(file, &queue->proc_list, wait);
+        if (!queue_empty())
+                return POLLIN;
         return 0;
 }
 

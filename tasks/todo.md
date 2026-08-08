@@ -8,8 +8,8 @@
 
 - [x] Task 1: Establish time64 monotonic and optional realtime ABI.
 - [x] Task 2: Implement poll-shaped `wait2`.
-- [ ] Task 3: Connect input devices to common readiness.
-- [ ] Checkpoint A: All baseline, time, wait2, and input tests pass.
+- [x] Task 3: Connect input devices to common readiness.
+- [x] Checkpoint A: All baseline, time, wait2, and input tests pass.
 
 ## Phase 2: Runtime and transport
 
