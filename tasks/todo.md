@@ -40,7 +40,7 @@
 - [x] Task 16: Add guest desktop-smoke state reporting.
 - [x] Task 17: Add the 16 MiB host desktop-smoke profile.
 - [x] Task 18: Add the separate ten-minute desktop soak.
-- [ ] Final checkpoint: All existing regressions, desktop-smoke, soak, screenshot, and cleanup evidence pass.
+- [x] Final checkpoint: All existing regressions, desktop-smoke, soak, screenshot, and cleanup evidence pass.
 
 ## Deferred after P0
 
