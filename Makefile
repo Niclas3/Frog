@@ -9,6 +9,8 @@ FONT   = hankaku_font.img
 TEST_PROC = core/apps/build/compositor
 # TEST_PROC = core/apps/build/ls
 TEST_IMG= core/apps/test/b.bmp
+FROG_ROOT_IMAGE = build/frog-root.img
+FROG_ROOT_MANIFEST = config/frog-root.manifest
 SECTOR_SIZE := 512
 LOADER_SECTOR_COUNT := 11
 CORE_START_SECTOR := 13
@@ -35,12 +37,27 @@ MBR.bin:
 	cd ./booter && $(MAKE) $@
 ##############################################################
 
-.PHONY:clean clean-all font start reset newimg mount umount load_core init_boot_code 
+.PHONY:clean clean-all font start reset newimg mount umount load_core init_boot_code frog-root.img frog-root-verify frog-root-test
 
 # Tools ###################################################### 
 # Generate homemade font
 font :
 	cd ./tools/ && $(MAKE) font
+
+tools/mkfrogfs_image: tools/mkfrogfs_image.c
+	$(MAKE) -C tools mkfrogfs_image
+
+frog-root.img: tools/mkfrogfs_image $(FROG_ROOT_MANIFEST)
+	@mkdir -p $(dir $(FROG_ROOT_IMAGE))
+	@./tools/mkfrogfs_image --manifest $(FROG_ROOT_MANIFEST) \
+		--output $(FROG_ROOT_IMAGE)
+
+frog-root-verify: frog-root.img
+	@./tools/mkfrogfs_image --manifest $(FROG_ROOT_MANIFEST) \
+		--output $(FROG_ROOT_IMAGE) --verify
+
+frog-root-test:
+	@$(MAKE) -C tools test
 
 clean:
 	rm -rf *.bin

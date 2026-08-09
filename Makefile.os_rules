@@ -105,6 +105,12 @@ $(error poudland-builtin-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_BUILTIN
 endif
+ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error frogfs-image-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_FROGFS_IMAGE
+endif
 ifeq ($(FROG_TEST_PROFILE),anonymous-mmap-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error anonymous-mmap-smoke requires QEMU_TEST=1)

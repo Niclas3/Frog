@@ -1,6 +1,7 @@
 *.img
 bochsout.txt
 build/
+tools/mkfrogfs_image
 core/apps/build/
 *.bin
 .ccls-cache

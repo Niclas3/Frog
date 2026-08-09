@@ -27,6 +27,15 @@ run only against disposable image copies. Set `FROG_QEMU_TIMEOUT` to change the
 30-second deadline or `FROG_QEMU_KEEP=1` to retain all artifacts from a passing
 run.
 
+`./scripts/qemu-test.sh frogfs-image-smoke` builds the deterministic sparse
+`build/frog-root.img`, copies it for QEMU, mounts its sole primary partition as
+`/dev/sdbp1` at `/test`, and compares the image's `/b.bmp` (visible to the
+guest as `/test/b.bmp`) byte-for-byte with the manifest input.
+The source image is never attached directly to the guest. Build and verify it
+without QEMU using `make frog-root.img` and `make frog-root-verify`; run the
+host corruption, oversize, atomic-publication, and reuse tests with
+`make frog-root-test`.
+
 Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
 syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait

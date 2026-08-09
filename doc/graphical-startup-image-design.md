@@ -32,14 +32,18 @@ The target:
 2. writes a deterministic DOS/MBR partition table with one primary partition;
 3. formats that partition with the supported FrogFS on-disk format;
 4. installs the freshly built compositor ELF, desktop ELF, and cursor bitmap;
-5. reads the resulting directory and file metadata back for verification;
-6. writes a manifest containing the filesystem version, installed paths, sizes, and content hashes.
+5. reads the resulting directory, inode, indirect-table, bitmap, and file data
+   back before publication;
+6. consumes a versioned tracked manifest containing installed image paths,
+   source paths, sizes, and content hashes.
 
 The tool rejects an artifact that exceeds filesystem or executable-loader limits and performs overflow-checked offset and length calculations. It writes a temporary output and publishes the final image only after every verification succeeds, so a failed rebuild cannot replace the last valid image.
 
 The image builder, filesystem-layout definitions, and content manifest are source-controlled. The generated 80 MiB image is a build artifact and is not committed to Git.
 
-Make dependencies include the image builder, filesystem layout/version, MBR layout, compositor ELF, desktop ELF, bitmap, and manifest inputs. An unchanged image is reused; changing any input rebuilds it rather than silently running stale application code.
+The phony image target always evaluates the versioned manifest and every source
+it names. An unchanged image is reused without changing its hash or mtime;
+changed or mismatched input cannot silently run stale application code.
 
 ## Runtime Startup
 

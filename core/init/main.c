@@ -28,6 +28,7 @@
 /* #include <frog/block.h> */
 
 #include <kernel/debug.h>
+#include <kernel/frogfs_image_test.h>
 #include <kernel/panic.h>
 #include <kernel/process_regression.h>
 #include <kernel/poudland_builtin_test.h>
@@ -385,6 +386,8 @@ __visible void __noreturn start_kernel(void)
 #ifdef CONFIG_QEMU_TEST
 #ifdef CONFIG_FROG_TEST_DISK
         frog_test_begin(fs_regression_profile());
+#elif defined(CONFIG_FROG_TEST_FROGFS_IMAGE)
+        frog_test_begin("frogfs-image-smoke");
 #elif defined(CONFIG_FROG_TEST_PROCESS)
         frog_test_begin("process-smoke");
 #elif defined(CONFIG_FROG_TEST_USER)
@@ -538,7 +541,8 @@ __visible void __noreturn start_kernel(void)
 
         /****************************************/
 #if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK) || \
-    defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
+    defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
+    defined(CONFIG_FROG_TEST_FROGFS_IMAGE)
         int frogfs_init_ret = frogfs_init();
         int frogfs_mount_ret = frogfs_init_ret;
         int frogfs_rollback_ret = 0;
@@ -550,10 +554,14 @@ __visible void __noreturn start_kernel(void)
          * profile owns a disposable copy and installs both assets below. */
         frogfs_mount_flags = FROGFS_MOUNT_FORMAT;
 #endif
+        const char *frogfs_device = "/dev/sdbp8";
+#ifdef CONFIG_FROG_TEST_FROGFS_IMAGE
+        frogfs_device = "/dev/sdbp1";
+#endif
         if (frogfs_init_ret == 0)
                 frogfs_mount_ret =
                     vfs_mount("/test", "frogfs", frogfs_mount_flags,
-                              "/dev/sdbp8", NULL);
+                              frogfs_device, NULL);
         if (frogfs_init_ret == 0 && frogfs_mount_ret < 0)
                 frogfs_rollback_ret = frogfs_init_rollback();
 #ifdef CONFIG_FROG_TEST_DISK
@@ -566,6 +574,12 @@ __visible void __noreturn start_kernel(void)
                 frog_test_abort("poudland-builtin-frogfs-mount");
         if (poudland_builtin_test_install_assets() != 0)
                 frog_test_abort("poudland-builtin-install-assets");
+#elif defined(CONFIG_FROG_TEST_FROGFS_IMAGE)
+        if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
+            frogfs_rollback_ret < 0)
+                frog_test_abort("frogfs-image-mount");
+        if (frogfs_image_test_verify_manifest() != 0)
+                frog_test_abort("frogfs-image-manifest");
 #else
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)

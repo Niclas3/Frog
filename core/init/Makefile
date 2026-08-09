@@ -6,6 +6,9 @@ obj-y += init.o
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
 obj-y += poudland_builtin_test.o
 endif
+ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
+obj-y += frogfs_image_test.o
+endif
 
 .PHONY: all clean
 all: $(build-obj-y)

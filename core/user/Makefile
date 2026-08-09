@@ -21,6 +21,9 @@ all: $(USER_BLOBS) $(EXEC_TARGET_BLOB)
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
 all: $(POUDLAND_P0_ELF_BLOB) $(POUDLAND_P0_CURSOR_BLOB)
 endif
+ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
+all: $(POUDLAND_P0_CURSOR_BLOB)
+endif
 
 FORCE:
 
