@@ -20,6 +20,9 @@ POUDLAND_P0_OBJECTS := \
 	$(APP_BUILD)/poudland_p0_bmp.o \
 	$(APP_BUILD)/poudland_p0_render.o \
 	$(APP_BUILD)/poudland_p0_scene.o \
+	$(APP_BUILD)/poudland_p0_protocol.o \
+	$(APP_BUILD)/poudland_p0_server.o \
+	$(APP_BUILD)/poudland_p0_packagefs.o \
 	$(APP_BUILD)/poudland_p0_syscall.o \
 	$(APP_BUILD)/poudland_p0_allocator.o \
 	$(APP_BUILD)/poudland_p0_test.o
@@ -58,6 +61,19 @@ $(APP_BUILD)/poudland_p0_render.o: render.c poudland_p0.h FORCE | $(APP_BUILD)
 $(APP_BUILD)/poudland_p0_scene.o: scene.c poudland_p0.h test.h FORCE | $(APP_BUILD)
 	$(CC) $(POUDLAND_P0_CFLAGS) \
 		-MMD -MP -MF $(APP_BUILD)/poudland_p0_scene.d -o $@ $<
+
+$(APP_BUILD)/poudland_p0_protocol.o: protocol.c protocol.h geometry.h FORCE | $(APP_BUILD)
+	$(CC) $(POUDLAND_P0_CFLAGS) \
+		-MMD -MP -MF $(APP_BUILD)/poudland_p0_protocol.d -o $@ $<
+
+$(APP_BUILD)/poudland_p0_server.o: server.c server.h protocol.h \
+		poudland_p0.h FORCE | $(APP_BUILD)
+	$(CC) $(POUDLAND_P0_CFLAGS) \
+		-MMD -MP -MF $(APP_BUILD)/poudland_p0_server.d -o $@ $<
+
+$(APP_BUILD)/poudland_p0_packagefs.o: ../lib/packagefs.c FORCE | $(APP_BUILD)
+	$(CC) $(POUDLAND_P0_CFLAGS) \
+		-MMD -MP -MF $(APP_BUILD)/poudland_p0_packagefs.d -o $@ $<
 
 $(APP_BUILD)/poudland_p0_syscall.o: ../../kernel/syscall.c FORCE | $(APP_BUILD)
 	$(CC) $(POUDLAND_P0_CFLAGS) \

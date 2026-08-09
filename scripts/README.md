@@ -44,6 +44,18 @@ exit statuses and the parent `wait` results feed the machine-readable
 `FROGTEST` result, with a path-specific case name on failure. No alternate test
 executable is built.
 
+`./scripts/qemu-test.sh poudland-e2e-smoke` runs the production compositor and
+`desktop.c` ELFs from a private copy of the same generated FrogFS image at
+16 MiB. A multi-page guest harness exercises HELLO, create/close, ownership,
+geometry and protocol errors, the 16-window session limit, the 64-window server
+limit, and disconnect cleanup. It then starts the real desktop, proves the two
+remaining IDs are live and client-owned, and emits a synchronization marker.
+The host polls P6 screenshots through a private QMP socket until the exact
+two-window frame is present, quits QEMU, and validates every pixel including
+the bitmap cursor's alpha blend. A stale third window or any old test-client
+window prevents PASS. Set `FROG_QEMU_KEEP=1` to retain the successful
+screenshot and transcript as evidence; failures retain them automatically.
+
 Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
 syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait
@@ -120,8 +132,9 @@ back in FIFO order. Repeat with
 `FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh packagefs-smoke` for the P0 memory
 budget. This profile does not use QMP.
 
-All QEMU profiles default to `-m 1G`. Set `FROG_QEMU_MEMORY` to a positive
-integer with an `M` or `G` suffix, for example
+Most QEMU profiles default to `-m 1G`; generated-image graphical/exec profiles,
+including `poudland-e2e-smoke`, default to 16 MiB. Set `FROG_QEMU_MEMORY` to a
+positive integer with an `M` or `G` suffix, for example
 `FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh anonymous-mmap-smoke`. The chosen
 value is used by every runner path and recorded as `qemu_memory` in the result
 JSON.

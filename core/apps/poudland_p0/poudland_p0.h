@@ -1,18 +1,15 @@
 #ifndef POUDLAND_P0_H
 #define POUDLAND_P0_H
 
+#include "geometry.h"
+
 #include <frog/fb.h>
 #include <frog/types.h>
 
 #define POUDLAND_P0_WINDOW_COUNT 2U
 #define POUDLAND_P0_CURSOR_LIMIT 64U
 
-struct poudland_p0_rect {
-        int_32 x;
-        int_32 y;
-        int_32 width;
-        int_32 height;
-};
+struct poudland_p0_protocol;
 
 struct poudland_p0_window {
         struct poudland_p0_rect bounds;
@@ -42,6 +39,7 @@ struct poudland_p0_display {
 struct poudland_p0_scene {
         struct poudland_p0_display display;
         struct poudland_p0_window windows[POUDLAND_P0_WINDOW_COUNT];
+        const struct poudland_p0_protocol *client_protocol;
         struct poudland_p0_cursor cursor;
         int_32 cursor_x;
         int_32 cursor_y;
@@ -72,6 +70,7 @@ void poudland_p0_scene_prepare(struct poudland_p0_scene *scene);
 int_32 poudland_p0_scene_open_input(struct poudland_p0_scene *scene);
 void poudland_p0_scene_close_input(struct poudland_p0_scene *scene);
 bool poudland_p0_scene_run(struct poudland_p0_scene *scene);
+bool poudland_p0_scene_present(struct poudland_p0_scene *scene);
 
 int_32 poudland_p0_bmp_load_cursor(const char *path,
                                    struct poudland_p0_cursor *cursor);

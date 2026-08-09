@@ -43,16 +43,18 @@ case "$profile" in
     poudland-v1-overflow-smoke) stages=(boot) ;;
     poudland-v1-hup-smoke) stages=(boot) ;;
     poudland-builtin-smoke) stages=(boot) ;;
+    poudland-e2e-smoke) stages=(boot) ;;
     frogfs-image-smoke) stages=(boot) ;;
     frogfs-exec-smoke) stages=(boot) ;;
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|poudland-e2e-smoke|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 if { [ "$profile" = poudland-builtin-smoke ] ||
+     [ "$profile" = poudland-e2e-smoke ] ||
      [ "$profile" = frogfs-image-smoke ] ||
      [ "$profile" = frogfs-exec-smoke ]; } &&
    [ -z "${FROG_QEMU_MEMORY+x}" ]; then
@@ -160,7 +162,8 @@ build_stage()
     loader_args=(-p boot.inc -f bin loader.s -o "$stage_dir/loader.img")
     if [ "$profile" = framebuffer-smoke ] ||
        [ "$profile" = framebuffer-mmap-smoke ] ||
-       [ "$profile" = poudland-builtin-smoke ]; then
+       [ "$profile" = poudland-builtin-smoke ] ||
+       [ "$profile" = poudland-e2e-smoke ]; then
         loader_args=(-DFRAMEBUFFER_TEST "${loader_args[@]}")
     else
         loader_args=(-DVGA_ENABLE "${loader_args[@]}")
@@ -517,6 +520,164 @@ sock.close()
 PY
 }
 
+qmp_capture_poudland_e2e()
+{
+    local socket_path=$1
+    local debug_log=$2
+    local screenshot=$3
+    local transcript_path=$4
+    QMP_SOCKET="$socket_path" DEBUG_LOG="$debug_log" \
+    SCREENSHOT="$screenshot" QMP_TRANSCRIPT="$transcript_path" \
+    QMP_TIMEOUT="$timeout_seconds" python3 - <<'PY'
+import json
+import os
+import socket
+import time
+
+deadline = time.monotonic() + int(os.environ["QMP_TIMEOUT"])
+transcript = open(os.environ["QMP_TRANSCRIPT"], "w", encoding="ascii")
+
+def record(direction, payload):
+    transcript.write(f"{direction} {payload}\n")
+    transcript.flush()
+
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.settimeout(1)
+while True:
+    try:
+        sock.connect(os.environ["QMP_SOCKET"])
+        break
+    except (FileNotFoundError, ConnectionRefusedError):
+        if time.monotonic() >= deadline:
+            raise RuntimeError("QMP socket was not ready")
+        time.sleep(0.05)
+stream = sock.makefile("rwb", buffering=0)
+
+def receive():
+    while True:
+        line = stream.readline().decode("ascii").rstrip("\n")
+        if not line:
+            raise RuntimeError("QMP connection closed")
+        record("<", line)
+        message = json.loads(line)
+        if "event" not in message:
+            return message
+
+def execute(command, arguments=None):
+    payload = {"execute": command}
+    if arguments is not None:
+        payload["arguments"] = arguments
+    line = json.dumps(payload, separators=(",", ":"))
+    record(">", line)
+    stream.write((line + "\n").encode("ascii"))
+    response = receive()
+    if "error" in response:
+        raise RuntimeError(response["error"])
+
+def guest_log():
+    try:
+        with open(os.environ["DEBUG_LOG"], "r", encoding="ascii",
+                  errors="replace") as source:
+            return source.read()
+    except FileNotFoundError:
+        return ""
+
+def guest_failed(content):
+    return ("FROGTEST CASE " in content and " FAIL\n" in content or
+            "FROGTEST MILESTONE " in content and " FAIL\n" in content or
+            "FROGTEST ABORT " in content or
+            "FROGTEST END FAIL\n" in content or
+            "[PANIC]" in content or "ASSERT_FAILED" in content)
+
+def wait_marker(marker):
+    expected = f"FROGTEST SYNC {marker}\n"
+    while time.monotonic() < deadline:
+        content = guest_log()
+        if guest_failed(content):
+            raise RuntimeError(f"guest stopped before {marker}")
+        if expected in content:
+            return
+        time.sleep(0.05)
+    raise RuntimeError(f"timed out waiting for {marker}")
+
+def ppm_pixels(path):
+    with open(path, "rb") as source:
+        data = source.read()
+    offset = 0
+
+    def token():
+        nonlocal offset
+        while offset < len(data):
+            if data[offset] == ord("#"):
+                while offset < len(data) and data[offset] != ord("\n"):
+                    offset += 1
+            elif data[offset] in b" \t\r\n":
+                offset += 1
+            else:
+                break
+        start = offset
+        while offset < len(data) and data[offset] not in b" \t\r\n":
+            offset += 1
+        if start == offset:
+            raise RuntimeError("truncated PPM header")
+        return data[start:offset]
+
+    if token() != b"P6":
+        raise RuntimeError("QEMU screendump is not P6 PPM")
+    width = int(token())
+    height = int(token())
+    if int(token()) != 255:
+        raise RuntimeError("unsupported PPM max value")
+    if data[offset:offset + 2] == b"\r\n":
+        offset += 2
+    elif offset < len(data) and data[offset] in b" \t\r\n":
+        offset += 1
+    else:
+        raise RuntimeError("missing PPM pixel separator")
+    pixels = data[offset:]
+    if (width, height) != (1024, 768) or len(pixels) != width * height * 3:
+        raise RuntimeError("unexpected or truncated PPM")
+    return width, pixels
+
+def pixel_is(width, pixels, x, y, expected):
+    offset = (y * width + x) * 3
+    return tuple(pixels[offset:offset + 3]) == expected
+
+def final_scene_ready(path):
+    width, pixels = ppm_pixels(path)
+    samples = (
+        (0, 0, (32, 64, 96)),
+        (110, 110, (204, 85, 51)),
+        (210, 210, (204, 85, 51)),
+        (230, 205, (51, 153, 102)),
+        (530, 430, (51, 153, 102)),
+        (540, 430, (32, 64, 96)),
+        (310, 110, (32, 64, 96)),
+        (430, 500, (32, 64, 96)),
+        (600, 300, (32, 64, 96)),
+    )
+    return all(pixel_is(width, pixels, x, y, expected)
+               for x, y, expected in samples)
+
+receive()
+execute("qmp_capabilities")
+wait_marker("poudland-e2e-desktop-launched")
+
+while time.monotonic() < deadline:
+    content = guest_log()
+    if guest_failed(content):
+        raise RuntimeError("guest failed before the final frame")
+    execute("screendump", {"filename": os.environ["SCREENSHOT"]})
+    if final_scene_ready(os.environ["SCREENSHOT"]):
+        execute("quit")
+        transcript.close()
+        sock.close()
+        raise SystemExit(0)
+    time.sleep(0.05)
+raise RuntimeError("timed out waiting for exact Poudland frame")
+PY
+}
+
 validate_framebuffer_ppm()
 {
     local ppm=$1
@@ -559,7 +720,7 @@ if len(pixels) != width * height * 3:
 
 profile = os.environ["FROG_PROFILE"]
 cursor = None
-if profile == "poudland-builtin-smoke":
+if profile in ("poudland-builtin-smoke", "poudland-e2e-smoke"):
     with open(os.environ["CURSOR_BMP"], "rb") as stream:
         bitmap = stream.read()
     if len(bitmap) != 9338 or bitmap[:2] != b"BM":
@@ -598,10 +759,22 @@ def expected_poudland_pixel(x, y):
         expected = blend(cursor[y - 235][x - 270], expected)
     return expected
 
+def expected_poudland_e2e_pixel(x, y):
+    expected = (32, 64, 96)
+    if 100 <= x < 300 and 100 <= y < 260:
+        expected = (204, 85, 51)
+    if 220 <= x < 540 and 200 <= y < 440:
+        expected = (51, 153, 102)
+    if 230 <= x < 278 and 210 <= y < 258:
+        expected = blend(cursor[y - 210][x - 230], expected)
+    return expected
+
 for y in range(height):
     for x in range(width):
         if profile == "poudland-builtin-smoke":
             expected = expected_poudland_pixel(x, y)
+        elif profile == "poudland-e2e-smoke":
+            expected = expected_poudland_e2e_pixel(x, y)
         else:
             expected = ((255, 0, 0) if x < width // 3 else
                         (0, 255, 0) if x < 2 * width // 3 else
@@ -659,6 +832,67 @@ run_framebuffer_stage()
         -d int,guest_errors,cpu_reset -D "$qemu_log" \
         >"$stage_dir/qemu.stdout" 2>"$stage_dir/qemu.stderr" &
     local runner_pid=$!
+    if [ "$profile" = poudland-e2e-smoke ]; then
+        local e2e_qmp_ok=0
+
+        if qmp_capture_poudland_e2e \
+                "$qmp_socket" "$debug_log" "$screenshot" \
+                "$qmp_transcript" 2>"$stage_dir/qmp-error.log"; then
+            e2e_qmp_ok=1
+        else
+            kill "$runner_pid" 2>/dev/null || true
+        fi
+        wait "$runner_pid" 2>/dev/null
+        qemu_status=$?
+
+        if grep -q '\[PANIC\]' "$debug_log" 2>/dev/null; then
+            classification=PANIC
+        elif grep -q 'ASSERT_FAILED' "$debug_log" 2>/dev/null; then
+            classification=ASSERT_FAILED
+        elif grep -qi 'triple fault' "$qemu_log" 2>/dev/null; then
+            classification=TRIPLE_FAULT
+        elif grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
+                     "$debug_log" 2>/dev/null; then
+            classification=GUEST_TEST_FAILED
+        elif grep -Eqi 'qmp.*(bind|listen)|Failed to bind socket' \
+                     "$stage_dir/qemu.stderr" 2>/dev/null; then
+            classification=QMP_FAILED
+        elif [ "$e2e_qmp_ok" -ne 1 ]; then
+            if grep -q 'timed out waiting for exact Poudland frame' \
+                    "$stage_dir/qmp-error.log" 2>/dev/null; then
+                validate_framebuffer_ppm "$screenshot" \
+                    2>"$stage_dir/framebuffer-validator.log" || true
+                classification=FRAMEBUFFER_MISMATCH
+            elif grep -q 'timed out waiting' \
+                    "$stage_dir/qmp-error.log" 2>/dev/null; then
+                if grep -q '^FROGTEST v=1 BEGIN profile=poudland-e2e-smoke$' \
+                        "$debug_log" 2>/dev/null; then
+                    classification=EXPECTED_MARKER_MISSING
+                else
+                    classification=BOOT_TIMEOUT
+                fi
+            else
+                classification=QMP_FAILED
+            fi
+        elif [ "$qemu_status" -eq 124 ] || [ "$qemu_status" -eq 137 ]; then
+            classification=BOOT_TIMEOUT
+        elif [ "$qemu_status" -ne 0 ]; then
+            classification=EARLY_QEMU_EXIT
+        elif ! grep -q '^FROGTEST v=1 BEGIN profile=poudland-e2e-smoke$' \
+                    "$debug_log" 2>/dev/null ||
+             ! grep -q '^FROGTEST SYNC poudland-e2e-desktop-launched$' \
+                    "$debug_log" 2>/dev/null; then
+            classification=EXPECTED_MARKER_MISSING
+        elif validate_framebuffer_ppm "$screenshot" \
+                2>"$stage_dir/framebuffer-validator.log"; then
+            read -r framebuffer_width framebuffer_height \
+                <"$work_dir/framebuffer-meta"
+            classification=PASS
+        else
+            classification=FRAMEBUFFER_MISMATCH
+        fi
+        return
+    fi
     if [ "$profile" = poudland-builtin-smoke ] &&
        ! qmp_inject_poudland_builtin "$qmp_socket" "$debug_log" \
            "$qmp_input_transcript" 2>"$stage_dir/qmp-input-error.log"; then
@@ -798,7 +1032,8 @@ run_input_stage()
 
 data_disk_source="$repo_dir/../hd80M.img"
 if [ "$profile" = frogfs-image-smoke ] ||
-   [ "$profile" = frogfs-exec-smoke ]; then
+   [ "$profile" = frogfs-exec-smoke ] ||
+   [ "$profile" = poudland-e2e-smoke ]; then
     make -C "$repo_dir" frog-root.img || {
         preserve_result
         exit 1
@@ -824,7 +1059,8 @@ for stage in "${stages[@]}"; do
 
     if [ "$profile" = framebuffer-smoke ] ||
        [ "$profile" = framebuffer-mmap-smoke ] ||
-       [ "$profile" = poudland-builtin-smoke ]; then
+       [ "$profile" = poudland-builtin-smoke ] ||
+       [ "$profile" = poudland-e2e-smoke ]; then
         run_framebuffer_stage "$stage"
     elif [ "$profile" = input-smoke ]; then
         run_input_stage "$stage"

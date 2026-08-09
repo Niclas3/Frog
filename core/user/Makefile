@@ -21,6 +21,9 @@ all: $(USER_BLOBS) $(EXEC_TARGET_BLOB)
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
 all: $(POUDLAND_P0_ELF_BLOB) $(POUDLAND_P0_CURSOR_BLOB)
 endif
+ifeq ($(FROG_TEST_PROFILE),poudland-e2e-smoke)
+all: $(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_blob.o
+endif
 ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
 all: $(POUDLAND_P0_CURSOR_BLOB)
 endif
@@ -200,6 +203,16 @@ $(BUILD_DIR)/user_smoke_poudland_builtin_runtime.o: ../kernel/syscall.c
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_poudland_builtin_runtime.d \
 		-o $@ $<
 
+$(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_user.o: poudland_e2e_bootstrap.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_poudland_e2e_bootstrap_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_runtime.o: ../kernel/syscall.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_poudland_e2e_bootstrap_runtime.d \
+		-o $@ $<
+
 $(BUILD_DIR)/user_smoke_frogfs_exec_user.o: frogfs_exec_smoke.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_frogfs_exec_user.d \
@@ -326,6 +339,13 @@ $(BUILD_DIR)/user_smoke_poudland_builtin.elf: \
 	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
 		$(BUILD_DIR)/user_smoke_poudland_builtin_user.o \
 		$(BUILD_DIR)/user_smoke_poudland_builtin_runtime.o
+
+$(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap.elf: \
+	$(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_user.o \
+	$(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_runtime.o user_smoke.ld
+	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
+		$(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_user.o \
+		$(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_runtime.o
 
 $(BUILD_DIR)/user_smoke_%.elf: $(BUILD_DIR)/user_smoke_%_user.o user_smoke.ld
 	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ $<

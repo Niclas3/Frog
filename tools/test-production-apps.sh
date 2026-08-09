@@ -6,8 +6,10 @@ import os
 import struct
 import sys
 
-if len(sys.argv) != 3:
-    raise SystemExit("usage: test-production-apps.sh COMPOSITOR DESKTOP")
+if len(sys.argv) < 4:
+    raise SystemExit(
+        "usage: test-production-apps.sh COMPOSITOR DESKTOP TEST_ELF [...]"
+    )
 
 for path in sys.argv[1:]:
     with open(path, "rb") as stream:

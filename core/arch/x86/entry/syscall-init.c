@@ -71,6 +71,11 @@ static int_32 sys_test_sync(uint_32 command)
     local_irq_disable();
     for (;;)
         __asm__ volatile("hlt");
+#elif defined(CONFIG_FROG_TEST_POUDLAND_E2E)
+    if (command != FROG_TEST_POUDLAND_E2E_DESKTOP_LAUNCHED)
+        return -EINVAL;
+    frog_test_sync("poudland-e2e-desktop-launched");
+    return 0;
 #elif defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
     switch (command) {
     case FROG_TEST_POUDLAND_BUILTIN_INITIAL_READY:
@@ -501,6 +506,60 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_FROGFS_EXEC_DESKTOP:
         name = "frogfs-exec.desktop-exec-wait";
         break;
+    case FROG_TEST_POUDLAND_E2E_HARNESS_EXEC:
+        name = "poudland-e2e.harness-exec";
+        break;
+    case FROG_TEST_POUDLAND_E2E_COMPOSITOR_FORK:
+        name = "poudland-e2e.compositor-fork";
+        break;
+    case FROG_TEST_POUDLAND_E2E_CLIENT_A_CONNECT:
+        name = "poudland-e2e.client-a-connect";
+        break;
+    case FROG_TEST_POUDLAND_E2E_THREE_WINDOWS:
+        name = "poudland-e2e.three-window-create";
+        break;
+    case FROG_TEST_POUDLAND_E2E_CLOSE_THIRD:
+        name = "poudland-e2e.close-third";
+        break;
+    case FROG_TEST_POUDLAND_E2E_CLOSE_STALE:
+        name = "poudland-e2e.close-stale-enoent";
+        break;
+    case FROG_TEST_POUDLAND_E2E_CLIENT_B_CONNECT:
+        name = "poudland-e2e.client-b-connect";
+        break;
+    case FROG_TEST_POUDLAND_E2E_FOREIGN_CLOSE:
+        name = "poudland-e2e.foreign-close-eperm";
+        break;
+    case FROG_TEST_POUDLAND_E2E_INVALID_GEOMETRY:
+        name = "poudland-e2e.invalid-geometry-einval";
+        break;
+    case FROG_TEST_POUDLAND_E2E_UNKNOWN_TYPE:
+        name = "poudland-e2e.unknown-type-eproto";
+        break;
+    case FROG_TEST_POUDLAND_E2E_DISCONNECT:
+        name = "poudland-e2e.disconnect-clients";
+        break;
+    case FROG_TEST_POUDLAND_E2E_DESKTOP_FORK:
+        name = "poudland-e2e.desktop-fork";
+        break;
+    case FROG_TEST_POUDLAND_E2E_DESKTOP_SYNC:
+        name = "poudland-e2e.desktop-launch-sync";
+        break;
+    case FROG_TEST_POUDLAND_E2E_HOLD:
+        name = "poudland-e2e.hold-one-second";
+        break;
+    case FROG_TEST_POUDLAND_E2E_SESSION_LIMIT:
+        name = "poudland-e2e.session-limit";
+        break;
+    case FROG_TEST_POUDLAND_E2E_SERVER_LIMIT:
+        name = "poudland-e2e.server-limit";
+        break;
+    case FROG_TEST_POUDLAND_E2E_DISCONNECT_CLEANUP:
+        name = "poudland-e2e.disconnect-cleanup";
+        break;
+    case FROG_TEST_POUDLAND_E2E_DESKTOP_TWO_LIVE:
+        name = "poudland-e2e.desktop-two-live";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;
@@ -659,6 +718,7 @@ int_32 sys_testsyscall(uint_32 command)
 #if !defined(CONFIG_FROG_TEST_USER) && \
     !defined(CONFIG_FROG_TEST_USER_ALLOCATOR) && \
     !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) && \
+    !defined(CONFIG_FROG_TEST_POUDLAND_E2E) && \
     !defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) && \
     !defined(CONFIG_FROG_TEST_INPUT)
     INFO("[init]: ring3 reached, testsyscall a=%d", command);

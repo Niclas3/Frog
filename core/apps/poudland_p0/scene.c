@@ -296,6 +296,7 @@ static bool idle_quiescent(struct poudland_p0_scene *scene,
 
 void poudland_p0_scene_prepare(struct poudland_p0_scene *scene)
 {
+        scene->client_protocol = NULL;
         scene->windows[0].bounds = (struct poudland_p0_rect) {
             .x = 100, .y = 100, .width = 200, .height = 160,
         };
@@ -310,6 +311,11 @@ void poudland_p0_scene_prepare(struct poudland_p0_scene *scene)
         scene->dragged_window = -1;
         scene->keyboard_fd = -1;
         scene->mouse_fd = -1;
+}
+
+bool poudland_p0_scene_present(struct poudland_p0_scene *scene)
+{
+        return pace_and_present(scene);
 }
 
 int_32 poudland_p0_scene_open_input(struct poudland_p0_scene *scene)

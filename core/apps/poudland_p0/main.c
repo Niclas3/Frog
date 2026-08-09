@@ -1,4 +1,5 @@
 #include "poudland_p0.h"
+#include "server.h"
 #include "test.h"
 
 #include <frog/test.h>
@@ -6,9 +7,13 @@
 
 static volatile uint_32 poudland_p0_data_cookie = 0x50304330U;
 static struct poudland_p0_scene scene;
+#ifndef FROG_POUDLAND_P0_TEST
+static struct poudland_p0_server server;
+#endif
 
 #define POUDLAND_P0_EXEC_SMOKE_STATUS 42
 
+#ifdef FROG_POUDLAND_P0_TEST
 static void stop_with_cleanup(void) __attribute__((noreturn));
 
 static void stop_with_cleanup(void)
@@ -18,6 +23,7 @@ static void stop_with_cleanup(void)
         poudland_p0_display_close(&scene.display);
         poudland_p0_test_finish();
 }
+#endif
 
 static bool string_equal(const char *left, const char *right)
 {
@@ -30,6 +36,46 @@ static bool string_equal(const char *left, const char *right)
         return *left == *right;
 }
 
+#ifndef FROG_POUDLAND_P0_TEST
+static int run_production(void)
+{
+        int_32 status;
+
+        if (!poudland_p0_format_self_test())
+                return 1;
+        poudland_p0_scene_prepare(&scene);
+        status = poudland_p0_display_open(&scene.display);
+        if (status != 0)
+                return 1;
+        status = poudland_p0_bmp_load_cursor("/test/b.bmp", &scene.cursor);
+        if (status != 0) {
+                poudland_p0_display_close(&scene.display);
+                return 1;
+        }
+        status = poudland_p0_server_open(&server, &scene);
+        if (status != 0) {
+                poudland_p0_cursor_release(&scene.cursor);
+                poudland_p0_display_close(&scene.display);
+                return 1;
+        }
+        poudland_p0_damage(&scene.display,
+            (struct poudland_p0_rect) {
+                .x = 0,
+                .y = 0,
+                .width = (int_32) scene.display.info.width,
+                .height = (int_32) scene.display.info.height,
+            });
+        if (!poudland_p0_render(&scene) ||
+            !poudland_p0_server_run(&server, &scene)) {
+                poudland_p0_server_close(&server);
+                poudland_p0_cursor_release(&scene.cursor);
+                poudland_p0_display_close(&scene.display);
+                return 1;
+        }
+        return 0;
+}
+#endif
+
 int main(int argc, char **argv)
 {
         bool data_segment_loaded =
@@ -38,6 +84,12 @@ int main(int argc, char **argv)
         if (argc == 2 && argv && argv[0] &&
             string_equal(argv[1], "--exec-smoke"))
                 return data_segment_loaded ? POUDLAND_P0_EXEC_SMOKE_STATUS : 1;
+
+#ifndef FROG_POUDLAND_P0_TEST
+        if (!data_segment_loaded)
+                return 1;
+        return run_production();
+#else
 
         poudland_p0_test_report(FROG_TEST_POUDLAND_BUILTIN_EXEC,
                                 data_segment_loaded);
@@ -94,4 +146,5 @@ int main(int argc, char **argv)
                 stop_with_cleanup();
         }
         stop_with_cleanup();
+#endif
 }

@@ -65,6 +65,10 @@ obj-y += $(BUILD_DIR)/user_smoke_poudland_builtin_blob.o \
 	 $(BUILD_DIR)/poudland_p0_cursor_blob.o \
 	 $(BUILD_DIR)/poudland_builtin_test.o
 endif
+
+ifeq ($(FROG_TEST_PROFILE),poudland-e2e-smoke)
+obj-y += $(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_blob.o
+endif
 ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
 obj-y += $(BUILD_DIR)/poudland_p0_cursor_blob.o \
 	 $(BUILD_DIR)/frogfs_image_test.o

@@ -105,6 +105,12 @@ $(error poudland-builtin-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_BUILTIN
 endif
+ifeq ($(FROG_TEST_PROFILE),poudland-e2e-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error poudland-e2e-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_POUDLAND_E2E
+endif
 ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error frogfs-image-smoke requires QEMU_TEST=1)

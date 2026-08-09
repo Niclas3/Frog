@@ -1,4 +1,5 @@
 #include "poudland_p0.h"
+#include "protocol.h"
 
 static uint_8 blend_channel(uint_8 foreground, uint_8 background,
                             uint_32 alpha)
@@ -109,6 +110,29 @@ static bool pixel_on_border(int_32 x, int_32 y,
                 y >= rect->y + rect->height - border);
 }
 
+static uint_32 client_windows_pixel(
+    const struct poudland_p0_protocol *protocol,
+    int_32 x, int_32 y, uint_32 background)
+{
+        uint_32 pixel = background;
+        uint_32 remaining = protocol->window_count;
+        uint_32 index;
+
+        for (index = 0;
+             index < POUDLAND_V1_SERVER_WINDOW_MAX && remaining != 0;
+             ++index) {
+                const struct poudland_p0_protocol_window *window =
+                    &protocol->windows[index];
+
+                if (!window->active)
+                        continue;
+                remaining--;
+                if (pixel_in_rect(x, y, &window->bounds))
+                        pixel = window->color;
+        }
+        return pixel;
+}
+
 static uint_32 scene_pixel(const struct poudland_p0_scene *scene,
                            int_32 x, int_32 y)
 {
@@ -117,13 +141,20 @@ static uint_32 scene_pixel(const struct poudland_p0_scene *scene,
         int_32 cursor_x;
         int_32 cursor_y;
 
-        for (i = 0; i < POUDLAND_P0_WINDOW_COUNT; ++i) {
-                if (!pixel_in_rect(x, y, &scene->windows[i].bounds))
-                        continue;
-                pixel = scene->windows[i].color;
-                if ((int_32) i == scene->focused_window &&
-                    pixel_on_border(x, y, &scene->windows[i].bounds))
-                        pixel = 0x00ffffffU;
+        if (scene->client_protocol)
+                pixel = client_windows_pixel(
+                    scene->client_protocol, x, y, pixel);
+        else {
+                for (i = 0; i < POUDLAND_P0_WINDOW_COUNT; ++i) {
+                        if (!pixel_in_rect(x, y,
+                                           &scene->windows[i].bounds))
+                                continue;
+                        pixel = scene->windows[i].color;
+                        if ((int_32) i == scene->focused_window &&
+                            pixel_on_border(
+                                x, y, &scene->windows[i].bounds))
+                                pixel = 0x00ffffffU;
+                }
         }
         cursor_x = x - scene->cursor_x;
         cursor_y = y - scene->cursor_y;
