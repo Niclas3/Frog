@@ -18,6 +18,9 @@ typedef void (*poudland_p0_server_damage_fn)(
 
 struct poudland_p0_server_reply {
         uint_32 size;
+        bool replaceable;
+        uint_32 type;
+        uint_32 window_id;
         uint_8 data[POUDLAND_V1_P0_MESSAGE_MAX];
 };
 
@@ -49,6 +52,11 @@ void poudland_p0_server_state_init(
 bool poudland_p0_server_handle_record(
     struct poudland_p0_server *server,
     const struct frog_pkg_message *message);
+bool poudland_p0_server_handle_pointer(
+    struct poudland_p0_server *server, int_32 screen_x,
+    int_32 screen_y, uint_32 buttons);
+bool poudland_p0_server_handle_key(
+    struct poudland_p0_server *server, uint_8 key);
 
 #ifndef POUDLAND_P0_SERVER_HOST_TEST
 int_32 poudland_p0_server_open(struct poudland_p0_server *server,

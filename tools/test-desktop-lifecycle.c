@@ -10,7 +10,7 @@ enum call_kind {
         CALL_CONNECT,
         CALL_CREATE,
         CALL_CLOSE,
-        CALL_WAIT,
+        CALL_EVENT,
         CALL_DISCONNECT,
 };
 
@@ -32,13 +32,16 @@ static const struct expected_window expected_windows[3] = {
 static uint_32 calls[16];
 static uint_32 call_count;
 static uint_32 create_count;
-static uint_32 wait_count;
+static uint_32 event_count;
 static uint_32 disconnect_count;
 static uint_32 mismatch;
 static uint_32 fail_call;
 static bool bad_echo;
 static bool duplicate_id;
 static bool zero_id;
+static bool foreign_configure;
+static bool wrong_key_action;
+static bool unknown_pointer;
 
 int desktop_entry(int argc, char **argv);
 
@@ -67,13 +70,16 @@ static void reset_test(void)
                 calls[index] = 0;
         call_count = 0;
         create_count = 0;
-        wait_count = 0;
+        event_count = 0;
         disconnect_count = 0;
         mismatch = 0;
         fail_call = 0;
         bad_echo = false;
         duplicate_id = false;
         zero_id = false;
+        foreign_configure = false;
+        wrong_key_action = false;
+        unknown_pointer = false;
 }
 
 void poudland_v1_context_init(struct poudland_v1_context *context)
@@ -89,7 +95,10 @@ int_32 poudland_v1_connect(struct poudland_v1_context *context,
 {
         record(CALL_CONNECT);
         if (!string_equal(service, "compositor") ||
-            timeout_ms != DESKTOP_TIMEOUT_MS || client_capabilities != 0)
+            timeout_ms != DESKTOP_TIMEOUT_MS ||
+            client_capabilities != (POUDLAND_V1_CAP_CONFIGURE |
+                                    POUDLAND_V1_CAP_POINTER |
+                                    POUDLAND_V1_CAP_KEYBOARD))
                 mismatch = 1;
         if (fail_call == CALL_CONNECT)
                 return -ECONNREFUSED;
@@ -151,13 +160,65 @@ int_32 poudland_v1_disconnect(struct poudland_v1_context *context)
         return 0;
 }
 
-int_32 wait2(struct pollfd *fds, uint_32 count, int_32 timeout_ms)
+int_32 poudland_v1_next_event(struct poudland_v1_context *context,
+                             int_32 timeout_ms,
+                             struct poudland_v1_message *event)
 {
-        record(CALL_WAIT);
-        if (fds != NULL || count != 0 || timeout_ms != 1000)
+        record(CALL_EVENT);
+        if (!context->connected || timeout_ms != 1000 || !event)
                 mismatch = 1;
-        wait_count++;
-        return wait_count == 1 ? 0 : -EIO;
+        event_count++;
+        event->header.magic = POUDLAND_V1_MAGIC;
+        event->header.version = POUDLAND_V1_VERSION;
+        event->header.header_size = POUDLAND_V1_HEADER_SIZE;
+        event->header.request_id = 0;
+        if (event_count == 1) {
+                struct poudland_v1_pointer_event *pointer =
+                    (struct poudland_v1_pointer_event *) event->payload;
+
+                event->header.type = POUDLAND_V1_MSG_POINTER_EVENT;
+                event->header.payload_size = sizeof(*pointer);
+                pointer->window_id = unknown_pointer
+                                         ? 999
+                                         : expected_windows[2].id;
+                pointer->screen_x = 230;
+                pointer->screen_y = 210;
+                pointer->local_x = 10;
+                pointer->local_y = 10;
+                pointer->type = POUDLAND_V1_POINTER_MOVE;
+                pointer->button = 0;
+                pointer->buttons = 0;
+                return 0;
+        }
+        if (event_count == 2) {
+                struct poudland_v1_window_configure *configure =
+                    (struct poudland_v1_window_configure *) event->payload;
+
+                event->header.type = POUDLAND_V1_MSG_WINDOW_CONFIGURE;
+                event->header.payload_size = sizeof(*configure);
+                configure->window_id = foreign_configure
+                                           ? 999
+                                           : expected_windows[1].id;
+                configure->x = 260;
+                configure->y = 225;
+                return 0;
+        }
+        if (event_count == 3) {
+                struct poudland_v1_key_event *key =
+                    (struct poudland_v1_key_event *) event->payload;
+
+                event->header.type = POUDLAND_V1_MSG_KEY_EVENT;
+                event->header.payload_size = sizeof(*key);
+                key->window_id = expected_windows[1].id;
+                key->keycode = 'a';
+                key->action = wrong_key_action
+                                  ? 99
+                                  : POUDLAND_V1_KEY_PRESS;
+                key->modifiers = 0;
+                key->codepoint = 'a';
+                return 0;
+        }
+        return event_count == 4 ? -ETIMEDOUT : -EIO;
 }
 
 static int run_normal(void)
@@ -172,13 +233,14 @@ static int success_sequence(void)
 {
         static const uint_32 expected_calls[] = {
             CALL_INIT, CALL_CONNECT, CALL_CREATE, CALL_CREATE, CALL_CREATE,
-            CALL_CLOSE, CALL_WAIT, CALL_WAIT, CALL_DISCONNECT,
+            CALL_CLOSE, CALL_EVENT, CALL_EVENT, CALL_EVENT, CALL_EVENT,
+            CALL_EVENT, CALL_DISCONNECT,
         };
         uint_32 index;
 
         reset_test();
         if (run_normal() != 1 || mismatch || create_count != 3 ||
-            wait_count != 2 || disconnect_count != 1 ||
+            event_count != 5 || disconnect_count != 1 ||
             call_count != sizeof(expected_calls) / sizeof(expected_calls[0]))
                 return 1;
         for (index = 0; index < call_count; ++index) {
@@ -193,38 +255,56 @@ static int failures_disconnect_and_stop(void)
         reset_test();
         fail_call = CALL_CONNECT;
         if (run_normal() != 1 || mismatch || create_count != 0 ||
-            wait_count != 0 || disconnect_count != 1)
+            event_count != 0 || disconnect_count != 1)
                 return 10;
 
         reset_test();
         fail_call = CALL_CREATE;
         if (run_normal() != 1 || mismatch || create_count != 2 ||
-            wait_count != 0 || disconnect_count != 1)
+            event_count != 0 || disconnect_count != 1)
                 return 11;
 
         reset_test();
         fail_call = CALL_CLOSE;
         if (run_normal() != 1 || mismatch || create_count != 3 ||
-            wait_count != 0 || disconnect_count != 1)
+            event_count != 0 || disconnect_count != 1)
                 return 12;
 
         reset_test();
         bad_echo = true;
         if (run_normal() != 1 || mismatch || create_count != 3 ||
-            wait_count != 0 || disconnect_count != 1)
+            event_count != 0 || disconnect_count != 1)
                 return 13;
 
         reset_test();
         duplicate_id = true;
         if (run_normal() != 1 || mismatch || create_count != 3 ||
-            wait_count != 0 || disconnect_count != 1)
+            event_count != 0 || disconnect_count != 1)
                 return 14;
 
         reset_test();
         zero_id = true;
         if (run_normal() != 1 || mismatch || create_count != 3 ||
-            wait_count != 0 || disconnect_count != 1)
+            event_count != 0 || disconnect_count != 1)
                 return 15;
+
+        reset_test();
+        foreign_configure = true;
+        if (run_normal() != 1 || mismatch || create_count != 3 ||
+            event_count != 2 || disconnect_count != 1)
+                return 16;
+
+        reset_test();
+        wrong_key_action = true;
+        if (run_normal() != 1 || mismatch || create_count != 3 ||
+            event_count != 3 || disconnect_count != 1)
+                return 17;
+
+        reset_test();
+        unknown_pointer = true;
+        if (run_normal() != 1 || mismatch || create_count != 3 ||
+            event_count != 1 || disconnect_count != 1)
+                return 18;
         return 0;
 }
 

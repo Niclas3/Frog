@@ -33,7 +33,7 @@ No pointer, `struct list_head`, native `long`, or compiler-private object layout
 - An ID is not reused until its response has been consumed.
 - The response echoes the request ID.
 - Asynchronous server events use request ID zero.
-- A failed request returns `PL_MSG_ERROR` with the same request ID, a signed Frog errno status, and the failed request type.
+- A failed request returns `POUDLAND_V1_MSG_ERROR` with the same request ID, a signed Frog errno status, and the failed request type.
 - Malformed frames that cannot be safely associated with a request are protocol violations and may close the session.
 
 ```c
@@ -45,7 +45,13 @@ struct poudland_error {
 
 ## Version Negotiation
 
-The first implementation supports only protocol version 1. `HELLO` advertises the client's supported range; `WELCOME` selects the common version and reports server capabilities. No common version returns an error and closes the Poudland Session.
+The first implementation supports only protocol version 1. `HELLO` advertises
+the client's supported range and the asynchronous event classes it can
+consume. The server masks those requested capability bits to the Version 1
+set; they act as per-session event subscriptions. `WELCOME` selects the common
+version and reports every capability the server implements, independently of
+the client's subscription mask. No common version returns an error and closes
+the Poudland Session.
 
 ## Window Identity and Ownership
 
@@ -88,13 +94,29 @@ The interaction path then adds:
 - `POINTER_EVENT`, covering click, down, raise, enter, leave, move, and drag;
 - `KEY_EVENT`, delivered to the window with keyboard focus.
 
+For the P0 pointer path, a left-button up-to-down transition emits `DOWN` and
+emits `RAISE` as a second reliable event when the hit window changes z-order.
+The matching down-to-up transition emits `CLICK` and ends the drag. Motion
+without an active drag emits `MOVE`; motion during a drag emits an absolute
+`WINDOW_CONFIGURE` followed by `DRAG`. Pointer events carry both screen and
+window-local coordinates. `button` identifies the transition button for
+reliable button events, while `buttons` is the current complete button mask.
+When one input packet contains both the final drag displacement and the button
+release, the server applies that displacement and emits its configure/drag
+state before the reliable `CLICK` transition.
+
+`CONFIGURE`, `MOVE`, and `DRAG` are replaceable state. A newer pending value
+for the same message type and window replaces the older value, but it is placed
+after any reliable event that occurred between the two states. Button and key
+events remain reliable FIFO records.
+
 Resize negotiation, Window Surface attachment, clipboard, advertisement, subscription, and other legacy message numbers are outside Version 1 P0.
 
 ## Resource Limits
 
 - One Poudland Session may own at most 16 windows.
 - One Poudland Server may own at most 64 windows across all sessions.
-- Exceeding either window limit returns `-ENOSPC` through `PL_MSG_ERROR`.
+- Exceeding either window limit returns `-ENOSPC` through `POUDLAND_V1_MSG_ERROR`.
 - These limits are named UAPI-independent implementation limits and may be raised without changing the message layout.
 
 ## Deferred Work

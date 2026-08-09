@@ -114,7 +114,7 @@ static uint_32 client_windows_pixel(
     const struct poudland_p0_protocol *protocol,
     int_32 x, int_32 y, uint_32 background)
 {
-        uint_32 pixel = background;
+        const struct poudland_p0_protocol_window *top = NULL;
         uint_32 remaining = protocol->window_count;
         uint_32 index;
 
@@ -127,10 +127,16 @@ static uint_32 client_windows_pixel(
                 if (!window->active)
                         continue;
                 remaining--;
-                if (pixel_in_rect(x, y, &window->bounds))
-                        pixel = window->color;
+                if (pixel_in_rect(x, y, &window->bounds) &&
+                    (!top || window->z_index > top->z_index))
+                        top = window;
         }
-        return pixel;
+        if (!top)
+                return background;
+        if (top->id == protocol->focused_window_id &&
+            pixel_on_border(x, y, &top->bounds))
+                return 0x00ffffffU;
+        return top->color;
 }
 
 static uint_32 scene_pixel(const struct poudland_p0_scene *scene,

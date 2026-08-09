@@ -37,6 +37,25 @@ static int_32 send_hello(struct poudland_p0_protocol *protocol,
             POUDLAND_V1_HEADER_SIZE + sizeof(*hello), result);
 }
 
+static int_32 send_hello_caps(
+    struct poudland_p0_protocol *protocol, uint_32 peer_id,
+    uint_32 request_id, uint_32 capabilities,
+    struct poudland_p0_protocol_result *result)
+{
+        struct test_message message;
+        struct poudland_v1_hello *hello =
+            (struct poudland_v1_hello *) message.payload;
+
+        header_prepare(&message, POUDLAND_V1_MSG_HELLO, request_id,
+                       sizeof(*hello));
+        hello->min_version = POUDLAND_V1_VERSION;
+        hello->max_version = POUDLAND_V1_VERSION;
+        hello->capabilities = capabilities;
+        return poudland_p0_protocol_handle_data(
+            protocol, peer_id, &message,
+            POUDLAND_V1_HEADER_SIZE + sizeof(*hello), result);
+}
+
 static int_32 send_new(struct poudland_p0_protocol *protocol,
                        uint_32 peer_id, uint_32 request_id,
                        int_32 x, int_32 y, uint_32 width, uint_32 height,
@@ -114,6 +133,31 @@ static uint_32 created_id(
         return window->window_id;
 }
 
+static const struct poudland_v1_header *event_header(
+    const struct poudland_p0_protocol_result *result, uint_32 index)
+{
+        return (const struct poudland_v1_header *) result->events[index].data;
+}
+
+static bool event_is(const struct poudland_p0_protocol_result *result,
+                     uint_32 index, uint_32 peer_id, uint_32 type,
+                     uint_32 payload_size)
+{
+        const struct poudland_v1_header *header;
+
+        if (index >= result->event_count)
+                return false;
+        header = event_header(result, index);
+        return result->events[index].peer_id == peer_id &&
+               result->events[index].size ==
+                   POUDLAND_V1_HEADER_SIZE + payload_size &&
+               header->magic == POUDLAND_V1_MAGIC &&
+               header->version == POUDLAND_V1_VERSION &&
+               header->header_size == POUDLAND_V1_HEADER_SIZE &&
+               header->type == type && header->request_id == 0 &&
+               header->payload_size == payload_size;
+}
+
 static int hello_welcome(void)
 {
         struct poudland_p0_protocol protocol;
@@ -129,8 +173,359 @@ static int hello_welcome(void)
                       sizeof(*welcome)) ||
             welcome->selected_version != POUDLAND_V1_VERSION ||
             welcome->reserved != 0 || welcome->display_width != 1024 ||
-            welcome->display_height != 768 || welcome->capabilities != 0)
+            welcome->display_height != 768 ||
+            welcome->capabilities != (POUDLAND_V1_CAP_CONFIGURE |
+                                      POUDLAND_V1_CAP_POINTER |
+                                      POUDLAND_V1_CAP_KEYBOARD))
                 return 2;
+        return 0;
+}
+
+static int interaction_focus_drag_and_capabilities(void)
+{
+        const uint_32 all_caps = POUDLAND_V1_CAP_CONFIGURE |
+                                 POUDLAND_V1_CAP_POINTER |
+                                 POUDLAND_V1_CAP_KEYBOARD;
+        struct poudland_p0_protocol protocol;
+        struct poudland_p0_protocol_result result;
+        const struct poudland_v1_pointer_event *pointer;
+        const struct poudland_v1_window_configure *configure;
+        const struct poudland_v1_key_event *key;
+        uint_32 first_id;
+        uint_32 second_id;
+        uint_32 third_id;
+
+        poudland_p0_protocol_init(&protocol, 1024, 768);
+        if (send_hello_caps(&protocol, 10, 1, all_caps, &result) != 0 ||
+            send_new(&protocol, 10, 2, 100, 100, 200, 160,
+                     0x00cc5533U, &result) != 0)
+                return 80;
+        first_id = created_id(&result);
+        if (send_new(&protocol, 10, 3, 220, 200, 320, 240,
+                     0x00339966U, &result) != 0)
+                return 81;
+        second_id = created_id(&result);
+        if (protocol.windows[0].z_index != 0 ||
+            protocol.windows[1].z_index != 1 ||
+            protocol.focused_window_id != 0 ||
+            protocol.dragged_window_id != 0 ||
+            protocol.hovered_window_id != 0)
+                return 82;
+
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 110, 110, 0, &result) != 0 ||
+            protocol.hovered_window_id != first_id ||
+            result.event_count != 2)
+                return 83;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_ENTER)
+                return 83;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[1].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_MOVE)
+                return 83;
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 230, 210, 0, &result) != 0 ||
+            protocol.hovered_window_id != second_id ||
+            result.event_count != 3)
+                return 83;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_LEAVE)
+                return 83;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[1].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_ENTER)
+                return 83;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[2].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_MOVE)
+                return 83;
+
+        /* A cross-window press fills the four-event boundary without
+         * dropping LEAVE, ENTER, DOWN, or RAISE. */
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 110, 110, POUDLAND_P0_BUTTON_LEFT,
+                &result) != 0 ||
+            protocol.focused_window_id != first_id ||
+            protocol.dragged_window_id != first_id ||
+            protocol.windows[0].z_index != 1 ||
+            protocol.windows[1].z_index != 0 ||
+            protocol.hovered_window_id != first_id ||
+            result.damage_count != 1 ||
+            result.event_count != 4 ||
+            !event_is(&result, 0, 10, POUDLAND_V1_MSG_POINTER_EVENT,
+                      sizeof(*pointer)) ||
+            !event_is(&result, 3, 10, POUDLAND_V1_MSG_POINTER_EVENT,
+                      sizeof(*pointer)))
+                return 84;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_LEAVE)
+                return 84;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[1].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_ENTER)
+                return 84;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[2].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_DOWN ||
+            pointer->local_x != 10 || pointer->local_y != 10 ||
+            pointer->button != POUDLAND_P0_BUTTON_LEFT ||
+            pointer->buttons != POUDLAND_P0_BUTTON_LEFT)
+                return 84;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[3].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_RAISE)
+                return 85;
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 110, 110, 0, &result) != 0 ||
+            protocol.dragged_window_id != 0 || result.event_count != 1 ||
+            !event_is(&result, 0, 10, POUDLAND_V1_MSG_POINTER_EVENT,
+                      sizeof(*pointer)))
+                return 86;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_CLICK ||
+            pointer->button != POUDLAND_P0_BUTTON_LEFT ||
+            pointer->buttons != 0)
+                return 86;
+
+        /* Window two starts at (220,200); a (+40,+25) drag moves it
+         * exactly to (260,225), preserving the initial pointer offset. */
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 400, 210, POUDLAND_P0_BUTTON_LEFT,
+                &result) != 0 ||
+            protocol.focused_window_id != second_id ||
+            protocol.dragged_window_id != second_id ||
+            protocol.windows[0].z_index != 0 ||
+            protocol.windows[1].z_index != 1 ||
+            protocol.hovered_window_id != second_id ||
+            result.damage_count != 2 ||
+            result.event_count != 4)
+                return 87;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != first_id ||
+            pointer->type != POUDLAND_V1_POINTER_LEAVE)
+                return 87;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[1].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_ENTER)
+                return 87;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[2].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_DOWN)
+                return 87;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[3].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_RAISE)
+                return 87;
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 440, 235, POUDLAND_P0_BUTTON_LEFT,
+                &result) != 0 ||
+            protocol.windows[1].bounds.x != 260 ||
+            protocol.windows[1].bounds.y != 225 ||
+            protocol.hovered_window_id != second_id ||
+            result.damage_count != 2 || result.event_count != 2 ||
+            !event_is(&result, 0, 10,
+                      POUDLAND_V1_MSG_WINDOW_CONFIGURE,
+                      sizeof(*configure)) ||
+            !event_is(&result, 1, 10, POUDLAND_V1_MSG_POINTER_EVENT,
+                      sizeof(*pointer)))
+                return 88;
+        configure = (const struct poudland_v1_window_configure *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[1].data + POUDLAND_V1_HEADER_SIZE);
+        if (configure->window_id != second_id || configure->x != 260 ||
+            configure->y != 225 || pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_DRAG ||
+            pointer->screen_x != 440 || pointer->screen_y != 235 ||
+            pointer->local_x != 180 || pointer->local_y != 10)
+                return 89;
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 450, 245, 0, &result) != 0 ||
+            protocol.windows[1].bounds.x != 270 ||
+            protocol.windows[1].bounds.y != 235 ||
+            protocol.hovered_window_id != second_id ||
+            protocol.dragged_window_id != 0 || result.event_count != 3 ||
+            !event_is(&result, 0, 10,
+                      POUDLAND_V1_MSG_WINDOW_CONFIGURE,
+                      sizeof(*configure)) ||
+            !event_is(&result, 1, 10, POUDLAND_V1_MSG_POINTER_EVENT,
+                      sizeof(*pointer)) ||
+            !event_is(&result, 2, 10, POUDLAND_V1_MSG_POINTER_EVENT,
+                      sizeof(*pointer)))
+                return 90;
+        configure = (const struct poudland_v1_window_configure *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[1].data + POUDLAND_V1_HEADER_SIZE);
+        if (configure->window_id != second_id || configure->x != 270 ||
+            configure->y != 235 || pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_DRAG)
+                return 90;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[2].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != second_id ||
+            pointer->type != POUDLAND_V1_POINTER_CLICK ||
+            pointer->button != POUDLAND_P0_BUTTON_LEFT ||
+            pointer->buttons != 0)
+                return 90;
+
+        if (poudland_p0_protocol_handle_key(&protocol, 'a', &result) != 0 ||
+            result.event_count != 1 ||
+            !event_is(&result, 0, 10, POUDLAND_V1_MSG_KEY_EVENT,
+                      sizeof(*key)))
+                return 91;
+        key = (const struct poudland_v1_key_event *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        if (key->window_id != second_id || key->keycode != 'a' ||
+            key->action != POUDLAND_V1_KEY_PRESS || key->modifiers != 0 ||
+            key->codepoint != 'a')
+                return 92;
+
+        /* HELLO capabilities opt a session into asynchronous event classes. */
+        if (send_hello_caps(&protocol, 11, 4, 0, &result) != 0 ||
+            send_new(&protocol, 11, 5, 700, 500, 100, 100,
+                     0x00112233U, &result) != 0)
+                return 93;
+        third_id = created_id(&result);
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 710, 510, POUDLAND_P0_BUTTON_LEFT,
+                &result) != 0 || result.event_count != 1 ||
+            protocol.focused_window_id != third_id ||
+            protocol.dragged_window_id != third_id ||
+            protocol.hovered_window_id != third_id ||
+            ((const struct poudland_v1_pointer_event *)
+                 (result.events[0].data + POUDLAND_V1_HEADER_SIZE))->type !=
+                POUDLAND_V1_POINTER_LEAVE ||
+            send_close(&protocol, 11, 6, third_id, &result) != 0 ||
+            !reply_is(&result, POUDLAND_V1_MSG_WINDOW_CLOSED, 6,
+                      sizeof(struct poudland_v1_window_closed)) ||
+            protocol.focused_window_id != 0 ||
+            protocol.dragged_window_id != 0 ||
+            protocol.hovered_window_id != 0)
+                return 94;
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 710, 510, 0, &result) != 0)
+                return 95;
+        if (send_new(&protocol, 11, 7, 700, 500, 100, 100,
+                     0x00112233U, &result) != 0)
+                return 95;
+        third_id = created_id(&result);
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 710, 510, POUDLAND_P0_BUTTON_LEFT,
+                &result) != 0 || protocol.focused_window_id != third_id ||
+            protocol.dragged_window_id != third_id)
+                return 96;
+        poudland_p0_protocol_handle_disconnect(&protocol, 11, &result);
+        if (protocol.focused_window_id != 0 ||
+            protocol.dragged_window_id != 0 ||
+            protocol.hovered_window_id != 0)
+                return 97;
+        return 0;
+}
+
+static int release_move_five_event_boundary(void)
+{
+        const uint_32 all_caps = POUDLAND_V1_CAP_CONFIGURE |
+                                 POUDLAND_V1_CAP_POINTER |
+                                 POUDLAND_V1_CAP_KEYBOARD;
+        struct poudland_p0_protocol protocol;
+        struct poudland_p0_protocol_result result;
+        const struct poudland_v1_window_configure *configure;
+        const struct poudland_v1_pointer_event *pointer;
+        uint_32 dragged_id;
+        uint_32 target_id;
+        uint_32 index;
+        static const uint_32 expected_types[4] = {
+            POUDLAND_V1_POINTER_LEAVE,
+            POUDLAND_V1_POINTER_ENTER,
+            POUDLAND_V1_POINTER_DRAG,
+            POUDLAND_V1_POINTER_CLICK,
+        };
+
+        poudland_p0_protocol_init(&protocol, 1024, 768);
+        if (send_hello_caps(&protocol, 30, 1, all_caps, &result) != 0 ||
+            send_new(&protocol, 30, 2, 100, 100, 200, 160,
+                     0x00cc5533U, &result) != 0)
+                return 100;
+        dragged_id = created_id(&result);
+        if (send_new(&protocol, 30, 3, 2000, 100, 100, 100,
+                     0x00339966U, &result) != 0)
+                return 101;
+        target_id = created_id(&result);
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 110, 110, POUDLAND_P0_BUTTON_LEFT,
+                &result) != 0 ||
+            poudland_p0_protocol_handle_pointer(
+                &protocol, 440, 235, POUDLAND_P0_BUTTON_LEFT,
+                &result) != 0)
+                return 102;
+
+        /* One release packet carries a final displacement.  Moving first
+         * makes the new geometry authoritative for hover and preserves the
+         * worst-case CONFIGURE, LEAVE, ENTER, DRAG, CLICK sequence. */
+        if (poudland_p0_protocol_handle_pointer(
+                &protocol, 2010, 110, 0, &result) != 0 ||
+            protocol.windows[0].bounds.x != 1023 ||
+            protocol.windows[0].bounds.y != 100 ||
+            protocol.hovered_window_id != target_id ||
+            protocol.dragged_window_id != 0 || result.damage_count != 2 ||
+            result.event_count != POUDLAND_P0_PROTOCOL_EVENT_MAX ||
+            !event_is(&result, 0, 30,
+                      POUDLAND_V1_MSG_WINDOW_CONFIGURE,
+                      sizeof(*configure)))
+                return 103;
+        configure = (const struct poudland_v1_window_configure *)
+            (result.events[0].data + POUDLAND_V1_HEADER_SIZE);
+        if (configure->window_id != dragged_id || configure->x != 1023 ||
+            configure->y != 100)
+                return 104;
+        for (index = 0; index < 4; ++index) {
+                pointer = (const struct poudland_v1_pointer_event *)
+                    (result.events[index + 1U].data +
+                     POUDLAND_V1_HEADER_SIZE);
+                if (!event_is(&result, index + 1U, 30,
+                              POUDLAND_V1_MSG_POINTER_EVENT,
+                              sizeof(*pointer)) ||
+                    pointer->type != expected_types[index])
+                        return 105;
+        }
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[1].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != dragged_id)
+                return 106;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[2].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != target_id)
+                return 107;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[3].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != dragged_id)
+                return 108;
+        pointer = (const struct poudland_v1_pointer_event *)
+            (result.events[4].data + POUDLAND_V1_HEADER_SIZE);
+        if (pointer->window_id != dragged_id ||
+            pointer->button != POUDLAND_P0_BUTTON_LEFT ||
+            pointer->buttons != 0)
+                return 109;
         return 0;
 }
 
@@ -457,5 +852,10 @@ int main(void)
         result = session_and_id_boundaries();
         if (result != 0)
                 return result;
-        return terminal_version_cleanup();
+        result = terminal_version_cleanup();
+        if (result != 0)
+                return result;
+        result = interaction_focus_drag_and_capabilities();
+        return result != 0 ? result :
+               release_move_five_event_boundary();
 }

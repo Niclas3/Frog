@@ -1,6 +1,6 @@
 # kind  destination  source (relative to this manifest)  size  sha256
 frogfs-manifest 1
 file /b.bmp ../core/apps/test/b.bmp 9338 8d6fef24c84a788956b6991577fcccd01af864cbc862dd358f5bb9945400f8f3
-elf /compositor ../core/apps/build/compositor 18948 93aec02febdd7f01f3a66f9a65a4a17570df2a72aadeeeb2253fb25ae7a2ba76
-elf /desktop ../core/apps/build/desktop 13836 b39fbb1365b02fe5c0f8564cede2a0030dea91ad49da813e82bcff4812462425
+elf /compositor ../core/apps/build/compositor 23676 26f57469a383cab6d50bd646ca30c0b5a781d490936665d85c5af291e02fb704
+elf /desktop ../core/apps/build/desktop 13912 5b7aaabcd4b5f1a36aa4471f2d227e6baff34288da040987c8ac42f0e7242c89
 elf /poudland-e2e ../core/apps/build/poudland-e2e-smoke 12732 af647a6549538ad5b200db21a63cefad88db8bcdf7457bbe483c7c83222ccc7a

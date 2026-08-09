@@ -143,8 +143,12 @@ Poudland expands a broadcast into directed sends to the fixed recipient snapshot
 
 The initial Poudland delivery rules are selected by application message type rather than encoded as packagefs transport flags:
 
-- `PL_MSG_WELCOME`, `PL_MSG_WINDOW_INIT`, keyboard events, and pointer click/down/raise/enter/leave transitions are retained and retried in FIFO order.
-- Pointer move/drag and absolute `PL_MSG_WINDOW_MOVE` state retain only the newest pending value for each affected window without overtaking an earlier reliable transition.
+- `POUDLAND_V1_MSG_WELCOME`, `POUDLAND_V1_MSG_WINDOW_INIT`, keyboard events,
+  and pointer click/down/raise/enter/leave transitions are retained and retried
+  in FIFO order.
+- Pointer move/drag and absolute `POUDLAND_V1_MSG_WINDOW_CONFIGURE` state
+  retain only the newest pending value of the same message type for each
+  affected window without overtaking an earlier reliable transition.
 - No message in the first `desktop.c` milestone is unconditionally discarded after `-EAGAIN`.
 
 Broadcast describes only the fixed set of recipients. Its retry or replacement behavior follows the contained Poudland message type; broadcast itself does not impose a delivery class.

@@ -58,6 +58,13 @@ static int run_production(void)
                 poudland_p0_display_close(&scene.display);
                 return 1;
         }
+        status = poudland_p0_scene_open_input(&scene);
+        if (status != 0) {
+                poudland_p0_server_close(&server);
+                poudland_p0_cursor_release(&scene.cursor);
+                poudland_p0_display_close(&scene.display);
+                return 1;
+        }
         poudland_p0_damage(&scene.display,
             (struct poudland_p0_rect) {
                 .x = 0,
@@ -65,8 +72,9 @@ static int run_production(void)
                 .width = (int_32) scene.display.info.width,
                 .height = (int_32) scene.display.info.height,
             });
-        if (!poudland_p0_render(&scene) ||
+        if (!poudland_p0_scene_present(&scene) ||
             !poudland_p0_server_run(&server, &scene)) {
+                poudland_p0_scene_close_input(&scene);
                 poudland_p0_server_close(&server);
                 poudland_p0_cursor_release(&scene.cursor);
                 poudland_p0_display_close(&scene.display);

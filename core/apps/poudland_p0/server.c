@@ -7,6 +7,7 @@
 
 #include <frog/poll.h>
 #include <frog/syscall.h>
+#include <input/mouse.h>
 #endif
 
 static void clear_bytes(void *data, uint_32 size)
@@ -97,22 +98,108 @@ static void tombstone_peer(struct poudland_p0_server *server,
         peer->tombstone = true;
 }
 
-static bool enqueue_reply(struct poudland_p0_server_peer *peer,
-                          const void *reply, uint_32 reply_size)
+static void store_pending(struct poudland_p0_server_reply *pending,
+                          const void *data, uint_32 size,
+                          bool replaceable, uint_32 type,
+                          uint_32 window_id)
+{
+        clear_bytes(pending, sizeof(*pending));
+        pending->size = size;
+        pending->replaceable = replaceable;
+        pending->type = type;
+        pending->window_id = window_id;
+        copy_bytes(pending->data, data, size);
+}
+
+static void remove_pending(struct poudland_p0_server_peer *peer,
+                           uint_32 logical_index)
+{
+        uint_32 index;
+
+        for (index = logical_index; index + 1U < peer->reply_count; ++index) {
+                uint_32 destination = (peer->reply_head + index) %
+                                      POUDLAND_P0_REPLY_QUEUE_MAX;
+                uint_32 source = (peer->reply_head + index + 1U) %
+                                 POUDLAND_P0_REPLY_QUEUE_MAX;
+
+                peer->replies[destination] = peer->replies[source];
+        }
+        if (peer->reply_count != 0) {
+                uint_32 tail = (peer->reply_head + peer->reply_count - 1U) %
+                               POUDLAND_P0_REPLY_QUEUE_MAX;
+
+                clear_bytes(&peer->replies[tail],
+                            sizeof(peer->replies[tail]));
+                peer->reply_count--;
+        }
+}
+
+static bool enqueue_outbound(struct poudland_p0_server_peer *peer,
+                             const void *data, uint_32 size,
+                             bool replaceable, uint_32 type,
+                             uint_32 window_id)
 {
         uint_32 tail;
         struct poudland_p0_server_reply *pending;
 
-        if (peer->reply_count >= POUDLAND_P0_REPLY_QUEUE_MAX ||
-            reply_size > POUDLAND_V1_P0_MESSAGE_MAX)
+        if (size > POUDLAND_V1_P0_MESSAGE_MAX)
+                return false;
+        if (replaceable) {
+                uint_32 logical_index;
+
+                for (logical_index = 0;
+                     logical_index < peer->reply_count;
+                     ++logical_index) {
+                        uint_32 index = (peer->reply_head + logical_index) %
+                                       POUDLAND_P0_REPLY_QUEUE_MAX;
+                        struct poudland_p0_server_reply *old =
+                            &peer->replies[index];
+                        uint_32 later;
+                        bool reliable_barrier = false;
+
+                        if (!old->replaceable || old->type != type ||
+                            old->window_id != window_id)
+                                continue;
+                        for (later = logical_index + 1U;
+                             later < peer->reply_count; ++later) {
+                                uint_32 later_index =
+                                    (peer->reply_head + later) %
+                                    POUDLAND_P0_REPLY_QUEUE_MAX;
+
+                                if (!peer->replies[later_index].replaceable) {
+                                        reliable_barrier = true;
+                                        break;
+                                }
+                        }
+                        if (!reliable_barrier) {
+                                store_pending(old, data, size, true,
+                                              type, window_id);
+                                return true;
+                        }
+                        /* The newer state cannot be delivered ahead of a
+                         * reliable transition.  Drop the stale slot and
+                         * append the replacement after that barrier. */
+                        remove_pending(peer, logical_index);
+                        break;
+                }
+        }
+        if (peer->reply_count >= POUDLAND_P0_REPLY_QUEUE_MAX)
                 return false;
         tail = (peer->reply_head + peer->reply_count) %
                POUDLAND_P0_REPLY_QUEUE_MAX;
         pending = &peer->replies[tail];
-        pending->size = reply_size;
-        copy_bytes(pending->data, reply, reply_size);
+        store_pending(pending, data, size, replaceable, type, window_id);
         peer->reply_count++;
         return true;
+}
+
+static bool enqueue_reply(struct poudland_p0_server_peer *peer,
+                          const void *reply, uint_32 reply_size)
+{
+        const struct poudland_v1_header *header = reply;
+
+        return enqueue_outbound(peer, reply, reply_size, false,
+                                header->type, 0);
 }
 
 static bool flush_peer(struct poudland_p0_server *server,
@@ -174,6 +261,100 @@ static bool deliver_reply(struct poudland_p0_server *server,
         if (status == -EAGAIN)
                 return enqueue_reply(peer, reply, reply_size);
         tombstone_peer(server, peer);
+        return true;
+}
+
+static bool event_delivery_class(const void *data, uint_32 size,
+                                 bool *replaceable,
+                                 uint_32 *window_id)
+{
+        const struct poudland_v1_header *header = data;
+        const uint_8 *payload = data;
+
+        if (size < POUDLAND_V1_HEADER_SIZE ||
+            size != POUDLAND_V1_HEADER_SIZE + header->payload_size)
+                return false;
+        *replaceable = false;
+        *window_id = 0;
+        payload += POUDLAND_V1_HEADER_SIZE;
+        if (header->type == POUDLAND_V1_MSG_WINDOW_CONFIGURE) {
+                const struct poudland_v1_window_configure *configure;
+
+                if (header->payload_size != sizeof(*configure))
+                        return false;
+                configure = (const struct poudland_v1_window_configure *)
+                    payload;
+                *replaceable = true;
+                *window_id = configure->window_id;
+                return true;
+        }
+        if (header->type == POUDLAND_V1_MSG_POINTER_EVENT) {
+                const struct poudland_v1_pointer_event *pointer;
+
+                if (header->payload_size != sizeof(*pointer))
+                        return false;
+                pointer = (const struct poudland_v1_pointer_event *) payload;
+                *replaceable =
+                    pointer->type == POUDLAND_V1_POINTER_MOVE ||
+                    pointer->type == POUDLAND_V1_POINTER_DRAG;
+                *window_id = pointer->window_id;
+                return true;
+        }
+        if (header->type == POUDLAND_V1_MSG_KEY_EVENT &&
+            header->payload_size == sizeof(struct poudland_v1_key_event))
+                return true;
+        return false;
+}
+
+static bool deliver_event(struct poudland_p0_server *server,
+                          struct poudland_p0_server_peer *peer,
+                          const void *data, uint_32 size)
+{
+        const struct poudland_v1_header *header = data;
+        bool replaceable;
+        uint_32 window_id;
+        int_32 status;
+
+        if (!event_delivery_class(data, size, &replaceable, &window_id))
+                return false;
+        if (peer->reply_count != 0) {
+                if (!enqueue_outbound(peer, data, size, replaceable,
+                                      header->type, window_id))
+                        tombstone_peer(server, peer);
+                return true;
+        }
+        status = server->send(server, peer->peer_id, data, size);
+        if (status == 0)
+                return true;
+        if (status == -EAGAIN) {
+                if (!enqueue_outbound(peer, data, size, replaceable,
+                                      header->type, window_id))
+                        tombstone_peer(server, peer);
+                return true;
+        }
+        tombstone_peer(server, peer);
+        return true;
+}
+
+static bool deliver_events(
+    struct poudland_p0_server *server,
+    const struct poudland_p0_protocol_result *result)
+{
+        uint_32 index;
+
+        for (index = 0; index < result->event_count; ++index) {
+                const struct poudland_p0_protocol_event *event =
+                    &result->events[index];
+                struct poudland_p0_server_peer *peer =
+                    find_peer(server, event->peer_id);
+
+                if (!peer || peer->tombstone || peer->closing)
+                        continue;
+                if (!deliver_event(server, peer, event->data, event->size)) {
+                        tombstone_peer(server, peer);
+                        return false;
+                }
+        }
         return true;
 }
 
@@ -245,6 +426,34 @@ bool poudland_p0_server_handle_record(
         return true;
 }
 
+bool poudland_p0_server_handle_pointer(
+    struct poudland_p0_server *server, int_32 screen_x,
+    int_32 screen_y, uint_32 buttons)
+{
+        struct poudland_p0_protocol_result result;
+
+        if (!server || !server->send ||
+            poudland_p0_protocol_handle_pointer(
+                &server->protocol, screen_x, screen_y,
+                buttons, &result) != 0)
+                return false;
+        apply_damage(server, &result);
+        return deliver_events(server, &result);
+}
+
+bool poudland_p0_server_handle_key(
+    struct poudland_p0_server *server, uint_8 key)
+{
+        struct poudland_p0_protocol_result result;
+
+        if (!server || !server->send ||
+            poudland_p0_protocol_handle_key(
+                &server->protocol, key, &result) != 0)
+                return false;
+        apply_damage(server, &result);
+        return deliver_events(server, &result);
+}
+
 #ifndef POUDLAND_P0_SERVER_HOST_TEST
 static int_32 packagefs_send(struct poudland_p0_server *server,
                              frog_pkg_peer_id peer_id,
@@ -287,31 +496,128 @@ int_32 poudland_p0_server_open(struct poudland_p0_server *server,
 bool poudland_p0_server_run(struct poudland_p0_server *server,
                             struct poudland_p0_scene *scene)
 {
-        struct pollfd descriptor;
+        struct pollfd descriptors[3];
+        const uint_16 errors = POLLERR | POLLHUP | POLLNVAL;
 
-        if (!server || !scene || server->fd < 0)
+        if (!server || !scene || server->fd < 0 ||
+            scene->keyboard_fd < 0 || scene->mouse_fd < 0)
                 return false;
         for (;;) {
                 int_32 status;
 
-                descriptor.fd = server->fd;
-                descriptor.events = POLLIN;
-                descriptor.revents = 0;
-                status = wait2(&descriptor, 1, 1000);
-                if (status < 0 ||
-                    (descriptor.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0)
+                descriptors[0].fd = server->fd;
+                descriptors[0].events = POLLIN;
+                descriptors[0].revents = 0;
+                descriptors[1].fd = scene->keyboard_fd;
+                descriptors[1].events = POLLIN;
+                descriptors[1].revents = 0;
+                descriptors[2].fd = scene->mouse_fd;
+                descriptors[2].events = POLLIN;
+                descriptors[2].revents = 0;
+                status = wait2(descriptors, 3, 1000);
+                if (status < 0 || (descriptors[0].revents & errors) != 0 ||
+                    (descriptors[1].revents & errors) != 0 ||
+                    (descriptors[2].revents & errors) != 0)
                         return false;
                 if (status == 0)
                         continue;
-                for (;;) {
-                        struct frog_pkg_message message;
+                if ((descriptors[0].revents & POLLIN) != 0) {
+                        for (;;) {
+                                struct frog_pkg_message message;
 
-                        status = frog_pkg_server_receive(server->fd, &message);
-                        if (status == -EAGAIN)
-                                break;
-                        if (status <= 0 ||
-                            !poudland_p0_server_handle_record(server, &message))
-                                return false;
+                                status = frog_pkg_server_receive(
+                                    server->fd, &message);
+                                if (status == -EAGAIN)
+                                        break;
+                                if (status <= 0 ||
+                                    !poudland_p0_server_handle_record(
+                                        server, &message))
+                                        return false;
+                        }
+                }
+                if ((descriptors[2].revents & POLLIN) != 0) {
+                        for (;;) {
+                                mouse_device_packet_t packet;
+                                struct poudland_p0_rect old_cursor;
+                                int_64 next_x;
+                                int_64 next_y;
+                                int_32 maximum_x;
+                                int_32 maximum_y;
+
+                                status = read(scene->mouse_fd, &packet,
+                                              sizeof(packet));
+                                if (status == -EAGAIN)
+                                        break;
+                                if (status != sizeof(packet) ||
+                                    packet.magic != MOUSE_MAGIC)
+                                        return false;
+                                old_cursor = (struct poudland_p0_rect) {
+                                    .x = scene->cursor_x,
+                                    .y = scene->cursor_y,
+                                    .width = (int_32) scene->cursor.width,
+                                    .height = (int_32) scene->cursor.height,
+                                };
+                                maximum_x = scene->display.info.width == 0
+                                                ? 0
+                                                : (int_32)
+                                                      scene->display.info.width -
+                                                      1;
+                                maximum_y = scene->display.info.height == 0
+                                                ? 0
+                                                : (int_32)
+                                                      scene->display.info.height -
+                                                      1;
+                                next_x = (int_64) scene->cursor_x +
+                                         packet.x_difference;
+                                next_y = (int_64) scene->cursor_y -
+                                         packet.y_difference;
+                                if (next_x < 0)
+                                        next_x = 0;
+                                if (next_x > maximum_x)
+                                        next_x = maximum_x;
+                                if (next_y < 0)
+                                        next_y = 0;
+                                if (next_y > maximum_y)
+                                        next_y = maximum_y;
+                                scene->cursor_x = (int_32) next_x;
+                                scene->cursor_y = (int_32) next_y;
+                                if (scene->cursor_x != old_cursor.x ||
+                                    scene->cursor_y != old_cursor.y) {
+                                        poudland_p0_damage(&scene->display,
+                                                           old_cursor);
+                                        poudland_p0_damage(
+                                            &scene->display,
+                                            (struct poudland_p0_rect) {
+                                                .x = scene->cursor_x,
+                                                .y = scene->cursor_y,
+                                                .width = (int_32)
+                                                    scene->cursor.width,
+                                                .height = (int_32)
+                                                    scene->cursor.height,
+                                            });
+                                }
+                                scene->mouse_buttons = packet.buttons;
+                                if (!poudland_p0_server_handle_pointer(
+                                        server, scene->cursor_x,
+                                        scene->cursor_y, packet.buttons))
+                                        return false;
+                        }
+                }
+                /* Mouse transitions establish focus before keyboard bytes
+                 * from the same readiness snapshot are delivered. */
+                if ((descriptors[1].revents & POLLIN) != 0) {
+                        for (;;) {
+                                uint_8 key;
+
+                                status = read(scene->keyboard_fd, &key,
+                                              sizeof(key));
+                                if (status == -EAGAIN)
+                                        break;
+                                if (status != sizeof(key) ||
+                                    !poudland_p0_server_handle_key(
+                                        server, key))
+                                        return false;
+                        }
                 }
                 if (scene->display.damaged &&
                     !poudland_p0_scene_present(scene))
