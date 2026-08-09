@@ -117,6 +117,13 @@ $(error desktop-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_DESKTOP
 endif
+ifeq ($(FROG_TEST_PROFILE),desktop-soak-10m)
+ifneq ($(QEMU_TEST),1)
+$(error desktop-soak-10m requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_DESKTOP \
+	-DCONFIG_FROG_TEST_DESKTOP_SOAK
+endif
 ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error frogfs-image-smoke requires QEMU_TEST=1)

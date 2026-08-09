@@ -79,6 +79,19 @@ base. It creates no preparation boot and never modifies
 `FROG_QEMU_DESKTOP_STALE_IMAGE=1` support the required negative classification
 checks; they are unset in a normal acceptance run.
 
+`./scripts/qemu-test.sh desktop-soak-10m` reuses that same instrumented image
+and fixed QMP interaction in a separate 16 MiB profile. After the fast desktop
+checks pass, the compositor validates the complete final scene once per minute
+for ten minutes. Each checkpoint also requires unchanged frame and presented
+pixel counts. The final checkpoint compares the user-page allocator and live
+packagefs service/session/endpoint/queue counters with snapshots taken at the
+start of the soak. The canonical result records 10 heartbeats, 600 seconds,
+and resource stability; set `FROG_QEMU_KEEP=1` to retain the debugcon log,
+exact PPM screenshot, QMP transcript, and private disk copy. The default
+deadline is 660 seconds. `FROG_QEMU_SOAK_WATCHDOG_TEST=1` deliberately fails
+the host wait after `desktop-soak-start` so the bounded watchdog and retained
+failure artifacts can be checked without waiting ten minutes.
+
 Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
 syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait
@@ -156,8 +169,9 @@ back in FIFO order. Repeat with
 budget. This profile does not use QMP.
 
 Most QEMU profiles default to `-m 1G`; generated-image graphical/exec profiles,
-including `poudland-e2e-smoke` and `desktop-smoke`, default to 16 MiB. Set `FROG_QEMU_MEMORY` to a
-positive integer with an `M` or `G` suffix, for example
+including `poudland-e2e-smoke`, `desktop-smoke`, and `desktop-soak-10m`,
+default to 16 MiB. Set `FROG_QEMU_MEMORY` to a positive integer with an `M` or
+`G` suffix, for example
 `FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh anonymous-mmap-smoke`. The chosen
 value is used by every runner path and recorded as `qemu_memory` in the result
 JSON.

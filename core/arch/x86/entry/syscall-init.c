@@ -108,7 +108,51 @@ static int_32 sys_test_sync(uint_32 command)
             return -EUCLEAN;
         frog_test_sync("desktop-idle-stable");
         return 0;
+#ifdef CONFIG_FROG_TEST_DESKTOP_SOAK
+    case FROG_TEST_DESKTOP_SOAK_SNAPSHOT: {
+        int_32 memory_status = mm_desktop_soak_snapshot();
+        int_32 packagefs_status = packagefs_lifecycle_test_command(
+            FROG_TEST_PACKAGEFS_LIFECYCLE_SNAPSHOT);
+        bool passed = memory_status == 0 && packagefs_status == 0;
+
+        if (!passed) {
+            frog_test_case("desktop-soak.resources", 0);
+            return -EUCLEAN;
+        }
+        frog_test_sync("desktop-soak-start");
+        return 0;
+    }
+    case FROG_TEST_DESKTOP_SOAK_VERIFY: {
+        int_32 memory_status = mm_desktop_soak_verify();
+        int_32 packagefs_status = packagefs_lifecycle_test_command(
+            FROG_TEST_PACKAGEFS_LIFECYCLE_VERIFY);
+        bool passed = memory_status == 0 && packagefs_status == 0;
+
+        frog_test_case("desktop-soak.resources", passed);
+        if (!passed)
+            return -EUCLEAN;
+        printk("FROGTEST CASE desktop-soak.resources PASS\n");
+        frog_test_sync("desktop-soak-complete");
+        return 0;
+    }
+#else
+    case FROG_TEST_DESKTOP_SOAK_SNAPSHOT:
+    case FROG_TEST_DESKTOP_SOAK_VERIFY:
+        return -EOPNOTSUPP;
+#endif
     default:
+#ifdef CONFIG_FROG_TEST_DESKTOP_SOAK
+        if (command > FROG_TEST_DESKTOP_SOAK_HEARTBEAT_BASE &&
+            command <= FROG_TEST_DESKTOP_SOAK_HEARTBEAT_BASE +
+                           FROG_TEST_DESKTOP_SOAK_HEARTBEAT_COUNT) {
+            if (frog_test_has_failures())
+                return -EUCLEAN;
+            printk("FROGTEST HEARTBEAT desktop-soak minute=%d\n",
+                   (int_32) (command -
+                             FROG_TEST_DESKTOP_SOAK_HEARTBEAT_BASE));
+            return 0;
+        }
+#endif
         return -EINVAL;
     }
 #elif defined(CONFIG_FROG_TEST_POUDLAND_E2E)
@@ -650,6 +694,12 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
         break;
     case FROG_TEST_DESKTOP_IDLE_PRESENT_STABLE:
         name = "desktop.idle-present-stable";
+        break;
+    case FROG_TEST_DESKTOP_SOAK_STATE_STABLE:
+        name = "desktop-soak.state-stable";
+        break;
+    case FROG_TEST_DESKTOP_SOAK_RESOURCES:
+        name = "desktop-soak.resources";
         break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";

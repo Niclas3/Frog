@@ -11,7 +11,8 @@
 #include <frog/sched.h>
 #include <frog/semaphore.h>
 #include <frog/string.h>
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
 #include <frog/test.h>
 #endif
 #include <frog/threads.h>
@@ -21,7 +22,8 @@
 #include <kernel/dev.h>
 #include <kernel/mount.h>
 #if defined(CONFIG_FROG_TEST_PACKAGEFS) || \
-    defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE)
+    defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
 #include <kernel/qemu_test.h>
 #endif
 #include <kernel/vfs.h>
@@ -83,7 +85,8 @@ struct packagefs_service {
 
 static uint_32 packagefs_service_count;
 static uint_32 packagefs_next_peer_id = 1U;
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
 struct packagefs_test_counters {
         uint_32 services;
         uint_32 sessions;
@@ -122,7 +125,8 @@ static struct packagefs_queue *packagefs_queue_alloc(void)
         init_waitqueue_head(&queue->read_wait);
         init_waitqueue_head(&queue->write_wait);
         queue->capacity = PAGE_SIZE - sizeof(*queue);
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
         packagefs_test_live.queues++;
 #endif
         return queue;
@@ -131,7 +135,8 @@ static struct packagefs_queue *packagefs_queue_alloc(void)
 static void packagefs_queue_free(struct packagefs_queue *queue)
 {
         if (queue != NULL) {
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
                 ASSERT(packagefs_test_live.queues > 0);
                 packagefs_test_live.queues--;
 #endif
@@ -421,7 +426,8 @@ static int packagefs_bind(struct inode *dir,
         }
         dentry_add_child(candidate->d_parent, candidate);
         packagefs_service_count++;
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
         packagefs_test_live.services++;
         packagefs_test_live.endpoints++;
 #endif
@@ -500,7 +506,8 @@ static int packagefs_connect(struct dentry *candidate, struct file *file)
                 kfree(session);
                 return result;
         }
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
         packagefs_test_live.sessions++;
         packagefs_test_live.endpoints++;
 #endif
@@ -612,7 +619,8 @@ static void packagefs_destroy_session_locked(
         list_del_init(&session->node);
         packagefs_queue_free(session->s2c);
         session->s2c = NULL;
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
         ASSERT(packagefs_test_live.sessions > 0);
         packagefs_test_live.sessions--;
 #endif
@@ -1069,7 +1077,8 @@ static int_32 packagefs_close(struct file *file)
                 return -EUCLEAN;
         }
         lock_release(&service->lock);
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
         ASSERT(packagefs_test_live.endpoints > 0);
         packagefs_test_live.endpoints--;
 #endif
@@ -1094,7 +1103,8 @@ static void packagefs_evict_inode(struct inode *inode)
         ASSERT(list_is_empty(&service->clients));
         dentry = service->dentry;
         packagefs_queue_free(service->c2s);
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
         ASSERT(packagefs_test_live.services > 0);
         packagefs_test_live.services--;
 #endif
@@ -1177,7 +1187,8 @@ unregister:
         return result;
 }
 
-#ifdef CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE
+#if defined(CONFIG_FROG_TEST_PACKAGEFS_LIFECYCLE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
 int packagefs_lifecycle_test_command(uint_32 command)
 {
         if (command == FROG_TEST_PACKAGEFS_LIFECYCLE_SNAPSHOT) {

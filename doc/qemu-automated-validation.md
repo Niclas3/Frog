@@ -119,7 +119,8 @@ default:
 - `process-smoke`: ring-3 fork, private-memory isolation, exit/wait status, and
   child-reaping checks without filesystem writes.
 - `disk-smoke`: IDE and FrogFS round trips using disposable disk copies.
-- `soak-10m`: bounded stability run with heartbeat/progress markers.
+- `desktop-soak-10m`: the same passing graphical path held idle for ten
+  minutes, with minute heartbeats and final allocator/packagefs checks.
 - `framebuffer-smoke`: fixed framebuffer rendering captured through QMP and
   checked by dimensions and exact visible-frame pixels.
 - `framebuffer-mmap-smoke`: a real ring-3 `/dev/fb0` mapping, close/fork/unmap
@@ -130,6 +131,10 @@ default:
 - `desktop-smoke`: the real graphical init, compositor, and desktop at 16 MiB,
   with complete guest state records, ordered QMP interaction, an idle-present
   interval, and exact full-frame validation.
+- `desktop-soak-10m`: a separately invoked 16 MiB continuation of the same
+  desktop scenario, requiring ten ordered one-minute state checkpoints,
+  unchanged idle-present counters, stable user-page and packagefs counters,
+  and the same exact final frame.
 
 Each profile has an explicit timeout and expected ordered milestones. A compile
 success or a single early marker never counts as a runtime pass.
@@ -161,6 +166,16 @@ record exactly once in causal order, waits for `desktop-final-frame` and the
 later `desktop-idle-stable`, then validates all 1024x768 pixels. Missing state
 evidence yields `GUEST_STATE_MISMATCH`; guest case failures and framebuffer
 mismatches remain distinct classifications.
+
+`desktop-soak-10m` uses the same deterministic base image and application
+instrumentation as `desktop-smoke`; only the kernel profile and bounded host
+wait differ. `FROGTEST HEARTBEAT desktop-soak minute=1` through `minute=10`
+must each appear exactly once in order. `desktop-soak.state-stable` proves the
+window, focus, pointer, protocol, and idle-present state at every checkpoint;
+`desktop-soak.resources` proves that the user-page allocator and packagefs
+live counters match their start snapshots. PASS writes these facts into the
+canonical result JSON. `FROG_QEMU_KEEP=1` additionally retains the concise
+debugcon transcript and final screenshot.
 
 ## Agent Loop Guardrails
 

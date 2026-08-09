@@ -456,6 +456,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("poudland-builtin-smoke");
 #elif defined(CONFIG_FROG_TEST_POUDLAND_E2E)
         frog_test_begin("poudland-e2e-smoke");
+#elif defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
+        frog_test_begin("desktop-soak-10m");
 #elif defined(CONFIG_FROG_TEST_DESKTOP)
         frog_test_begin("desktop-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)

@@ -1488,7 +1488,8 @@ int_32 mm_vm_process_verify_cleanup(void) { return -EOPNOTSUPP; }
 #endif
 
 #if defined(CONFIG_FROG_TEST_ANONYMOUS_MMAP) || \
-    defined(CONFIG_FROG_TEST_USER_ALLOCATOR)
+    defined(CONFIG_FROG_TEST_USER_ALLOCATOR) || \
+    defined(CONFIG_FROG_TEST_DESKTOP_SOAK)
 extern struct pool user_pool;
 
 static uint_32 mm_test_pool_frames_used(struct pool *pool)
@@ -1501,6 +1502,29 @@ static uint_32 mm_test_pool_frames_used(struct pool *pool)
                         used++;
         }
         return used;
+}
+#endif
+
+#ifdef CONFIG_FROG_TEST_DESKTOP_SOAK
+static uint_32 desktop_soak_user_frames;
+static bool desktop_soak_snapshot_live;
+
+int_32 mm_desktop_soak_snapshot(void)
+{
+        if (desktop_soak_snapshot_live)
+                return -EBUSY;
+        desktop_soak_user_frames = mm_test_pool_frames_used(&user_pool);
+        desktop_soak_snapshot_live = true;
+        return 0;
+}
+
+int_32 mm_desktop_soak_verify(void)
+{
+        bool passed = desktop_soak_snapshot_live &&
+            mm_test_pool_frames_used(&user_pool) == desktop_soak_user_frames;
+
+        desktop_soak_snapshot_live = false;
+        return passed ? 0 : -EUCLEAN;
 }
 #endif
 

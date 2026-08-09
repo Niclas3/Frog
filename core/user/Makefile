@@ -12,7 +12,7 @@ USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
 	$(foreach D, $(INCLUDES), -I$(D))
 ifeq ($(QEMU_TEST),1)
-ifeq ($(FROG_TEST_PROFILE),desktop-smoke)
+ifneq ($(filter desktop-smoke desktop-soak-10m,$(FROG_TEST_PROFILE)),)
 USER_CFLAGS += -DFROG_DESKTOP_SMOKE_TEST
 endif
 endif

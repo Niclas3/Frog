@@ -551,6 +551,7 @@ struct desktop_test_state {
         bool saw_three_windows;
         uint_32 idle_frame_count;
         uint_32 idle_presented_pixels;
+        uint_32 soak_heartbeat;
         struct timespec deadline;
 };
 
@@ -567,6 +568,54 @@ static const struct poudland_p0_protocol_window *desktop_test_window(
                         return window;
         }
         return NULL;
+}
+
+static bool desktop_test_final_state_stable(
+    const struct poudland_p0_server *server,
+    const struct poudland_p0_scene *scene)
+{
+        const struct poudland_p0_protocol *protocol = &server->protocol;
+        const struct poudland_p0_protocol_window *first =
+            desktop_test_window(protocol, 1);
+        const struct poudland_p0_protocol_window *second =
+            desktop_test_window(protocol, 2);
+        uint_32 active_sessions = 0;
+        uint_32 active_peers = 0;
+        uint_32 index;
+
+        for (index = 0; index < POUDLAND_P0_PROTOCOL_SESSION_MAX; ++index) {
+                const struct poudland_p0_protocol_session *session =
+                    &protocol->sessions[index];
+                const struct poudland_p0_server_peer *peer =
+                    &server->peers[index];
+
+                if (session->active) {
+                        if (!session->welcomed || session->window_count != 2)
+                                return false;
+                        active_sessions++;
+                }
+                if (peer->active) {
+                        if (!peer->welcomed || peer->tombstone ||
+                            peer->closing || peer->reply_count != 0)
+                                return false;
+                        active_peers++;
+                }
+        }
+        return server->served_client && active_sessions == 1 &&
+               active_peers == 1 && protocol->window_count == 2 &&
+               first && second &&
+               first->bounds.x == 100 && first->bounds.y == 100 &&
+               first->bounds.width == 200 && first->bounds.height == 160 &&
+               second->bounds.x == 260 && second->bounds.y == 225 &&
+               second->bounds.width == 320 && second->bounds.height == 240 &&
+               second->last_key == 'a' &&
+               protocol->focused_window_id == 2 &&
+               protocol->dragged_window_id == 0 &&
+               protocol->hovered_window_id == 2 &&
+               protocol->pointer_x == 270 && protocol->pointer_y == 235 &&
+               protocol->pointer_buttons == 0 &&
+               scene->cursor_x == 270 && scene->cursor_y == 235 &&
+               !scene->display.damaged;
 }
 
 static bool desktop_test_checkpoint(
@@ -677,6 +726,8 @@ static bool desktop_test_checkpoint(
                 return true;
         }
         if (state->phase == 5) {
+                int_32 soak_status;
+
                 if (!timespec_at_or_after(now, &state->deadline))
                         return true;
                 passed = !scene->display.damaged &&
@@ -689,7 +740,48 @@ static bool desktop_test_checkpoint(
                 if (!passed || poudland_p0_test_sync(
                         FROG_TEST_DESKTOP_IDLE_READY) != 0)
                         return false;
-                state->phase++;
+                soak_status = poudland_p0_test_sync(
+                    FROG_TEST_DESKTOP_SOAK_SNAPSHOT);
+                if (soak_status == -EOPNOTSUPP) {
+                        state->phase = 7;
+                        return true;
+                }
+                if (soak_status != 0)
+                        return false;
+                state->deadline = *now;
+                state->deadline.tv_sec += 60;
+                state->phase = 6;
+                return true;
+        }
+        if (state->phase == 6) {
+                if (!timespec_at_or_after(now, &state->deadline))
+                        return true;
+                passed = desktop_test_final_state_stable(server, scene) &&
+                         scene->display.frame_count ==
+                             state->idle_frame_count &&
+                         scene->display.presented_pixels ==
+                             state->idle_presented_pixels;
+                if (!passed) {
+                        poudland_p0_test_report(
+                            FROG_TEST_DESKTOP_SOAK_STATE_STABLE, false);
+                        return false;
+                }
+                state->soak_heartbeat++;
+                if (poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_SOAK_HEARTBEAT_BASE +
+                            state->soak_heartbeat) != 0)
+                        return false;
+                if (state->soak_heartbeat <
+                    FROG_TEST_DESKTOP_SOAK_HEARTBEAT_COUNT) {
+                        state->deadline.tv_sec += 60;
+                        return true;
+                }
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_SOAK_STATE_STABLE, true);
+                if (poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_SOAK_VERIFY) != 0)
+                        return false;
+                state->phase = 7;
         }
         return true;
 }

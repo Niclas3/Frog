@@ -10,7 +10,7 @@ APP_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-Iinclude $(foreach D,$(INCLUDES),-I$(D))
 
 ifeq ($(QEMU_TEST),1)
-ifeq ($(FROG_TEST_PROFILE),desktop-smoke)
+ifneq ($(filter desktop-smoke desktop-soak-10m,$(FROG_TEST_PROFILE)),)
 APP_CFLAGS += -DFROG_DESKTOP_SMOKE_TEST
 endif
 endif

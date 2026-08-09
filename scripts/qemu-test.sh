@@ -4,7 +4,7 @@ set -o pipefail
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 profile=${1:-boot-smoke}
-timeout_seconds=${FROG_QEMU_TIMEOUT:-30}
+timeout_seconds=${FROG_QEMU_TIMEOUT:-}
 keep=${FROG_QEMU_KEEP:-0}
 qemu_memory=${FROG_QEMU_MEMORY:-1G}
 desktop_drag_x=${FROG_QEMU_DESKTOP_DRAG_X:-40}
@@ -12,6 +12,7 @@ desktop_drag_y=${FROG_QEMU_DESKTOP_DRAG_Y:-25}
 desktop_drop_case=${FROG_QEMU_DESKTOP_DROP_CASE:-}
 desktop_wrong_pixel=${FROG_QEMU_DESKTOP_WRONG_PIXEL:-0}
 desktop_stale_image=${FROG_QEMU_DESKTOP_STALE_IMAGE:-0}
+desktop_soak_watchdog=${FROG_QEMU_SOAK_WATCHDOG_TEST:-0}
 sector_size=512
 loader_sector_count=11
 kernel_start_sector=13
@@ -27,8 +28,9 @@ if [[ ! "$desktop_drag_x" =~ ^-?[0-9]+$ ]] ||
     exit 2
 fi
 if [[ ! "$desktop_wrong_pixel" =~ ^[01]$ ]] ||
-   [[ ! "$desktop_stale_image" =~ ^[01]$ ]]; then
-    echo "FROG_QEMU_DESKTOP_WRONG_PIXEL/STALE_IMAGE must be 0 or 1" >&2
+   [[ ! "$desktop_stale_image" =~ ^[01]$ ]] ||
+   [[ ! "$desktop_soak_watchdog" =~ ^[01]$ ]]; then
+    echo "desktop fault-injection controls must be 0 or 1" >&2
     exit 2
 fi
 
@@ -60,18 +62,32 @@ case "$profile" in
     poudland-builtin-smoke) stages=(boot) ;;
     poudland-e2e-smoke) stages=(boot) ;;
     desktop-smoke) stages=(boot) ;;
+    desktop-soak-10m) stages=(boot) ;;
     frogfs-image-smoke) stages=(boot) ;;
     frogfs-exec-smoke) stages=(boot) ;;
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|poudland-e2e-smoke|desktop-smoke|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|poudland-e2e-smoke|desktop-smoke|desktop-soak-10m|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
+
+if [ -z "$timeout_seconds" ]; then
+    if [ "$profile" = desktop-soak-10m ]; then
+        timeout_seconds=660
+    else
+        timeout_seconds=30
+    fi
+fi
+if [[ ! "$timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+    echo "FROG_QEMU_TIMEOUT must be a positive integer" >&2
+    exit 2
+fi
 
 if { [ "$profile" = poudland-builtin-smoke ] ||
      [ "$profile" = poudland-e2e-smoke ] ||
      [ "$profile" = desktop-smoke ] ||
+     [ "$profile" = desktop-soak-10m ] ||
      [ "$profile" = frogfs-image-smoke ] ||
      [ "$profile" = frogfs-exec-smoke ]; } &&
    [ -z "${FROG_QEMU_MEMORY+x}" ]; then
@@ -92,6 +108,8 @@ base_disk_sha_before=
 base_disk_sha_after=
 framebuffer_width=
 framebuffer_height=
+soak_heartbeat_count=
+soak_resources_stable=
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 mkdir -p "$result_root"
@@ -107,6 +125,8 @@ write_result()
     BASE_DISK_SHA_AFTER="$base_disk_sha_after" \
     FRAMEBUFFER_WIDTH="$framebuffer_width" \
     FRAMEBUFFER_HEIGHT="$framebuffer_height" \
+    SOAK_HEARTBEAT_COUNT="$soak_heartbeat_count" \
+    SOAK_RESOURCES_STABLE="$soak_resources_stable" \
     python3 - <<'PY'
 import json
 import os
@@ -129,6 +149,15 @@ data = {
                           if os.environ["FRAMEBUFFER_WIDTH"] else None),
     "framebuffer_height": (int(os.environ["FRAMEBUFFER_HEIGHT"])
                            if os.environ["FRAMEBUFFER_HEIGHT"] else None),
+    "soak_heartbeat_count": (
+        int(os.environ["SOAK_HEARTBEAT_COUNT"])
+        if os.environ["SOAK_HEARTBEAT_COUNT"] else None),
+    "soak_duration_seconds": (
+        int(os.environ["SOAK_HEARTBEAT_COUNT"]) * 60
+        if os.environ["SOAK_HEARTBEAT_COUNT"] else None),
+    "soak_resources_stable": (
+        os.environ["SOAK_RESOURCES_STABLE"] == "true"
+        if os.environ["SOAK_RESOURCES_STABLE"] else None),
 }
 with open(os.environ["RESULT_JSON"], "w", encoding="ascii") as stream:
     json.dump(data, stream, indent=2)
@@ -139,10 +168,12 @@ PY
 preserve_result()
 {
     write_result
-    if [ "$classification" = PASS ] && [ "$keep" != 1 ]; then
+    if [ "$classification" = PASS ]; then
         cp "$result_json" "$result_root/${profile}-result.json"
-        rm -rf "$work_dir"
-        return
+        if [ "$keep" != 1 ]; then
+            rm -rf "$work_dir"
+            return
+        fi
     fi
 
     artifact_dir="$result_root/$(date -u +%Y%m%dT%H%M%SZ)-${profile}-${classification}-$$"
@@ -188,7 +219,8 @@ build_stage()
        [ "$profile" = framebuffer-mmap-smoke ] ||
        [ "$profile" = poudland-builtin-smoke ] ||
        [ "$profile" = poudland-e2e-smoke ] ||
-       [ "$profile" = desktop-smoke ]; then
+       [ "$profile" = desktop-smoke ] ||
+       [ "$profile" = desktop-soak-10m ]; then
         loader_args=(-DFRAMEBUFFER_TEST "${loader_args[@]}")
     else
         loader_args=(-DVGA_ENABLE "${loader_args[@]}")
@@ -550,9 +582,13 @@ qmp_inject_desktop()
     local socket_path=$1
     local debug_log=$2
     local transcript_path=$3
+    local screenshot=$4
     QMP_SOCKET="$socket_path" DEBUG_LOG="$debug_log" \
     QMP_TRANSCRIPT="$transcript_path" QMP_TIMEOUT="$timeout_seconds" \
     DESKTOP_DRAG_X="$desktop_drag_x" DESKTOP_DRAG_Y="$desktop_drag_y" \
+    SCREENSHOT="$screenshot" \
+    DESKTOP_SOAK=$([ "$profile" = desktop-soak-10m ] && echo 1 || echo 0) \
+    DESKTOP_SOAK_WATCHDOG="$desktop_soak_watchdog" \
     python3 - <<'PY'
 import json
 import os
@@ -625,6 +661,16 @@ def wait_marker(marker):
         time.sleep(0.05)
     raise RuntimeError(f"timed out waiting for {marker}")
 
+def wait_record(record):
+    while time.monotonic() < deadline:
+        content = guest_log()
+        if guest_failed(content):
+            raise RuntimeError(f"guest stopped before {record}")
+        if content.splitlines().count(record) == 1:
+            return
+        time.sleep(0.05)
+    raise RuntimeError(f"timed out waiting for {record}")
+
 def inject_after_block(marker, next_marker, events):
     wait_marker(marker)
     time.sleep(0.1)
@@ -661,6 +707,18 @@ inject_after_block("desktop-drag-ready", "desktop-final-frame", [
 wait_marker("desktop-final-frame")
 wait_marker("desktop-client-observed")
 wait_marker("desktop-idle-stable")
+if os.environ["DESKTOP_SOAK"] == "1":
+    wait_marker("desktop-soak-start")
+    if os.environ["DESKTOP_SOAK_WATCHDOG"] == "1":
+        time.sleep(2)
+        raise RuntimeError(
+            "timed out waiting for desktop-soak-watchdog-never")
+    for minute in range(1, 11):
+        wait_record(f"FROGTEST HEARTBEAT desktop-soak minute={minute}")
+        print(f"desktop-soak heartbeat {minute}/10", flush=True)
+    wait_marker("desktop-soak-complete")
+    execute("screendump", {"filename": os.environ["SCREENSHOT"]})
+    execute("quit")
 transcript.close()
 sock.close()
 PY
@@ -866,11 +924,12 @@ if len(pixels) != width * height * 3:
     fail("truncated PPM pixels")
 
 profile = os.environ["FROG_PROFILE"]
-if profile == "desktop-smoke" and os.environ["DESKTOP_WRONG_PIXEL"] == "1":
+if profile in ("desktop-smoke", "desktop-soak-10m") and \
+        os.environ["DESKTOP_WRONG_PIXEL"] == "1":
     pixels = bytes((pixels[0] ^ 1,)) + pixels[1:]
 cursor = None
 if profile in ("poudland-builtin-smoke", "poudland-e2e-smoke",
-               "desktop-smoke"):
+               "desktop-smoke", "desktop-soak-10m"):
     with open(os.environ["CURSOR_BMP"], "rb") as stream:
         bitmap = stream.read()
     if len(bitmap) != 9338 or bitmap[:2] != b"BM":
@@ -921,7 +980,8 @@ def expected_poudland_e2e_pixel(x, y):
 
 for y in range(height):
     for x in range(width):
-        if profile in ("poudland-builtin-smoke", "desktop-smoke"):
+        if profile in ("poudland-builtin-smoke", "desktop-smoke",
+                       "desktop-soak-10m"):
             expected = expected_poudland_pixel(x, y)
         elif profile == "poudland-e2e-smoke":
             expected = expected_poudland_e2e_pixel(x, y)
@@ -1038,6 +1098,41 @@ if sync_positions[6] <= sync_positions[4]:
 PY
 }
 
+validate_desktop_soak_records()
+{
+    local debug_log=$1
+    DEBUG_LOG="$debug_log" python3 - <<'PY'
+import os
+import sys
+
+with open(os.environ["DEBUG_LOG"], "r", encoding="ascii",
+          errors="replace") as source:
+    lines = source.read().splitlines()
+
+required = ["FROGTEST SYNC desktop-soak-start"]
+required.extend(
+    f"FROGTEST HEARTBEAT desktop-soak minute={minute}"
+    for minute in range(1, 11)
+)
+required.extend((
+    "FROGTEST CASE desktop-soak.state-stable PASS",
+    "FROGTEST CASE desktop-soak.resources PASS",
+    "FROGTEST SYNC desktop-soak-complete",
+))
+positions = []
+for record in required:
+    matches = [index for index, line in enumerate(lines) if line == record]
+    if len(matches) != 1:
+        print(f"required soak record {record!r} occurred {len(matches)} times",
+              file=sys.stderr)
+        raise SystemExit(1)
+    positions.append(matches[0])
+if positions != sorted(positions):
+    print("desktop soak records are out of order", file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+
 run_framebuffer_stage()
 {
     local stage=$1
@@ -1060,6 +1155,8 @@ run_framebuffer_stage()
         ready_marker=poudland-builtin-final-ready
     elif [ "$profile" = desktop-smoke ]; then
         ready_marker=desktop-idle-stable
+    elif [ "$profile" = desktop-soak-10m ]; then
+        ready_marker=desktop-soak-complete
     fi
     : >"$qmp_transcript"
 
@@ -1141,9 +1238,11 @@ run_framebuffer_stage()
        ! qmp_inject_poudland_builtin "$qmp_socket" "$debug_log" \
            "$qmp_input_transcript" 2>"$stage_dir/qmp-input-error.log"; then
         qmp_failed=1
-    elif [ "$profile" = desktop-smoke ] &&
+    elif { [ "$profile" = desktop-smoke ] ||
+           [ "$profile" = desktop-soak-10m ]; } &&
          ! qmp_inject_desktop "$qmp_socket" "$debug_log" \
-             "$qmp_input_transcript" 2>"$stage_dir/qmp-input-error.log"; then
+             "$qmp_input_transcript" "$screenshot" \
+             2>"$stage_dir/qmp-input-error.log"; then
         qmp_failed=1
     fi
     if [ "$qmp_failed" -eq 1 ]; then
@@ -1165,6 +1264,47 @@ run_framebuffer_stage()
             classification=EXPECTED_MARKER_MISSING
         else
             classification=QMP_FAILED
+        fi
+        return
+    fi
+    if [ "$profile" = desktop-soak-10m ]; then
+        wait "$runner_pid"
+        qemu_status=$?
+        local desktop_records_ok=1
+
+        if ! validate_desktop_records "$debug_log" \
+                2>"$stage_dir/guest-state-validator.log"; then
+            desktop_records_ok=0
+        fi
+        if ! validate_desktop_soak_records "$debug_log" \
+                2>>"$stage_dir/guest-state-validator.log"; then
+            desktop_records_ok=0
+        fi
+        if grep -q '\[PANIC\]' "$debug_log" 2>/dev/null; then
+            classification=PANIC
+        elif grep -q 'ASSERT_FAILED' "$debug_log" 2>/dev/null; then
+            classification=ASSERT_FAILED
+        elif grep -qi 'triple fault' "$qemu_log" 2>/dev/null; then
+            classification=TRIPLE_FAULT
+        elif grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
+                     "$debug_log" 2>/dev/null; then
+            classification=GUEST_TEST_FAILED
+        elif [ "$qemu_status" -ne 0 ]; then
+            classification=EARLY_QEMU_EXIT
+        elif ! grep -q '^FROGTEST v=1 BEGIN profile=desktop-soak-10m$' \
+                    "$debug_log" 2>/dev/null; then
+            classification=EXPECTED_MARKER_MISSING
+        elif [ "$desktop_records_ok" -ne 1 ]; then
+            classification=GUEST_STATE_MISMATCH
+        elif validate_framebuffer_ppm "$screenshot" \
+                2>"$stage_dir/framebuffer-validator.log"; then
+            read -r framebuffer_width framebuffer_height \
+                <"$work_dir/framebuffer-meta"
+            soak_heartbeat_count=10
+            soak_resources_stable=true
+            classification=PASS
+        else
+            classification=FRAMEBUFFER_MISMATCH
         fi
         return
     fi
@@ -1325,10 +1465,10 @@ build_desktop_test_root()
     mkdir -p "$image_dir" "$log_dir"
     make -C "$repo_dir/tools" mkfrogfs_image >"$build_log" 2>&1 || return 1
     make -C "$repo_dir/core/apps" QEMU_TEST=1 \
-        FROG_TEST_PROFILE=desktop-smoke clean-production \
+        FROG_TEST_PROFILE="$profile" clean-production \
         >>"$build_log" 2>&1 || return 1
     make -C "$repo_dir/core/apps" QEMU_TEST=1 \
-        FROG_TEST_PROFILE=desktop-smoke production \
+        FROG_TEST_PROFILE="$profile" production \
         >>"$build_log" 2>&1 || return 1
     "$repo_dir/tools/test-production-apps.sh" \
         "$repo_dir/core/apps/build/compositor" \
@@ -1384,7 +1524,8 @@ build_desktop_test_root()
 }
 
 data_disk_source="$repo_dir/../hd80M.img"
-if [ "$profile" = desktop-smoke ]; then
+if [ "$profile" = desktop-smoke ] ||
+   [ "$profile" = desktop-soak-10m ]; then
     build_desktop_test_root || {
         preserve_result
         exit 1
@@ -1424,7 +1565,8 @@ for stage in "${stages[@]}"; do
        [ "$profile" = framebuffer-mmap-smoke ] ||
        [ "$profile" = poudland-builtin-smoke ] ||
        [ "$profile" = poudland-e2e-smoke ] ||
-       [ "$profile" = desktop-smoke ]; then
+       [ "$profile" = desktop-smoke ] ||
+       [ "$profile" = desktop-soak-10m ]; then
         run_framebuffer_stage "$stage"
     elif [ "$profile" = input-smoke ]; then
         run_input_stage "$stage"
@@ -1432,7 +1574,8 @@ for stage in "${stages[@]}"; do
         run_stage "$stage"
     fi
 
-    if [ "$profile" = desktop-smoke ]; then
+    if [ "$profile" = desktop-smoke ] ||
+       [ "$profile" = desktop-soak-10m ]; then
         base_disk_sha_after=$(sha256sum "$desktop_base_disk" |
                               awk '{print $1}') || {
             classification=BASE_DISK_MISSING

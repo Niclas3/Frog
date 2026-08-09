@@ -33,13 +33,13 @@
 - [x] Task 13: Connect HELLO/create/close end to end.
 - [x] Task 14: Complete pointer, keyboard, focus, drag, and damage behavior.
 - [x] Task 15: Launch and supervise graphical children from user init.
-- [ ] Checkpoint D: Normal boot loads both ELFs and completes the fixed interaction scenario.
+- [x] Checkpoint D: Normal boot loads both ELFs and completes the fixed interaction scenario.
 
 ## Phase 5: Automated acceptance
 
-- [ ] Task 16: Add guest desktop-smoke state reporting.
-- [ ] Task 17: Add the 16 MiB host desktop-smoke profile.
-- [ ] Task 18: Add the separate ten-minute desktop soak.
+- [x] Task 16: Add guest desktop-smoke state reporting.
+- [x] Task 17: Add the 16 MiB host desktop-smoke profile.
+- [x] Task 18: Add the separate ten-minute desktop soak.
 - [ ] Final checkpoint: All existing regressions, desktop-smoke, soak, screenshot, and cleanup evidence pass.
 
 ## Deferred after P0
