@@ -2,7 +2,7 @@ include ../../Makefile.os_rules
 
 OBJCOPY ?= objcopy
 
-USER_PROFILES := basic process disk_prepare framebuffer_mmap anonymous_mmap user_allocator packagefs packagefs_lifecycle packagefs_userlib poudland_v1_connect poudland_v1_lifecycle poudland_v1_version poudland_v1_errno poudland_v1_id poudland_v1_routing poudland_v1_retry poudland_v1_create poudland_v1_close poudland_v1_error poudland_v1_protocol poudland_v1_fatal poudland_v1_overflow poudland_v1_hup poudland_builtin input time wait2
+USER_PROFILES := basic graphical_init process disk_prepare framebuffer_mmap anonymous_mmap user_allocator packagefs packagefs_lifecycle packagefs_userlib poudland_v1_connect poudland_v1_lifecycle poudland_v1_version poudland_v1_errno poudland_v1_id poudland_v1_routing poudland_v1_retry poudland_v1_create poudland_v1_close poudland_v1_error poudland_v1_protocol poudland_v1_fatal poudland_v1_overflow poudland_v1_hup poudland_builtin input time wait2
 USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 EXEC_TARGET_BLOB := $(BUILD_DIR)/exec_target_blob.o
 POUDLAND_P0_ELF_BLOB := $(BUILD_DIR)/poudland_p0_elf_blob.o
@@ -36,6 +36,21 @@ FORCE:
 $(BUILD_DIR)/user_smoke_basic_user.o: user_smoke.c
 	$(CC) $(USER_CFLAGS) -DUSER_SMOKE_BASIC \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_basic_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_graphical_init_user.o: graphical_init.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_graphical_init_user.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_graphical_init_start.o: ../apps/start.s
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_graphical_init_start.d \
+		-o $@ $<
+
+$(BUILD_DIR)/user_smoke_graphical_init_runtime.o: ../kernel/syscall.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_graphical_init_runtime.d \
 		-o $@ $<
 
 $(BUILD_DIR)/user_smoke_process_user.o: user_smoke.c
@@ -246,6 +261,15 @@ $(BUILD_DIR)/user_smoke_process.elf: \
 	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
 		$(BUILD_DIR)/user_smoke_process_user.o \
 		$(BUILD_DIR)/user_smoke_process_runtime.o
+
+$(BUILD_DIR)/user_smoke_graphical_init.elf: \
+	$(BUILD_DIR)/user_smoke_graphical_init_start.o \
+	$(BUILD_DIR)/user_smoke_graphical_init_user.o \
+	$(BUILD_DIR)/user_smoke_graphical_init_runtime.o user_smoke.ld
+	$(LD) --gc-sections -m elf_i386 -T user_smoke.ld -o $@ \
+		$(BUILD_DIR)/user_smoke_graphical_init_start.o \
+		$(BUILD_DIR)/user_smoke_graphical_init_user.o \
+		$(BUILD_DIR)/user_smoke_graphical_init_runtime.o
 
 $(BUILD_DIR)/user_smoke_disk_prepare.elf: \
 	$(BUILD_DIR)/user_smoke_disk_prepare_user.o \

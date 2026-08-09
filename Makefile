@@ -1,6 +1,8 @@
 include ./Makefile.os_rules
 BOCHS := bochs -q
-DISK = hd.img
+BOOT_DISK_TEMPLATE = ../hd.img
+FROG_BOOT_IMAGE = build/frog-boot.img
+DISK = $(FROG_BOOT_IMAGE)
 INIT_BOOT_CODE = MBR.bin
 LOADER = loader.img
 CORE   = core/build/core.img
@@ -16,28 +18,55 @@ LOADER_SECTOR_COUNT := 11
 CORE_START_SECTOR := 13
 CORE_SECTOR_COUNT := 512
 
+ifeq ($(QEMU_TEST),1)
+LOADER_AD_FLAG := -DVGA_ENABLE
+NORMAL_RUNTIME_DEP :=
+RUNTIME_DATA_IMAGE := hd80M.img
+else
+LOADER_AD_FLAG := -DFRAMEBUFFER_TEST
+NORMAL_RUNTIME_DEP := frog-root.img
+RUNTIME_DATA_IMAGE := $(FROG_ROOT_IMAGE)
+endif
+BOOT_DISK_DEP := frog-boot.img
+
 # Use ELF format
 #kernel code ###########################
-core.img:
+core.img: FORCE
+	cd ./core && $(MAKE) clean
 	cd ./core && $(MAKE) core
 
 # OS code with symbol for debug
-core_symbol.img:
+core_symbol.img: core.img FORCE
 	cd ./core && $(MAKE) debug
 ##########################################
 
 #bootloader
-loader.img:                           #
-	cd ./booter && $(MAKE) $@
+loader.img: FORCE                    #
+	@mkdir -p $(dir $(FROG_ROOT_IMAGE))
+	cd ./booter && $(AS) $(LOADER_AD_FLAG) -p $(AS_INCLUDE) -f bin \
+		-o ../build/loader.img.tmp loader.s
+	mv -f build/loader.img.tmp $@
 #Initial Boot code for floppy
 ipl10.bin:
 	cd ./booter && $(MAKE) $@
 #Initial Boot code for hard disk
-MBR.bin:
-	cd ./booter && $(MAKE) $@
+MBR.bin: FORCE
+	@mkdir -p $(dir $(FROG_ROOT_IMAGE))
+	cd ./booter && $(AS) -p $(AS_INCLUDE) -f bin \
+		-o ../build/MBR.bin.tmp MBR.s
+	mv -f build/MBR.bin.tmp $@
 ##############################################################
 
-.PHONY:clean clean-all font start reset newimg mount umount load_core init_boot_code frog-root.img frog-root-verify frog-root-test
+.PHONY: clean clean-all font start reset newimg mount umount load_core \
+	init_boot_code frog-boot.img frog-root.img frog-root-verify \
+	frog-root-test FORCE
+
+FORCE:
+
+frog-boot.img: FORCE
+	@mkdir -p $(dir $(FROG_BOOT_IMAGE))
+	cp $(BOOT_DISK_TEMPLATE) $(FROG_BOOT_IMAGE).tmp
+	mv -f $(FROG_BOOT_IMAGE).tmp $(FROG_BOOT_IMAGE)
 
 # Tools ###################################################### 
 # Generate homemade font
@@ -77,8 +106,7 @@ clean-all: clean
 	# cd ./tools  && $(MAKE) clean
 
 # a new disk image for kernel install
-newimg:
-	cp ../hd.img ./$(DISK)
+newimg: frog-boot.img
 
 # a new file 80M disk image
 newhd80img:
@@ -95,8 +123,8 @@ load_core: core.img
 ## BUILD commands
 
 # Burn `initial boot code` into first kernel disk.
-init_boot_code: $(INIT_BOOT_CODE)
-	dd if=$< of=$(DISK) bs=512 count=360 conv=notrunc
+init_boot_code: $(BOOT_DISK_DEP) $(INIT_BOOT_CODE)
+	dd if=$(INIT_BOOT_CODE) of=$(DISK) bs=512 count=360 conv=notrunc
 
 # mount all things
 # mount_debug keeps core_symbol.img for GDB, but boots the stripped core.img.
@@ -106,7 +134,7 @@ init_boot_code: $(INIT_BOOT_CODE)
 # 3. Burn `font`
 # 4. Burn test things (programs)
 # 5. Burn test things (images)
-mount: init_boot_code loader.img core.img font
+mount: $(NORMAL_RUNTIME_DEP) init_boot_code loader.img core.img font
 	@loader_size=$$(wc -c < "$(LOADER)"); \
 	loader_limit=$$(($(LOADER_SECTOR_COUNT) * $(SECTOR_SIZE))); \
 	if [ "$$loader_size" -gt "$$loader_limit" ]; then \
@@ -122,10 +150,12 @@ mount: init_boot_code loader.img core.img font
 	dd if=$(LOADER) of=$(DISK) bs=$(SECTOR_SIZE) count=$(LOADER_SECTOR_COUNT) seek=2 conv=notrunc #loader
 	dd if=$(CORE) of=$(DISK) bs=$(SECTOR_SIZE) count=$(CORE_SECTOR_COUNT) seek=$(CORE_START_SECTOR) conv=notrunc #core, reserved through sector 524
 	dd if=$(FONT) of=$(DISK) bs=512 count=300 seek=2048 conv=notrunc #font.img for now size 4k place to offset 1M
+ifeq ($(QEMU_TEST),1)
 	dd if=$(TEST_PROC) of=$(DISK) bs=512 count=300 seek=3000 conv=notrunc
 	dd if=$(TEST_IMG) of=$(DISK) bs=512 count=300 seek=6144 conv=notrunc # place to 3M img size < 150k
+endif
 
-mount_debug: init_boot_code loader.img core.img core_symbol.img font
+mount_debug: $(NORMAL_RUNTIME_DEP) init_boot_code loader.img core.img core_symbol.img font
 	@loader_size=$$(wc -c < "$(LOADER)"); \
 	loader_limit=$$(($(LOADER_SECTOR_COUNT) * $(SECTOR_SIZE))); \
 	if [ "$$loader_size" -gt "$$loader_limit" ]; then \
@@ -154,12 +184,15 @@ mount_debug: init_boot_code loader.img core.img core_symbol.img font
 # -enable-kvm
 # -enable-kvm \
 # NOTE: -enable-kvm makes RTC and disk accesses slow for me, but can be better accuracy
-run:
+run: mount
 	qemu-system-i386 \
 	-monitor stdio \
-	-m 1G \
+	-chardev file,id=frogdebug,path=build/frog-run-debugcon.log \
+	-device isa-debugcon,iobase=0xe9,chardev=frogdebug \
+	-m 16M \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
+	-drive format=raw,file=$(RUNTIME_DATA_IMAGE),if=ide,index=1,media=disk \
+	-vga std \
 	-rtc base=localtime,clock=host \
 	-audiodev id=alsa,driver=alsa \
 	-machine pcspk-audiodev=alsa \
@@ -178,10 +211,13 @@ debug_run: mount_debug
 	-S \
 	-s \
 	-monitor stdio \
+	-chardev file,id=frogdebug,path=build/frog-debug-debugcon.log \
+	-device isa-debugcon,iobase=0xe9,chardev=frogdebug \
 	-cpu 486 \
 	-m 1G \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
+	-drive format=raw,file=$(RUNTIME_DATA_IMAGE),if=ide,index=1,media=disk \
+	-vga std \
 	-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
 	-device e1000,netdev=net0 \
 	-rtc base=localtime,clock=host \
@@ -193,9 +229,12 @@ debug_runv1: mount_debug
 	-no-reboot \
 	-d int,cpu_reset \
 	-monitor stdio \
+	-chardev file,id=frogdebug,path=build/frog-debugv1-debugcon.log \
+	-device isa-debugcon,iobase=0xe9,chardev=frogdebug \
 	-m 1G \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	-drive format=raw,file=hd80M.img,if=ide,index=1,media=disk \
+	-drive format=raw,file=$(RUNTIME_DATA_IMAGE),if=ide,index=1,media=disk \
+	-vga std \
 	-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
 	-device e1000,netdev=net0 \
 	-rtc base=localtime,clock=host \

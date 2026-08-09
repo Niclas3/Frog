@@ -32,7 +32,7 @@
 - [x] Task 12: Produce installable compositor and desktop ELFs.
 - [x] Task 13: Connect HELLO/create/close end to end.
 - [x] Task 14: Complete pointer, keyboard, focus, drag, and damage behavior.
-- [ ] Task 15: Launch and supervise graphical children from user init.
+- [x] Task 15: Launch and supervise graphical children from user init.
 - [ ] Checkpoint D: Normal boot loads both ELFs and completes the fixed interaction scenario.
 
 ## Phase 5: Automated acceptance

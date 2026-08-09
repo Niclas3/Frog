@@ -111,6 +111,8 @@ static int frogfs_test_rollback_result;
 
 extern const uint_8 _binary_user_smoke_basic_bin_start[];
 extern const uint_8 _binary_user_smoke_basic_bin_end[];
+extern const uint_8 _binary_user_smoke_graphical_init_bin_start[];
+extern const uint_8 _binary_user_smoke_graphical_init_bin_end[];
 extern const uint_8 _binary_user_smoke_process_bin_start[];
 extern const uint_8 _binary_user_smoke_process_bin_end[];
 extern const uint_8 _binary_user_smoke_disk_prepare_bin_start[];
@@ -306,9 +308,12 @@ static void rest_init(void)
       defined(CONFIG_FROG_TEST_STAGE_PREPARE)
         image_start = _binary_user_smoke_disk_prepare_bin_start;
         image_end = _binary_user_smoke_disk_prepare_bin_end;
-#else
+#elif defined(CONFIG_QEMU_TEST)
         image_start = _binary_user_smoke_basic_bin_start;
         image_end = _binary_user_smoke_basic_bin_end;
+#else
+        image_start = _binary_user_smoke_graphical_init_bin_start;
+        image_end = _binary_user_smoke_graphical_init_bin_end;
 #endif
 
         const struct user_image image = {
@@ -574,7 +579,8 @@ __visible void __noreturn start_kernel(void)
         frogfs_mount_flags = FROGFS_MOUNT_FORMAT;
 #endif
         const char *frogfs_device = "/dev/sdbp8";
-#if defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
+#if !defined(CONFIG_QEMU_TEST) || \
+    defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
     defined(CONFIG_FROG_TEST_FROGFS_EXEC) || \
     defined(CONFIG_FROG_TEST_POUDLAND_E2E)
         frogfs_device = "/dev/sdbp1";
@@ -611,9 +617,8 @@ __visible void __noreturn start_kernel(void)
                 frog_test_abort("frogfs-exec-mount");
 #else
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
-            frogfs_rollback_ret < 0)
-                WARN("[frogfs]: init=%d mount=%d rollback=%d",
-                     frogfs_init_ret, frogfs_mount_ret, frogfs_rollback_ret);
+                frogfs_rollback_ret < 0)
+                PANIC("frogfs production mount failed");
 #endif
 #endif
 

@@ -59,6 +59,10 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/refcount.o $(BUILD_DIR)/fifo.o $(BUILD_DIR)/string.o $(BUILD_DIR)/ioqueue.o \
 	 $(BUILD_DIR)/cpu.o $(BUILD_DIR)/boot.o \
 
+ifneq ($(QEMU_TEST),1)
+obj-y += $(BUILD_DIR)/user_smoke_graphical_init_blob.o
+endif
+
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
 obj-y += $(BUILD_DIR)/user_smoke_poudland_builtin_blob.o \
 	 $(BUILD_DIR)/poudland_p0_elf_blob.o \

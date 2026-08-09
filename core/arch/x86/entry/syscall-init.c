@@ -47,6 +47,14 @@ static int_32 sys_ni_syscall(void)
     return -ENOSYS;
 }
 
+static int_32 sys_putc(uint_32 value)
+{
+    char text[2] = {(char) value, '\0'};
+
+    printk("%s", text);
+    return 0;
+}
+
 static int_32 sys_test_sync(uint_32 command)
 {
 #ifdef CONFIG_FROG_TEST_FRAMEBUFFER_MMAP
@@ -745,6 +753,7 @@ void syscall_init(void)
     syscall_table[SYS_CLOSE]   = sys_close;
     syscall_table[SYS_READ]    = sys_read;
     syscall_table[SYS_WRITE]   = sys_write;
+    syscall_table[SYS_PUTC]    = sys_putc;
     syscall_table[SYS_SEEK]    = sys_lseek;
     syscall_table[SYS_UNLINK]  = sys_unlink;
     syscall_table[SYS_MKDIR]   = sys_mkdir;

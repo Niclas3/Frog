@@ -64,6 +64,60 @@ static struct poudland_p0_server_peer *allocate_peer(
         return NULL;
 }
 
+static bool protocol_peer_welcomed(
+    const struct poudland_p0_protocol *protocol,
+    frog_pkg_peer_id peer_id)
+{
+        uint_32 index;
+
+        for (index = 0; index < POUDLAND_P0_PROTOCOL_SESSION_MAX; ++index) {
+                const struct poudland_p0_protocol_session *session =
+                    &protocol->sessions[index];
+
+                if (session->active && session->welcomed &&
+                    session->peer_id == peer_id)
+                        return true;
+        }
+        return false;
+}
+
+static void record_delivered_reply(struct poudland_p0_server *server,
+                                   struct poudland_p0_server_peer *peer,
+                                   const void *data, uint_32 size)
+{
+        const struct poudland_v1_header *header = data;
+
+        if (size < POUDLAND_V1_HEADER_SIZE ||
+            header->type != POUDLAND_V1_MSG_WELCOME ||
+            !protocol_peer_welcomed(&server->protocol, peer->peer_id))
+                return;
+        peer->welcomed = true;
+        server->served_client = true;
+}
+
+enum poudland_p0_server_lifecycle poudland_p0_server_lifecycle(
+    const struct poudland_p0_server *server, bool startup_expired)
+{
+        uint_32 index;
+
+        if (!server)
+                return POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT;
+        for (index = 0; index < POUDLAND_P0_PROTOCOL_SESSION_MAX; ++index) {
+                const struct poudland_p0_server_peer *peer =
+                    &server->peers[index];
+
+                if (!peer->welcomed)
+                        continue;
+                if (peer->active)
+                        return POUDLAND_P0_SERVER_CONTINUE;
+        }
+        if (server->served_client)
+                return POUDLAND_P0_SERVER_STOP_CLEAN;
+        return startup_expired
+                   ? POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT
+                   : POUDLAND_P0_SERVER_CONTINUE;
+}
+
 static void apply_damage(struct poudland_p0_server *server,
                          const struct poudland_p0_protocol_result *result)
 {
@@ -217,6 +271,8 @@ static bool flush_peer(struct poudland_p0_server *server,
                         tombstone_peer(server, peer);
                         return true;
                 }
+                record_delivered_reply(server, peer, pending->data,
+                                       pending->size);
                 clear_bytes(pending, sizeof(*pending));
                 peer->reply_head = (peer->reply_head + 1U) %
                                    POUDLAND_P0_REPLY_QUEUE_MAX;
@@ -256,8 +312,10 @@ static bool deliver_reply(struct poudland_p0_server *server,
         if (peer->reply_count != 0)
                 return enqueue_reply(peer, reply, reply_size);
         status = server->send(server, peer->peer_id, reply, reply_size);
-        if (status == 0)
+        if (status == 0) {
+                record_delivered_reply(server, peer, reply, reply_size);
                 return true;
+        }
         if (status == -EAGAIN)
                 return enqueue_reply(peer, reply, reply_size);
         tombstone_peer(server, peer);
@@ -455,6 +513,16 @@ bool poudland_p0_server_handle_key(
 }
 
 #ifndef POUDLAND_P0_SERVER_HOST_TEST
+#define POUDLAND_P0_STARTUP_TIMEOUT_SECONDS 5
+
+static bool timespec_at_or_after(const struct timespec *left,
+                                 const struct timespec *right)
+{
+        return left->tv_sec > right->tv_sec ||
+               (left->tv_sec == right->tv_sec &&
+                left->tv_nsec >= right->tv_nsec);
+}
+
 static int_32 packagefs_send(struct poudland_p0_server *server,
                              frog_pkg_peer_id peer_id,
                              const void *payload, uint_32 payload_size)
@@ -497,12 +565,18 @@ bool poudland_p0_server_run(struct poudland_p0_server *server,
                             struct poudland_p0_scene *scene)
 {
         struct pollfd descriptors[3];
+        struct timespec startup_deadline;
         const uint_16 errors = POLLERR | POLLHUP | POLLNVAL;
 
         if (!server || !scene || server->fd < 0 ||
             scene->keyboard_fd < 0 || scene->mouse_fd < 0)
                 return false;
+        if (clock_gettime(CLOCK_MONOTONIC, &startup_deadline) != 0)
+                return false;
+        startup_deadline.tv_sec += POUDLAND_P0_STARTUP_TIMEOUT_SECONDS;
         for (;;) {
+                enum poudland_p0_server_lifecycle lifecycle;
+                struct timespec now;
                 int_32 status;
 
                 descriptors[0].fd = server->fd;
@@ -519,6 +593,14 @@ bool poudland_p0_server_run(struct poudland_p0_server *server,
                     (descriptors[1].revents & errors) != 0 ||
                     (descriptors[2].revents & errors) != 0)
                         return false;
+                if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+                        return false;
+                lifecycle = poudland_p0_server_lifecycle(
+                    server, timespec_at_or_after(&now, &startup_deadline));
+                if (lifecycle == POUDLAND_P0_SERVER_STOP_CLEAN)
+                        return true;
+                if (lifecycle == POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT)
+                        return false;
                 if (status == 0)
                         continue;
                 if ((descriptors[0].revents & POLLIN) != 0) {
@@ -534,6 +616,13 @@ bool poudland_p0_server_run(struct poudland_p0_server *server,
                                         server, &message))
                                         return false;
                         }
+                        /* Drain the shared packagefs queue before deciding
+                         * that the last welcomed client is gone.  A HELLO
+                         * from another peer may follow that disconnect. */
+                        lifecycle = poudland_p0_server_lifecycle(
+                            server, false);
+                        if (lifecycle == POUDLAND_P0_SERVER_STOP_CLEAN)
+                                return true;
                 }
                 if ((descriptors[2].revents & POLLIN) != 0) {
                         for (;;) {

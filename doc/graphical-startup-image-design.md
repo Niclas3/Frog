@@ -59,9 +59,50 @@ One small user-mode graphical init performs the production startup sequence:
 2. fork and `execv("/test/desktop", ...)`;
 3. wait for child termination and report explicit launch or runtime failure.
 
+The init is an early embedded image selected only by a non-QEMU kernel build;
+its flat binary remains within the one-page early-image limit. Existing
+`CONFIG_QEMU_TEST` profiles keep their profile-specific smoke init (and the
+basic smoke init fallback), so production startup cannot change their guest
+markers.
+
+The shared startup status contract reserves desktop exits 70, 71, and 72 for
+connect timeout, compositor EOF/HUP (`-ECONNRESET`), and other runtime or
+protocol failure. Graphical init reserves 80 through 86 for compositor fork,
+desktop fork, compositor exec, desktop exec, compositor runtime, desktop
+runtime, and wait failure. Child exec failure exits with the matching reserved
+status, allowing the parent to distinguish it after `wait`. A compositor exit
+status of zero paired with desktop HUP is normal cleanup regardless of child
+reap order. Any other desktop status is a desktop runtime failure. The parent
+does not restart or kill either child and reaps every child it successfully
+started, including when desktop exits first.
+
+The compositor makes that final reap finite without adding a kill syscall or a
+test-only control path. It treats five seconds without any completed HELLO as a
+startup failure. After at least one completed HELLO, it keeps all welcomed
+clients alive and exits successfully only after the last welcomed peer's
+packagefs DISCONNECT record has been drained. A desktop fork or exec failure
+therefore ends through the compositor startup deadline; a desktop runtime
+failure closes its packagefs fd, and the resulting disconnect ends the
+compositor only when no other welcomed client remains.
+
+The embedded process is the kernel's PID 1 and must never invoke `SYS_EXIT`.
+After both children have been reaped, it emits `graphical-init status=NN`
+through the descriptor-free `SYS_PUTC` console/debug channel and remains
+resident in a one-second `wait2(count = 0)` loop. Normal `make run` captures
+that channel in `build/frog-run-debugcon.log`; the debug targets use matching
+`frog-debug*-debugcon.log` files. The 80--86 result is therefore visible even
+though PID 1 starts with no open file descriptors, without turning a completed
+or failed graphical session into the kernel's `init process must not exit`
+panic.
+
 Desktop connection tolerates the compositor bind race. `poudland_connect` retries only `-ENOENT` for at most 2000 milliseconds using finite `wait2(count = 0)` sleeps. Other errors return immediately.
 
 P0 does not automatically restart a failed child. If the Poudland Server exits, packagefs closes its service endpoint; the desktop observes EOF/HUP, the client library returns `-ECONNRESET`, and desktop releases its local state and exits.
+
+Normal boot initializes FrogFS, mounts `/dev/sdbp1` at `/test`, and fails fast
+if initialization, mount, or mount rollback fails. The existing disk smoke
+continues to own `/dev/sdbp8`; generated-image and exec profiles continue to
+use `/dev/sdbp1` as before.
 
 ## Poudland Client Runtime
 
@@ -80,7 +121,19 @@ copies the immutable base image into its unique temporary work directory and
 gives only that disposable copy to QEMU. This copy is test isolation, not a
 guest preparation phase.
 
-The normal run boot uses the same filesystem and exec path as production. QEMU test builds may call the existing test-report syscall from the same init, compositor, and desktop sources. The kernel converts those test-only reports into line-oriented `FROGTEST` records on port `0xe9`; the host runner captures them through `isa-debugcon`. Production builds compile out the test reports.
+`make run` builds and verifies `build/frog-root.img`, copies the immutable
+`../hd.img` template to `build/frog-boot.img`, freshly assembles the MBR and
+loader through writable temporary files, and burns only the MBR, loader,
+kernel, and font into that private boot disk. It selects the 1024x768x32
+framebuffer loader and launches QEMU with 16 MiB, `-vga std`, and the generated
+FrogFS image as the second IDE disk. Normal boot therefore neither mutates a
+stale checkout `hd.img` nor silently reuses an MBR older than `boot.inc`, and it
+no longer depends on fixed raw sectors for compositor or bitmap assets. Debug
+run targets retain their larger memory and debugging settings but use the same
+private boot disk, framebuffer loader, and generated second disk. Existing
+QEMU smoke profiles keep their current compile-time init selection, disposable
+data disk rules, and `FROGTEST` text; the production graphical init contains no
+`SYS_TEST_REPORT` or `FROGTEST` reporting.
 
 The host runner preserves a failing disposable disk, debugcon log, QEMU log, QMP transcript, screenshot, and normalized `result.json`. It never mutates the reusable base image.
 

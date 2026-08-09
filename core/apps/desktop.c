@@ -1,6 +1,7 @@
 #include <frog/syscall.h>
 #include <frog/types.h>
 #include <frog/errno.h>
+#include <frog/graphical_startup.h>
 #include <gua/poudland_v1.h>
 
 #define DESKTOP_EXEC_SMOKE_STATUS 43
@@ -129,20 +130,32 @@ static bool desktop_event_apply(
         return false;
 }
 
+static int desktop_failure_status(int_32 status, bool connecting)
+{
+        if (connecting && status == -ETIMEDOUT)
+                return FROG_DESKTOP_EXIT_CONNECT_TIMEOUT;
+        if (status == -ECONNRESET)
+                return FROG_DESKTOP_EXIT_COMPOSITOR_HUP;
+        return FROG_DESKTOP_EXIT_RUNTIME_FAILURE;
+}
+
 static int run_desktop(void)
 {
         uint_32 window_ids[3];
         struct desktop_window_state window_states[2] = {0};
         uint_32 index;
         int_32 status;
+        int result = FROG_DESKTOP_EXIT_RUNTIME_FAILURE;
 
         poudland_v1_context_init(&desktop_poudland);
         status = poudland_v1_connect(
             &desktop_poudland, "compositor", DESKTOP_REQUEST_TIMEOUT_MS,
             POUDLAND_V1_CAP_CONFIGURE | POUDLAND_V1_CAP_POINTER |
                 POUDLAND_V1_CAP_KEYBOARD);
-        if (status != 0)
+        if (status != 0) {
+                result = desktop_failure_status(status, true);
                 goto failure;
+        }
         for (index = 0; index < 3; ++index) {
                 struct poudland_v1_window_init initialized;
                 uint_32 previous;
@@ -150,8 +163,11 @@ static int run_desktop(void)
                 status = poudland_v1_window_create(
                     &desktop_poudland, &desktop_windows[index],
                     DESKTOP_REQUEST_TIMEOUT_MS, &initialized);
-                if (status != 0 ||
-                    !window_init_matches(&desktop_windows[index],
+                if (status != 0) {
+                        result = desktop_failure_status(status, false);
+                        goto failure;
+                }
+                if (!window_init_matches(&desktop_windows[index],
                                          &initialized))
                         goto failure;
                 for (previous = 0; previous < index; ++previous) {
@@ -166,8 +182,10 @@ static int run_desktop(void)
         }
         status = poudland_v1_window_close(
             &desktop_poudland, window_ids[2], DESKTOP_REQUEST_TIMEOUT_MS);
-        if (status != 0)
+        if (status != 0) {
+                result = desktop_failure_status(status, false);
                 goto failure;
+        }
         for (;;) {
                 struct poudland_v1_message event;
 
@@ -175,15 +193,18 @@ static int run_desktop(void)
                     &desktop_poudland, DESKTOP_EVENT_TIMEOUT_MS, &event);
                 if (status == -ETIMEDOUT)
                         continue;
-                if (status != 0 ||
-                    !desktop_event_apply(&event, window_ids,
+                if (status != 0) {
+                        result = desktop_failure_status(status, false);
+                        goto failure;
+                }
+                if (!desktop_event_apply(&event, window_ids,
                                          window_states))
                         goto failure;
         }
 
 failure:
         (void) poudland_v1_disconnect(&desktop_poudland);
-        return 1;
+        return result;
 }
 
 int main(int argc, char **argv)

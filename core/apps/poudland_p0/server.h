@@ -28,6 +28,7 @@ struct poudland_p0_server_peer {
         bool active;
         bool tombstone;
         bool closing;
+        bool welcomed;
         frog_pkg_peer_id peer_id;
         uint_32 reply_head;
         uint_32 reply_count;
@@ -37,12 +38,19 @@ struct poudland_p0_server_peer {
 
 struct poudland_p0_server {
         int_32 fd;
+        bool served_client;
         struct poudland_p0_protocol protocol;
         struct poudland_p0_server_peer
             peers[POUDLAND_P0_PROTOCOL_SESSION_MAX];
         poudland_p0_server_send_fn send;
         poudland_p0_server_damage_fn damage;
         void *transport_context;
+};
+
+enum poudland_p0_server_lifecycle {
+        POUDLAND_P0_SERVER_CONTINUE = 0,
+        POUDLAND_P0_SERVER_STOP_CLEAN,
+        POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT,
 };
 
 void poudland_p0_server_state_init(
@@ -57,6 +65,8 @@ bool poudland_p0_server_handle_pointer(
     int_32 screen_y, uint_32 buttons);
 bool poudland_p0_server_handle_key(
     struct poudland_p0_server *server, uint_8 key);
+enum poudland_p0_server_lifecycle poudland_p0_server_lifecycle(
+    const struct poudland_p0_server *server, bool startup_expired);
 
 #ifndef POUDLAND_P0_SERVER_HOST_TEST
 int_32 poudland_p0_server_open(struct poudland_p0_server *server,

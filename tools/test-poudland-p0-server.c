@@ -7,6 +7,7 @@
 struct fake_transport {
         bool blocked;
         frog_pkg_peer_id blocked_peer;
+        int_32 send_error;
         uint_32 send_calls;
         uint_32 sent_count;
         uint_32 sent_types[FAKE_SENT_MAX];
@@ -30,6 +31,8 @@ static int_32 fake_send(struct poudland_p0_server *server,
         fake->send_calls++;
         if (fake->blocked && fake->blocked_peer == peer_id)
                 return -EAGAIN;
+        if (fake->send_error != 0)
+                return fake->send_error;
         if (payload_size < POUDLAND_V1_HEADER_SIZE ||
             fake->sent_count >= FAKE_SENT_MAX)
                 return -EIO;
@@ -549,6 +552,111 @@ static int full_replaceable_queue_is_peer_local(void)
         return 0;
 }
 
+static int lifecycle_contract(void)
+{
+        struct poudland_p0_server server;
+        struct fake_transport fake = {0};
+        struct frog_pkg_message message;
+        struct test_frame frame;
+
+        poudland_p0_server_state_init(&server, 1024, 768,
+                                      fake_send, fake_damage, &fake);
+        if (poudland_p0_server_lifecycle(&server, false) !=
+                POUDLAND_P0_SERVER_CONTINUE ||
+            poudland_p0_server_lifecycle(&server, true) !=
+                POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT)
+                return 60;
+
+        prepare_hello(&frame, 1);
+        prepare_data(&message, 71, &frame);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            !server.peers[0].welcomed ||
+            poudland_p0_server_lifecycle(&server, true) !=
+                POUDLAND_P0_SERVER_CONTINUE)
+                return 61;
+        prepare_hello(&frame, 2);
+        prepare_data(&message, 72, &frame);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            !server.peers[1].welcomed)
+                return 62;
+
+        prepare_control(&message, 71, FROG_PKG_DISCONNECT);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            poudland_p0_server_lifecycle(&server, false) !=
+                POUDLAND_P0_SERVER_CONTINUE)
+                return 63;
+        prepare_control(&message, 72, FROG_PKG_DISCONNECT);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            poudland_p0_server_lifecycle(&server, false) !=
+                POUDLAND_P0_SERVER_STOP_CLEAN)
+                return 64;
+        return 0;
+}
+
+static int welcome_delivery_contract(void)
+{
+        struct poudland_p0_server server;
+        struct fake_transport fake = {
+            .blocked = true,
+            .blocked_peer = 81,
+        };
+        struct frog_pkg_message message;
+        struct test_frame frame;
+
+        poudland_p0_server_state_init(&server, 1024, 768,
+                                      fake_send, fake_damage, &fake);
+        prepare_hello(&frame, 1);
+        prepare_data(&message, 81, &frame);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            server.peers[0].reply_count != 1 ||
+            server.peers[0].welcomed || server.served_client ||
+            poudland_p0_server_lifecycle(&server, true) !=
+                POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT)
+                return 70;
+        prepare_control(&message, 81, FROG_PKG_DISCONNECT);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            server.served_client ||
+            poudland_p0_server_lifecycle(&server, false) !=
+                POUDLAND_P0_SERVER_CONTINUE)
+                return 71;
+
+        fake = (struct fake_transport) {
+            .blocked = true,
+            .blocked_peer = 82,
+        };
+        poudland_p0_server_state_init(&server, 1024, 768,
+                                      fake_send, fake_damage, &fake);
+        prepare_hello(&frame, 2);
+        prepare_data(&message, 82, &frame);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            server.peers[0].welcomed || server.served_client)
+                return 72;
+        fake.blocked = false;
+        prepare_control(&message, 82, FROG_PKG_WRITABLE);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            !server.peers[0].welcomed || !server.served_client ||
+            server.peers[0].reply_count != 0)
+                return 73;
+        prepare_control(&message, 82, FROG_PKG_DISCONNECT);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            poudland_p0_server_lifecycle(&server, false) !=
+                POUDLAND_P0_SERVER_STOP_CLEAN)
+                return 74;
+
+        fake = (struct fake_transport) {.send_error = -EIO};
+        poudland_p0_server_state_init(&server, 1024, 768,
+                                      fake_send, fake_damage, &fake);
+        prepare_hello(&frame, 3);
+        prepare_data(&message, 83, &frame);
+        if (!poudland_p0_server_handle_record(&server, &message) ||
+            server.peers[0].welcomed || server.served_client ||
+            !server.peers[0].tombstone ||
+            poudland_p0_server_lifecycle(&server, true) !=
+                POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT)
+                return 75;
+        return 0;
+}
+
 int main(void)
 {
         int result = ordered_backpressure();
@@ -566,6 +674,11 @@ int main(void)
         if (result != 0)
                 return result;
         result = configure_and_move_replacement();
-        return result != 0 ? result :
-               full_replaceable_queue_is_peer_local();
+        if (result != 0)
+                return result;
+        result = full_replaceable_queue_is_peer_local();
+        if (result != 0)
+                return result;
+        result = lifecycle_contract();
+        return result != 0 ? result : welcome_delivery_contract();
 }

@@ -1,4 +1,5 @@
 #include <frog/errno.h>
+#include <frog/graphical_startup.h>
 #include <gua/poudland_v1.h>
 
 struct pollfd;
@@ -36,6 +37,8 @@ static uint_32 event_count;
 static uint_32 disconnect_count;
 static uint_32 mismatch;
 static uint_32 fail_call;
+static int_32 failure_status;
+static int_32 terminal_event_status;
 static bool bad_echo;
 static bool duplicate_id;
 static bool zero_id;
@@ -74,6 +77,8 @@ static void reset_test(void)
         disconnect_count = 0;
         mismatch = 0;
         fail_call = 0;
+        failure_status = -EIO;
+        terminal_event_status = -EIO;
         bad_echo = false;
         duplicate_id = false;
         zero_id = false;
@@ -101,7 +106,7 @@ int_32 poudland_v1_connect(struct poudland_v1_context *context,
                                     POUDLAND_V1_CAP_KEYBOARD))
                 mismatch = 1;
         if (fail_call == CALL_CONNECT)
-                return -ECONNREFUSED;
+                return failure_status;
         context->fd = 4;
         context->connected = 1;
         return 0;
@@ -125,7 +130,7 @@ int_32 poudland_v1_window_create(
                 mismatch = 1;
         create_count++;
         if (fail_call == CALL_CREATE && create_count == 2)
-                return -EIO;
+                return failure_status;
         result->window_id = zero_id && create_count == 3
                                 ? 0
                                 : duplicate_id && create_count == 3
@@ -148,7 +153,7 @@ int_32 poudland_v1_window_close(struct poudland_v1_context *context,
         if (!context->connected || window_id != expected_windows[2].id ||
             timeout_ms != DESKTOP_TIMEOUT_MS)
                 mismatch = 1;
-        return fail_call == CALL_CLOSE ? -EIO : 0;
+        return fail_call == CALL_CLOSE ? failure_status : 0;
 }
 
 int_32 poudland_v1_disconnect(struct poudland_v1_context *context)
@@ -218,7 +223,7 @@ int_32 poudland_v1_next_event(struct poudland_v1_context *context,
                 key->codepoint = 'a';
                 return 0;
         }
-        return event_count == 4 ? -ETIMEDOUT : -EIO;
+        return event_count == 4 ? -ETIMEDOUT : terminal_event_status;
 }
 
 static int run_normal(void)
@@ -239,7 +244,8 @@ static int success_sequence(void)
         uint_32 index;
 
         reset_test();
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 5 || disconnect_count != 1 ||
             call_count != sizeof(expected_calls) / sizeof(expected_calls[0]))
                 return 1;
@@ -254,57 +260,90 @@ static int failures_disconnect_and_stop(void)
 {
         reset_test();
         fail_call = CALL_CONNECT;
-        if (run_normal() != 1 || mismatch || create_count != 0 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 0 ||
             event_count != 0 || disconnect_count != 1)
                 return 10;
 
         reset_test();
         fail_call = CALL_CREATE;
-        if (run_normal() != 1 || mismatch || create_count != 2 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 2 ||
             event_count != 0 || disconnect_count != 1)
                 return 11;
 
         reset_test();
         fail_call = CALL_CLOSE;
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 0 || disconnect_count != 1)
                 return 12;
 
         reset_test();
         bad_echo = true;
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 0 || disconnect_count != 1)
                 return 13;
 
         reset_test();
         duplicate_id = true;
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 0 || disconnect_count != 1)
                 return 14;
 
         reset_test();
         zero_id = true;
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 0 || disconnect_count != 1)
                 return 15;
 
         reset_test();
         foreign_configure = true;
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 2 || disconnect_count != 1)
                 return 16;
 
         reset_test();
         wrong_key_action = true;
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 3 || disconnect_count != 1)
                 return 17;
 
         reset_test();
         unknown_pointer = true;
-        if (run_normal() != 1 || mismatch || create_count != 3 ||
+        if (run_normal() != FROG_DESKTOP_EXIT_RUNTIME_FAILURE || mismatch ||
+            create_count != 3 ||
             event_count != 1 || disconnect_count != 1)
                 return 18;
+        return 0;
+}
+
+static int distinct_exit_statuses(void)
+{
+        reset_test();
+        fail_call = CALL_CONNECT;
+        failure_status = -ETIMEDOUT;
+        if (run_normal() != FROG_DESKTOP_EXIT_CONNECT_TIMEOUT || mismatch ||
+            disconnect_count != 1)
+                return 30;
+
+        reset_test();
+        fail_call = CALL_CONNECT;
+        failure_status = -ECONNRESET;
+        if (run_normal() != FROG_DESKTOP_EXIT_COMPOSITOR_HUP || mismatch ||
+            disconnect_count != 1)
+                return 31;
+
+        reset_test();
+        terminal_event_status = -ECONNRESET;
+        if (run_normal() != FROG_DESKTOP_EXIT_COMPOSITOR_HUP || mismatch ||
+            event_count != 5 || disconnect_count != 1)
+                return 32;
         return 0;
 }
 
@@ -325,5 +364,8 @@ int main(void)
         if (result != 0)
                 return result;
         result = failures_disconnect_and_stop();
+        if (result != 0)
+                return result;
+        result = distinct_exit_statuses();
         return result != 0 ? result : exec_smoke_unchanged();
 }
