@@ -111,6 +111,12 @@ $(error frogfs-image-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_FROGFS_IMAGE
 endif
+ifeq ($(FROG_TEST_PROFILE),frogfs-exec-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error frogfs-exec-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_FROGFS_EXEC
+endif
 ifeq ($(FROG_TEST_PROFILE),anonymous-mmap-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error anonymous-mmap-smoke requires QEMU_TEST=1)

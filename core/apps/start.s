@@ -1,18 +1,17 @@
-[bits 32]
-
-extern main
-extern exit
-section .text
-global _start
-
+        .section .text._start,"ax",@progbits
+        .globl _start
+        .type _start, @function
 _start:
-;; there isn't env 
-    push ebx     ; push argv
-    push ecx     ; push argc
+        pushl %ebx
+        pushl %ecx
+        call main
+        addl $8, %esp
+        movl %eax, %ebx
+        movl $7, %eax
+        int $0x93
+1:
+        pause
+        jmp 1b
+        .size _start, .-_start
 
-    call main
-
-    ;exit process
-    push eax
-    call exit
-
+        .section .note.GNU-stack,"",@progbits

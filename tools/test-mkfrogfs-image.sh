@@ -83,6 +83,74 @@ if "$tool" --manifest "$absolute_manifest" --output "$absolute_image" \
 fi
 test ! -e "$absolute_image"
 
+valid_elf="$work_dir/valid.elf"
+elf_manifest="$work_dir/elf.manifest"
+elf_image="$work_dir/elf.img"
+python3 - "$valid_elf" <<'PY'
+import struct
+import sys
+
+image = bytearray(8192)
+image[:16] = b"\x7fELF\x01\x01\x01" + bytes(9)
+struct.pack_into("<HHIIIIIHHHHHH", image, 16,
+                 2, 3, 1, 0x08048100, 52, 0, 0,
+                 52, 32, 1, 0, 0, 0)
+struct.pack_into("<IIIIIIII", image, 52,
+                 1, 0, 0x08048000, 0x08048000,
+                 len(image), len(image), 5, 4096)
+image[0x100] = 0xC3
+with open(sys.argv[1], "wb") as stream:
+    stream.write(image)
+PY
+elf_hash=$(sha256sum "$valid_elf" | awk '{print $1}')
+{
+    printf 'frogfs-manifest 1\n'
+    printf 'elf /valid valid.elf 8192 %s\n' "$elf_hash"
+} >"$elf_manifest"
+"$tool" --manifest "$elf_manifest" --output "$elf_image"
+"$tool" --manifest "$elf_manifest" --output "$elf_image" --verify
+
+python3 - "$valid_elf" "$work_dir" <<'PY'
+import struct
+import sys
+
+source, output = sys.argv[1:]
+with open(source, "rb") as stream:
+    valid = stream.read()
+
+mutations = {
+    "machine": lambda image: struct.pack_into("<H", image, 18, 62),
+    "entry": lambda image: struct.pack_into("<I", image, 24, 0x08047000),
+    "file-range": lambda image: struct.pack_into("<I", image, 52 + 16, 9000),
+    "user-range": lambda image: struct.pack_into("<I", image, 52 + 8,
+                                                   0x07000000),
+    "page-limit": lambda image: struct.pack_into("<I", image, 52 + 20,
+                                                   4097 * 4096),
+    "dynamic": lambda image: struct.pack_into("<I", image, 52, 2),
+}
+for name, mutate in mutations.items():
+    image = bytearray(valid)
+    mutate(image)
+    with open(f"{output}/invalid-{name}.elf", "wb") as stream:
+        stream.write(image)
+PY
+for invalid_elf in "$work_dir"/invalid-*.elf; do
+    invalid_name=${invalid_elf##*/}
+    invalid_manifest="$work_dir/$invalid_name.manifest"
+    invalid_image="$work_dir/$invalid_name.img"
+    invalid_hash=$(sha256sum "$invalid_elf" | awk '{print $1}')
+    {
+        printf 'frogfs-manifest 1\n'
+        printf 'elf /invalid %s 8192 %s\n' "$invalid_name" "$invalid_hash"
+    } >"$invalid_manifest"
+    if "$tool" --manifest "$invalid_manifest" --output "$invalid_image" \
+            >/dev/null 2>&1; then
+        echo "$invalid_name unexpectedly accepted" >&2
+        exit 1
+    fi
+    test ! -e "$invalid_image"
+done
+
 max_file="$work_dir/max.bin"
 max_manifest="$work_dir/max.manifest"
 max_image="$work_dir/max.img"

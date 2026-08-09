@@ -69,6 +69,9 @@ ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
 obj-y += $(BUILD_DIR)/poudland_p0_cursor_blob.o \
 	 $(BUILD_DIR)/frogfs_image_test.o
 endif
+ifeq ($(FROG_TEST_PROFILE),frogfs-exec-smoke)
+obj-y += $(BUILD_DIR)/user_smoke_frogfs_exec_blob.o
+endif
 
 
 # obj-y = $(BUILD_DIR)/*.o

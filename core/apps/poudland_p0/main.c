@@ -7,6 +7,8 @@
 static volatile uint_32 poudland_p0_data_cookie = 0x50304330U;
 static struct poudland_p0_scene scene;
 
+#define POUDLAND_P0_EXEC_SMOKE_STATUS 42
+
 static void stop_with_cleanup(void) __attribute__((noreturn));
 
 static void stop_with_cleanup(void)
@@ -17,10 +19,25 @@ static void stop_with_cleanup(void)
         poudland_p0_test_finish();
 }
 
-int poudland_p0_main(void)
+static bool string_equal(const char *left, const char *right)
+{
+        if (!left || !right)
+                return false;
+        while (*left && *right) {
+                if (*left++ != *right++)
+                        return false;
+        }
+        return *left == *right;
+}
+
+int main(int argc, char **argv)
 {
         bool data_segment_loaded =
             poudland_p0_data_cookie == 0x50304330U;
+
+        if (argc == 2 && argv && argv[0] &&
+            string_equal(argv[1], "--exec-smoke"))
+                return data_segment_loaded ? POUDLAND_P0_EXEC_SMOKE_STATUS : 1;
 
         poudland_p0_test_report(FROG_TEST_POUDLAND_BUILTIN_EXEC,
                                 data_segment_loaded);

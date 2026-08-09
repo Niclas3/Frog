@@ -36,6 +36,14 @@ without QEMU using `make frog-root.img` and `make frog-root-verify`; run the
 host corruption, oversize, atomic-publication, and reuse tests with
 `make frog-root-test`.
 
+`./scripts/qemu-test.sh frogfs-exec-smoke` uses that same generated image at
+16 MiB. The guest mounts `/dev/sdbp1` at `/test`, proves both production ELF
+files are larger than 4 KiB, and sequentially executes the exact installed
+`/test/compositor` and `/test/desktop` files with `--exec-smoke`. Their expected
+exit statuses and the parent `wait` results feed the machine-readable
+`FROGTEST` result, with a path-specific case name on failure. No alternate test
+executable is built.
+
 Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
 syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait

@@ -157,6 +157,8 @@ extern const uint_8 _binary_user_smoke_poudland_v1_hup_bin_start[];
 extern const uint_8 _binary_user_smoke_poudland_v1_hup_bin_end[];
 extern const uint_8 _binary_user_smoke_poudland_builtin_bin_start[];
 extern const uint_8 _binary_user_smoke_poudland_builtin_bin_end[];
+extern const uint_8 _binary_user_smoke_frogfs_exec_bin_start[];
+extern const uint_8 _binary_user_smoke_frogfs_exec_bin_end[];
 extern const uint_8 _binary_user_smoke_input_bin_start[];
 extern const uint_8 _binary_user_smoke_input_bin_end[];
 extern const uint_8 _binary_user_smoke_time_bin_start[];
@@ -283,6 +285,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN)
         image_start = _binary_user_smoke_poudland_builtin_bin_start;
         image_end = _binary_user_smoke_poudland_builtin_bin_end;
+#elif defined(CONFIG_FROG_TEST_FROGFS_EXEC)
+        image_start = _binary_user_smoke_frogfs_exec_bin_start;
+        image_end = _binary_user_smoke_frogfs_exec_bin_end;
 #elif defined(CONFIG_FROG_TEST_INPUT)
         image_start = _binary_user_smoke_input_bin_start;
         image_end = _binary_user_smoke_input_bin_end;
@@ -388,6 +393,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin(fs_regression_profile());
 #elif defined(CONFIG_FROG_TEST_FROGFS_IMAGE)
         frog_test_begin("frogfs-image-smoke");
+#elif defined(CONFIG_FROG_TEST_FROGFS_EXEC)
+        frog_test_begin("frogfs-exec-smoke");
 #elif defined(CONFIG_FROG_TEST_PROCESS)
         frog_test_begin("process-smoke");
 #elif defined(CONFIG_FROG_TEST_USER)
@@ -542,7 +549,8 @@ __visible void __noreturn start_kernel(void)
         /****************************************/
 #if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
-    defined(CONFIG_FROG_TEST_FROGFS_IMAGE)
+    defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
+    defined(CONFIG_FROG_TEST_FROGFS_EXEC)
         int frogfs_init_ret = frogfs_init();
         int frogfs_mount_ret = frogfs_init_ret;
         int frogfs_rollback_ret = 0;
@@ -555,7 +563,8 @@ __visible void __noreturn start_kernel(void)
         frogfs_mount_flags = FROGFS_MOUNT_FORMAT;
 #endif
         const char *frogfs_device = "/dev/sdbp8";
-#ifdef CONFIG_FROG_TEST_FROGFS_IMAGE
+#if defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
+    defined(CONFIG_FROG_TEST_FROGFS_EXEC)
         frogfs_device = "/dev/sdbp1";
 #endif
         if (frogfs_init_ret == 0)
@@ -580,6 +589,10 @@ __visible void __noreturn start_kernel(void)
                 frog_test_abort("frogfs-image-mount");
         if (frogfs_image_test_verify_manifest() != 0)
                 frog_test_abort("frogfs-image-manifest");
+#elif defined(CONFIG_FROG_TEST_FROGFS_EXEC)
+        if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
+            frogfs_rollback_ret < 0)
+                frog_test_abort("frogfs-exec-mount");
 #else
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)

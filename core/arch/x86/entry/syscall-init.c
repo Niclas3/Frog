@@ -489,6 +489,18 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_POUDLAND_BUILTIN_FINAL_DAMAGE:
         name = "poudland-builtin.final-frame-damage-exact";
         break;
+    case FROG_TEST_FROGFS_EXEC_COMPOSITOR_SIZE:
+        name = "frogfs-exec.compositor-multipage-file";
+        break;
+    case FROG_TEST_FROGFS_EXEC_COMPOSITOR:
+        name = "frogfs-exec.compositor-exec-wait";
+        break;
+    case FROG_TEST_FROGFS_EXEC_DESKTOP_SIZE:
+        name = "frogfs-exec.desktop-multipage-file";
+        break;
+    case FROG_TEST_FROGFS_EXEC_DESKTOP:
+        name = "frogfs-exec.desktop-exec-wait";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;

@@ -44,15 +44,17 @@ case "$profile" in
     poudland-v1-hup-smoke) stages=(boot) ;;
     poudland-builtin-smoke) stages=(boot) ;;
     frogfs-image-smoke) stages=(boot) ;;
+    frogfs-exec-smoke) stages=(boot) ;;
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|frogfs-image-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 if { [ "$profile" = poudland-builtin-smoke ] ||
-     [ "$profile" = frogfs-image-smoke ]; } &&
+     [ "$profile" = frogfs-image-smoke ] ||
+     [ "$profile" = frogfs-exec-smoke ]; } &&
    [ -z "${FROG_QEMU_MEMORY+x}" ]; then
     qemu_memory=16M
 fi
@@ -795,7 +797,8 @@ run_input_stage()
 }
 
 data_disk_source="$repo_dir/../hd80M.img"
-if [ "$profile" = frogfs-image-smoke ]; then
+if [ "$profile" = frogfs-image-smoke ] ||
+   [ "$profile" = frogfs-exec-smoke ]; then
     make -C "$repo_dir" frog-root.img || {
         preserve_result
         exit 1

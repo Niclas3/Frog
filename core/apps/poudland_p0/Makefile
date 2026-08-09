@@ -1,7 +1,7 @@
 include ../../../Makefile.os_rules
 
 APP_BUILD := ../build
-TARGET := $(APP_BUILD)/poudland_p0.elf
+TARGET := $(APP_BUILD)/compositor
 POUDLAND_P0_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
@@ -32,7 +32,7 @@ FORCE:
 $(APP_BUILD):
 	mkdir -p $@
 
-$(APP_BUILD)/poudland_p0_start.o: start.S FORCE | $(APP_BUILD)
+$(APP_BUILD)/poudland_p0_start.o: ../start.s FORCE | $(APP_BUILD)
 	$(CC) $(POUDLAND_P0_CFLAGS) -o $@ $<
 
 $(APP_BUILD)/poudland_p0_main.o: main.c test.h FORCE | $(APP_BUILD)

@@ -48,6 +48,8 @@ tools/mkfrogfs_image: tools/mkfrogfs_image.c
 	$(MAKE) -C tools mkfrogfs_image
 
 frog-root.img: tools/mkfrogfs_image $(FROG_ROOT_MANIFEST)
+	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= clean-production
+	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= test
 	@mkdir -p $(dir $(FROG_ROOT_IMAGE))
 	@./tools/mkfrogfs_image --manifest $(FROG_ROOT_MANIFEST) \
 		--output $(FROG_ROOT_IMAGE)
@@ -58,6 +60,8 @@ frog-root-verify: frog-root.img
 
 frog-root-test:
 	@$(MAKE) -C tools test
+	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= clean-production
+	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= test
 
 clean:
 	rm -rf *.bin

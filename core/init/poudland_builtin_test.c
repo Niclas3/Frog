@@ -3,8 +3,8 @@
 #include <kernel/poudland_builtin_test.h>
 #include <kernel/vfs.h>
 
-extern const uint_8 _binary_poudland_p0_elf_start[];
-extern const uint_8 _binary_poudland_p0_elf_end[];
+extern const uint_8 _binary_compositor_start[];
+extern const uint_8 _binary_compositor_end[];
 extern const uint_8 _binary_b_bmp_start[];
 extern const uint_8 _binary_b_bmp_end[];
 
@@ -31,8 +31,8 @@ static int install_file(const char *path, const uint_8 *start,
 int poudland_builtin_test_install_assets(void)
 {
         int result = install_file("/test/compositor",
-                                  _binary_poudland_p0_elf_start,
-                                  _binary_poudland_p0_elf_end, true);
+                                  _binary_compositor_start,
+                                  _binary_compositor_end, true);
 
         if (result != 0)
                 return result;

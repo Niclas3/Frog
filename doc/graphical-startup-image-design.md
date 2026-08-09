@@ -44,6 +44,12 @@ The image builder, filesystem-layout definitions, and content manifest are sourc
 The phony image target always evaluates the versioned manifest and every source
 it names. An unchanged image is reused without changing its hash or mtime;
 changed or mismatched input cannot silently run stale application code.
+Manifest `elf` entries are checked against the same bounded ELF32/i386
+`ET_EXEC` shape accepted by the kernel loader before publication. A clean image
+build produces deterministic `core/apps/build/compositor` and
+`core/apps/build/desktop` artifacts; both contain the test-only invocation
+argument `--exec-smoke` in the production ELF rather than using separate smoke
+artifacts.
 
 ## Runtime Startup
 
@@ -65,7 +71,14 @@ The initial calls cover connect, window create, window close, next event, and di
 
 ## Automated Use
 
-`desktop-smoke` depends on the reusable FrogFS image. Each run copies the immutable base image into its unique temporary work directory and gives only that disposable copy to QEMU. This copy is test isolation, not a guest preparation phase.
+`frogfs-exec-smoke` is the focused Task 12 launch proof. At 16 MiB it mounts a
+private copy of the generated image, proves both ELF files exceed the old raw
+one-page fixture limit, and sequentially validates `fork`, exact-path `execv`,
+and `wait` status for both installed production artifacts. The later
+`desktop-smoke` profile depends on the same reusable FrogFS image. Each run
+copies the immutable base image into its unique temporary work directory and
+gives only that disposable copy to QEMU. This copy is test isolation, not a
+guest preparation phase.
 
 The normal run boot uses the same filesystem and exec path as production. QEMU test builds may call the existing test-report syscall from the same init, compositor, and desktop sources. The kernel converts those test-only reports into line-oriented `FROGTEST` records on port `0xe9`; the host runner captures them through `isa-debugcon`. Production builds compile out the test reports.
 

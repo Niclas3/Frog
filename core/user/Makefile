@@ -24,6 +24,9 @@ endif
 ifeq ($(FROG_TEST_PROFILE),frogfs-image-smoke)
 all: $(POUDLAND_P0_CURSOR_BLOB)
 endif
+ifeq ($(FROG_TEST_PROFILE),frogfs-exec-smoke)
+all: $(BUILD_DIR)/user_smoke_frogfs_exec_blob.o
+endif
 
 FORCE:
 
@@ -197,6 +200,11 @@ $(BUILD_DIR)/user_smoke_poudland_builtin_runtime.o: ../kernel/syscall.c
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_poudland_builtin_runtime.d \
 		-o $@ $<
 
+$(BUILD_DIR)/user_smoke_frogfs_exec_user.o: frogfs_exec_smoke.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_frogfs_exec_user.d \
+		-o $@ $<
+
 $(BUILD_DIR)/user_smoke_time_user.o: time_smoke.c
 	$(CC) $(USER_CFLAGS) \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_time_user.d \
@@ -362,7 +370,7 @@ $(POUDLAND_P0_ELF_BLOB): FORCE
 	$(MAKE) -C ../apps/poudland_p0 QEMU_TEST=$(QEMU_TEST) \
 		FROG_TEST_PROFILE=$(FROG_TEST_PROFILE) all
 	cd ../apps/build && \
-		$(LD) -m elf_i386 -r -b binary poudland_p0.elf \
+		$(LD) -m elf_i386 -r -b binary compositor \
 		-o $(POUDLAND_P0_ELF_BLOB)
 	$(OBJCOPY) \
 		--rename-section .data=.rodata.poudland_p0_elf,alloc,load,readonly,data,contents \

@@ -1,76 +1,47 @@
-# CFLAGS= -g -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers -m32 -fno-stack-protector
-CFLAGS := -g -c -O1 -m32 -fno-stack-protector -Wstrict-prototypes -Wmissing-prototypes -fno-builtin
+include ../../Makefile.os_rules
 
-# -s --strip-all
-#     Omit all symbol information from the output
-#     file.
-LD_FLAG := -m elf_i386
-CINCLUDE= -Iinclude -I../include -I../arch/x86/include
-OBJS= ../build/stdio.o ../lib/oslib.o ../build/string.o \
-      ../build/usr.o ../build/libdebug.o \
-      ../build/list.o 
-# sys_OBJS = ../build/memory.o
-sys_OBJS = ../build/packetx.o
-gua_OBJS = ../build/2d_graphics.o ../build/poudland.o
+APP_BUILD := build
+COMPOSITOR := $(APP_BUILD)/compositor
+DESKTOP := $(APP_BUILD)/desktop
+APP_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
+	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
+	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
+	-Iinclude $(foreach D,$(INCLUDES),-I$(D))
 
-BUILD =./build
-DISK = ../../hd.img
+.PHONY: all production compositor desktop poudland-p0 test clean clean-production FORCE
 
+all: production
+production: $(COMPOSITOR) $(DESKTOP)
+compositor poudland-p0: $(COMPOSITOR)
+desktop: $(DESKTOP)
 
-ls.o: ls.c
-	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
+FORCE:
 
-packagefs.o: lib/packagefs.c
-	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
+$(APP_BUILD):
+	mkdir -p $@
 
-poudland_v1.o: lib/gua/poudland_v1.c
-	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
-
-poudland-p0:
+$(COMPOSITOR): FORCE | $(APP_BUILD)
 	$(MAKE) -C poudland_p0 all
 
-# home brew C runtime
-crt.o: start.s
-	nasm -f elf -o $@ $^
+$(APP_BUILD)/app_start.o: start.s FORCE | $(APP_BUILD)
+	$(CC) $(APP_CFLAGS) -o $@ $<
 
-objs:
-	cd ../ && make all
+$(APP_BUILD)/desktop.o: desktop.c FORCE | $(APP_BUILD)
+	$(CC) $(APP_CFLAGS) -MMD -MP -MF $(APP_BUILD)/desktop.d -o $@ $<
 
-# list app things
-ls:ls.o crt.o
-	ld $(LD_FLAG) $^ $(OBJS) -o $(BUILD)/$@
+$(DESKTOP): $(APP_BUILD)/app_start.o $(APP_BUILD)/desktop.o \
+		poudland_p0/poudland_p0.ld
+	$(LD) --gc-sections -m elf_i386 -T poudland_p0/poudland_p0.ld \
+		-o $@ $(APP_BUILD)/app_start.o $(APP_BUILD)/desktop.o
 
-# compositor things
-bmp.o: bmp.c
-	gcc $(CFLAGS) $(CINCLUDE) -I. $^ -o $@
+test: production
+	../../tools/test-production-apps.sh $(COMPOSITOR) $(DESKTOP)
 
-jpeg.o: jpeg.c
-	gcc $(CFLAGS) $^ -o $@
-
-hashmap.o: ../lib/hashmap.c
-	gcc $(CFLAGS) $(CINCLUDE) $^ -o $@
-
-compositor.o: compositor.c
-	gcc $(CFLAGS) $(CINCLUDE) -I. $^ -o $@
-
-compositor: compositor.o crt.o bmp.o jpeg.o hashmap.o
-	ld $(LD_FLAG) $^ $(OBJS) $(gua_OBJS) $(sys_OBJS) -o $(BUILD)/$@
-
-# desktop
-desktop.o: desktop.c
-	gcc $(CFLAGS) $(CINCLUDE) -I. $^ $@
-
-desktop: desktop.o crt.o hashmap.o 
-	ld $(LD_FLAG) $^ $(OBJS) $(gua_OBJS) $(sys_OBJS) -o $(BUILD)/$@
-
-all: compositor ls desktop
-
-load: compositor
-	dd if=$(BUILD)/$^ of=$(DISK) bs=512 count=300 seek=384 conv=notrunc
-
-clean: 
-	rm -rf *.o
-	rm -rf ./build/*
+clean-production:
 	$(MAKE) -C poudland_p0 clean
+	rm -f $(APP_BUILD)/app_start.o $(APP_BUILD)/desktop.o \
+		$(APP_BUILD)/desktop.d $(DESKTOP)
 
-.PHONY: poudland-p0
+clean: clean-production
+
+-include $(APP_BUILD)/desktop.d

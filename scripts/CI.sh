@@ -13,3 +13,6 @@ done
 
 make -C core clean
 make core.img
+make frog-root-test
+make frog-root.img
+make frog-root-verify

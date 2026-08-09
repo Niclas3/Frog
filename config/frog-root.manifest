@@ -1,3 +1,5 @@
 # kind  destination  source (relative to this manifest)  size  sha256
 frogfs-manifest 1
 file /b.bmp ../core/apps/test/b.bmp 9338 8d6fef24c84a788956b6991577fcccd01af864cbc862dd358f5bb9945400f8f3
+elf /compositor ../core/apps/build/compositor 13984 b2ec6e65cda8e05f32f0c0c766e675a09ee7b9ae6787717b5c77252b9cd507f8
+elf /desktop ../core/apps/build/desktop 8680 ec246f1fdd026f80d579a85c24ca1e15c211dd70ba997d13fe6291540e41a912

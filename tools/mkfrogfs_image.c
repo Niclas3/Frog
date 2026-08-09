@@ -57,6 +57,26 @@
 #define MANIFEST_LINE_LIMIT 8192U
 #define MANIFEST_VERSION 1U
 
+#define ELF32_IDENT_SIZE 16U
+#define ELF32_CLASS_32 1U
+#define ELF32_DATA_LITTLE_ENDIAN 1U
+#define ELF32_VERSION_CURRENT 1U
+#define ELF32_TYPE_EXEC 2U
+#define ELF32_MACHINE_386 3U
+#define ELF32_PT_LOAD 1U
+#define ELF32_PT_DYNAMIC 2U
+#define ELF32_PT_INTERP 3U
+#define ELF32_PT_TLS 7U
+#define ELF32_PF_EXEC 1U
+#define ELF32_PF_WRITE 2U
+#define ELF32_PF_READ 4U
+#define ELF32_PAGE_SIZE 4096U
+#define ELF32_USER_START 0x08000000U
+#define ELF32_USER_END 0x40000000U
+#define ELF32_MAX_SEGMENTS 32U
+#define ELF32_MAX_PAGES 4096U
+#define ELF32_MAX_FILE_OFFSET 0x7fffffffU
+
 struct frogfs_super_disk {
         uint32_t magic;
         char volume_name[16];
@@ -126,6 +146,41 @@ struct mbr_disk {
         uint16_t signature;
 } __attribute__((packed));
 
+struct elf32_header {
+        uint8_t ident[ELF32_IDENT_SIZE];
+        uint16_t type;
+        uint16_t machine;
+        uint32_t version;
+        uint32_t entry;
+        uint32_t program_offset;
+        uint32_t section_offset;
+        uint32_t flags;
+        uint16_t header_size;
+        uint16_t program_entry_size;
+        uint16_t program_count;
+        uint16_t section_entry_size;
+        uint16_t section_count;
+        uint16_t section_names;
+};
+
+struct elf32_program_header {
+        uint32_t type;
+        uint32_t offset;
+        uint32_t virtual_address;
+        uint32_t physical_address;
+        uint32_t file_size;
+        uint32_t memory_size;
+        uint32_t flags;
+        uint32_t alignment;
+};
+
+struct elf32_load_segment {
+        uint32_t virtual_address;
+        uint32_t memory_size;
+        uint32_t map_start;
+        uint32_t map_end;
+};
+
 _Static_assert(sizeof(struct frogfs_super_disk) == SECTOR_SIZE,
                "FrogFS superblock layout drifted");
 _Static_assert(offsetof(struct frogfs_super_disk, data_start_block) == 60,
@@ -145,6 +200,10 @@ _Static_assert(offsetof(struct frogfs_dir_entry_disk, inode_number) == 16 &&
                "FrogFS directory entry offsets drifted");
 _Static_assert(sizeof(struct mbr_disk) == SECTOR_SIZE,
                "MBR layout drifted");
+_Static_assert(sizeof(struct elf32_header) == 52,
+               "ELF32 header layout drifted");
+_Static_assert(sizeof(struct elf32_program_header) == 32,
+               "ELF32 program header layout drifted");
 
 struct sha256_state {
         uint32_t words[8];
@@ -158,6 +217,7 @@ struct manifest_entry {
         char *source;
         uint8_t expected_hash[32];
         uint64_t size;
+        bool executable;
 };
 
 struct fs_node {
@@ -488,6 +548,177 @@ static char *join_source_path(const char *manifest, const char *source)
         return joined;
 }
 
+static int read_source_at(int fd, void *buffer, uint32_t length,
+                          uint32_t offset)
+{
+        uint8_t *next = buffer;
+        uint32_t completed = 0;
+
+        if (offset > ELF32_MAX_FILE_OFFSET ||
+            length > ELF32_MAX_FILE_OFFSET - offset)
+                return -1;
+        while (completed < length) {
+                ssize_t count = pread(fd, next + completed,
+                                      length - completed,
+                                      (off_t) offset + completed);
+
+                if (count < 0 && errno == EINTR)
+                        continue;
+                if (count <= 0 || (uint32_t) count > length - completed)
+                        return -1;
+                completed += (uint32_t) count;
+        }
+        return 0;
+}
+
+static bool is_power_of_two(uint32_t value)
+{
+        return value != 0 && (value & (value - 1U)) == 0;
+}
+
+static bool elf_ranges_overlap(uint32_t first_start, uint32_t first_end,
+                               uint32_t second_start, uint32_t second_end)
+{
+        return first_start < second_end && second_start < first_end;
+}
+
+static bool elf_page_in_segments(const struct elf32_load_segment *segments,
+                                 uint32_t count, uint32_t page)
+{
+        for (uint32_t index = 0; index < count; index++) {
+                if (page >= segments[index].map_start &&
+                    page < segments[index].map_end)
+                        return true;
+        }
+        return false;
+}
+
+static int validate_elf_source(int fd, uint32_t file_size, const char *path)
+{
+        struct elf32_header header;
+        struct elf32_load_segment segments[ELF32_MAX_SEGMENTS];
+        uint32_t segment_count = 0;
+        uint32_t page_count = 0;
+        bool entry_is_executable = false;
+        uint64_t program_end;
+
+        if (file_size < sizeof(header) ||
+            read_source_at(fd, &header, sizeof(header), 0) < 0)
+                goto invalid;
+        if (header.ident[0] != 0x7f || header.ident[1] != 'E' ||
+            header.ident[2] != 'L' || header.ident[3] != 'F' ||
+            header.ident[4] != ELF32_CLASS_32 ||
+            header.ident[5] != ELF32_DATA_LITTLE_ENDIAN ||
+            header.ident[6] != ELF32_VERSION_CURRENT ||
+            header.type != ELF32_TYPE_EXEC ||
+            header.machine != ELF32_MACHINE_386 ||
+            header.version != ELF32_VERSION_CURRENT ||
+            header.header_size != sizeof(header) ||
+            header.program_entry_size != sizeof(struct elf32_program_header) ||
+            header.program_count == 0 ||
+            header.program_count > ELF32_MAX_SEGMENTS ||
+            header.program_offset < sizeof(header))
+                goto invalid;
+        program_end = (uint64_t) header.program_offset +
+                      (uint64_t) header.program_count *
+                          header.program_entry_size;
+        if (program_end > file_size || program_end > ELF32_MAX_FILE_OFFSET)
+                goto invalid;
+
+        memset(segments, 0, sizeof(segments));
+        for (uint32_t index = 0; index < header.program_count; index++) {
+                struct elf32_program_header program;
+                uint32_t offset = header.program_offset +
+                                  index * header.program_entry_size;
+                uint64_t file_end;
+                uint64_t memory_end;
+                uint64_t aligned_end;
+                uint32_t map_start;
+                uint32_t map_end;
+                uint32_t new_pages = 0;
+
+                if (read_source_at(fd, &program, sizeof(program), offset) < 0)
+                        goto invalid;
+                if (program.type == ELF32_PT_INTERP ||
+                    program.type == ELF32_PT_DYNAMIC ||
+                    program.type == ELF32_PT_TLS)
+                        goto invalid;
+                if (program.type != ELF32_PT_LOAD)
+                        continue;
+                if (segment_count == ELF32_MAX_SEGMENTS ||
+                    program.file_size > program.memory_size ||
+                    (program.flags & ~(ELF32_PF_READ | ELF32_PF_WRITE |
+                                       ELF32_PF_EXEC)) != 0 ||
+                    !(program.flags & ELF32_PF_READ))
+                        goto invalid;
+                if (program.alignment > 1U &&
+                    (!is_power_of_two(program.alignment) ||
+                     (program.virtual_address & (program.alignment - 1U)) !=
+                         (program.offset & (program.alignment - 1U))))
+                        goto invalid;
+                file_end = (uint64_t) program.offset + program.file_size;
+                if (program.offset > file_size || file_end > file_size ||
+                    file_end > ELF32_MAX_FILE_OFFSET)
+                        goto invalid;
+                if (program.memory_size == 0)
+                        continue;
+
+                memory_end = (uint64_t) program.virtual_address +
+                             program.memory_size;
+                aligned_end = (memory_end + ELF32_PAGE_SIZE - 1U) &
+                              ~(uint64_t) (ELF32_PAGE_SIZE - 1U);
+                map_start = program.virtual_address &
+                            ~(ELF32_PAGE_SIZE - 1U);
+                if (program.virtual_address < ELF32_USER_START ||
+                    map_start < ELF32_USER_START ||
+                    memory_end > ELF32_USER_END ||
+                    aligned_end > ELF32_USER_END)
+                        goto invalid;
+                map_end = (uint32_t) aligned_end;
+                if ((map_end - map_start) / ELF32_PAGE_SIZE >
+                    ELF32_MAX_PAGES)
+                        goto invalid;
+                for (uint32_t previous = 0; previous < segment_count;
+                     previous++) {
+                        uint32_t previous_end =
+                            segments[previous].virtual_address +
+                            segments[previous].memory_size;
+
+                        if (elf_ranges_overlap(
+                                program.virtual_address,
+                                (uint32_t) memory_end,
+                                segments[previous].virtual_address,
+                                previous_end))
+                                goto invalid;
+                }
+                for (uint32_t page = map_start; page < map_end;
+                     page += ELF32_PAGE_SIZE) {
+                        if (!elf_page_in_segments(segments, segment_count,
+                                                  page))
+                                new_pages++;
+                }
+                if (new_pages > ELF32_MAX_PAGES - page_count)
+                        goto invalid;
+                segments[segment_count].virtual_address =
+                    program.virtual_address;
+                segments[segment_count].memory_size = program.memory_size;
+                segments[segment_count].map_start = map_start;
+                segments[segment_count].map_end = map_end;
+                segment_count++;
+                page_count += new_pages;
+                if ((program.flags & ELF32_PF_EXEC) &&
+                    header.entry >= program.virtual_address &&
+                    (uint64_t) header.entry < memory_end)
+                        entry_is_executable = true;
+        }
+        if (segment_count == 0 || !entry_is_executable)
+                goto invalid;
+        return 0;
+
+invalid:
+        return errorf("ELF is not accepted by Frog exec loader: %s", path);
+}
+
 static int validate_source(struct manifest_entry *entry)
 {
         struct stat metadata;
@@ -517,9 +748,17 @@ static int validate_source(struct manifest_entry *entry)
                 close(fd);
                 return -1;
         }
-        close(fd);
-        if (memcmp(actual, entry->expected_hash, sizeof(actual)) != 0)
+        if (memcmp(actual, entry->expected_hash, sizeof(actual)) != 0) {
+                close(fd);
                 return errorf("SHA-256 mismatch for %s", entry->source);
+        }
+        if (entry->executable &&
+            validate_elf_source(fd, (uint32_t) entry->size,
+                                entry->source) < 0) {
+                close(fd);
+                return -1;
+        }
+        close(fd);
         return 0;
 }
 
@@ -591,8 +830,10 @@ static int load_manifest(const char *path, struct manifest_entry **result,
                         saw_version = true;
                         continue;
                 }
-                if (!saw_version || strcmp(kind, "file") != 0 || !target ||
-                    !source || !size || !hash || extra) {
+                if (!saw_version ||
+                    (strcmp(kind, "file") != 0 &&
+                     strcmp(kind, "elf") != 0) ||
+                    !target || !source || !size || !hash || extra) {
                         errorf("invalid manifest line %zu", line_number);
                         goto fail;
                 }
@@ -622,6 +863,7 @@ static int load_manifest(const char *path, struct manifest_entry **result,
                 }
                 entries[count].target = strdup(target);
                 entries[count].source = join_source_path(path, source);
+                entries[count].executable = strcmp(kind, "elf") == 0;
                 if (!entries[count].target || !entries[count].source ||
                     parse_size(size, &entries[count].size) < 0 ||
                     parse_hash(hash, entries[count].expected_hash) < 0) {
