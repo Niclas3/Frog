@@ -4,9 +4,11 @@
 
 #ifndef POUDLAND_P0_SERVER_HOST_TEST
 #include "poudland_p0.h"
+#include "test.h"
 
 #include <frog/poll.h>
 #include <frog/syscall.h>
+#include <frog/test.h>
 #include <input/mouse.h>
 #endif
 
@@ -543,6 +545,156 @@ static void scene_damage(struct poudland_p0_server *server,
         poudland_p0_damage(&scene->display, rect);
 }
 
+#ifdef FROG_DESKTOP_SMOKE_TEST
+struct desktop_test_state {
+        uint_32 phase;
+        bool saw_three_windows;
+        uint_32 idle_frame_count;
+        uint_32 idle_presented_pixels;
+        struct timespec deadline;
+};
+
+static const struct poudland_p0_protocol_window *desktop_test_window(
+    const struct poudland_p0_protocol *protocol, uint_32 window_id)
+{
+        uint_32 index;
+
+        for (index = 0; index < POUDLAND_V1_SERVER_WINDOW_MAX; ++index) {
+                const struct poudland_p0_protocol_window *window =
+                    &protocol->windows[index];
+
+                if (window->active && window->id == window_id)
+                        return window;
+        }
+        return NULL;
+}
+
+static bool desktop_test_checkpoint(
+    struct poudland_p0_server *server, struct poudland_p0_scene *scene,
+    struct desktop_test_state *state, const struct timespec *now)
+{
+        const struct poudland_p0_protocol *protocol = &server->protocol;
+        const struct poudland_p0_protocol_window *first =
+            desktop_test_window(protocol, 1);
+        const struct poudland_p0_protocol_window *second =
+            desktop_test_window(protocol, 2);
+        bool passed;
+
+        if (protocol->window_count == 3)
+                state->saw_three_windows = true;
+        if (state->phase == 0) {
+                if (!state->saw_three_windows ||
+                    protocol->window_count != 2)
+                        return true;
+                passed = first && second &&
+                         first->bounds.x == 100 &&
+                         first->bounds.y == 100 &&
+                         first->bounds.width == 200 &&
+                         first->bounds.height == 160 &&
+                         second->bounds.x == 220 &&
+                         second->bounds.y == 200 &&
+                         second->bounds.width == 320 &&
+                         second->bounds.height == 240 &&
+                         scene->cursor_x == 230 && scene->cursor_y == 210;
+                poudland_p0_test_report(FROG_TEST_DESKTOP_TWO_WINDOWS,
+                                        passed);
+                if (!passed || poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_INITIAL_READY) != 0)
+                        return false;
+                state->phase++;
+                return true;
+        }
+        if (state->phase == 1) {
+                if (protocol->pointer_buttons == 0)
+                        return true;
+                passed = protocol->focused_window_id == 2 &&
+                         protocol->dragged_window_id == 2 &&
+                         protocol->pointer_x == 230 &&
+                         protocol->pointer_y == 210;
+                poudland_p0_test_report(FROG_TEST_DESKTOP_FOCUS, passed);
+                if (!passed || poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_FOCUS_READY) != 0)
+                        return false;
+                state->phase++;
+                return true;
+        }
+        if (state->phase == 2) {
+                if (!second || second->last_key == 0)
+                        return true;
+                passed = protocol->focused_window_id == 2 &&
+                         second->last_key == 'a';
+                poudland_p0_test_report(FROG_TEST_DESKTOP_KEYBOARD, passed);
+                if (!passed || poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_KEYBOARD_READY) != 0)
+                        return false;
+                state->deadline = *now;
+                state->deadline.tv_sec += 2;
+                state->phase++;
+                return true;
+        }
+        if (state->phase == 3) {
+                if (!second || second->bounds.x != 260 ||
+                    second->bounds.y != 225 || scene->cursor_x != 270 ||
+                    scene->cursor_y != 235) {
+                        if (!timespec_at_or_after(now, &state->deadline))
+                                return true;
+                        poudland_p0_test_report(
+                            FROG_TEST_DESKTOP_CONFIGURE, false);
+                        return false;
+                }
+                passed = protocol->dragged_window_id == 2 &&
+                         protocol->pointer_buttons ==
+                             POUDLAND_P0_BUTTON_LEFT;
+                poudland_p0_test_report(FROG_TEST_DESKTOP_CONFIGURE,
+                                        passed);
+                if (!passed || poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_DRAG_READY) != 0)
+                        return false;
+                state->phase++;
+                return true;
+        }
+        if (state->phase == 4) {
+                if (protocol->pointer_buttons != 0)
+                        return true;
+                passed = protocol->window_count == 2 && first && second &&
+                         protocol->focused_window_id == 2 &&
+                         protocol->dragged_window_id == 0 &&
+                         second->bounds.x == 260 &&
+                         second->bounds.y == 225 &&
+                         scene->cursor_x == 270 && scene->cursor_y == 235 &&
+                         !scene->display.damaged;
+                poudland_p0_test_report(FROG_TEST_DESKTOP_FINAL_SCENE,
+                                        passed);
+                if (!passed || poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_FINAL_READY) != 0)
+                        return false;
+                state->idle_frame_count = scene->display.frame_count;
+                state->idle_presented_pixels =
+                    scene->display.presented_pixels;
+                state->deadline = *now;
+                state->deadline.tv_sec++;
+                state->phase++;
+                return true;
+        }
+        if (state->phase == 5) {
+                if (!timespec_at_or_after(now, &state->deadline))
+                        return true;
+                passed = !scene->display.damaged &&
+                         scene->display.frame_count ==
+                             state->idle_frame_count &&
+                         scene->display.presented_pixels ==
+                             state->idle_presented_pixels;
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_IDLE_PRESENT_STABLE, passed);
+                if (!passed || poudland_p0_test_sync(
+                        FROG_TEST_DESKTOP_IDLE_READY) != 0)
+                        return false;
+                state->phase++;
+        }
+        return true;
+}
+#endif
+
 int_32 poudland_p0_server_open(struct poudland_p0_server *server,
                                struct poudland_p0_scene *scene)
 {
@@ -566,6 +718,9 @@ bool poudland_p0_server_run(struct poudland_p0_server *server,
 {
         struct pollfd descriptors[3];
         struct timespec startup_deadline;
+#ifdef FROG_DESKTOP_SMOKE_TEST
+        struct desktop_test_state desktop_test = {0};
+#endif
         const uint_16 errors = POLLERR | POLLHUP | POLLNVAL;
 
         if (!server || !scene || server->fd < 0 ||
@@ -601,8 +756,14 @@ bool poudland_p0_server_run(struct poudland_p0_server *server,
                         return true;
                 if (lifecycle == POUDLAND_P0_SERVER_STOP_STARTUP_TIMEOUT)
                         return false;
-                if (status == 0)
+                if (status == 0) {
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                        if (!desktop_test_checkpoint(
+                                server, scene, &desktop_test, &now))
+                                return false;
+#endif
                         continue;
+                }
                 if ((descriptors[0].revents & POLLIN) != 0) {
                         for (;;) {
                                 struct frog_pkg_message message;
@@ -711,6 +872,11 @@ bool poudland_p0_server_run(struct poudland_p0_server *server,
                 if (scene->display.damaged &&
                     !poudland_p0_scene_present(scene))
                         return false;
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                if (!desktop_test_checkpoint(server, scene, &desktop_test,
+                                             &now))
+                        return false;
+#endif
         }
 }
 

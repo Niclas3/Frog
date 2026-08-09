@@ -1,5 +1,21 @@
 #include <frog/graphical_startup.h>
 
+#ifdef FROG_DESKTOP_SMOKE_TEST
+#include <frog/syscall.h>
+#include <frog/test.h>
+
+static void graphical_test_report(uint_32 id, bool passed)
+{
+        int_32 result;
+
+        __asm__ volatile("int $0x93"
+                         : "=a"(result)
+                         : "a"(SYS_TEST_REPORT), "b"(id), "c"(passed)
+                         : "memory");
+        (void) result;
+}
+#endif
+
 int graphical_init_supervise(const struct graphical_init_ops *ops)
 {
         pid_t compositor_pid;
@@ -14,10 +30,18 @@ int graphical_init_supervise(const struct graphical_init_ops *ops)
 
         compositor_pid = ops->spawn(GRAPHICAL_CHILD_COMPOSITOR,
                                     "/test/compositor");
+#ifdef FROG_DESKTOP_SMOKE_TEST
+        graphical_test_report(FROG_TEST_DESKTOP_INIT_COMPOSITOR_FORK,
+                              compositor_pid >= 0);
+#endif
         if (compositor_pid < 0)
                 return FROG_GRAPHICAL_EXIT_COMPOSITOR_FORK;
 
         desktop_pid = ops->spawn(GRAPHICAL_CHILD_DESKTOP, "/test/desktop");
+#ifdef FROG_DESKTOP_SMOKE_TEST
+        graphical_test_report(FROG_TEST_DESKTOP_INIT_DESKTOP_FORK,
+                              desktop_pid >= 0);
+#endif
         while (!compositor_done || (desktop_pid >= 0 && !desktop_done)) {
                 int_32 status;
                 pid_t waited_pid = ops->wait(&status);
@@ -34,18 +58,23 @@ int graphical_init_supervise(const struct graphical_init_ops *ops)
                 }
         }
 
+        int result = 0;
+
         if (compositor_status == FROG_GRAPHICAL_EXIT_COMPOSITOR_EXEC)
-                return FROG_GRAPHICAL_EXIT_COMPOSITOR_EXEC;
-        if (desktop_pid >= 0 &&
-            desktop_status == FROG_GRAPHICAL_EXIT_DESKTOP_EXEC)
-                return FROG_GRAPHICAL_EXIT_DESKTOP_EXEC;
-        if (desktop_pid < 0)
-                return FROG_GRAPHICAL_EXIT_DESKTOP_FORK;
-        if (compositor_status != 0)
-                return FROG_GRAPHICAL_EXIT_COMPOSITOR_RUN;
-        if (desktop_status != FROG_DESKTOP_EXIT_COMPOSITOR_HUP)
-                return FROG_GRAPHICAL_EXIT_DESKTOP_RUN;
-        return 0;
+                result = FROG_GRAPHICAL_EXIT_COMPOSITOR_EXEC;
+        else if (desktop_pid >= 0 &&
+                 desktop_status == FROG_GRAPHICAL_EXIT_DESKTOP_EXEC)
+                result = FROG_GRAPHICAL_EXIT_DESKTOP_EXEC;
+        else if (desktop_pid < 0)
+                result = FROG_GRAPHICAL_EXIT_DESKTOP_FORK;
+        else if (compositor_status != 0)
+                result = FROG_GRAPHICAL_EXIT_COMPOSITOR_RUN;
+        else if (desktop_status != FROG_DESKTOP_EXIT_COMPOSITOR_HUP)
+                result = FROG_GRAPHICAL_EXIT_DESKTOP_RUN;
+#ifdef FROG_DESKTOP_SMOKE_TEST
+        graphical_test_report(FROG_TEST_DESKTOP_LIFECYCLE, result == 0);
+#endif
+        return result;
 }
 
 void graphical_init_report_status(

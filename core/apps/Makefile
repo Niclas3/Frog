@@ -9,6 +9,12 @@ APP_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
 	-Iinclude $(foreach D,$(INCLUDES),-I$(D))
 
+ifeq ($(QEMU_TEST),1)
+ifeq ($(FROG_TEST_PROFILE),desktop-smoke)
+APP_CFLAGS += -DFROG_DESKTOP_SMOKE_TEST
+endif
+endif
+
 .PHONY: all production compositor desktop poudland-p0 poudland-e2e-smoke \
 	test clean clean-production clean-test FORCE
 

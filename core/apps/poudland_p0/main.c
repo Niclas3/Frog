@@ -41,25 +41,52 @@ static int run_production(void)
 {
         int_32 status;
 
-        if (!poudland_p0_format_self_test())
+        if (!poudland_p0_format_self_test()) {
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_COMPOSITOR_READY, false);
+#endif
                 return 1;
+        }
         poudland_p0_scene_prepare(&scene);
         status = poudland_p0_display_open(&scene.display);
-        if (status != 0)
+        if (status != 0) {
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_COMPOSITOR_READY, false);
+#endif
                 return 1;
+        }
         status = poudland_p0_bmp_load_cursor("/test/b.bmp", &scene.cursor);
         if (status != 0) {
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_COMPOSITOR_READY, false);
+#endif
                 poudland_p0_display_close(&scene.display);
                 return 1;
         }
         status = poudland_p0_server_open(&server, &scene);
         if (status != 0) {
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_SERVICE_BIND, false);
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_COMPOSITOR_READY, false);
+#endif
                 poudland_p0_cursor_release(&scene.cursor);
                 poudland_p0_display_close(&scene.display);
                 return 1;
         }
+#ifdef FROG_DESKTOP_SMOKE_TEST
+        poudland_p0_test_report(FROG_TEST_DESKTOP_SERVICE_BIND, true);
+#endif
         status = poudland_p0_scene_open_input(&scene);
         if (status != 0) {
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_COMPOSITOR_READY, false);
+#endif
                 poudland_p0_server_close(&server);
                 poudland_p0_cursor_release(&scene.cursor);
                 poudland_p0_display_close(&scene.display);
@@ -72,8 +99,21 @@ static int run_production(void)
                 .width = (int_32) scene.display.info.width,
                 .height = (int_32) scene.display.info.height,
             });
-        if (!poudland_p0_scene_present(&scene) ||
-            !poudland_p0_server_run(&server, &scene)) {
+        if (!poudland_p0_scene_present(&scene)) {
+#ifdef FROG_DESKTOP_SMOKE_TEST
+                poudland_p0_test_report(
+                    FROG_TEST_DESKTOP_COMPOSITOR_READY, false);
+#endif
+                poudland_p0_scene_close_input(&scene);
+                poudland_p0_server_close(&server);
+                poudland_p0_cursor_release(&scene.cursor);
+                poudland_p0_display_close(&scene.display);
+                return 1;
+        }
+#ifdef FROG_DESKTOP_SMOKE_TEST
+        poudland_p0_test_report(FROG_TEST_DESKTOP_COMPOSITOR_READY, true);
+#endif
+        if (!poudland_p0_server_run(&server, &scene)) {
                 poudland_p0_scene_close_input(&scene);
                 poudland_p0_server_close(&server);
                 poudland_p0_cursor_release(&scene.cursor);
@@ -94,6 +134,10 @@ int main(int argc, char **argv)
                 return data_segment_loaded ? POUDLAND_P0_EXEC_SMOKE_STATUS : 1;
 
 #ifndef FROG_POUDLAND_P0_TEST
+#ifdef FROG_DESKTOP_SMOKE_TEST
+        poudland_p0_test_report(FROG_TEST_DESKTOP_COMPOSITOR_EXEC,
+                                data_segment_loaded);
+#endif
         if (!data_segment_loaded)
                 return 1;
         return run_production();

@@ -11,6 +11,9 @@ ifeq ($(QEMU_TEST),1)
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
 POUDLAND_P0_CFLAGS += -DFROG_POUDLAND_P0_TEST
 endif
+ifeq ($(FROG_TEST_PROFILE),desktop-smoke)
+POUDLAND_P0_CFLAGS += -DFROG_DESKTOP_SMOKE_TEST
+endif
 endif
 
 POUDLAND_P0_OBJECTS := \

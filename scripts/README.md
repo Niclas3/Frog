@@ -56,6 +56,29 @@ the bitmap cursor's alpha blend. A stale third window or any old test-client
 window prevents PASS. Set `FROG_QEMU_KEEP=1` to retain the successful
 screenshot and transcript as evidence; failures retain them automatically.
 
+`./scripts/qemu-test.sh desktop-smoke` is the production graphical-startup
+acceptance test. At 16 MiB it builds a private FrogFS image containing the
+actual compositor and `desktop.c`, boots the same graphical PID 1 used by a
+normal run, and checks both child `fork`/`execv` paths. Test reporting is
+compiled into only these disposable ELF copies; normal application binaries
+contain no `FROGTEST` syscalls. The host injects a left-button press, qcode
+`a`, relative movement `(40, 25)`, and button release through QMP. The guest
+must emit the complete ordered PASS set for launch, bind, handshake, three
+creates, third close, two live windows, focus, keyboard routing, drag/configure,
+client observation, final frame, and one-second idle-present stability. The
+host then validates every pixel of the 1024x768 frame, including the white
+focus border and cursor alpha blend at `(270, 235)`.
+
+The deterministic instrumented base is `build/desktop-smoke-root.img`; every
+run attaches only a unique copy and records the base SHA-256 before and after
+QEMU. The runner restores ordinary application artifacts after building this
+base. It creates no preparation boot and never modifies
+`config/frog-root.manifest` or `build/frog-root.img`. The diagnostic overrides
+`FROG_QEMU_DESKTOP_DRAG_X`, `FROG_QEMU_DESKTOP_DROP_CASE`,
+`FROG_QEMU_DESKTOP_WRONG_PIXEL=1`, and
+`FROG_QEMU_DESKTOP_STALE_IMAGE=1` support the required negative classification
+checks; they are unset in a normal acceptance run.
+
 Run `./scripts/qemu-test.sh process-smoke` after process, scheduler, paging, or
 syscall changes. It boots into ring 3 and checks fork return values, address
 space isolation, exit-status delivery, child reaping, and the no-child wait
@@ -133,7 +156,7 @@ back in FIFO order. Repeat with
 budget. This profile does not use QMP.
 
 Most QEMU profiles default to `-m 1G`; generated-image graphical/exec profiles,
-including `poudland-e2e-smoke`, default to 16 MiB. Set `FROG_QEMU_MEMORY` to a
+including `poudland-e2e-smoke` and `desktop-smoke`, default to 16 MiB. Set `FROG_QEMU_MEMORY` to a
 positive integer with an `M` or `G` suffix, for example
 `FROG_QEMU_MEMORY=16M ./scripts/qemu-test.sh anonymous-mmap-smoke`. The chosen
 value is used by every runner path and recorded as `qemu_memory` in the result

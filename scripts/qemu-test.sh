@@ -7,6 +7,11 @@ profile=${1:-boot-smoke}
 timeout_seconds=${FROG_QEMU_TIMEOUT:-30}
 keep=${FROG_QEMU_KEEP:-0}
 qemu_memory=${FROG_QEMU_MEMORY:-1G}
+desktop_drag_x=${FROG_QEMU_DESKTOP_DRAG_X:-40}
+desktop_drag_y=${FROG_QEMU_DESKTOP_DRAG_Y:-25}
+desktop_drop_case=${FROG_QEMU_DESKTOP_DROP_CASE:-}
+desktop_wrong_pixel=${FROG_QEMU_DESKTOP_WRONG_PIXEL:-0}
+desktop_stale_image=${FROG_QEMU_DESKTOP_STALE_IMAGE:-0}
 sector_size=512
 loader_sector_count=11
 kernel_start_sector=13
@@ -14,6 +19,16 @@ kernel_sector_count=512
 
 if [[ ! "$qemu_memory" =~ ^[1-9][0-9]*[MG]$ ]]; then
     echo "FROG_QEMU_MEMORY must be a positive integer followed by M or G" >&2
+    exit 2
+fi
+if [[ ! "$desktop_drag_x" =~ ^-?[0-9]+$ ]] ||
+   [[ ! "$desktop_drag_y" =~ ^-?[0-9]+$ ]]; then
+    echo "FROG_QEMU_DESKTOP_DRAG_X/Y must be integers" >&2
+    exit 2
+fi
+if [[ ! "$desktop_wrong_pixel" =~ ^[01]$ ]] ||
+   [[ ! "$desktop_stale_image" =~ ^[01]$ ]]; then
+    echo "FROG_QEMU_DESKTOP_WRONG_PIXEL/STALE_IMAGE must be 0 or 1" >&2
     exit 2
 fi
 
@@ -44,17 +59,19 @@ case "$profile" in
     poudland-v1-hup-smoke) stages=(boot) ;;
     poudland-builtin-smoke) stages=(boot) ;;
     poudland-e2e-smoke) stages=(boot) ;;
+    desktop-smoke) stages=(boot) ;;
     frogfs-image-smoke) stages=(boot) ;;
     frogfs-exec-smoke) stages=(boot) ;;
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|poudland-e2e-smoke|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|poudland-e2e-smoke|desktop-smoke|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 if { [ "$profile" = poudland-builtin-smoke ] ||
      [ "$profile" = poudland-e2e-smoke ] ||
+     [ "$profile" = desktop-smoke ] ||
      [ "$profile" = frogfs-image-smoke ] ||
      [ "$profile" = frogfs-exec-smoke ]; } &&
    [ -z "${FROG_QEMU_MEMORY+x}" ]; then
@@ -65,11 +82,14 @@ work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")
 result_root="$repo_dir/build/qemu-test"
 result_json="$work_dir/result.json"
 data_disk="$work_dir/hd80M.img"
+desktop_base_disk="$repo_dir/build/desktop-smoke-root.img"
 classification=BUILD_FAILED
 failed_stage=none
 qemu_status=-1
 disk_sha_before=
 disk_sha_after=
+base_disk_sha_before=
+base_disk_sha_after=
 framebuffer_width=
 framebuffer_height=
 started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -83,6 +103,8 @@ write_result()
     QEMU_STATUS="$qemu_status" STARTED_AT="$started_at" \
     QEMU_MEMORY="$qemu_memory" \
     DISK_SHA_BEFORE="$disk_sha_before" DISK_SHA_AFTER="$disk_sha_after" \
+    BASE_DISK_SHA_BEFORE="$base_disk_sha_before" \
+    BASE_DISK_SHA_AFTER="$base_disk_sha_after" \
     FRAMEBUFFER_WIDTH="$framebuffer_width" \
     FRAMEBUFFER_HEIGHT="$framebuffer_height" \
     python3 - <<'PY'
@@ -101,6 +123,8 @@ data = {
     "qemu_memory": os.environ["QEMU_MEMORY"],
     "corrupt_disk_sha256_before": os.environ["DISK_SHA_BEFORE"] or None,
     "corrupt_disk_sha256_after": os.environ["DISK_SHA_AFTER"] or None,
+    "base_disk_sha256_before": os.environ["BASE_DISK_SHA_BEFORE"] or None,
+    "base_disk_sha256_after": os.environ["BASE_DISK_SHA_AFTER"] or None,
     "framebuffer_width": (int(os.environ["FRAMEBUFFER_WIDTH"])
                           if os.environ["FRAMEBUFFER_WIDTH"] else None),
     "framebuffer_height": (int(os.environ["FRAMEBUFFER_HEIGHT"])
@@ -163,7 +187,8 @@ build_stage()
     if [ "$profile" = framebuffer-smoke ] ||
        [ "$profile" = framebuffer-mmap-smoke ] ||
        [ "$profile" = poudland-builtin-smoke ] ||
-       [ "$profile" = poudland-e2e-smoke ]; then
+       [ "$profile" = poudland-e2e-smoke ] ||
+       [ "$profile" = desktop-smoke ]; then
         loader_args=(-DFRAMEBUFFER_TEST "${loader_args[@]}")
     else
         loader_args=(-DVGA_ENABLE "${loader_args[@]}")
@@ -520,6 +545,127 @@ sock.close()
 PY
 }
 
+qmp_inject_desktop()
+{
+    local socket_path=$1
+    local debug_log=$2
+    local transcript_path=$3
+    QMP_SOCKET="$socket_path" DEBUG_LOG="$debug_log" \
+    QMP_TRANSCRIPT="$transcript_path" QMP_TIMEOUT="$timeout_seconds" \
+    DESKTOP_DRAG_X="$desktop_drag_x" DESKTOP_DRAG_Y="$desktop_drag_y" \
+    python3 - <<'PY'
+import json
+import os
+import socket
+import time
+
+deadline = time.monotonic() + int(os.environ["QMP_TIMEOUT"])
+transcript = open(os.environ["QMP_TRANSCRIPT"], "w", encoding="ascii")
+
+def record(direction, payload):
+    transcript.write(f"{direction} {payload}\n")
+    transcript.flush()
+
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.settimeout(1)
+while True:
+    try:
+        sock.connect(os.environ["QMP_SOCKET"])
+        break
+    except (FileNotFoundError, ConnectionRefusedError):
+        if time.monotonic() >= deadline:
+            raise RuntimeError("QMP socket was not ready")
+        time.sleep(0.05)
+stream = sock.makefile("rwb", buffering=0)
+
+def receive():
+    while True:
+        line = stream.readline().decode("ascii").rstrip("\n")
+        if not line:
+            raise RuntimeError("QMP connection closed")
+        record("<", line)
+        message = json.loads(line)
+        if "event" not in message:
+            return message
+
+def execute(command, arguments=None):
+    payload = {"execute": command}
+    if arguments is not None:
+        payload["arguments"] = arguments
+    line = json.dumps(payload, separators=(",", ":"))
+    record(">", line)
+    stream.write((line + "\n").encode("ascii"))
+    response = receive()
+    if "error" in response:
+        raise RuntimeError(response["error"])
+
+def guest_log():
+    try:
+        with open(os.environ["DEBUG_LOG"], "r", encoding="ascii",
+                  errors="replace") as source:
+            return source.read()
+    except FileNotFoundError:
+        return ""
+
+def guest_failed(content):
+    return ("FROGTEST CASE " in content and " FAIL\n" in content or
+            "FROGTEST MILESTONE " in content and " FAIL\n" in content or
+            "FROGTEST ABORT " in content or
+            "FROGTEST END FAIL\n" in content or
+            "[PANIC]" in content or "ASSERT_FAILED" in content)
+
+def wait_marker(marker):
+    expected = f"FROGTEST SYNC {marker}\n"
+    while time.monotonic() < deadline:
+        content = guest_log()
+        if guest_failed(content):
+            raise RuntimeError(f"guest stopped before {marker}")
+        if expected in content:
+            return
+        time.sleep(0.05)
+    raise RuntimeError(f"timed out waiting for {marker}")
+
+def inject_after_block(marker, next_marker, events):
+    wait_marker(marker)
+    time.sleep(0.1)
+    content = guest_log()
+    if f"FROGTEST SYNC {next_marker}\n" in content:
+        raise RuntimeError(f"guest advanced past {marker} before host input")
+    execute("input-send-event", {"events": events})
+
+receive()
+execute("qmp_capabilities")
+
+inject_after_block("desktop-initial-ready", "desktop-focus-ready", [
+    {"type": "btn", "data": {"down": True, "button": "left"}},
+])
+
+inject_after_block("desktop-focus-ready", "desktop-keyboard-ready", [
+    {"type": "key", "data": {"down": True,
+     "key": {"type": "qcode", "data": "a"}}},
+    {"type": "key", "data": {"down": False,
+     "key": {"type": "qcode", "data": "a"}}},
+])
+
+inject_after_block("desktop-keyboard-ready", "desktop-drag-ready", [
+    {"type": "rel", "data": {
+        "axis": "x", "value": int(os.environ["DESKTOP_DRAG_X"])}},
+    {"type": "rel", "data": {
+        "axis": "y", "value": int(os.environ["DESKTOP_DRAG_Y"])}},
+])
+
+inject_after_block("desktop-drag-ready", "desktop-final-frame", [
+    {"type": "btn", "data": {"down": False, "button": "left"}},
+])
+
+wait_marker("desktop-final-frame")
+wait_marker("desktop-client-observed")
+wait_marker("desktop-idle-stable")
+transcript.close()
+sock.close()
+PY
+}
+
 qmp_capture_poudland_e2e()
 {
     local socket_path=$1
@@ -683,6 +829,7 @@ validate_framebuffer_ppm()
     local ppm=$1
     FRAMEBUFFER_META="$work_dir/framebuffer-meta" SCREENSHOT="$ppm" \
     FROG_PROFILE="$profile" \
+    DESKTOP_WRONG_PIXEL="$desktop_wrong_pixel" \
     CURSOR_BMP="$repo_dir/core/apps/test/b.bmp" python3 - <<'PY'
 import os
 import struct
@@ -719,8 +866,11 @@ if len(pixels) != width * height * 3:
     fail("truncated PPM pixels")
 
 profile = os.environ["FROG_PROFILE"]
+if profile == "desktop-smoke" and os.environ["DESKTOP_WRONG_PIXEL"] == "1":
+    pixels = bytes((pixels[0] ^ 1,)) + pixels[1:]
 cursor = None
-if profile in ("poudland-builtin-smoke", "poudland-e2e-smoke"):
+if profile in ("poudland-builtin-smoke", "poudland-e2e-smoke",
+               "desktop-smoke"):
     with open(os.environ["CURSOR_BMP"], "rb") as stream:
         bitmap = stream.read()
     if len(bitmap) != 9338 or bitmap[:2] != b"BM":
@@ -771,7 +921,7 @@ def expected_poudland_e2e_pixel(x, y):
 
 for y in range(height):
     for x in range(width):
-        if profile == "poudland-builtin-smoke":
+        if profile in ("poudland-builtin-smoke", "desktop-smoke"):
             expected = expected_poudland_pixel(x, y)
         elif profile == "poudland-e2e-smoke":
             expected = expected_poudland_e2e_pixel(x, y)
@@ -796,6 +946,98 @@ with open(os.environ["FRAMEBUFFER_META"], "w", encoding="ascii") as stream:
 PY
 }
 
+validate_desktop_records()
+{
+    local debug_log=$1
+    DEBUG_LOG="$debug_log" DESKTOP_DROP_CASE="$desktop_drop_case" \
+    python3 - <<'PY'
+import os
+import sys
+
+with open(os.environ["DEBUG_LOG"], "r", encoding="ascii",
+          errors="replace") as source:
+    lines = source.read().splitlines()
+drop_case = os.environ["DESKTOP_DROP_CASE"]
+if drop_case:
+    dropped_record = f"FROGTEST CASE {drop_case} PASS"
+    lines = [line for line in lines if line != dropped_record]
+
+required_cases = (
+    "desktop.init-compositor-fork",
+    "desktop.init-desktop-fork",
+    "desktop.compositor-exec",
+    "desktop.service-bind",
+    "desktop.compositor-ready",
+    "desktop.client-exec",
+    "desktop.handshake",
+    "desktop.three-creates",
+    "desktop.third-close",
+    "desktop.two-live-windows",
+    "desktop.focus-second-window",
+    "desktop.keyboard-to-focus",
+    "desktop.drag-configure",
+    "desktop.client-observed-events",
+    "desktop.final-scene",
+    "desktop.idle-present-stable",
+)
+positions = {}
+for name in required_cases:
+    record = f"FROGTEST CASE {name} PASS"
+    matches = [index for index, line in enumerate(lines) if line == record]
+    if len(matches) != 1:
+        print(f"required desktop record {record!r} occurred {len(matches)} times",
+              file=sys.stderr)
+        raise SystemExit(1)
+    positions[name] = matches[0]
+
+ordered_edges = (
+    ("desktop.init-compositor-fork", "desktop.init-desktop-fork"),
+    ("desktop.compositor-exec", "desktop.service-bind"),
+    ("desktop.service-bind", "desktop.compositor-ready"),
+    ("desktop.client-exec", "desktop.handshake"),
+    ("desktop.service-bind", "desktop.handshake"),
+    ("desktop.handshake", "desktop.three-creates"),
+    ("desktop.three-creates", "desktop.third-close"),
+    ("desktop.third-close", "desktop.two-live-windows"),
+    ("desktop.two-live-windows", "desktop.focus-second-window"),
+    ("desktop.focus-second-window", "desktop.keyboard-to-focus"),
+    ("desktop.keyboard-to-focus", "desktop.drag-configure"),
+    ("desktop.drag-configure", "desktop.final-scene"),
+    ("desktop.final-scene", "desktop.idle-present-stable"),
+)
+for before, after in ordered_edges:
+    if positions[before] >= positions[after]:
+        print(f"desktop records out of order: {before} then {after}",
+              file=sys.stderr)
+        raise SystemExit(1)
+
+required_syncs = (
+    "desktop-initial-ready",
+    "desktop-focus-ready",
+    "desktop-keyboard-ready",
+    "desktop-drag-ready",
+    "desktop-final-frame",
+    "desktop-client-observed",
+    "desktop-idle-stable",
+)
+sync_positions = []
+for name in required_syncs:
+    record = f"FROGTEST SYNC {name}"
+    matches = [index for index, line in enumerate(lines) if line == record]
+    if len(matches) != 1:
+        print(f"required desktop sync {record!r} occurred {len(matches)} times",
+              file=sys.stderr)
+        raise SystemExit(1)
+    sync_positions.append(matches[0])
+if sync_positions[:5] != sorted(sync_positions[:5]):
+    print("desktop interaction sync records are out of order", file=sys.stderr)
+    raise SystemExit(1)
+if sync_positions[6] <= sync_positions[4]:
+    print("desktop idle sync precedes the final frame", file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+
 run_framebuffer_stage()
 {
     local stage=$1
@@ -816,6 +1058,8 @@ run_framebuffer_stage()
         ready_marker=framebuffer-mmap-ready
     elif [ "$profile" = poudland-builtin-smoke ]; then
         ready_marker=poudland-builtin-final-ready
+    elif [ "$profile" = desktop-smoke ]; then
+        ready_marker=desktop-idle-stable
     fi
     : >"$qmp_transcript"
 
@@ -897,6 +1141,32 @@ run_framebuffer_stage()
        ! qmp_inject_poudland_builtin "$qmp_socket" "$debug_log" \
            "$qmp_input_transcript" 2>"$stage_dir/qmp-input-error.log"; then
         qmp_failed=1
+    elif [ "$profile" = desktop-smoke ] &&
+         ! qmp_inject_desktop "$qmp_socket" "$debug_log" \
+             "$qmp_input_transcript" 2>"$stage_dir/qmp-input-error.log"; then
+        qmp_failed=1
+    fi
+    if [ "$qmp_failed" -eq 1 ]; then
+        kill "$runner_pid" 2>/dev/null || true
+        wait "$runner_pid" 2>/dev/null
+        qemu_status=$?
+        if grep -q '\[PANIC\]' "$debug_log" 2>/dev/null; then
+            classification=PANIC
+        elif grep -q 'ASSERT_FAILED' "$debug_log" 2>/dev/null; then
+            classification=ASSERT_FAILED
+        elif grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
+                     "$debug_log" 2>/dev/null; then
+            classification=GUEST_TEST_FAILED
+        elif grep -Eqi 'qmp.*(bind|listen)|Failed to bind socket' \
+                     "$stage_dir/qemu.stderr" 2>/dev/null; then
+            classification=QMP_FAILED
+        elif grep -q 'timed out waiting for ' \
+                  "$stage_dir/qmp-input-error.log" 2>/dev/null; then
+            classification=EXPECTED_MARKER_MISSING
+        else
+            classification=QMP_FAILED
+        fi
+        return
     fi
     local ready=0
     for _ in $(seq 1 $((timeout_seconds * 20))); do
@@ -929,12 +1199,19 @@ run_framebuffer_stage()
         return
     fi
 
-    if [ "$ready" -eq 1 ] &&
+    if [ "$ready" -eq 1 ] && [ "$qmp_failed" -eq 0 ] &&
        qmp_screendump "$qmp_socket" "$screenshot" "$qmp_transcript" \
            2>"$stage_dir/qmp-error.log"; then
         wait "$runner_pid"
         qemu_status=$?
+        local desktop_records_ok=1
+        if [ "$profile" = desktop-smoke ] &&
+           ! validate_desktop_records "$debug_log" \
+               2>"$stage_dir/guest-state-validator.log"; then
+            desktop_records_ok=0
+        fi
         if [ "$qemu_status" -eq 0 ] &&
+           [ "$desktop_records_ok" -eq 1 ] &&
            validate_framebuffer_ppm "$screenshot" \
                2>"$stage_dir/framebuffer-validator.log"; then
             read -r framebuffer_width framebuffer_height \
@@ -942,6 +1219,8 @@ run_framebuffer_stage()
             classification=PASS
         elif [ "$qemu_status" -ne 0 ]; then
             classification=EARLY_QEMU_EXIT
+        elif [ "$desktop_records_ok" -ne 1 ]; then
+            classification=GUEST_STATE_MISMATCH
         else
             classification=FRAMEBUFFER_MISMATCH
         fi
@@ -1030,8 +1309,87 @@ run_input_stage()
     fi
 }
 
+build_desktop_test_root()
+{
+    local image_dir="$repo_dir/build/desktop-smoke-root"
+    local log_dir="$work_dir/desktop-root"
+    local build_log="$log_dir/build.log"
+    local manifest="$image_dir/manifest"
+    local compositor_size
+    local compositor_hash
+    local desktop_size
+    local desktop_hash
+    local bitmap_size
+    local bitmap_hash
+
+    mkdir -p "$image_dir" "$log_dir"
+    make -C "$repo_dir/tools" mkfrogfs_image >"$build_log" 2>&1 || return 1
+    make -C "$repo_dir/core/apps" QEMU_TEST=1 \
+        FROG_TEST_PROFILE=desktop-smoke clean-production \
+        >>"$build_log" 2>&1 || return 1
+    make -C "$repo_dir/core/apps" QEMU_TEST=1 \
+        FROG_TEST_PROFILE=desktop-smoke production \
+        >>"$build_log" 2>&1 || return 1
+    "$repo_dir/tools/test-production-apps.sh" \
+        "$repo_dir/core/apps/build/compositor" \
+        "$repo_dir/core/apps/build/desktop" \
+        "$repo_dir/core/apps/build/desktop" \
+        >>"$build_log" 2>&1 || return 1
+
+    cp "$repo_dir/core/apps/test/b.bmp" "$image_dir/b.bmp" || return 1
+    cp "$repo_dir/core/apps/build/compositor" \
+        "$image_dir/compositor" || return 1
+    cp "$repo_dir/core/apps/build/desktop" "$image_dir/desktop" || return 1
+
+    bitmap_size=$(wc -c <"$image_dir/b.bmp") || return 1
+    bitmap_hash=$(sha256sum "$image_dir/b.bmp" | awk '{print $1}') || return 1
+    compositor_size=$(wc -c <"$image_dir/compositor") || return 1
+    compositor_hash=$(sha256sum "$image_dir/compositor" | awk '{print $1}') || return 1
+    desktop_size=$(wc -c <"$image_dir/desktop") || return 1
+    desktop_hash=$(sha256sum "$image_dir/desktop" | awk '{print $1}') || return 1
+
+    {
+        printf 'frogfs-manifest 1\n'
+        printf 'file /b.bmp b.bmp %s %s\n' \
+            "$bitmap_size" "$bitmap_hash"
+        printf 'elf /compositor compositor %s %s\n' \
+            "$compositor_size" "$compositor_hash"
+        printf 'elf /desktop desktop %s %s\n' \
+            "$desktop_size" "$desktop_hash"
+    } >"$manifest"
+
+    "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
+        --output "$desktop_base_disk" >>"$build_log" 2>&1 || return 1
+    "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
+        --output "$desktop_base_disk" --verify \
+        >>"$build_log" 2>&1 || return 1
+
+    base_disk_sha_before=$(sha256sum "$desktop_base_disk" |
+                           awk '{print $1}') || return 1
+    cp "$desktop_base_disk" "$data_disk" || return 1
+
+    make -C "$repo_dir/core/apps" QEMU_TEST=0 FROG_TEST_PROFILE= \
+        clean-production >>"$build_log" 2>&1 || return 1
+    make -C "$repo_dir/core/apps" QEMU_TEST=0 FROG_TEST_PROFILE= production \
+        >>"$build_log" 2>&1 || return 1
+    "$repo_dir/tools/test-production-apps.sh" \
+        "$repo_dir/core/apps/build/compositor" \
+        "$repo_dir/core/apps/build/desktop" \
+        "$repo_dir/core/apps/build/desktop" \
+        >>"$build_log" 2>&1 || return 1
+    if [ "$desktop_stale_image" = 1 ]; then
+        make -C "$repo_dir" frog-root.img >>"$build_log" 2>&1 || return 1
+        cp "$repo_dir/build/frog-root.img" "$data_disk" || return 1
+    fi
+}
+
 data_disk_source="$repo_dir/../hd80M.img"
-if [ "$profile" = frogfs-image-smoke ] ||
+if [ "$profile" = desktop-smoke ]; then
+    build_desktop_test_root || {
+        preserve_result
+        exit 1
+    }
+elif [ "$profile" = frogfs-image-smoke ] ||
    [ "$profile" = frogfs-exec-smoke ] ||
    [ "$profile" = poudland-e2e-smoke ]; then
     make -C "$repo_dir" frog-root.img || {
@@ -1039,11 +1397,16 @@ if [ "$profile" = frogfs-image-smoke ] ||
         exit 1
     }
     data_disk_source="$repo_dir/build/frog-root.img"
+    cp "$data_disk_source" "$data_disk" || {
+        preserve_result
+        exit 1
+    }
+else
+    cp "$data_disk_source" "$data_disk" || {
+        preserve_result
+        exit 1
+    }
 fi
-cp "$data_disk_source" "$data_disk" || {
-    preserve_result
-    exit 1
-}
 
 for stage in "${stages[@]}"; do
     failed_stage=$stage
@@ -1060,12 +1423,24 @@ for stage in "${stages[@]}"; do
     if [ "$profile" = framebuffer-smoke ] ||
        [ "$profile" = framebuffer-mmap-smoke ] ||
        [ "$profile" = poudland-builtin-smoke ] ||
-       [ "$profile" = poudland-e2e-smoke ]; then
+       [ "$profile" = poudland-e2e-smoke ] ||
+       [ "$profile" = desktop-smoke ]; then
         run_framebuffer_stage "$stage"
     elif [ "$profile" = input-smoke ]; then
         run_input_stage "$stage"
     else
         run_stage "$stage"
+    fi
+
+    if [ "$profile" = desktop-smoke ]; then
+        base_disk_sha_after=$(sha256sum "$desktop_base_disk" |
+                              awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        if [ "$classification" = PASS ] &&
+           [ "$base_disk_sha_before" != "$base_disk_sha_after" ]; then
+            classification=BASE_DISK_MUTATED
+        fi
     fi
 
     if [ "$profile" = disk-smoke ] && [ "$stage" = corrupt ]; then

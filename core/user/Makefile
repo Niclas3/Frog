@@ -11,6 +11,11 @@ USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
 	$(foreach D, $(INCLUDES), -I$(D))
+ifeq ($(QEMU_TEST),1)
+ifeq ($(FROG_TEST_PROFILE),desktop-smoke)
+USER_CFLAGS += -DFROG_DESKTOP_SMOKE_TEST
+endif
+endif
 ANONYMOUS_MMAP_TEST_CFLAGS :=
 ifeq ($(FROG_TEST_ALLOW_MAX_OOM),1)
 ANONYMOUS_MMAP_TEST_CFLAGS += -DFROG_TEST_ALLOW_MAX_OOM

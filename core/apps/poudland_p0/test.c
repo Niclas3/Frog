@@ -13,7 +13,8 @@ static int_32 raw_syscall1(uint_32 number, uint_32 arg)
         return result;
 }
 
-#ifdef FROG_POUDLAND_P0_TEST
+#if defined(FROG_POUDLAND_P0_TEST) || \
+    defined(FROG_DESKTOP_SMOKE_TEST)
 static int_32 raw_syscall2(uint_32 number, uint_32 first, uint_32 second)
 {
         int_32 result;
@@ -28,7 +29,8 @@ static int_32 raw_syscall2(uint_32 number, uint_32 first, uint_32 second)
 
 void poudland_p0_test_report(uint_32 id, bool passed)
 {
-#ifdef FROG_POUDLAND_P0_TEST
+#if defined(FROG_POUDLAND_P0_TEST) || \
+    defined(FROG_DESKTOP_SMOKE_TEST)
         (void) raw_syscall2(SYS_TEST_REPORT, id, passed);
 #else
         (void) id;
@@ -38,7 +40,8 @@ void poudland_p0_test_report(uint_32 id, bool passed)
 
 int_32 poudland_p0_test_sync(uint_32 command)
 {
-#ifdef FROG_POUDLAND_P0_TEST
+#if defined(FROG_POUDLAND_P0_TEST) || \
+    defined(FROG_DESKTOP_SMOKE_TEST)
         return raw_syscall1(SYS_TEST_SYNC, command);
 #else
         (void) command;

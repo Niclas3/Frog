@@ -292,6 +292,9 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_POUDLAND_E2E)
         image_start = _binary_user_smoke_poudland_e2e_bootstrap_bin_start;
         image_end = _binary_user_smoke_poudland_e2e_bootstrap_bin_end;
+#elif defined(CONFIG_FROG_TEST_DESKTOP)
+        image_start = _binary_user_smoke_graphical_init_bin_start;
+        image_end = _binary_user_smoke_graphical_init_bin_end;
 #elif defined(CONFIG_FROG_TEST_FROGFS_EXEC)
         image_start = _binary_user_smoke_frogfs_exec_bin_start;
         image_end = _binary_user_smoke_frogfs_exec_bin_end;
@@ -453,6 +456,8 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("poudland-builtin-smoke");
 #elif defined(CONFIG_FROG_TEST_POUDLAND_E2E)
         frog_test_begin("poudland-e2e-smoke");
+#elif defined(CONFIG_FROG_TEST_DESKTOP)
+        frog_test_begin("desktop-smoke");
 #elif defined(CONFIG_FROG_TEST_INPUT)
         frog_test_begin("input-smoke");
 #elif defined(CONFIG_FROG_TEST_TIME)
@@ -472,7 +477,8 @@ __visible void __noreturn start_kernel(void)
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
     defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
-    defined(CONFIG_FROG_TEST_POUDLAND_E2E)
+    defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
+    defined(CONFIG_FROG_TEST_DESKTOP)
                 frog_test_abort("framebuffer-handoff-invalid");
 #else
                 PANIC("framebuffer handoff is invalid");
@@ -498,7 +504,8 @@ __visible void __noreturn start_kernel(void)
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
     defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
-    defined(CONFIG_FROG_TEST_POUDLAND_E2E)
+    defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
+    defined(CONFIG_FROG_TEST_DESKTOP)
                         frog_test_abort("framebuffer-resource-register-failed");
 #else
                         PANIC("framebuffer resource registration failed");
@@ -509,7 +516,8 @@ __visible void __noreturn start_kernel(void)
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
     defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
-    defined(CONFIG_FROG_TEST_POUDLAND_E2E)
+    defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
+    defined(CONFIG_FROG_TEST_DESKTOP)
         if (framebuffer_result == -ENODEV)
                 frog_test_abort("framebuffer-unavailable");
 #endif
@@ -565,6 +573,7 @@ __visible void __noreturn start_kernel(void)
 #if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
     defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
+    defined(CONFIG_FROG_TEST_DESKTOP) || \
     defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
     defined(CONFIG_FROG_TEST_FROGFS_EXEC)
         int frogfs_init_ret = frogfs_init();
@@ -582,7 +591,8 @@ __visible void __noreturn start_kernel(void)
 #if !defined(CONFIG_QEMU_TEST) || \
     defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
     defined(CONFIG_FROG_TEST_FROGFS_EXEC) || \
-    defined(CONFIG_FROG_TEST_POUDLAND_E2E)
+    defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
+    defined(CONFIG_FROG_TEST_DESKTOP)
         frogfs_device = "/dev/sdbp1";
 #endif
         if (frogfs_init_ret == 0)
@@ -605,6 +615,10 @@ __visible void __noreturn start_kernel(void)
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)
                 frog_test_abort("poudland-e2e-frogfs-mount");
+#elif defined(CONFIG_FROG_TEST_DESKTOP)
+        if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
+            frogfs_rollback_ret < 0)
+                frog_test_abort("desktop-frogfs-mount");
 #elif defined(CONFIG_FROG_TEST_FROGFS_IMAGE)
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)

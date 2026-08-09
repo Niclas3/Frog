@@ -79,6 +79,38 @@ static int_32 sys_test_sync(uint_32 command)
     local_irq_disable();
     for (;;)
         __asm__ volatile("hlt");
+#elif defined(CONFIG_FROG_TEST_DESKTOP)
+    switch (command) {
+    case FROG_TEST_DESKTOP_INITIAL_READY:
+        frog_test_sync("desktop-initial-ready");
+        return 0;
+    case FROG_TEST_DESKTOP_FOCUS_READY:
+        frog_test_sync("desktop-focus-ready");
+        return 0;
+    case FROG_TEST_DESKTOP_KEYBOARD_READY:
+        frog_test_sync("desktop-keyboard-ready");
+        return 0;
+    case FROG_TEST_DESKTOP_DRAG_READY:
+        frog_test_sync("desktop-drag-ready");
+        return 0;
+    case FROG_TEST_DESKTOP_FINAL_READY:
+        if (frog_test_has_failures())
+            return -EUCLEAN;
+        frog_test_sync("desktop-final-frame");
+        return 0;
+    case FROG_TEST_DESKTOP_CLIENT_READY:
+        if (frog_test_has_failures())
+            return -EUCLEAN;
+        frog_test_sync("desktop-client-observed");
+        return 0;
+    case FROG_TEST_DESKTOP_IDLE_READY:
+        if (frog_test_has_failures())
+            return -EUCLEAN;
+        frog_test_sync("desktop-idle-stable");
+        return 0;
+    default:
+        return -EINVAL;
+    }
 #elif defined(CONFIG_FROG_TEST_POUDLAND_E2E)
     if (command != FROG_TEST_POUDLAND_E2E_DESKTOP_LAUNCHED)
         return -EINVAL;
@@ -568,6 +600,57 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_POUDLAND_E2E_DESKTOP_TWO_LIVE:
         name = "poudland-e2e.desktop-two-live";
         break;
+    case FROG_TEST_DESKTOP_INIT_COMPOSITOR_FORK:
+        name = "desktop.init-compositor-fork";
+        break;
+    case FROG_TEST_DESKTOP_INIT_DESKTOP_FORK:
+        name = "desktop.init-desktop-fork";
+        break;
+    case FROG_TEST_DESKTOP_COMPOSITOR_EXEC:
+        name = "desktop.compositor-exec";
+        break;
+    case FROG_TEST_DESKTOP_COMPOSITOR_READY:
+        name = "desktop.compositor-ready";
+        break;
+    case FROG_TEST_DESKTOP_CLIENT_CONNECT:
+        name = "desktop.handshake";
+        break;
+    case FROG_TEST_DESKTOP_TWO_WINDOWS:
+        name = "desktop.two-live-windows";
+        break;
+    case FROG_TEST_DESKTOP_FOCUS:
+        name = "desktop.focus-second-window";
+        break;
+    case FROG_TEST_DESKTOP_KEYBOARD:
+        name = "desktop.keyboard-to-focus";
+        break;
+    case FROG_TEST_DESKTOP_CONFIGURE:
+        name = "desktop.drag-configure";
+        break;
+    case FROG_TEST_DESKTOP_CLIENT_OBSERVED:
+        name = "desktop.client-observed-events";
+        break;
+    case FROG_TEST_DESKTOP_FINAL_SCENE:
+        name = "desktop.final-scene";
+        break;
+    case FROG_TEST_DESKTOP_LIFECYCLE:
+        name = "desktop.child-lifecycle";
+        break;
+    case FROG_TEST_DESKTOP_CLIENT_EXEC:
+        name = "desktop.client-exec";
+        break;
+    case FROG_TEST_DESKTOP_SERVICE_BIND:
+        name = "desktop.service-bind";
+        break;
+    case FROG_TEST_DESKTOP_THREE_CREATES:
+        name = "desktop.three-creates";
+        break;
+    case FROG_TEST_DESKTOP_THIRD_CLOSE:
+        name = "desktop.third-close";
+        break;
+    case FROG_TEST_DESKTOP_IDLE_PRESENT_STABLE:
+        name = "desktop.idle-present-stable";
+        break;
     case FROG_TEST_TIME_MONOTONIC_NORMALIZED:
         name = "time.monotonic.normalized";
         break;
@@ -624,6 +707,10 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     }
 
     frog_test_case(name, passed != 0);
+#ifdef CONFIG_FROG_TEST_DESKTOP
+    if (passed)
+        printk("FROGTEST CASE %s PASS\n", name);
+#endif
     return 0;
 }
 #endif

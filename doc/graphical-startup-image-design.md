@@ -59,11 +59,11 @@ One small user-mode graphical init performs the production startup sequence:
 2. fork and `execv("/test/desktop", ...)`;
 3. wait for child termination and report explicit launch or runtime failure.
 
-The init is an early embedded image selected only by a non-QEMU kernel build;
-its flat binary remains within the one-page early-image limit. Existing
-`CONFIG_QEMU_TEST` profiles keep their profile-specific smoke init (and the
-basic smoke init fallback), so production startup cannot change their guest
-markers.
+The init is an early embedded image selected by a non-QEMU kernel build and by
+the dedicated `desktop-smoke` profile; its flat binary remains within the
+one-page early-image limit. Other `CONFIG_QEMU_TEST` profiles keep their
+profile-specific smoke init (and the basic smoke init fallback), so production
+startup cannot change their guest markers.
 
 The shared startup status contract reserves desktop exits 70, 71, and 72 for
 connect timeout, compositor EOF/HUP (`-ECONNRESET`), and other runtime or
@@ -112,14 +112,38 @@ The initial calls cover connect, window create, window close, next event, and di
 
 ## Automated Use
 
-`frogfs-exec-smoke` is the focused Task 12 launch proof. At 16 MiB it mounts a
+`frogfs-exec-smoke` is the focused installed-ELF launch proof. At 16 MiB it mounts a
 private copy of the generated image, proves both ELF files exceed the old raw
 one-page fixture limit, and sequentially validates `fork`, exact-path `execv`,
-and `wait` status for both installed production artifacts. The later
-`desktop-smoke` profile depends on the same reusable FrogFS image. Each run
-copies the immutable base image into its unique temporary work directory and
-gives only that disposable copy to QEMU. This copy is test isolation, not a
-guest preparation phase.
+and `wait` status for both installed production artifacts.
+
+`desktop-smoke` is the full graphical acceptance path. It builds the reusable,
+deterministic `build/desktop-smoke-root.img` with test-reporting variants of
+the same compositor and `desktop.c` sources, copies that base into the unique
+runner work directory, then boots the real graphical init.
+Only these disposable variants contain `SYS_TEST_REPORT`/`SYS_TEST_SYNC`;
+normal ELFs remain free of test instrumentation. QMP injects focus, key, drag,
+and release events only after guest synchronization points. Guest assertions
+cover child launch, compositor bind/setup, handshake, three creates, third
+close, two live client windows, focus, keyboard routing, configure delivery,
+final compositor state, receipt of the same events by `desktop.c`, and a full
+second with no additional present. The `desktop-final-frame` synchronization
+record is emitted only after final damage has been presented; screenshot
+capture waits for the later idle-stability record. The final 1024x768
+screenshot is checked pixel-for-pixel, including window stacking, focus border,
+and cursor blending. The generated test manifest does not modify the tracked
+production manifest or `build/frog-root.img`, and ordinary application
+artifacts are restored before QEMU starts.
+
+The host requires every positive state record exactly once and validates their
+causal order in addition to the exact screenshot. It records the reusable test
+base SHA-256 before and after QEMU, so mutation of that base cannot pass. Wrong
+drag coordinates fail the drag/configure guest case after a bounded deadline;
+missing state evidence, a stale production image, and a deliberately wrong
+pixel are classified independently by runner diagnostics.
+
+Every generated-image run gives only a disposable disk to QEMU. This is test
+isolation, not a guest preparation phase.
 
 `make run` builds and verifies `build/frog-root.img`, copies the immutable
 `../hd.img` template to `build/frog-boot.img`, freshly assembles the MBR and

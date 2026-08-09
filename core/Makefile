@@ -61,6 +61,8 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 
 ifneq ($(QEMU_TEST),1)
 obj-y += $(BUILD_DIR)/user_smoke_graphical_init_blob.o
+else ifeq ($(FROG_TEST_PROFILE),desktop-smoke)
+obj-y += $(BUILD_DIR)/user_smoke_graphical_init_blob.o
 endif
 
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)

@@ -100,6 +100,9 @@ EARLY_QEMU_EXIT
 EXPECTED_MARKER_MISSING
 TEST_FAILED
 GUEST_TEST_FAILED
+GUEST_STATE_MISMATCH
+FRAMEBUFFER_MISMATCH
+QMP_FAILED
 ```
 
 A host-side `result.json` may contain the classification, elapsed time, last
@@ -124,6 +127,9 @@ default:
 - `input-smoke`: ring-3 blocking and nonblocking reads from the keyboard and
   mouse devfs nodes, with ordered keyboard, relative-motion, and button events
   injected through QMP.
+- `desktop-smoke`: the real graphical init, compositor, and desktop at 16 MiB,
+  with complete guest state records, ordered QMP interaction, an idle-present
+  interval, and exact full-frame validation.
 
 Each profile has an explicit timeout and expected ordered milestones. A compile
 success or a single early marker never counts as a runtime pass.
@@ -145,6 +151,16 @@ validation should combine three sources:
 
 Guest state is the primary functional evidence; screenshots are additional
 evidence for blank output, corruption, overlap, and incorrect framing.
+
+`desktop-smoke` makes both sources mandatory. Its instrumented FrogFS base is
+built deterministically, QEMU receives only a unique copy, and the base hash is
+checked before and after the run. Successful guest reports are explicit
+`FROGTEST CASE ... PASS` records for launch, bind, handshake, window lifecycle,
+input routing, final frame, and idle-present stability. The host requires each
+record exactly once in causal order, waits for `desktop-final-frame` and the
+later `desktop-idle-stable`, then validates all 1024x768 pixels. Missing state
+evidence yields `GUEST_STATE_MISMATCH`; guest case failures and framebuffer
+mismatches remain distinct classifications.
 
 ## Agent Loop Guardrails
 
