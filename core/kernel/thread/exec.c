@@ -12,6 +12,8 @@
 #include <frog/uaccess.h>
 #include <frog/vm.h>
 #include <kernel/fd.h>
+#include <kernel/disk_init_loader.h>
+#include <kernel/process.h>
 #include <kernel/vfs.h>
 
 #define EXEC_MAX_ARGC              32U
@@ -47,6 +49,43 @@ struct exec_image_plan {
 };
 
 extern void intr_exit(void);
+
+#ifdef CONFIG_FROG_TEST_DISK_INIT_LOADER
+static enum disk_init_loader_test_failure disk_init_loader_failure;
+
+int_32 disk_init_loader_test_fail_once(
+    enum disk_init_loader_test_failure failure)
+{
+        unsigned long flags;
+
+        if (failure < DISK_INIT_LOADER_FAIL_ARGUMENT_ALLOCATION ||
+            failure > DISK_INIT_LOADER_FAIL_AFTER_PID_SWAP)
+                return -EINVAL;
+        local_irq_save(flags);
+        if (disk_init_loader_failure != 0) {
+                local_irq_restore(flags);
+                return -EBUSY;
+        }
+        disk_init_loader_failure = failure;
+        local_irq_restore(flags);
+        return 0;
+}
+
+bool disk_init_loader_test_take_failure(
+    enum disk_init_loader_test_failure failure)
+{
+        unsigned long flags;
+        bool taken = false;
+
+        local_irq_save(flags);
+        if (disk_init_loader_failure == failure) {
+                disk_init_loader_failure = 0;
+                taken = true;
+        }
+        local_irq_restore(flags);
+        return taken;
+}
+#endif
 
 #ifdef CONFIG_QEMU_TEST
 int_32 exec_test_arm_fail_before_commit(void)
@@ -153,6 +192,80 @@ static int exec_copy_arguments(const char *user_path,
                 if (result != 0)
                         goto fail;
                 arguments->bytes += arguments->lengths[index] + 1U;
+                arguments->argc++;
+        }
+
+        result = -E2BIG;
+fail:
+        exec_release_arguments(arguments);
+        return result;
+}
+
+static int exec_kernel_string_length(const char *string,
+                                     uint_32 capacity,
+                                     uint_32 *length)
+{
+        if (string == NULL || length == NULL || capacity == 0)
+                return -EINVAL;
+        for (uint_32 index = 0; index < capacity; index++) {
+                if (string[index] == '\0') {
+                        *length = index;
+                        return 0;
+                }
+        }
+        return -ENAMETOOLONG;
+}
+
+static int exec_copy_kernel_arguments(const char *path,
+                                      const char *const argv[],
+                                      struct exec_arguments *arguments)
+{
+        uint_32 path_length;
+        int result;
+
+        if (arguments == NULL || path == NULL)
+                return -EINVAL;
+        memset(arguments, 0, sizeof(*arguments));
+        arguments->path = kmalloc(PATH_NAME_MAX + 1U);
+        arguments->storage = kmalloc(EXEC_ARG_BYTES_MAX);
+        if (arguments->path == NULL || arguments->storage == NULL) {
+                result = -ENOMEM;
+                goto fail;
+        }
+        result = exec_kernel_string_length(path, PATH_NAME_MAX + 1U,
+                                           &path_length);
+        if (result != 0)
+                goto fail;
+        if (path_length == 0) {
+                result = -ENOENT;
+                goto fail;
+        }
+        memcpy(arguments->path, path, path_length + 1U);
+        if (argv == NULL)
+                return 0;
+
+        for (uint_32 index = 0; index <= EXEC_MAX_ARGC; index++) {
+                uint_32 length;
+
+                if (argv[index] == NULL)
+                        return 0;
+                if (index == EXEC_MAX_ARGC ||
+                    arguments->bytes == EXEC_ARG_BYTES_MAX) {
+                        result = -E2BIG;
+                        goto fail;
+                }
+                result = exec_kernel_string_length(
+                    argv[index], EXEC_ARG_BYTES_MAX - arguments->bytes,
+                    &length);
+                if (result == -ENAMETOOLONG)
+                        result = -E2BIG;
+                if (result != 0)
+                        goto fail;
+                arguments->values[index] =
+                    arguments->storage + arguments->bytes;
+                arguments->lengths[index] = length;
+                memcpy(arguments->values[index], argv[index], length + 1U);
+                arguments->bytes += length + 1U;
                 arguments->argc++;
         }
 
@@ -389,11 +502,13 @@ static int exec_build_plan(struct file *file, struct exec_image_plan *plan)
 
 static int exec_load_segments(struct file *file,
                               const struct exec_image_plan *plan,
-                              struct mm_struct *mm)
+                              struct mm_struct *mm,
+                              bool initial_loader)
 {
         uint_8 *buffer;
         int result = 0;
 
+        (void) initial_loader;
         for (uint_32 index = 0; index < plan->segment_count; index++) {
                 const struct exec_segment *segment = &plan->segments[index];
 
@@ -404,6 +519,12 @@ static int exec_load_segments(struct file *file,
                         result = vm_user_map_owned_page(mm, page);
                         if (result != 0)
                                 return result;
+#ifdef CONFIG_FROG_TEST_DISK_INIT_LOADER
+                        if (initial_loader &&
+                            disk_init_loader_test_take_failure(
+                                DISK_INIT_LOADER_FAIL_IMAGE_MAPPING))
+                                return -ENOMEM;
+#endif
                 }
         }
 
@@ -509,7 +630,8 @@ static int exec_prepare_image(const struct exec_arguments *arguments,
                               struct mm_struct **mm_out,
                               uint_32 *entry_out,
                               uint_32 *stack_out,
-                              uint_32 *argv_out)
+                              uint_32 *argv_out,
+                              bool initial_loader)
 {
         struct exec_image_plan *plan = NULL;
         struct mm_struct *mm = NULL;
@@ -532,7 +654,7 @@ static int exec_prepare_image(const struct exec_arguments *arguments,
                 result = -ENOMEM;
                 goto out;
         }
-        result = exec_load_segments(file, plan, mm);
+        result = exec_load_segments(file, plan, mm, initial_loader);
         if (result != 0)
                 goto out;
         result = exec_build_stack(mm, arguments, stack_out, argv_out);
@@ -562,6 +684,49 @@ static const char *exec_image_name(const char *path)
         return path;
 }
 
+int_32 process_execute_init_path(const char *path,
+                                 const char *const argv[],
+                                 pid_t *pid_out)
+{
+        struct exec_arguments arguments;
+        struct process_startup_context startup;
+        struct mm_struct *mm = NULL;
+        uint_32 entry;
+        uint_32 stack;
+        uint_32 user_argv;
+        int result;
+
+        if (pid_out == NULL)
+                return -EINVAL;
+        *pid_out = -1;
+        if (path == NULL)
+                return -EINVAL;
+#ifdef CONFIG_FROG_TEST_DISK_INIT_LOADER
+        if (disk_init_loader_test_take_failure(
+                DISK_INIT_LOADER_FAIL_ARGUMENT_ALLOCATION))
+                return -ENOMEM;
+#endif
+
+        result = exec_copy_kernel_arguments(path, argv, &arguments);
+        if (result != 0)
+                return result;
+        result = exec_prepare_image(&arguments, &mm, &entry, &stack,
+                                    &user_argv, true);
+        if (result != 0)
+                goto out;
+        startup.entry = entry;
+        startup.stack = stack;
+        startup.argc = arguments.argc;
+        startup.argv = user_argv;
+        result = process_publish_initial_user_mm_owned(
+            mm, exec_image_name(arguments.path), &startup, pid_out);
+        mm = NULL;
+
+out:
+        exec_release_arguments(&arguments);
+        return result;
+}
+
 int_32 sys_execv(const char *path, const char *argv[])
 {
         struct exec_arguments arguments;
@@ -585,7 +750,7 @@ int_32 sys_execv(const char *path, const char *argv[])
         if (result != 0)
                 goto fail;
         result = exec_prepare_image(&arguments, &new_mm, &entry, &stack,
-                                    &user_argv);
+                                    &user_argv, false);
         if (result != 0)
                 goto release_arguments;
 #ifdef CONFIG_QEMU_TEST

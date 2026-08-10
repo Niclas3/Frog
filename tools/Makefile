@@ -11,13 +11,15 @@ mkfrogfs_image: mkfrogfs_image.c
 test: mkfrogfs_image test-mkfrogfs-image.sh \
 	test-poudland-p0-protocol.sh test-poudland-p0-server.sh \
 		test-poudland-p0-render.sh test-desktop-lifecycle.sh \
-		test-graphical-init.sh
+		test-graphical-init.sh test-installed-graphical-init.sh test-system-init.sh
 	@./test-mkfrogfs-image.sh ./mkfrogfs_image
 	@./test-poudland-p0-protocol.sh
 	@./test-poudland-p0-server.sh
 	@./test-poudland-p0-render.sh
 	@./test-desktop-lifecycle.sh
 	@./test-graphical-init.sh
+	@./test-installed-graphical-init.sh
+	@./test-system-init.sh
 
 # build font library###############################
 # -lm library <math.h>

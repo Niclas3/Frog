@@ -57,7 +57,8 @@ static int run_production(void)
 #endif
                 return 1;
         }
-        status = poudland_p0_bmp_load_cursor("/test/b.bmp", &scene.cursor);
+        status = poudland_p0_bmp_load_cursor(FROG_POUDLAND_CURSOR_PATH,
+                                             &scene.cursor);
         if (status != 0) {
 #ifdef FROG_DESKTOP_SMOKE_TEST
                 poudland_p0_test_report(
@@ -161,7 +162,7 @@ int main(int argc, char **argv)
         if (!passed)
                 stop_with_cleanup();
 
-        passed = poudland_p0_bmp_load_cursor("/test/b.bmp",
+        passed = poudland_p0_bmp_load_cursor(FROG_POUDLAND_CURSOR_PATH,
                                              &scene.cursor) == 0 &&
                  scene.cursor.width == 48U && scene.cursor.height == 48U;
         poudland_p0_test_report(FROG_TEST_POUDLAND_BUILTIN_BMP_CURSOR,

@@ -4,6 +4,7 @@ APP_BUILD := build
 COMPOSITOR := $(APP_BUILD)/compositor
 DESKTOP := $(APP_BUILD)/desktop
 POUDLAND_E2E_SMOKE := $(APP_BUILD)/poudland-e2e-smoke
+LEGACY_COMPOSITOR := $(APP_BUILD)/compositor-legacy
 APP_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
@@ -16,6 +17,7 @@ endif
 endif
 
 .PHONY: all production compositor desktop poudland-p0 poudland-e2e-smoke \
+	legacy-compositor \
 	test clean clean-production clean-test FORCE
 
 all: production
@@ -23,6 +25,7 @@ production: $(COMPOSITOR) $(DESKTOP)
 compositor poudland-p0: $(COMPOSITOR)
 desktop: $(DESKTOP)
 poudland-e2e-smoke: $(POUDLAND_E2E_SMOKE)
+legacy-compositor: $(LEGACY_COMPOSITOR)
 
 FORCE:
 
@@ -31,6 +34,10 @@ $(APP_BUILD):
 
 $(COMPOSITOR): FORCE | $(APP_BUILD)
 	$(MAKE) -C poudland_p0 all
+
+$(LEGACY_COMPOSITOR): FORCE | $(APP_BUILD)
+	$(MAKE) -C poudland_p0 QEMU_TEST=1 \
+		FROG_TEST_PROFILE=poudland-e2e-smoke TARGET=../build/compositor-legacy all
 
 $(APP_BUILD)/app_start.o: start.s FORCE | $(APP_BUILD)
 	$(CC) $(APP_CFLAGS) -o $@ $<
@@ -101,7 +108,8 @@ clean-production:
 
 clean-test:
 	rm -f $(APP_BUILD)/poudland_e2e_*.o \
-		$(APP_BUILD)/poudland_e2e_*.d $(POUDLAND_E2E_SMOKE)
+		$(APP_BUILD)/poudland_e2e_*.d $(POUDLAND_E2E_SMOKE) \
+		$(LEGACY_COMPOSITOR)
 
 clean: clean-production clean-test
 

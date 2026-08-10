@@ -1,0 +1,7 @@
+---
+status: accepted
+---
+
+# Use a deterministic Root System Image
+
+Frog will mount a verified FrogFS System Image as the Root Filesystem at `/` and enforce it as read-only. The QEMU IDE frontend cannot attach a directly read-only hard-disk node, so the production-root profile uses the reusable image as the read-only base of a temporary snapshot overlay and verifies its hash before and after; filesystem mutation tests use disposable writable copies. Devfs is mounted into the root namespace. When real consumers appear, persistent `/home` and `/var` state will default to separately writable FrogFS volumes, while `/tmp` will use a bounded tmpfs because its Temporary Data is not expected to survive reboot; none of those three directories or mounts is part of this milestone. The directory contract is a minimal FHS-inspired hierarchy whose top-level responsibilities are defined now but whose directories are created only when a real consumer exists. The current milestone keeps the Boot Image and System Image separate so root-namespace stabilization does not also become a bootloader and partition-layout rewrite; a later single-CF image may package both artifacts without merging their responsibilities. If the System Image cannot be mounted and validated, or its System Init cannot be started, Frog reports the failure and stops instead of silently falling back to the old embedded graphical startup path.

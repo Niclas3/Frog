@@ -15,6 +15,14 @@
 #define FROG_GRAPHICAL_EXIT_DESKTOP_RUN     85
 #define FROG_GRAPHICAL_EXIT_WAIT            86
 
+#ifndef FROG_GRAPHICAL_COMPOSITOR_PATH
+#define FROG_GRAPHICAL_COMPOSITOR_PATH "/bin/compositor"
+#endif
+
+#ifndef FROG_GRAPHICAL_DESKTOP_PATH
+#define FROG_GRAPHICAL_DESKTOP_PATH "/bin/desktop"
+#endif
+
 enum graphical_child {
         GRAPHICAL_CHILD_COMPOSITOR = 1,
         GRAPHICAL_CHILD_DESKTOP,

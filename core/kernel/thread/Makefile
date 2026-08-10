@@ -8,6 +8,9 @@ obj-y += process_regression.o
 obj-y += sched.o
 obj-y += semaphore.o
 obj-y += threads.o
+ifeq ($(FROG_TEST_PROFILE),disk-init-loader-smoke)
+obj-y += disk_init_loader_regression.o
+endif
 
 .PHONY: all clean
 all: $(build-obj-y) $(BUILD_DIR)/switch.o

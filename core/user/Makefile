@@ -7,25 +7,167 @@ USER_BLOBS := $(foreach P,$(USER_PROFILES),$(BUILD_DIR)/user_smoke_$(P)_blob.o)
 EXEC_TARGET_BLOB := $(BUILD_DIR)/exec_target_blob.o
 POUDLAND_P0_ELF_BLOB := $(BUILD_DIR)/poudland_p0_elf_blob.o
 POUDLAND_P0_CURSOR_BLOB := $(BUILD_DIR)/poudland_p0_cursor_blob.o
+GRAPHICAL_INIT_COMPOSITOR_STUB := \
+	$(BUILD_DIR)/graphical-init-compositor-stub.elf
+GRAPHICAL_INIT_DESKTOP_STUB := \
+	$(BUILD_DIR)/graphical-init-desktop-stub.elf
 USER_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
 	$(foreach D, $(INCLUDES), -I$(D))
-ifeq ($(QEMU_TEST),1)
-ifneq ($(filter desktop-smoke desktop-soak-10m,$(FROG_TEST_PROFILE)),)
-USER_CFLAGS += -DFROG_DESKTOP_SMOKE_TEST
-endif
-endif
 ANONYMOUS_MMAP_TEST_CFLAGS :=
 ifeq ($(FROG_TEST_ALLOW_MAX_OOM),1)
 ANONYMOUS_MMAP_TEST_CFLAGS += -DFROG_TEST_ALLOW_MAX_OOM
 endif
 
-.PHONY: all clean FORCE
+.PHONY: all clean FORCE installed-init system-init-selection-artifacts \
+	graphical-init-production-artifacts
 all: $(USER_BLOBS) $(EXEC_TARGET_BLOB)
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
 all: $(POUDLAND_P0_ELF_BLOB) $(POUDLAND_P0_CURSOR_BLOB)
 endif
+
+installed-init: $(BUILD_DIR)/init.elf $(BUILD_DIR)/init-graphical.elf
+
+ifeq ($(FROG_TEST_PROFILE),system-init-selection-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error system-init-selection-smoke artifacts require QEMU_TEST=1)
+endif
+all: system-init-selection-artifacts
+endif
+
+ifeq ($(FROG_TEST_PROFILE),graphical-init-production-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error graphical-init-production-smoke artifacts require QEMU_TEST=1)
+endif
+all: graphical-init-production-artifacts
+endif
+
+graphical-init-production-artifacts: $(GRAPHICAL_INIT_COMPOSITOR_STUB) \
+	$(GRAPHICAL_INIT_DESKTOP_STUB)
+
+SYSTEM_INIT_SELECTION_CFLAGS :=
+ifeq ($(FROG_TEST_STAGE),open-failure)
+SYSTEM_INIT_SELECTION_CFLAGS += -DFROG_SYSTEM_INIT_TEST_OPEN_FAILURE
+else ifeq ($(FROG_TEST_STAGE),read-failure)
+SYSTEM_INIT_SELECTION_CFLAGS += -DFROG_SYSTEM_INIT_TEST_READ_FAILURE
+else ifeq ($(FROG_TEST_STAGE),close-failure)
+SYSTEM_INIT_SELECTION_CFLAGS += -DFROG_SYSTEM_INIT_TEST_CLOSE_FAILURE
+else ifeq ($(FROG_TEST_STAGE),exec-returned)
+SYSTEM_INIT_SELECTION_CFLAGS += -DFROG_SYSTEM_INIT_TEST_EXEC_RETURNED
+endif
+
+system-init-selection-artifacts: \
+	$(BUILD_DIR)/system-init-selection-init.elf \
+	$(BUILD_DIR)/system-init-selection-target.elf
+
+$(BUILD_DIR)/system_init_selection_start.o: ../apps/start.s
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/system_init_selection_start.d \
+		-o $@ $<
+
+$(BUILD_DIR)/system_init_selection_runtime.o: ../kernel/syscall.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/system_init_selection_runtime.d \
+		-o $@ $<
+
+$(BUILD_DIR)/system_init_selection_init.o: system_init.c
+	$(CC) $(USER_CFLAGS) -DCONFIG_QEMU_TEST \
+		-DCONFIG_FROG_TEST_SYSTEM_INIT_SELECTION \
+		-DFROG_SYSTEM_INIT_SELECTION_TEST_BUILD \
+		$(SYSTEM_INIT_SELECTION_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/system_init_selection_init.d \
+		-o $@ $<
+
+$(BUILD_DIR)/system_init_selection_target.o: system_init_selection_target.c
+	$(CC) $(USER_CFLAGS) -DCONFIG_QEMU_TEST \
+		-DCONFIG_FROG_TEST_SYSTEM_INIT_SELECTION \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/system_init_selection_target.d \
+		-o $@ $<
+
+$(BUILD_DIR)/system-init-selection-init.elf: \
+	$(BUILD_DIR)/system_init_selection_start.o \
+	$(BUILD_DIR)/system_init_selection_init.o \
+	$(BUILD_DIR)/system_init_selection_runtime.o system_init.ld
+	$(LD) --gc-sections -m elf_i386 -T system_init.ld -o $@ \
+		$(BUILD_DIR)/system_init_selection_start.o \
+		$(BUILD_DIR)/system_init_selection_init.o \
+		$(BUILD_DIR)/system_init_selection_runtime.o
+
+$(BUILD_DIR)/system-init-selection-target.elf: \
+	$(BUILD_DIR)/system_init_selection_start.o \
+	$(BUILD_DIR)/system_init_selection_target.o \
+	$(BUILD_DIR)/system_init_selection_runtime.o system_init.ld
+	$(LD) --gc-sections -m elf_i386 -T system_init.ld -o $@ \
+		$(BUILD_DIR)/system_init_selection_start.o \
+		$(BUILD_DIR)/system_init_selection_target.o \
+		$(BUILD_DIR)/system_init_selection_runtime.o
+
+$(BUILD_DIR)/installed_init_start.o: ../apps/start.s
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/installed_init_start.d \
+		-o $@ $<
+
+$(BUILD_DIR)/installed_init_runtime.o: ../kernel/syscall.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/installed_init_runtime.d \
+		-o $@ $<
+
+$(BUILD_DIR)/installed_system_init.o: system_init.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/installed_system_init.d \
+		-o $@ $<
+
+$(BUILD_DIR)/installed_graphical_init.o: graphical_init.c
+	$(CC) $(USER_CFLAGS) \
+		-MMD -MP -MT $@ -MF $(DEPDIR)/installed_graphical_init.d \
+		-o $@ $<
+
+$(BUILD_DIR)/graphical_init_compositor_stub.o: \
+	graphical_init_production_child.c
+	$(CC) $(USER_CFLAGS) -DFROG_GRAPHICAL_CHILD_COMPOSITOR \
+		-DCONFIG_QEMU_TEST -DCONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION \
+		-MMD -MP -MT $@ \
+		-MF $(DEPDIR)/graphical_init_compositor_stub.d -o $@ $<
+
+$(BUILD_DIR)/graphical_init_desktop_stub.o: \
+	graphical_init_production_child.c
+	$(CC) $(USER_CFLAGS) -DFROG_GRAPHICAL_CHILD_DESKTOP \
+		-DCONFIG_QEMU_TEST -DCONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION \
+		-MMD -MP -MT $@ \
+		-MF $(DEPDIR)/graphical_init_desktop_stub.d -o $@ $<
+
+$(GRAPHICAL_INIT_COMPOSITOR_STUB): $(BUILD_DIR)/installed_init_start.o \
+	$(BUILD_DIR)/graphical_init_compositor_stub.o \
+	$(BUILD_DIR)/installed_init_runtime.o system_init.ld
+	$(LD) --gc-sections -m elf_i386 -T system_init.ld -o $@ \
+		$(BUILD_DIR)/installed_init_start.o \
+		$(BUILD_DIR)/graphical_init_compositor_stub.o \
+		$(BUILD_DIR)/installed_init_runtime.o
+
+$(GRAPHICAL_INIT_DESKTOP_STUB): $(BUILD_DIR)/installed_init_start.o \
+	$(BUILD_DIR)/graphical_init_desktop_stub.o \
+	$(BUILD_DIR)/installed_init_runtime.o system_init.ld
+	$(LD) --gc-sections -m elf_i386 -T system_init.ld -o $@ \
+		$(BUILD_DIR)/installed_init_start.o \
+		$(BUILD_DIR)/graphical_init_desktop_stub.o \
+		$(BUILD_DIR)/installed_init_runtime.o
+
+$(BUILD_DIR)/init.elf: $(BUILD_DIR)/installed_init_start.o \
+	$(BUILD_DIR)/installed_system_init.o $(BUILD_DIR)/installed_init_runtime.o \
+	system_init.ld
+	$(LD) --gc-sections -m elf_i386 -T system_init.ld -o $@ \
+		$(BUILD_DIR)/installed_init_start.o \
+		$(BUILD_DIR)/installed_system_init.o \
+		$(BUILD_DIR)/installed_init_runtime.o
+
+$(BUILD_DIR)/init-graphical.elf: $(BUILD_DIR)/installed_init_start.o \
+	$(BUILD_DIR)/installed_graphical_init.o $(BUILD_DIR)/installed_init_runtime.o \
+	system_init.ld
+	$(LD) --gc-sections -m elf_i386 -T system_init.ld -o $@ \
+		$(BUILD_DIR)/installed_init_start.o \
+		$(BUILD_DIR)/installed_graphical_init.o \
+		$(BUILD_DIR)/installed_init_runtime.o
 ifeq ($(FROG_TEST_PROFILE),poudland-e2e-smoke)
 all: $(BUILD_DIR)/user_smoke_poudland_e2e_bootstrap_blob.o
 endif
@@ -45,6 +187,8 @@ $(BUILD_DIR)/user_smoke_basic_user.o: user_smoke.c
 
 $(BUILD_DIR)/user_smoke_graphical_init_user.o: graphical_init.c
 	$(CC) $(USER_CFLAGS) \
+		-DFROG_GRAPHICAL_COMPOSITOR_PATH=\"/test/compositor\" \
+		-DFROG_GRAPHICAL_DESKTOP_PATH=\"/test/desktop\" \
 		-MMD -MP -MT $@ -MF $(DEPDIR)/user_smoke_graphical_init_user.d \
 		-o $@ $<
 
@@ -417,11 +561,15 @@ $(EXEC_TARGET_BLOB): $(BUILD_DIR)/exec_target.elf
 
 $(POUDLAND_P0_ELF_BLOB): FORCE
 	$(MAKE) -C ../apps/poudland_p0 QEMU_TEST=$(QEMU_TEST) \
-		FROG_TEST_PROFILE=$(FROG_TEST_PROFILE) all
+		FROG_TEST_PROFILE=$(FROG_TEST_PROFILE) \
+		TARGET=../build/compositor-legacy all
 	cd ../apps/build && \
-		$(LD) -m elf_i386 -r -b binary compositor \
+		$(LD) -m elf_i386 -r -b binary compositor-legacy \
 		-o $(POUDLAND_P0_ELF_BLOB)
 	$(OBJCOPY) \
+		--redefine-sym _binary_compositor_legacy_start=_binary_compositor_start \
+		--redefine-sym _binary_compositor_legacy_end=_binary_compositor_end \
+		--redefine-sym _binary_compositor_legacy_size=_binary_compositor_size \
 		--rename-section .data=.rodata.poudland_p0_elf,alloc,load,readonly,data,contents \
 		$@
 

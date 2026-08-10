@@ -13,6 +13,7 @@ desktop_drop_case=${FROG_QEMU_DESKTOP_DROP_CASE:-}
 desktop_wrong_pixel=${FROG_QEMU_DESKTOP_WRONG_PIXEL:-0}
 desktop_stale_image=${FROG_QEMU_DESKTOP_STALE_IMAGE:-0}
 desktop_soak_watchdog=${FROG_QEMU_SOAK_WATCHDOG_TEST:-0}
+desktop_post_ready_fail=${FROG_QEMU_DESKTOP_POST_READY_FAIL:-0}
 sector_size=512
 loader_sector_count=11
 kernel_start_sector=13
@@ -29,7 +30,8 @@ if [[ ! "$desktop_drag_x" =~ ^-?[0-9]+$ ]] ||
 fi
 if [[ ! "$desktop_wrong_pixel" =~ ^[01]$ ]] ||
    [[ ! "$desktop_stale_image" =~ ^[01]$ ]] ||
-   [[ ! "$desktop_soak_watchdog" =~ ^[01]$ ]]; then
+   [[ ! "$desktop_soak_watchdog" =~ ^[01]$ ]] ||
+   [[ ! "$desktop_post_ready_fail" =~ ^[01]$ ]]; then
     echo "desktop fault-injection controls must be 0 or 1" >&2
     exit 2
 fi
@@ -68,8 +70,19 @@ case "$profile" in
     input-smoke) stages=(boot) ;;
     time-smoke) stages=(boot) ;;
     wait2-smoke) stages=(boot) ;;
+    root-locator-smoke) stages=(boot) ;;
+    root-switch-smoke) stages=(boot) ;;
+    root-namespace-smoke) stages=(boot writable-root) ;;
+    production-root-negative-smoke) stages=(missing corrupt duplicate) ;;
+    disk-init-loader-smoke) stages=(boot) ;;
+    system-init-selection-smoke)
+        stages=(valid missing-config malformed duplicate unknown tty \
+                open-failure read-failure close-failure exec-missing \
+                exec-corrupt exec-returned)
+        ;;
+    graphical-init-production-smoke) stages=(boot) ;;
     disk-smoke) stages=(prepare verify corrupt) ;;
-    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|poudland-e2e-smoke|desktop-smoke|desktop-soak-10m|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|disk-smoke}" >&2; exit 2 ;;
+    *) echo "usage: $0 {boot-smoke|process-smoke|user-smoke|framebuffer-smoke|framebuffer-mmap-smoke|user-allocator-smoke|packagefs-smoke|packagefs-lifecycle-smoke|packagefs-userlib-smoke|poudland-v1-connect-smoke|poudland-v1-lifecycle-smoke|poudland-v1-version-smoke|poudland-v1-errno-smoke|poudland-v1-id-smoke|poudland-v1-routing-smoke|poudland-v1-retry-smoke|poudland-v1-create-smoke|poudland-v1-close-smoke|poudland-v1-error-smoke|poudland-v1-protocol-smoke|poudland-v1-fatal-smoke|poudland-v1-overflow-smoke|poudland-v1-hup-smoke|poudland-builtin-smoke|poudland-e2e-smoke|desktop-smoke|desktop-soak-10m|frogfs-image-smoke|frogfs-exec-smoke|anonymous-mmap-smoke|input-smoke|time-smoke|wait2-smoke|root-locator-smoke|root-switch-smoke|root-namespace-smoke|production-root-negative-smoke|disk-init-loader-smoke|system-init-selection-smoke|graphical-init-production-smoke|disk-smoke}" >&2; exit 2 ;;
 esac
 
 if [ -z "$timeout_seconds" ]; then
@@ -89,7 +102,14 @@ if { [ "$profile" = poudland-builtin-smoke ] ||
      [ "$profile" = desktop-smoke ] ||
      [ "$profile" = desktop-soak-10m ] ||
      [ "$profile" = frogfs-image-smoke ] ||
-     [ "$profile" = frogfs-exec-smoke ]; } &&
+     [ "$profile" = frogfs-exec-smoke ] ||
+     [ "$profile" = root-locator-smoke ] ||
+     [ "$profile" = root-switch-smoke ] ||
+     [ "$profile" = root-namespace-smoke ] ||
+     [ "$profile" = production-root-negative-smoke ] ||
+     [ "$profile" = disk-init-loader-smoke ] ||
+     [ "$profile" = system-init-selection-smoke ] ||
+     [ "$profile" = graphical-init-production-smoke ]; } &&
    [ -z "${FROG_QEMU_MEMORY+x}" ]; then
     qemu_memory=16M
 fi
@@ -98,7 +118,7 @@ work_dir=$(mktemp -d "${TMPDIR:-/tmp}/frog-qemu-${profile}.XXXXXX")
 result_root="$repo_dir/build/qemu-test"
 result_json="$work_dir/result.json"
 data_disk="$work_dir/hd80M.img"
-desktop_base_disk="$repo_dir/build/desktop-smoke-root.img"
+desktop_base_disk="$work_dir/desktop-stage.img"
 classification=BUILD_FAILED
 failed_stage=none
 qemu_status=-1
@@ -106,6 +126,25 @@ disk_sha_before=
 disk_sha_after=
 base_disk_sha_before=
 base_disk_sha_after=
+stage_disk_sha_before=
+stage_disk_sha_after=
+extra_stage_disk_sha_before=
+extra_stage_disk_sha_after=
+extra_data_disk=
+stage_hash_records="$work_dir/production-root-negative-hashes.tsv"
+system_init_production_sha=
+system_init_production_init=
+system_init_production_init_sha=
+graphical_init_production_sha=
+graphical_init_production_init=
+graphical_init_production_init_sha=
+graphical_init_production_supervisor=
+graphical_init_production_supervisor_sha=
+desktop_production_sha=
+desktop_production_init=
+desktop_production_init_sha=
+desktop_production_supervisor=
+desktop_production_supervisor_sha=
 framebuffer_width=
 framebuffer_height=
 soak_heartbeat_count=
@@ -123,6 +162,11 @@ write_result()
     DISK_SHA_BEFORE="$disk_sha_before" DISK_SHA_AFTER="$disk_sha_after" \
     BASE_DISK_SHA_BEFORE="$base_disk_sha_before" \
     BASE_DISK_SHA_AFTER="$base_disk_sha_after" \
+    STAGE_DISK_SHA_BEFORE="$stage_disk_sha_before" \
+    STAGE_DISK_SHA_AFTER="$stage_disk_sha_after" \
+    EXTRA_STAGE_DISK_SHA_BEFORE="$extra_stage_disk_sha_before" \
+    EXTRA_STAGE_DISK_SHA_AFTER="$extra_stage_disk_sha_after" \
+    STAGE_HASH_RECORDS="$stage_hash_records" \
     FRAMEBUFFER_WIDTH="$framebuffer_width" \
     FRAMEBUFFER_HEIGHT="$framebuffer_height" \
     SOAK_HEARTBEAT_COUNT="$soak_heartbeat_count" \
@@ -145,6 +189,12 @@ data = {
     "corrupt_disk_sha256_after": os.environ["DISK_SHA_AFTER"] or None,
     "base_disk_sha256_before": os.environ["BASE_DISK_SHA_BEFORE"] or None,
     "base_disk_sha256_after": os.environ["BASE_DISK_SHA_AFTER"] or None,
+    "stage_disk_sha256_before": os.environ["STAGE_DISK_SHA_BEFORE"] or None,
+    "stage_disk_sha256_after": os.environ["STAGE_DISK_SHA_AFTER"] or None,
+    "extra_stage_disk_sha256_before": (
+        os.environ["EXTRA_STAGE_DISK_SHA_BEFORE"] or None),
+    "extra_stage_disk_sha256_after": (
+        os.environ["EXTRA_STAGE_DISK_SHA_AFTER"] or None),
     "framebuffer_width": (int(os.environ["FRAMEBUFFER_WIDTH"])
                           if os.environ["FRAMEBUFFER_WIDTH"] else None),
     "framebuffer_height": (int(os.environ["FRAMEBUFFER_HEIGHT"])
@@ -159,6 +209,25 @@ data = {
         os.environ["SOAK_RESOURCES_STABLE"] == "true"
         if os.environ["SOAK_RESOURCES_STABLE"] else None),
 }
+stage_hashes = {}
+records_path = os.environ["STAGE_HASH_RECORDS"]
+if os.path.exists(records_path):
+    with open(records_path, "r", encoding="ascii") as records:
+        for line in records:
+            fields = line.rstrip("\n").split("|")
+            if len(fields) != 7:
+                raise SystemExit("invalid production-root stage hash record")
+            stage, base_before, base_after, primary_before, primary_after, \
+                extra_before, extra_after = fields
+            stage_hashes[stage] = {
+                "base_sha256_before": base_before or None,
+                "base_sha256_after": base_after or None,
+                "primary_sha256_before": primary_before or None,
+                "primary_sha256_after": primary_after or None,
+                "extra_sha256_before": extra_before or None,
+                "extra_sha256_after": extra_after or None,
+            }
+data["production_root_stage_hashes"] = stage_hashes or None
 with open(os.environ["RESULT_JSON"], "w", encoding="ascii") as stream:
     json.dump(data, stream, indent=2)
     stream.write("\n")
@@ -200,6 +269,15 @@ build_stage()
     if [ "$profile" = disk-smoke ]; then
         make_args+=(FROG_TEST_STAGE="$stage")
     fi
+    if [ "$profile" = system-init-selection-smoke ]; then
+        make_args+=(FROG_TEST_STAGE="$stage")
+    fi
+    if [ "$profile" = root-namespace-smoke ]; then
+        make_args+=(FROG_TEST_STAGE="$stage")
+    fi
+    if [ "$profile" = production-root-negative-smoke ]; then
+        make_args+=(FROG_TEST_STAGE="$stage")
+    fi
     make -C "$repo_dir/core" "${make_args[@]}" core \
         >>"$build_log" 2>&1 || return 1
     local core_image_size
@@ -220,7 +298,8 @@ build_stage()
        [ "$profile" = poudland-builtin-smoke ] ||
        [ "$profile" = poudland-e2e-smoke ] ||
        [ "$profile" = desktop-smoke ] ||
-       [ "$profile" = desktop-soak-10m ]; then
+       [ "$profile" = desktop-soak-10m ] ||
+       [ "$profile" = root-namespace-smoke ]; then
         loader_args=(-DFRAMEBUFFER_TEST "${loader_args[@]}")
     else
         loader_args=(-DVGA_ENABLE "${loader_args[@]}")
@@ -259,17 +338,36 @@ run_stage()
     local debug_log="$stage_dir/debugcon.log"
     local qemu_log="$stage_dir/qemu.log"
     local expected_profile=$profile
+    local data_drive="format=raw,file=$data_disk,if=ide,index=1,media=disk"
+    local -a extra_drive_args=()
 
     if [ "$profile" = disk-smoke ]; then
         expected_profile="disk-smoke.$stage"
     fi
+    if [ "$profile" = root-namespace-smoke ] ||
+       [ "$profile" = disk-init-loader-smoke ] ||
+       [ "$profile" = system-init-selection-smoke ] ||
+       [ "$profile" = graphical-init-production-smoke ] ||
+       [ "$profile" = production-root-negative-smoke ]; then
+        # QEMU refuses a read-only node behind ide-hd.  snapshot=on keeps the
+        # reusable raw base open read-only and gives IDE a disposable overlay.
+        data_drive+=",snapshot=on"
+    fi
+    if [ -n "$extra_data_disk" ]; then
+        extra_drive_args=(
+            -drive
+            "format=raw,file=$extra_data_disk,if=ide,index=2,media=disk,snapshot=on"
+        )
+    fi
 
+    TMPDIR="$work_dir" \
     timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
         qemu-system-i386 \
         -display none -monitor none -serial none -no-reboot -vga std \
         -m "$qemu_memory" \
         -drive "format=raw,file=$stage_dir/hd.img,if=ide,index=0,media=disk" \
-        -drive "format=raw,file=$data_disk,if=ide,index=1,media=disk" \
+        -drive "$data_drive" \
+        "${extra_drive_args[@]}" \
         -chardev "file,id=frogdebug,path=$debug_log" \
         -device isa-debugcon,iobase=0xe9,chardev=frogdebug \
         -device isa-debug-exit,iobase=0xf4,iosize=0x01 \
@@ -1023,6 +1121,10 @@ if drop_case:
     lines = [line for line in lines if line != dropped_record]
 
 required_cases = (
+    "desktop.root-located",
+    "desktop.root-activated",
+    "desktop.disk-pid1-loaded",
+    "desktop.production-init-chain",
     "desktop.init-compositor-fork",
     "desktop.init-desktop-fork",
     "desktop.compositor-exec",
@@ -1039,6 +1141,7 @@ required_cases = (
     "desktop.client-observed-events",
     "desktop.final-scene",
     "desktop.idle-present-stable",
+    "desktop.liveness.idle",
 )
 positions = {}
 for name in required_cases:
@@ -1051,6 +1154,10 @@ for name in required_cases:
     positions[name] = matches[0]
 
 ordered_edges = (
+    ("desktop.root-located", "desktop.root-activated"),
+    ("desktop.root-activated", "desktop.disk-pid1-loaded"),
+    ("desktop.disk-pid1-loaded", "desktop.production-init-chain"),
+    ("desktop.production-init-chain", "desktop.init-compositor-fork"),
     ("desktop.init-compositor-fork", "desktop.init-desktop-fork"),
     ("desktop.compositor-exec", "desktop.service-bind"),
     ("desktop.service-bind", "desktop.compositor-ready"),
@@ -1064,6 +1171,7 @@ ordered_edges = (
     ("desktop.keyboard-to-focus", "desktop.drag-configure"),
     ("desktop.drag-configure", "desktop.final-scene"),
     ("desktop.final-scene", "desktop.idle-present-stable"),
+    ("desktop.idle-present-stable", "desktop.liveness.idle"),
 )
 for before, after in ordered_edges:
     if positions[before] >= positions[after]:
@@ -1072,6 +1180,7 @@ for before, after in ordered_edges:
         raise SystemExit(1)
 
 required_syncs = (
+    "desktop-production-root-ready",
     "desktop-initial-ready",
     "desktop-focus-ready",
     "desktop-keyboard-ready",
@@ -1089,10 +1198,10 @@ for name in required_syncs:
               file=sys.stderr)
         raise SystemExit(1)
     sync_positions.append(matches[0])
-if sync_positions[:5] != sorted(sync_positions[:5]):
+if sync_positions[:6] != sorted(sync_positions[:6]):
     print("desktop interaction sync records are out of order", file=sys.stderr)
     raise SystemExit(1)
-if sync_positions[6] <= sync_positions[4]:
+if sync_positions[7] <= sync_positions[5]:
     print("desktop idle sync precedes the final frame", file=sys.stderr)
     raise SystemExit(1)
 PY
@@ -1116,6 +1225,7 @@ required.extend(
 )
 required.extend((
     "FROGTEST CASE desktop-soak.state-stable PASS",
+    "FROGTEST CASE desktop-soak.liveness PASS",
     "FROGTEST CASE desktop-soak.resources PASS",
     "FROGTEST SYNC desktop-soak-complete",
 ))
@@ -1145,6 +1255,7 @@ run_framebuffer_stage()
     local qmp_input_transcript="$stage_dir/qmp-input-transcript.log"
     local expected_profile=$profile
     local ready_marker=framebuffer-ready
+    local data_drive="format=raw,file=$data_disk,if=ide,index=1,media=disk"
     local begin_seen=0
     local guest_failure_seen=0
     local qmp_failed=0
@@ -1158,6 +1269,13 @@ run_framebuffer_stage()
     elif [ "$profile" = desktop-soak-10m ]; then
         ready_marker=desktop-soak-complete
     fi
+    if [ "$profile" = desktop-smoke ] ||
+       [ "$profile" = desktop-soak-10m ]; then
+        # The complete test root is a reusable read-only base.  QEMU gives the
+        # guest a disposable write overlay while the kernel enforces readonly
+        # FrogFS activation.
+        data_drive+=",snapshot=on"
+    fi
     : >"$qmp_transcript"
 
     timeout --signal=TERM --kill-after=2s "${timeout_seconds}s" \
@@ -1165,7 +1283,7 @@ run_framebuffer_stage()
         -display none -monitor none -serial none -no-reboot -vga std \
         -m "$qemu_memory" -smp 1 \
         -drive "format=raw,file=$stage_dir/hd.img,if=ide,index=0,media=disk" \
-        -drive "format=raw,file=$data_disk,if=ide,index=1,media=disk" \
+        -drive "$data_drive" \
         -chardev "file,id=frogdebug,path=$debug_log" \
         -device isa-debugcon,iobase=0xe9,chardev=frogdebug \
         -device isa-debug-exit,iobase=0xf4,iosize=0x01 \
@@ -1289,6 +1407,9 @@ run_framebuffer_stage()
         elif grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
                      "$debug_log" 2>/dev/null; then
             classification=GUEST_TEST_FAILED
+        elif grep -Eq '^(system-init|graphical-init) status=' \
+                     "$debug_log" 2>/dev/null; then
+            classification=UNEXPECTED_INIT_STATUS
         elif [ "$qemu_status" -ne 0 ]; then
             classification=EARLY_QEMU_EXIT
         elif ! grep -q '^FROGTEST v=1 BEGIN profile=desktop-soak-10m$' \
@@ -1344,16 +1465,33 @@ run_framebuffer_stage()
            2>"$stage_dir/qmp-error.log"; then
         wait "$runner_pid"
         qemu_status=$?
+        if [ "$profile" = desktop-smoke ] &&
+           [ "$desktop_post_ready_fail" = 1 ]; then
+            printf 'FROGTEST CASE desktop.injected-post-ready FAIL\n' \
+                >>"$debug_log"
+        fi
         local desktop_records_ok=1
         if [ "$profile" = desktop-smoke ] &&
            ! validate_desktop_records "$debug_log" \
                2>"$stage_dir/guest-state-validator.log"; then
             desktop_records_ok=0
         fi
-        if [ "$qemu_status" -eq 0 ] &&
-           [ "$desktop_records_ok" -eq 1 ] &&
-           validate_framebuffer_ppm "$screenshot" \
-               2>"$stage_dir/framebuffer-validator.log"; then
+        if grep -q '\[PANIC\]' "$debug_log" 2>/dev/null; then
+            classification=PANIC
+        elif grep -q 'ASSERT_FAILED' "$debug_log" 2>/dev/null; then
+            classification=ASSERT_FAILED
+        elif grep -qi 'triple fault' "$qemu_log" 2>/dev/null; then
+            classification=TRIPLE_FAULT
+        elif grep -Eq '^FROGTEST (CASE .* FAIL|MILESTONE .* FAIL|ABORT reason=.*|END FAIL)$' \
+                     "$debug_log" 2>/dev/null; then
+            classification=GUEST_TEST_FAILED
+        elif grep -Eq '^(system-init|graphical-init) status=' \
+                     "$debug_log" 2>/dev/null; then
+            classification=UNEXPECTED_INIT_STATUS
+        elif [ "$qemu_status" -eq 0 ] &&
+             [ "$desktop_records_ok" -eq 1 ] &&
+             validate_framebuffer_ppm "$screenshot" \
+                 2>"$stage_dir/framebuffer-validator.log"; then
             read -r framebuffer_width framebuffer_height \
                 <"$work_dir/framebuffer-meta"
             classification=PASS
@@ -1451,19 +1589,27 @@ run_input_stage()
 
 build_desktop_test_root()
 {
-    local image_dir="$repo_dir/build/desktop-smoke-root"
+    local image_dir="$work_dir/desktop-stage"
     local log_dir="$work_dir/desktop-root"
     local build_log="$log_dir/build.log"
     local manifest="$image_dir/manifest"
-    local compositor_size
-    local compositor_hash
-    local desktop_size
-    local desktop_hash
-    local bitmap_size
-    local bitmap_hash
 
     mkdir -p "$image_dir" "$log_dir"
-    make -C "$repo_dir/tools" mkfrogfs_image >"$build_log" 2>&1 || return 1
+    make -C "$repo_dir" frog-root.img >"$build_log" 2>&1 || return 1
+    desktop_production_sha=$(sha256sum "$repo_dir/build/frog-root.img" |
+                             awk '{print $1}') || return 1
+    desktop_production_init="$work_dir/desktop-production-init.elf"
+    desktop_production_supervisor="$work_dir/desktop-production-init-graphical.elf"
+    cp "$repo_dir/core/build/init.elf" "$desktop_production_init" || return 1
+    cp "$repo_dir/core/build/init-graphical.elf" \
+        "$desktop_production_supervisor" || return 1
+    desktop_production_init_sha=$(sha256sum "$desktop_production_init" |
+                                  awk '{print $1}') || return 1
+    desktop_production_supervisor_sha=$(sha256sum \
+        "$desktop_production_supervisor" | awk '{print $1}') || return 1
+    base_disk_sha_before=$desktop_production_sha
+
+    make -C "$repo_dir/tools" mkfrogfs_image >>"$build_log" 2>&1 || return 1
     make -C "$repo_dir/core/apps" QEMU_TEST=1 \
         FROG_TEST_PROFILE="$profile" clean-production \
         >>"$build_log" 2>&1 || return 1
@@ -1476,37 +1622,60 @@ build_desktop_test_root()
         "$repo_dir/core/apps/build/desktop" \
         >>"$build_log" 2>&1 || return 1
 
-    cp "$repo_dir/core/apps/test/b.bmp" "$image_dir/b.bmp" || return 1
+    cp "$repo_dir/core/apps/test/b.bmp" "$image_dir/cursor.bmp" || return 1
     cp "$repo_dir/core/apps/build/compositor" \
         "$image_dir/compositor" || return 1
     cp "$repo_dir/core/apps/build/desktop" "$image_dir/desktop" || return 1
-
-    bitmap_size=$(wc -c <"$image_dir/b.bmp") || return 1
-    bitmap_hash=$(sha256sum "$image_dir/b.bmp" | awk '{print $1}') || return 1
-    compositor_size=$(wc -c <"$image_dir/compositor") || return 1
-    compositor_hash=$(sha256sum "$image_dir/compositor" | awk '{print $1}') || return 1
-    desktop_size=$(wc -c <"$image_dir/desktop") || return 1
-    desktop_hash=$(sha256sum "$image_dir/desktop" | awk '{print $1}') || return 1
+    (cd "$image_dir" && sha256sum compositor desktop) \
+        >"$image_dir/instrumented-apps.sha256" || return 1
+    cp "$desktop_production_init" "$image_dir/init.elf" || return 1
+    cp "$desktop_production_supervisor" \
+        "$image_dir/init-graphical.elf" || return 1
+    cp "$repo_dir/config/init.conf" "$image_dir/init.conf" || return 1
+    "$repo_dir/tools/test-production-graphical-paths.sh" \
+        "$image_dir/compositor" "$image_dir/desktop" \
+        "$image_dir/init-graphical.elf" >>"$build_log" 2>&1 || return 1
 
     {
-        printf 'frogfs-manifest 1\n'
-        printf 'file /b.bmp b.bmp %s %s\n' \
-            "$bitmap_size" "$bitmap_hash"
-        printf 'elf /compositor compositor %s %s\n' \
-            "$compositor_size" "$compositor_hash"
-        printf 'elf /desktop desktop %s %s\n' \
-            "$desktop_size" "$desktop_hash"
+        printf 'frogfs-manifest 2\n'
+        printf 'volume frog-root\n'
+        printf 'dir /bin\n'
+        printf 'dir /dev\n'
+        printf 'dir /etc\n'
+        printf 'dir /etc/frog\n'
+        printf 'dir /sbin\n'
+        printf 'dir /share\n'
+        printf 'dir /share/poudland\n'
     } >"$manifest"
+    append_system_init_manifest_file elf /bin/compositor compositor \
+        "$manifest" || return 1
+    append_system_init_manifest_file elf /bin/desktop desktop \
+        "$manifest" || return 1
+    append_system_init_manifest_file file /etc/frog/init.conf init.conf \
+        "$manifest" || return 1
+    append_system_init_manifest_file elf /sbin/init init.elf "$manifest" ||
+        return 1
+    append_system_init_manifest_file elf /sbin/init-graphical \
+        init-graphical.elf "$manifest" || return 1
+    append_system_init_manifest_file file /share/poudland/cursor.bmp \
+        cursor.bmp "$manifest" || return 1
 
     "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
         --output "$desktop_base_disk" >>"$build_log" 2>&1 || return 1
     "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
         --output "$desktop_base_disk" --verify \
         >>"$build_log" 2>&1 || return 1
-
-    base_disk_sha_before=$(sha256sum "$desktop_base_disk" |
-                           awk '{print $1}') || return 1
-    cp "$desktop_base_disk" "$data_disk" || return 1
+    [ "$desktop_production_init_sha" = \
+      "$(sha256sum "$image_dir/init.elf" | awk '{print $1}')" ] || return 1
+    [ "$desktop_production_supervisor_sha" = \
+      "$(sha256sum "$image_dir/init-graphical.elf" | awk '{print $1}')" ] ||
+        return 1
+    [ "$desktop_production_sha" = \
+      "$(sha256sum "$repo_dir/build/frog-root.img" | awk '{print $1}')" ] ||
+        return 1
+    stage_disk_sha_before=$(sha256sum "$desktop_base_disk" |
+                            awk '{print $1}') || return 1
+    data_disk="$desktop_base_disk"
 
     make -C "$repo_dir/core/apps" QEMU_TEST=0 FROG_TEST_PROFILE= \
         clean-production >>"$build_log" 2>&1 || return 1
@@ -1517,10 +1686,528 @@ build_desktop_test_root()
         "$repo_dir/core/apps/build/desktop" \
         "$repo_dir/core/apps/build/desktop" \
         >>"$build_log" 2>&1 || return 1
+    "$repo_dir/tools/test-production-graphical-paths.sh" \
+        "$repo_dir/core/apps/build/compositor" \
+        "$repo_dir/core/apps/build/desktop" \
+        "$desktop_production_supervisor" >>"$build_log" 2>&1 || return 1
+    [ "$desktop_production_sha" = \
+      "$(sha256sum "$repo_dir/build/frog-root.img" | awk '{print $1}')" ] ||
+        return 1
     if [ "$desktop_stale_image" = 1 ]; then
-        make -C "$repo_dir" frog-root.img >>"$build_log" 2>&1 || return 1
-        cp "$repo_dir/build/frog-root.img" "$data_disk" || return 1
+        data_disk="$repo_dir/build/frog-root.img"
     fi
+}
+
+build_root_namespace_stage()
+{
+    local stage=$1
+    local production_root="$repo_dir/build/frog-root.img"
+    local stage_root="$work_dir/root-namespace-${stage}.img"
+    local fixture_log="$work_dir/root-namespace-${stage}.log"
+
+    case "$stage" in
+        boot)
+            data_disk="$production_root"
+            ;;
+        writable-root)
+            cp "$production_root" "$stage_root" || return 1
+            python3 - "$stage_root" >"$fixture_log" 2>&1 <<'PY' || return 1
+import struct
+import sys
+
+path = sys.argv[1]
+with open(path, "r+b") as stream:
+    mbr = stream.read(512)
+    if len(mbr) != 512 or mbr[510:512] != b"\x55\xaa":
+        raise SystemExit("production root fixture has no valid MBR")
+    partition_lba = struct.unpack_from("<I", mbr, 446 + 8)[0]
+    if partition_lba == 0:
+        raise SystemExit("production root fixture has no first partition")
+    read_only_offset = partition_lba * 512 + 84
+    stream.seek(read_only_offset)
+    if stream.read(1) != b"\x01":
+        raise SystemExit("production root is not marked read-only")
+    stream.seek(read_only_offset)
+    stream.write(b"\x00")
+    stream.flush()
+    stream.seek(read_only_offset)
+    if stream.read(1) != b"\x00":
+        raise SystemExit("failed to create writable-root fixture")
+print(f"read_only=0 lba={partition_lba} offset={read_only_offset}")
+PY
+            data_disk="$stage_root"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    stage_disk_sha_before=$(sha256sum "$data_disk" | awk '{print $1}') ||
+        return 1
+}
+
+validate_root_namespace_stage()
+{
+    local stage=$1
+    local debug_log="$work_dir/$stage/debugcon.log"
+
+    if [ "$stage" = boot ]; then
+        return 0
+    fi
+    DEBUG_LOG="$debug_log" python3 - <<'PY'
+import os
+import sys
+
+with open(os.environ["DEBUG_LOG"], "r", encoding="ascii",
+          errors="replace") as stream:
+    lines = stream.read().splitlines()
+
+required = (
+    "FROGTEST CASE root-namespace.writable-root-located PASS",
+    "FROGTEST CASE root-namespace.writable-root-rejected PASS",
+    "FROGTEST CASE root-namespace.writable-root-not-switched PASS",
+)
+positions = []
+for record in required:
+    matches = [index for index, line in enumerate(lines) if line == record]
+    if len(matches) != 1:
+        print(f"required writable-root record {record!r} occurred "
+              f"{len(matches)} times", file=sys.stderr)
+        raise SystemExit(1)
+    positions.append(matches[0])
+if positions != sorted(positions):
+    print("writable-root records are out of order", file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+
+build_production_root_negative_stage()
+{
+    local stage=$1
+    local production_root="$repo_dir/build/frog-root.img"
+    local stage_root="$work_dir/production-root-${stage}.img"
+    local extra_root="$work_dir/production-root-${stage}-extra.img"
+    local fixture_log="$work_dir/production-root-${stage}.log"
+
+    extra_data_disk=
+    extra_stage_disk_sha_before=
+    extra_stage_disk_sha_after=
+    case "$stage" in
+        missing)
+            truncate -s 1M "$stage_root" || return 1
+            ;;
+        corrupt)
+            cp "$production_root" "$stage_root" || return 1
+            python3 - "$stage_root" >"$fixture_log" 2>&1 <<'PY' || return 1
+import struct
+import sys
+
+path = sys.argv[1]
+with open(path, "r+b") as stream:
+    mbr = stream.read(512)
+    if len(mbr) != 512 or mbr[510:512] != b"\x55\xaa":
+        raise SystemExit("production root fixture has no valid MBR")
+    partition_lba = struct.unpack_from("<I", mbr, 446 + 8)[0]
+    zone_size_offset = partition_lba * 512 + 32
+    stream.seek(partition_lba * 512 + 4)
+    if stream.read(10) != b"frog-root\x00":
+        raise SystemExit("production root fixture lost its reserved label")
+    stream.seek(zone_size_offset)
+    original = struct.unpack("<I", stream.read(4))[0]
+    if original == 0:
+        raise SystemExit("production root zone size is already corrupt")
+    stream.seek(zone_size_offset)
+    stream.write(struct.pack("<I", 0))
+    stream.flush()
+print(f"zone_size={original}->0 lba={partition_lba} "
+      f"offset={zone_size_offset}")
+PY
+            ;;
+        duplicate)
+            cp "$production_root" "$stage_root" || return 1
+            cp "$production_root" "$extra_root" || return 1
+            extra_data_disk="$extra_root"
+            extra_stage_disk_sha_before=$(sha256sum "$extra_root" |
+                                           awk '{print $1}') || return 1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    data_disk="$stage_root"
+    stage_disk_sha_before=$(sha256sum "$stage_root" | awk '{print $1}') ||
+        return 1
+}
+
+validate_production_root_negative_stage()
+{
+    local stage=$1
+    local debug_log="$work_dir/$stage/debugcon.log"
+    local status_name
+
+    case "$stage" in
+        missing) status_name=not-found ;;
+        corrupt) status_name=corrupt ;;
+        duplicate) status_name=duplicate ;;
+        *) return 1 ;;
+    esac
+    DEBUG_LOG="$debug_log" STATUS_NAME="$status_name" python3 - <<'PY'
+import os
+import sys
+
+with open(os.environ["DEBUG_LOG"], "r", encoding="ascii",
+          errors="replace") as stream:
+    lines = stream.read().splitlines()
+
+required = (
+    "FROGTEST CASE production-root-negative.shared-wrapper PASS",
+    "FROGTEST CASE production-root-negative.stage-locator PASS",
+    ("FROGTEST CASE production-root-negative.status-" +
+     os.environ["STATUS_NAME"] + " PASS"),
+    "FROGTEST CASE production-root-negative.root-not-switched PASS",
+)
+positions = []
+for record in required:
+    matches = [index for index, line in enumerate(lines) if line == record]
+    if len(matches) != 1:
+        print(f"required production-root record {record!r} occurred "
+              f"{len(matches)} times", file=sys.stderr)
+        raise SystemExit(1)
+    positions.append(matches[0])
+if positions != sorted(positions):
+    print("production-root negative records are out of order", file=sys.stderr)
+    raise SystemExit(1)
+PY
+}
+
+build_disk_init_loader_test_root()
+{
+    local build_log="$work_dir/disk-init-loader-image.log"
+    local fixture_dir="$work_dir/disk-init-loader-fixtures"
+    local overlay="$fixture_dir/overlay.manifest"
+    local test_root="$work_dir/disk-init-loader-root.img"
+    local production_hash
+    local malformed_size malformed_hash oversized_size oversized_hash
+    local unmappable_size unmappable_hash
+
+    mkdir -p "$fixture_dir"
+    make -C "$repo_dir" frog-root.img >"$build_log" 2>&1 || return 1
+    production_hash=$(sha256sum "$repo_dir/build/frog-root.img" |
+                      awk '{print $1}') || return 1
+    [ -f "$repo_dir/core/build/init.elf" ] || return 1
+
+    python3 - "$repo_dir/core/build/init.elf" \
+        "$fixture_dir/malformed" "$fixture_dir/oversized" \
+        "$fixture_dir/unmappable" >>"$build_log" 2>&1 <<'PY' || return 1
+import struct
+import sys
+
+source, malformed_path, oversized_path, unmappable_path = sys.argv[1:]
+with open(source, "rb") as stream:
+    image = bytearray(stream.read())
+if len(image) <= 4096 or image[:4] != b"\x7fELF":
+    raise SystemExit("production init fixture is not the expected >4KiB ELF")
+
+phoff = struct.unpack_from("<I", image, 28)[0]
+phentsize = struct.unpack_from("<H", image, 42)[0]
+phnum = struct.unpack_from("<H", image, 44)[0]
+load_offset = None
+for index in range(phnum):
+    offset = phoff + index * phentsize
+    if struct.unpack_from("<I", image, offset)[0] == 1:
+        load_offset = offset
+        break
+if load_offset is None:
+    raise SystemExit("production init has no PT_LOAD")
+
+with open(malformed_path, "wb") as stream:
+    stream.write(b"not-an-elf\n")
+
+oversized = bytearray(image)
+struct.pack_into("<I", oversized, load_offset + 20, 4097 * 4096)
+with open(oversized_path, "wb") as stream:
+    stream.write(oversized)
+
+unmappable = bytearray(image)
+struct.pack_into("<I", unmappable, load_offset + 8, 0x1000)
+struct.pack_into("<I", unmappable, load_offset + 12, 0x1000)
+with open(unmappable_path, "wb") as stream:
+    stream.write(unmappable)
+PY
+
+    malformed_size=$(wc -c <"$fixture_dir/malformed") || return 1
+    malformed_hash=$(sha256sum "$fixture_dir/malformed" |
+                     awk '{print $1}') || return 1
+    oversized_size=$(wc -c <"$fixture_dir/oversized") || return 1
+    oversized_hash=$(sha256sum "$fixture_dir/oversized" |
+                     awk '{print $1}') || return 1
+    unmappable_size=$(wc -c <"$fixture_dir/unmappable") || return 1
+    unmappable_hash=$(sha256sum "$fixture_dir/unmappable" |
+                      awk '{print $1}') || return 1
+
+    {
+        printf 'frogfs-overlay 1\n'
+        printf 'dir /loader-fixtures\n'
+        printf 'file /loader-fixtures/malformed malformed %s %s\n' \
+            "$malformed_size" "$malformed_hash"
+        printf 'file /loader-fixtures/oversized oversized %s %s\n' \
+            "$oversized_size" "$oversized_hash"
+        printf 'file /loader-fixtures/unmappable unmappable %s %s\n' \
+            "$unmappable_size" "$unmappable_hash"
+    } >"$overlay"
+
+    "$repo_dir/tools/mkfrogfs_image" \
+        --manifest "$repo_dir/config/frog-root.manifest" \
+        --overlay "$overlay" --output "$test_root" \
+        >>"$build_log" 2>&1 || return 1
+    "$repo_dir/tools/mkfrogfs_image" \
+        --manifest "$repo_dir/config/frog-root.manifest" \
+        --overlay "$overlay" --output "$test_root" --verify \
+        >>"$build_log" 2>&1 || return 1
+    [ "$production_hash" = "$(sha256sum "$repo_dir/build/frog-root.img" |
+                              awk '{print $1}')" ] || return 1
+
+    data_disk_source="$test_root"
+    data_disk="$test_root"
+    base_disk_sha_before=$(sha256sum "$data_disk" | awk '{print $1}') ||
+        return 1
+}
+
+append_system_init_manifest_file()
+{
+    local kind=$1
+    local target=$2
+    local source=$3
+    local manifest=$4
+    local source_path="$(dirname "$manifest")/$source"
+    local size
+    local hash
+
+    size=$(wc -c <"$source_path") || return 1
+    hash=$(sha256sum "$source_path" | awk '{print $1}') || return 1
+    printf '%s %s %s %s %s\n' "$kind" "$target" "$source" \
+        "$size" "$hash" >>"$manifest"
+}
+
+build_system_init_selection_test_root()
+{
+    local stage=$1
+    local fixture_dir="$work_dir/system-init-selection-$stage"
+    local manifest="$fixture_dir/manifest"
+    local stage_root="$fixture_dir/frog-root.img"
+    local build_log="$fixture_dir/image.log"
+    local config_present=1
+    local graphical_kind=elf
+    local graphical_present=1
+
+    mkdir -p "$fixture_dir"
+    cp "$repo_dir/core/apps/build/compositor" "$fixture_dir/compositor" ||
+        return 1
+    cp "$repo_dir/core/apps/build/desktop" "$fixture_dir/desktop" ||
+        return 1
+    cp "$repo_dir/core/apps/test/b.bmp" "$fixture_dir/cursor.bmp" ||
+        return 1
+    case "$stage" in
+        open-failure|read-failure|close-failure|exec-returned)
+            cp "$repo_dir/core/build/system-init-selection-init.elf" \
+                "$fixture_dir/init.elf" || return 1
+            ;;
+        *)
+            [ "$system_init_production_init_sha" = \
+              "$(sha256sum \
+                    "$repo_dir/core/build/system-init-selection-init.elf" |
+                    awk '{print $1}')" ] || return 1
+            cp "$system_init_production_init" "$fixture_dir/init.elf" ||
+                return 1
+            ;;
+    esac
+
+    case "$stage" in
+        missing-config)
+            config_present=0
+            ;;
+        malformed)
+            printf 'mode=graphical' >"$fixture_dir/init.conf"
+            ;;
+        duplicate)
+            printf 'mode=graphical\nmode=graphical\n' \
+                >"$fixture_dir/init.conf"
+            ;;
+        unknown)
+            printf 'mode=unknown\n' >"$fixture_dir/init.conf"
+            ;;
+        tty)
+            printf 'mode=tty\n' >"$fixture_dir/init.conf"
+            ;;
+        *)
+            printf 'mode=graphical\n' >"$fixture_dir/init.conf"
+            ;;
+    esac
+
+    case "$stage" in
+        exec-missing)
+            graphical_present=0
+            ;;
+        exec-corrupt)
+            printf 'not-an-elf\n' >"$fixture_dir/init-graphical.elf"
+            graphical_kind=file
+            ;;
+        *)
+            cp "$repo_dir/core/build/system-init-selection-target.elf" \
+                "$fixture_dir/init-graphical.elf" || return 1
+            ;;
+    esac
+
+    {
+        printf 'frogfs-manifest 2\n'
+        printf 'volume frog-root\n'
+        printf 'dir /bin\n'
+        printf 'dir /dev\n'
+        printf 'dir /etc\n'
+        printf 'dir /etc/frog\n'
+        printf 'dir /sbin\n'
+        printf 'dir /share\n'
+        printf 'dir /share/poudland\n'
+    } >"$manifest"
+    append_system_init_manifest_file elf /bin/compositor compositor \
+        "$manifest" || return 1
+    append_system_init_manifest_file elf /bin/desktop desktop \
+        "$manifest" || return 1
+    if [ "$config_present" = 1 ]; then
+        append_system_init_manifest_file file /etc/frog/init.conf init.conf \
+            "$manifest" || return 1
+    fi
+    append_system_init_manifest_file elf /sbin/init init.elf "$manifest" ||
+        return 1
+    if [ "$graphical_present" = 1 ]; then
+        append_system_init_manifest_file "$graphical_kind" \
+            /sbin/init-graphical init-graphical.elf "$manifest" || return 1
+    fi
+    append_system_init_manifest_file file /share/poudland/cursor.bmp \
+        cursor.bmp "$manifest" || return 1
+
+    "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
+        --output "$stage_root" >"$build_log" 2>&1 || return 1
+    "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
+        --output "$stage_root" --verify >>"$build_log" 2>&1 || return 1
+    [ "$system_init_production_sha" = \
+      "$(sha256sum "$repo_dir/build/frog-root.img" | awk '{print $1}')" ] ||
+        return 1
+
+    data_disk="$stage_root"
+    stage_disk_sha_before=$(sha256sum "$stage_root" | awk '{print $1}') ||
+        return 1
+}
+
+validate_system_init_selection_stage()
+{
+    local stage=$1
+    local debug_log="$work_dir/$stage/debugcon.log"
+    local expected_status=
+
+    case "$stage" in
+        valid)
+            grep -q '^FROGTEST SYNC system-init-graphical-target$' \
+                "$debug_log" &&
+                ! grep -q '^system-init status=' "$debug_log"
+            return
+            ;;
+        malformed|duplicate|unknown) expected_status=90 ;;
+        tty) expected_status=91 ;;
+        missing-config|open-failure) expected_status=92 ;;
+        read-failure) expected_status=93 ;;
+        close-failure) expected_status=94 ;;
+        exec-missing|exec-corrupt) expected_status=95 ;;
+        exec-returned) expected_status=96 ;;
+        *) return 1 ;;
+    esac
+    grep -q "^system-init status=${expected_status}$" "$debug_log" &&
+        grep -q '^FROGTEST SYNC system-init-failure-observed$' "$debug_log" &&
+        ! grep -q '^FROGTEST SYNC system-init-graphical-target$' "$debug_log"
+}
+
+build_graphical_init_production_test_root()
+{
+    local fixture_dir="$work_dir/graphical-init-production-root"
+    local manifest="$fixture_dir/manifest"
+    local stage_root="$fixture_dir/frog-root.img"
+    local build_log="$fixture_dir/image.log"
+    local compositor_stub="$repo_dir/core/build/graphical-init-compositor-stub.elf"
+    local desktop_stub="$repo_dir/core/build/graphical-init-desktop-stub.elf"
+
+    mkdir -p "$fixture_dir"
+    [ -f "$compositor_stub" ] && [ -f "$desktop_stub" ] || return 1
+    [ "$graphical_init_production_init_sha" = \
+      "$(sha256sum "$graphical_init_production_init" | awk '{print $1}')" ] ||
+        return 1
+    [ "$graphical_init_production_supervisor_sha" = \
+      "$(sha256sum "$graphical_init_production_supervisor" |
+         awk '{print $1}')" ] || return 1
+
+    cp "$compositor_stub" "$fixture_dir/compositor.elf" || return 1
+    cp "$desktop_stub" "$fixture_dir/desktop.elf" || return 1
+    cp "$graphical_init_production_init" "$fixture_dir/init.elf" || return 1
+    cp "$graphical_init_production_supervisor" \
+        "$fixture_dir/init-graphical.elf" || return 1
+    cp "$repo_dir/config/init.conf" "$fixture_dir/init.conf" || return 1
+    cp "$repo_dir/core/apps/test/b.bmp" "$fixture_dir/cursor.bmp" || return 1
+
+    {
+        printf 'frogfs-manifest 2\n'
+        printf 'volume frog-root\n'
+        printf 'dir /bin\n'
+        printf 'dir /dev\n'
+        printf 'dir /etc\n'
+        printf 'dir /etc/frog\n'
+        printf 'dir /sbin\n'
+        printf 'dir /share\n'
+        printf 'dir /share/poudland\n'
+    } >"$manifest"
+    append_system_init_manifest_file elf /bin/compositor compositor.elf \
+        "$manifest" || return 1
+    append_system_init_manifest_file elf /bin/desktop desktop.elf \
+        "$manifest" || return 1
+    append_system_init_manifest_file file /etc/frog/init.conf init.conf \
+        "$manifest" || return 1
+    append_system_init_manifest_file elf /sbin/init init.elf "$manifest" ||
+        return 1
+    append_system_init_manifest_file elf /sbin/init-graphical \
+        init-graphical.elf "$manifest" || return 1
+    append_system_init_manifest_file file /share/poudland/cursor.bmp \
+        cursor.bmp "$manifest" || return 1
+
+    "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
+        --output "$stage_root" >"$build_log" 2>&1 || return 1
+    "$repo_dir/tools/mkfrogfs_image" --manifest "$manifest" \
+        --output "$stage_root" --verify >>"$build_log" 2>&1 || return 1
+    [ "$graphical_init_production_sha" = \
+      "$(sha256sum "$repo_dir/build/frog-root.img" | awk '{print $1}')" ] ||
+        return 1
+    [ "$graphical_init_production_init_sha" = \
+      "$(sha256sum "$fixture_dir/init.elf" | awk '{print $1}')" ] || return 1
+    [ "$graphical_init_production_supervisor_sha" = \
+      "$(sha256sum "$fixture_dir/init-graphical.elf" | awk '{print $1}')" ] ||
+        return 1
+
+    data_disk="$stage_root"
+    stage_disk_sha_before=$(sha256sum "$stage_root" | awk '{print $1}') ||
+        return 1
+}
+
+validate_graphical_init_production_stage()
+{
+    local debug_log="$work_dir/boot/debugcon.log"
+
+    grep -q '^graphical-init status=00$' "$debug_log" &&
+        grep -q '^FROGTEST SYNC graphical-init-compositor-observed$' \
+            "$debug_log" &&
+        grep -q '^FROGTEST SYNC graphical-init-desktop-observed$' \
+            "$debug_log" &&
+        grep -q '^FROGTEST SYNC graphical-init-lifecycle-observed$' \
+            "$debug_log" &&
+        grep -q '^FROGTEST SYNC graphical-init-production-observed$' \
+            "$debug_log" &&
+        ! grep -q '^system-init status=' "$debug_log" &&
+        ! grep -Eq '^graphical-init status=(0[1-9]|[1-9][0-9])$' "$debug_log"
 }
 
 data_disk_source="$repo_dir/../hd80M.img"
@@ -1531,8 +2218,7 @@ if [ "$profile" = desktop-smoke ] ||
         exit 1
     }
 elif [ "$profile" = frogfs-image-smoke ] ||
-   [ "$profile" = frogfs-exec-smoke ] ||
-   [ "$profile" = poudland-e2e-smoke ]; then
+   [ "$profile" = frogfs-exec-smoke ]; then
     make -C "$repo_dir" frog-root.img || {
         preserve_result
         exit 1
@@ -1542,6 +2228,112 @@ elif [ "$profile" = frogfs-image-smoke ] ||
         preserve_result
         exit 1
     }
+elif [ "$profile" = poudland-e2e-smoke ]; then
+    make -C "$repo_dir" frog-test-root.img || {
+        preserve_result
+        exit 1
+    }
+    data_disk_source="$repo_dir/build/frog-test-root.img"
+    cp "$data_disk_source" "$data_disk" || {
+        preserve_result
+        exit 1
+    }
+elif [ "$profile" = root-locator-smoke ]; then
+    truncate -s 1M "$data_disk" || {
+        preserve_result
+        exit 1
+    }
+elif [ "$profile" = root-switch-smoke ]; then
+    make -C "$repo_dir" frog-root.img || {
+        preserve_result
+        exit 1
+    }
+    data_disk_source="$repo_dir/build/frog-root.img"
+    cp "$data_disk_source" "$data_disk" || {
+        preserve_result
+        exit 1
+    }
+elif [ "$profile" = root-namespace-smoke ]; then
+    make -C "$repo_dir" frog-root.img || {
+        preserve_result
+        exit 1
+    }
+    data_disk_source="$repo_dir/build/frog-root.img"
+    data_disk="$data_disk_source"
+    base_disk_sha_before=$(sha256sum "$data_disk" | awk '{print $1}') || {
+        preserve_result
+        exit 1
+    }
+elif [ "$profile" = production-root-negative-smoke ]; then
+    make -C "$repo_dir" frog-root.img || {
+        preserve_result
+        exit 1
+    }
+    data_disk_source="$repo_dir/build/frog-root.img"
+    base_disk_sha_before=$(sha256sum "$data_disk_source" |
+                           awk '{print $1}') || {
+        preserve_result
+        exit 1
+    }
+elif [ "$profile" = disk-init-loader-smoke ]; then
+    build_disk_init_loader_test_root || {
+        preserve_result
+        exit 1
+    }
+elif [ "$profile" = system-init-selection-smoke ]; then
+    make -C "$repo_dir" frog-root.img || {
+        preserve_result
+        exit 1
+    }
+    system_init_production_sha=$(sha256sum \
+        "$repo_dir/build/frog-root.img" | awk '{print $1}') || {
+        preserve_result
+        exit 1
+    }
+    system_init_production_init="$work_dir/production-init.elf"
+    cp "$repo_dir/core/build/init.elf" "$system_init_production_init" || {
+        preserve_result
+        exit 1
+    }
+    system_init_production_init_sha=$(sha256sum \
+        "$system_init_production_init" | awk '{print $1}') || {
+        preserve_result
+        exit 1
+    }
+    base_disk_sha_before=$system_init_production_sha
+elif [ "$profile" = graphical-init-production-smoke ]; then
+    make -C "$repo_dir" frog-root.img || {
+        preserve_result
+        exit 1
+    }
+    graphical_init_production_sha=$(sha256sum \
+        "$repo_dir/build/frog-root.img" | awk '{print $1}') || {
+        preserve_result
+        exit 1
+    }
+    graphical_init_production_init="$work_dir/production-init.elf"
+    graphical_init_production_supervisor="$work_dir/production-init-graphical.elf"
+    cp "$repo_dir/core/build/init.elf" \
+        "$graphical_init_production_init" || {
+        preserve_result
+        exit 1
+    }
+    cp "$repo_dir/core/build/init-graphical.elf" \
+        "$graphical_init_production_supervisor" || {
+        preserve_result
+        exit 1
+    }
+    graphical_init_production_init_sha=$(sha256sum \
+        "$graphical_init_production_init" | awk '{print $1}') || {
+        preserve_result
+        exit 1
+    }
+    graphical_init_production_supervisor_sha=$(sha256sum \
+        "$graphical_init_production_supervisor" | awk '{print $1}') || {
+        preserve_result
+        exit 1
+    }
+    base_disk_sha_before=$graphical_init_production_sha
 else
     cp "$data_disk_source" "$data_disk" || {
         preserve_result
@@ -1553,6 +2345,26 @@ for stage in "${stages[@]}"; do
     failed_stage=$stage
     classification=BUILD_FAILED
     if ! build_stage "$stage"; then
+        preserve_result
+        exit 1
+    fi
+    if [ "$profile" = root-namespace-smoke ] &&
+       ! build_root_namespace_stage "$stage"; then
+        preserve_result
+        exit 1
+    fi
+    if [ "$profile" = production-root-negative-smoke ] &&
+       ! build_production_root_negative_stage "$stage"; then
+        preserve_result
+        exit 1
+    fi
+    if [ "$profile" = system-init-selection-smoke ] &&
+       ! build_system_init_selection_test_root "$stage"; then
+        preserve_result
+        exit 1
+    fi
+    if [ "$profile" = graphical-init-production-smoke ] &&
+       ! build_graphical_init_production_test_root; then
         preserve_result
         exit 1
     fi
@@ -1574,14 +2386,127 @@ for stage in "${stages[@]}"; do
         run_stage "$stage"
     fi
 
+    if [ "$profile" = system-init-selection-smoke ] &&
+       [ "$classification" = PASS ] &&
+       ! validate_system_init_selection_stage "$stage"; then
+        classification=EXPECTED_MARKER_MISSING
+    fi
+    if [ "$profile" = graphical-init-production-smoke ] &&
+       [ "$classification" = PASS ] &&
+       ! validate_graphical_init_production_stage; then
+        classification=EXPECTED_MARKER_MISSING
+    fi
+    if [ "$profile" = root-namespace-smoke ] &&
+       [ "$classification" = PASS ] &&
+       ! validate_root_namespace_stage "$stage"; then
+        classification=EXPECTED_MARKER_MISSING
+    fi
+    if [ "$profile" = production-root-negative-smoke ] &&
+       [ "$classification" = PASS ] &&
+       ! validate_production_root_negative_stage "$stage"; then
+        classification=EXPECTED_MARKER_MISSING
+    fi
+
     if [ "$profile" = desktop-smoke ] ||
        [ "$profile" = desktop-soak-10m ]; then
-        base_disk_sha_after=$(sha256sum "$desktop_base_disk" |
+        base_disk_sha_after=$(sha256sum "$repo_dir/build/frog-root.img" |
                               awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        stage_disk_sha_after=$(sha256sum "$desktop_base_disk" |
+                               awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        if [ "$classification" = PASS ] &&
+           { [ "$base_disk_sha_before" != "$base_disk_sha_after" ] ||
+             [ "$stage_disk_sha_before" != "$stage_disk_sha_after" ]; };
+        then
+            classification=BASE_DISK_MUTATED
+        fi
+    fi
+
+    if [ "$profile" = production-root-negative-smoke ]; then
+        base_disk_sha_after=$(sha256sum \
+            "$repo_dir/build/frog-root.img" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        stage_disk_sha_after=$(sha256sum "$data_disk" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        if [ -n "$extra_data_disk" ]; then
+            extra_stage_disk_sha_after=$(sha256sum "$extra_data_disk" |
+                                          awk '{print $1}') || {
+                classification=BASE_DISK_MISSING
+            }
+        fi
+        if [ "$classification" = PASS ] &&
+           { [ "$base_disk_sha_before" != "$base_disk_sha_after" ] ||
+             [ "$stage_disk_sha_before" != "$stage_disk_sha_after" ] ||
+             [ "$extra_stage_disk_sha_before" != "$extra_stage_disk_sha_after" ]; };
+        then
+            classification=BASE_DISK_MUTATED
+        fi
+        printf '%s|%s|%s|%s|%s|%s|%s\n' \
+            "$stage" "$base_disk_sha_before" "$base_disk_sha_after" \
+            "$stage_disk_sha_before" "$stage_disk_sha_after" \
+            "$extra_stage_disk_sha_before" "$extra_stage_disk_sha_after" \
+            >>"$stage_hash_records"
+    fi
+
+    if [ "$profile" = root-namespace-smoke ]; then
+        base_disk_sha_after=$(sha256sum \
+            "$repo_dir/build/frog-root.img" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        stage_disk_sha_after=$(sha256sum "$data_disk" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        if [ "$classification" = PASS ] &&
+           { [ "$base_disk_sha_before" != "$base_disk_sha_after" ] ||
+             [ "$stage_disk_sha_before" != "$stage_disk_sha_after" ]; };
+        then
+            classification=BASE_DISK_MUTATED
+        fi
+    fi
+
+    if [ "$profile" = disk-init-loader-smoke ]; then
+        base_disk_sha_after=$(sha256sum "$data_disk" | awk '{print $1}') || {
             classification=BASE_DISK_MISSING
         }
         if [ "$classification" = PASS ] &&
            [ "$base_disk_sha_before" != "$base_disk_sha_after" ]; then
+            classification=BASE_DISK_MUTATED
+        fi
+    fi
+
+    if [ "$profile" = system-init-selection-smoke ]; then
+        stage_disk_sha_after=$(sha256sum "$data_disk" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        base_disk_sha_after=$(sha256sum \
+            "$repo_dir/build/frog-root.img" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        if [ "$classification" = PASS ] &&
+           { [ "$stage_disk_sha_before" != "$stage_disk_sha_after" ] ||
+             [ "$system_init_production_sha" != "$base_disk_sha_after" ]; };
+        then
+            classification=BASE_DISK_MUTATED
+        fi
+    fi
+
+    if [ "$profile" = graphical-init-production-smoke ]; then
+        stage_disk_sha_after=$(sha256sum "$data_disk" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        base_disk_sha_after=$(sha256sum \
+            "$repo_dir/build/frog-root.img" | awk '{print $1}') || {
+            classification=BASE_DISK_MISSING
+        }
+        if [ "$classification" = PASS ] &&
+           { [ "$stage_disk_sha_before" != "$stage_disk_sha_after" ] ||
+             [ "$graphical_init_production_sha" != "$base_disk_sha_after" ]; };
+        then
             classification=BASE_DISK_MUTATED
         fi
     fi

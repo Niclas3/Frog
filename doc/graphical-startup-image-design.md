@@ -1,6 +1,12 @@
 # Graphical Startup and FrogFS Image Design
 
-Status: Accepted for the Poudland P0 runtime
+Status: Historical Poudland P0 contract; superseded for normal startup
+
+This document is the historical P0 `/test` contract. Task 4.3 of
+`tasks/root-filesystem-plan.md` has since moved production defaults to
+`/bin/compositor`, `/bin/desktop`, and `/share/poudland/cursor.bmp` and proved
+the exact disk-loaded init lifecycle. Explicit legacy P0 profiles still use
+the paths recorded below; they no longer define production defaults.
 
 Frog boots the Poudland Server and demo client as ordinary user ELF files installed in a reproducible FrogFS disk image. A graphical test does not rely on fixed raw sectors, kernel-linked application execution, or a guest preparation boot.
 
@@ -16,7 +22,10 @@ The temporary P0 installation is:
 /test/b.bmp
 ```
 
-The kernel mounts `/dev/sdbp1` at `/test`. The post-P0 root-filesystem stabilization milestone will mount a verified FrogFS root at `/`, retain devfs at `/dev`, and migrate executables and shared data to their documented production paths.
+At the P0 checkpoint the kernel mounted `/dev/sdbp1` at `/test`. The then-future
+root-filesystem milestone is now complete: normal startup locates `frog-root`,
+switches it to `/`, preserves devfs at `/dev`, and uses the production paths
+documented in `doc/root-filesystem-implementation-handoff.md`.
 
 ## Host Image Builder
 
@@ -41,6 +50,15 @@ The tool rejects an artifact that exceeds filesystem or executable-loader limits
 
 The image builder, filesystem-layout definitions, and content manifest are source-controlled. The generated 80 MiB image is a build artifact and is not committed to Git.
 
+At the P0 checkpoint, the reusable base image contained only the P0
+compositor, desktop, and cursor.
+
+The Poudland end-to-end harness is supplied through the separate
+`config/frog-test.overlay` image input, so normal `frog-root.img` construction
+does not build or install a test ELF. This preserves the historical `/test`
+P0 mount model for explicit legacy profiles; the production image and Root
+Switch path are documented separately.
+
 The phony image target always evaluates the versioned manifest and every source
 it names. An unchanged image is reused without changing its hash or mtime;
 changed or mismatched input cannot silently run stale application code.
@@ -53,17 +71,17 @@ artifacts.
 
 ## Runtime Startup
 
-One small user-mode graphical init performs the production startup sequence:
+One small user-mode graphical init performed the P0 startup sequence:
 
 1. fork and `execv("/test/compositor", ...)`;
 2. fork and `execv("/test/desktop", ...)`;
 3. wait for child termination and report explicit launch or runtime failure.
 
-The init is an early embedded image selected by a non-QEMU kernel build and by
-the dedicated `desktop-smoke` profile; its flat binary remains within the
-one-page early-image limit. Other `CONFIG_QEMU_TEST` profiles keep their
-profile-specific smoke init (and the basic smoke init fallback), so production
-startup cannot change their guest markers.
+At P0, this init was an early embedded image selected by normal boot and the
+dedicated desktop profile; its flat binary remained within the one-page fixture
+limit. Explicit historical profiles still select their embedded variants.
+Current normal boot and the current `desktop-smoke`/`desktop-soak-10m` path use
+disk-loaded System Init and Graphical Init instead.
 
 The shared startup status contract reserves desktop exits 70, 71, and 72 for
 connect timeout, compositor EOF/HUP (`-ECONNRESET`), and other runtime or
@@ -99,10 +117,10 @@ Desktop connection tolerates the compositor bind race. `poudland_connect` retrie
 
 P0 does not automatically restart a failed child. If the Poudland Server exits, packagefs closes its service endpoint; the desktop observes EOF/HUP, the client library returns `-ECONNRESET`, and desktop releases its local state and exits.
 
-Normal boot initializes FrogFS, mounts `/dev/sdbp1` at `/test`, and fails fast
-if initialization, mount, or mount rollback fails. The existing disk smoke
-continues to own `/dev/sdbp8`; generated-image and exec profiles continue to
-use `/dev/sdbp1` as before.
+At P0, normal boot initialized FrogFS and mounted `/dev/sdbp1` at `/test`.
+Current normal boot uses the Root Locator and Root Switch; focused historical,
+generated-image, and exec profiles may still use fixed disposable `/test`
+mounts without claiming the production namespace.
 
 ## Poudland Client Runtime
 
@@ -117,30 +135,23 @@ private copy of the generated image, proves both ELF files exceed the old raw
 one-page fixture limit, and sequentially validates `fork`, exact-path `execv`,
 and `wait` status for both installed production artifacts.
 
-`desktop-smoke` is the full graphical acceptance path. It builds the reusable,
-deterministic `build/desktop-smoke-root.img` with test-reporting variants of
-the same compositor and `desktop.c` sources, copies that base into the unique
-runner work directory, then boots the real graphical init.
-Only these disposable variants contain `SYS_TEST_REPORT`/`SYS_TEST_SYNC`;
-normal ELFs remain free of test instrumentation. QMP injects focus, key, drag,
-and release events only after guest synchronization points. Guest assertions
-cover child launch, compositor bind/setup, handshake, three creates, third
-close, two live client windows, focus, keyboard routing, configure delivery,
-final compositor state, receipt of the same events by `desktop.c`, and a full
-second with no additional present. The `desktop-final-frame` synchronization
-record is emitted only after final damage has been presented; screenshot
-capture waits for the later idle-stability record. The final 1024x768
-screenshot is checked pixel-for-pixel, including window stacking, focus border,
-and cursor blending. The generated test manifest does not modify the tracked
-production manifest or `build/frog-root.img`, and ordinary application
-artifacts are restored before QEMU starts.
+The current `desktop-smoke` is still the full graphical acceptance path, but
+its startup boundary has moved beyond this historical P0 design. It builds a
+complete temporary `frog-root` image with exact production init ELFs and
+test-enabled variants of the same compositor and `desktop.c` sources at their
+production `/bin` paths. It then exercises Root Locator, Root Switch, disk PID1,
+strict selection, and Graphical Init before the unchanged interaction scenario.
+Only the disposable application variants contain test reporting; normal ELFs
+remain free of it. QMP injects focus, key, drag, and release events only after
+guest synchronization points. The final 1024x768 screenshot remains a
+pixel-for-pixel check of stacking, focus border, and cursor blending.
 
-The host requires every positive state record exactly once and validates their
-causal order in addition to the exact screenshot. It records the reusable test
-base SHA-256 before and after QEMU, so mutation of that base cannot pass. Wrong
-drag coordinates fail the drag/configure guest case after a bounded deadline;
-missing state evidence, a stale production image, and a deliberately wrong
-pixel are classified independently by runner diagnostics.
+The host requires every positive state record exactly once, validates causal
+order and process liveness, and rescans late guest failures after QMP
+completion. It records both reusable production and complete stage-image
+SHA-256 values before and after QEMU. Wrong drag coordinates, missing state,
+post-ready FAIL, a stale image, and a deliberately wrong pixel have distinct
+negative gates.
 
 Every generated-image run gives only a disposable disk to QEMU. This is test
 isolation, not a guest preparation phase.
@@ -150,7 +161,7 @@ isolation, not a guest preparation phase.
 loader through writable temporary files, and burns only the MBR, loader,
 kernel, and font into that private boot disk. It selects the 1024x768x32
 framebuffer loader and launches QEMU with 16 MiB, `-vga std`, and the generated
-FrogFS image as the second IDE disk. Normal boot therefore neither mutates a
+FrogFS image as a snapshot-backed second IDE disk. Normal boot therefore neither mutates a
 stale checkout `hd.img` nor silently reuses an MBR older than `boot.inc`, and it
 no longer depends on fixed raw sectors for compositor or bitmap assets. Debug
 run targets retain their larger memory and debugging settings but use the same
@@ -164,3 +175,12 @@ The host runner preserves a failing disposable disk, debugcon log, QEMU log, QMP
 ## Root Filesystem Follow-up
 
 After desktop P0 passes, the recorded root-filesystem stabilization work audits the current FrogFS/VFS implementation, adopts stable root paths, and makes the same image builder produce the production root layout. This follow-up may change mount and install paths but must not change the ordinary file-read and ELF-exec model proven here.
+
+That follow-up is complete through Phase 5: rootfs naming, manifest Version 2,
+Root Locator, read-only Root Switch, disk-loaded System Init, production
+graphical paths, real-disk negative startup, desktop smoke, and the ten-minute
+soak all pass. See `doc/directory-structure.md` for the current namespace,
+`doc/boot-process.md` for the startup transition, and
+`doc/root-filesystem-implementation-handoff.md` for current commands and
+evidence. This document remains the authoritative historical record of the P0
+`/test` path, not the current production path contract.

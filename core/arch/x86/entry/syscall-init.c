@@ -13,12 +13,22 @@
 #include <frog/irqflags.h>
 #include <frog/memory.h>
 #include <frog/test.h>
+#include <frog/threads.h>
 #include <kernel/debug.h>
 #include <kernel/framebuffer.h>
 #include <kernel/mm_test.h>
 #include <kernel/syscall_fs.h>
 #include <kernel/timekeeping.h>
 #include <kernel/qemu_test.h>
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+#include <kernel/system_init_selection_test.h>
+#endif
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+#include <kernel/graphical_init_production_test.h>
+#endif
+#ifdef CONFIG_FROG_TEST_DESKTOP
+#include <kernel/desktop_production_test.h>
+#endif
 #include <kernel/wait2.h>
 #include "../../../fs/packagefs/packagefs.h"
 
@@ -47,13 +57,40 @@ static int_32 sys_ni_syscall(void)
     return -ENOSYS;
 }
 
+static pid_t sys_getpid(void)
+{
+    TCB_t *current = running_thread();
+
+    return current != NULL ? current->pid : -ESRCH;
+}
+
 static int_32 sys_putc(uint_32 value)
 {
     char text[2] = {(char) value, '\0'};
 
     printk("%s", text);
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+    system_init_selection_test_observe_output((char) value);
+#endif
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+    graphical_init_production_test_observe_output((char) value);
+#endif
     return 0;
 }
+
+#ifdef CONFIG_FROG_TEST_DESKTOP
+static int_32 desktop_require_liveness(const char *name, bool visible)
+{
+    int passed = desktop_production_test_validate_liveness();
+
+    frog_test_case(name, passed);
+    if (!passed)
+        return -EUCLEAN;
+    if (visible)
+        printk("FROGTEST CASE %s PASS\n", name);
+    return 0;
+}
+#endif
 
 static int_32 sys_test_sync(uint_32 command)
 {
@@ -104,12 +141,16 @@ static int_32 sys_test_sync(uint_32 command)
         frog_test_sync("desktop-client-observed");
         return 0;
     case FROG_TEST_DESKTOP_IDLE_READY:
+        if (desktop_require_liveness("desktop.liveness.idle", true) != 0)
+            return -EUCLEAN;
         if (frog_test_has_failures())
             return -EUCLEAN;
         frog_test_sync("desktop-idle-stable");
         return 0;
 #ifdef CONFIG_FROG_TEST_DESKTOP_SOAK
     case FROG_TEST_DESKTOP_SOAK_SNAPSHOT: {
+        if (desktop_require_liveness("desktop-soak.liveness", false) != 0)
+            return -EUCLEAN;
         int_32 memory_status = mm_desktop_soak_snapshot();
         int_32 packagefs_status = packagefs_lifecycle_test_command(
             FROG_TEST_PACKAGEFS_LIFECYCLE_SNAPSHOT);
@@ -123,6 +164,8 @@ static int_32 sys_test_sync(uint_32 command)
         return 0;
     }
     case FROG_TEST_DESKTOP_SOAK_VERIFY: {
+        if (desktop_require_liveness("desktop-soak.liveness", true) != 0)
+            return -EUCLEAN;
         int_32 memory_status = mm_desktop_soak_verify();
         int_32 packagefs_status = packagefs_lifecycle_test_command(
             FROG_TEST_PACKAGEFS_LIFECYCLE_VERIFY);
@@ -145,6 +188,8 @@ static int_32 sys_test_sync(uint_32 command)
         if (command > FROG_TEST_DESKTOP_SOAK_HEARTBEAT_BASE &&
             command <= FROG_TEST_DESKTOP_SOAK_HEARTBEAT_BASE +
                            FROG_TEST_DESKTOP_SOAK_HEARTBEAT_COUNT) {
+            if (desktop_require_liveness("desktop-soak.liveness", false) != 0)
+                return -EUCLEAN;
             if (frog_test_has_failures())
                 return -EUCLEAN;
             printk("FROGTEST HEARTBEAT desktop-soak minute=%d\n",
@@ -213,6 +258,18 @@ static int_32 sys_test_sync(uint_32 command)
 static int_32 sys_test_report(uint_32 id, int_32 passed)
 {
     const char *name;
+
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+    if (id == FROG_TEST_GRAPHICAL_COMPOSITOR_IDENTITY ||
+        id == FROG_TEST_GRAPHICAL_DESKTOP_IDENTITY ||
+        id == FROG_TEST_GRAPHICAL_COMPOSITOR_RELEASE)
+        return graphical_init_production_test_child_report(id, passed);
+#endif
+#ifdef CONFIG_FROG_TEST_DESKTOP
+    if (id == FROG_TEST_DESKTOP_COMPOSITOR_EXEC ||
+        id == FROG_TEST_DESKTOP_CLIENT_EXEC)
+        passed = desktop_production_test_validate_exec(id, passed);
+#endif
 
     switch (id) {
     case FROG_TEST_PROCESS_FORK_PARENT_RESULT:
@@ -752,6 +809,21 @@ static int_32 sys_test_report(uint_32 id, int_32 passed)
     case FROG_TEST_WAIT2_COPYOUT_CLEANUP:
         name = "wait2.copyout-cleanup";
         break;
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+    case FROG_TEST_SYSTEM_INIT_SELECTION_IDENTITY:
+        name = "system-init.graphical-identity";
+        passed = passed && system_init_selection_test_identity_ok();
+        break;
+    case FROG_TEST_SYSTEM_INIT_SELECTION_ROOT:
+        name = "system-init.graphical-root";
+        break;
+    case FROG_TEST_SYSTEM_INIT_SELECTION_DEVFS:
+        name = "system-init.graphical-devfs";
+        break;
+    case FROG_TEST_SYSTEM_INIT_SELECTION_PACKAGEFS:
+        name = "system-init.graphical-packagefs";
+        break;
+#endif
     default:
         return -EINVAL;
     }
@@ -865,7 +937,9 @@ int_32 sys_testsyscall(uint_32 command)
     !defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) && \
     !defined(CONFIG_FROG_TEST_POUDLAND_E2E) && \
     !defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) && \
-    !defined(CONFIG_FROG_TEST_INPUT)
+    !defined(CONFIG_FROG_TEST_INPUT) && \
+    !defined(CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION) && \
+    !defined(CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION)
     INFO("[init]: ring3 reached, testsyscall a=%d", command);
 #endif
 #ifdef CONFIG_QEMU_TEST
@@ -874,6 +948,9 @@ int_32 sys_testsyscall(uint_32 command)
 #endif
 #ifdef CONFIG_FROG_TEST_PROCESS
     mm_uaccess_process_regression();
+#endif
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+    frog_test_sync("system-init-graphical-target");
 #endif
     frog_test_milestone("ring3", 1);
     frog_test_finish();
@@ -887,6 +964,7 @@ void syscall_init(void)
         syscall_table[nr] = sys_ni_syscall;
 
     syscall_table[SYS_OPEN]    = sys_open;
+    syscall_table[SYS_GETPID]  = sys_getpid;
     syscall_table[SYS_CLOSE]   = sys_close;
     syscall_table[SYS_READ]    = sys_read;
     syscall_table[SYS_WRITE]   = sys_write;

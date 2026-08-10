@@ -796,11 +796,11 @@ int_32 vfs_rmdir_path(const char *path)
  *   and consistent behavior during path traversal.
  *
  * */
-int_32 vfs_mount(const char *pathname,
-                 const char *fs_type,
-                 int flags,
-                 const char *dev_name,
-                 void *data)
+static int_32 vfs_mount_source(const char *pathname,
+                               const char *fs_type,
+                               int flags,
+                               const struct vfs_mount_source *source,
+                               void *data)
 {
         vfs_namespace_lock();
         if (!pathname || !fs_type) {
@@ -829,7 +829,7 @@ int_32 vfs_mount(const char *pathname,
         memset(entry, 0, sizeof(*entry));
         INIT_LIST_HEAD(&entry->mount_node);
 
-        struct super_block *sb = fstype->mount(fstype, flags, dev_name, data);
+        struct super_block *sb = fstype->mount(fstype, flags, source, data);
         if (!sb || !sb->s_root) {
                 if (sb) {
                         if (sb->s_op && sb->s_op->put_super)
@@ -873,6 +873,36 @@ int_32 vfs_mount(const char *pathname,
         add_mount_list(&entry->mount_node);
         vfs_namespace_unlock();
         return 0;
+}
+
+int_32 vfs_mount(const char *pathname,
+                 const char *fs_type,
+                 int flags,
+                 const char *dev_name,
+                 void *data)
+{
+        struct vfs_mount_source source = {
+            .type = dev_name ? VFS_MOUNT_SOURCE_PATH : VFS_MOUNT_SOURCE_NONE,
+        };
+
+        source.value.path = dev_name;
+        return vfs_mount_source(pathname, fs_type, flags, &source, data);
+}
+
+int_32 vfs_mount_block(const char *pathname,
+                       const char *fs_type,
+                       int flags,
+                       struct block_device *bdev,
+                       void *data)
+{
+        if (!bdev)
+                return -EINVAL;
+        struct vfs_mount_source source = {
+            .type = VFS_MOUNT_SOURCE_BLOCK,
+        };
+
+        source.value.bdev = bdev;
+        return vfs_mount_source(pathname, fs_type, flags, &source, data);
 }
 
 int_32 vfs_init(void)

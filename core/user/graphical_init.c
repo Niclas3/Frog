@@ -29,7 +29,7 @@ int graphical_init_supervise(const struct graphical_init_ops *ops)
                 return FROG_GRAPHICAL_EXIT_WAIT;
 
         compositor_pid = ops->spawn(GRAPHICAL_CHILD_COMPOSITOR,
-                                    "/test/compositor");
+                                    FROG_GRAPHICAL_COMPOSITOR_PATH);
 #ifdef FROG_DESKTOP_SMOKE_TEST
         graphical_test_report(FROG_TEST_DESKTOP_INIT_COMPOSITOR_FORK,
                               compositor_pid >= 0);
@@ -37,7 +37,8 @@ int graphical_init_supervise(const struct graphical_init_ops *ops)
         if (compositor_pid < 0)
                 return FROG_GRAPHICAL_EXIT_COMPOSITOR_FORK;
 
-        desktop_pid = ops->spawn(GRAPHICAL_CHILD_DESKTOP, "/test/desktop");
+        desktop_pid = ops->spawn(GRAPHICAL_CHILD_DESKTOP,
+                                 FROG_GRAPHICAL_DESKTOP_PATH);
 #ifdef FROG_DESKTOP_SMOKE_TEST
         graphical_test_report(FROG_TEST_DESKTOP_INIT_DESKTOP_FORK,
                               desktop_pid >= 0);

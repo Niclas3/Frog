@@ -1128,7 +1128,7 @@ static struct inode_operations packagefs_root_iops = {
 
 static struct super_block *packagefs_mount(struct fs_type *fs,
                                            int flags,
-                                           const char *dev,
+                                           const struct vfs_mount_source *source,
                                            void *data)
 {
         struct super_block *sb;
@@ -1136,7 +1136,7 @@ static struct super_block *packagefs_mount(struct fs_type *fs,
 
         (void) fs;
         (void) flags;
-        (void) dev;
+        (void) source;
         (void) data;
         sb = kmalloc(sizeof(*sb));
         root = kmalloc(sizeof(*root));

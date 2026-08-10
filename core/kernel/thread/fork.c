@@ -12,6 +12,9 @@
 
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
+#ifdef CONFIG_FROG_TEST_DESKTOP
+#include <kernel/desktop_production_test.h>
+#endif
 
 extern void intr_exit(void);
 
@@ -141,9 +144,11 @@ pid_t sys_fork(void)
                 local_irq_restore(flags);
                 goto fail;
         }
-        local_irq_restore(flags);
-
         result = child_thread->pid;
+#ifdef CONFIG_FROG_TEST_DESKTOP
+        desktop_production_test_observe_fork(child_thread->pid);
+#endif
+        local_irq_restore(flags);
         goto restore_irqs;
 
 fail:

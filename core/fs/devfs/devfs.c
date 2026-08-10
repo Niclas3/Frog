@@ -419,12 +419,12 @@ static struct inode *devfs_create_root_inode(struct super_block *sb)
 
 static struct super_block *devfs_mount(struct fs_type *fs,
                                        int flags,
-                                       const char *dev,
+                                       const struct vfs_mount_source *source,
                                        void *data)
 {
         (void) fs;
         (void) flags;
-        (void) dev;
+        (void) source;
         (void) data;
         struct super_block *devsb = kmalloc(sizeof(struct super_block));
         if (!devsb)

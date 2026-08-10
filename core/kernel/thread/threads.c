@@ -133,6 +133,7 @@ int init_thread(TCB_t *thread, const char *name, uint_8 priority)
                 return -1;
         // Set all 0 for thread memory
         memset(thread, 0, sizeof(*thread));
+        thread->pid = (pid_t) -1;
         uint_8 fd_idx = 0;
         while (fd_idx < MAX_FILES_OPEN_PER_PROC) {
                 // -1 represents available file description

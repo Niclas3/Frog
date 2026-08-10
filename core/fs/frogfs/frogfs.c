@@ -23,13 +23,16 @@ struct frogfs_dir_entry {
         enum file_type f_type;
 };
 
+STATIC_ASSERT(sizeof(struct frogfs_dir_entry) == FROGFS_DIR_ENTRY_SIZE,
+              frogfs_dir_entry_size_must_match_disk_format);
+
 struct frogfs_block_map {
         uint_32 *indirect[FROGFS_INDIRECT_TABLE_COUNT];
 };
 
 static struct super_block *frogfs_mount(struct fs_type *fs,
                                         int flags,
-                                        const char *dev,
+                                        const struct vfs_mount_source *source,
                                         void *data);
 
 static struct fs_type frogfs_type = {
@@ -38,7 +41,6 @@ static struct fs_type frogfs_type = {
 };
 
 static bool frogfs_registered;
-static bool frogfs_mountpoint_created;
 
 static struct super_operations frog_sop = {
     .put_super = frogfs_put_super,
@@ -110,11 +112,11 @@ static bool frogfs_bitmap_bit_is_set(struct bitmap *bitmap, uint_32 bit)
                get_value_bitmap(bitmap, bit);
 }
 
-static bool frogfs_is_read_only(struct super_block *sb)
+static bool frogfs_is_read_only(const struct super_block *sb)
 {
         if (!sb || !sb->s_fs_info)
                 return true;
-        return ((struct frogfs_super_block *) sb->s_fs_info)
+        return ((const struct frogfs_super_block *) sb->s_fs_info)
                    ->disk_sb.s_rd_only != 0;
 }
 
@@ -1593,56 +1595,6 @@ io_error:
         return ret;
 }
 
-static bool frogfs_superblock_is_valid(struct block_device *bdev,
-                                       struct __frogfs_super_block *disk)
-{
-        if (frogfs_validate_bdev(bdev) < 0 || !disk ||
-            bdev->bd_start_lba % SECTOR_PER_ZONE ||
-            bdev->bd_sec_cnt < SECTOR_PER_ZONE)
-                return false;
-        if (disk->s_magic != FROGFS_MAGIC ||
-            disk->s_zone_sz != ZONE_SIZE ||
-            disk->s_log_zone_sz != 1 ||
-            disk->s_inode_sz != sizeof(struct frogfs_inode) ||
-            disk->dir_entry_size != sizeof(struct frogfs_dir_entry) ||
-            disk->s_ninodes == 0 ||
-            disk->s_ninodes > MAX_FILES_PER_PARTITION ||
-            disk->s_nzones == 0 || disk->root_inode_no != 0 ||
-            disk->s_max_file_sz == 0 ||
-            disk->s_max_file_sz > MAX_FILE_SIZE || disk->s_rd_only > 1)
-                return false;
-
-        unsigned long long start_block =
-            bdev->bd_start_lba / SECTOR_PER_ZONE;
-        unsigned long long total_blocks =
-            bdev->bd_sec_cnt / SECTOR_PER_ZONE;
-        unsigned long long end_block = start_block + total_blocks;
-        unsigned long long inode_table_bytes =
-            (unsigned long long) disk->s_ninodes * disk->s_inode_sz;
-        uint_32 required_imap =
-            DIV_ROUND_UP(disk->s_ninodes, BITS_PER_ZONE);
-        uint_32 required_zmap =
-            DIV_ROUND_UP(disk->s_nzones, BITS_PER_ZONE);
-        uint_32 required_inode_table =
-            (uint_32) ((inode_table_bytes + ZONE_SIZE - 1) / ZONE_SIZE);
-
-        if (disk->s_imap_sz < required_imap ||
-            disk->s_zmap_sz < required_zmap ||
-            disk->s_inode_table_sz < required_inode_table ||
-            (unsigned long long) disk->s_imap_blk != start_block + 1 ||
-            (unsigned long long) disk->s_zmap_blk !=
-                (unsigned long long) disk->s_imap_blk + disk->s_imap_sz ||
-            (unsigned long long) disk->s_inode_table_blk !=
-                (unsigned long long) disk->s_zmap_blk + disk->s_zmap_sz ||
-            (unsigned long long) disk->s_data_start_blk !=
-                (unsigned long long) disk->s_inode_table_blk +
-                    disk->s_inode_table_sz ||
-            (unsigned long long) disk->s_data_start_blk + disk->s_nzones >
-                end_block)
-                return false;
-        return true;
-}
-
 static void frogfs_set_raw_bitmap_bit(uint_8 *bits, uint_32 bit)
 {
         bits[bit / 8] |= (uint_8) (1U << (bit % 8));
@@ -1779,20 +1731,31 @@ io_error:
 
 static struct super_block *frogfs_mount(struct fs_type *fs,
                                         int flags,
-                                        const char *dev,
+                                        const struct vfs_mount_source *source,
                                         void *data)
 {
         (void) fs;
         (void) data;
-        if (!dev || (flags & ~FROGFS_MOUNT_FORMAT))
+        if (!source || (flags & ~FROGFS_MOUNT_FORMAT))
                 return NULL;
 
-        struct dentry *device_dentry = vfs_lookup(dev);
-        if (!device_dentry || !device_dentry->d_inode ||
-            device_dentry->d_type != FT_BLOCK)
+        struct block_device *bdev = NULL;
+        dev_t devno = 0;
+        if (source->type == VFS_MOUNT_SOURCE_BLOCK) {
+                bdev = source->value.bdev;
+                if (bdev)
+                        devno = bdev->bd_dev;
+        } else if (source->type == VFS_MOUNT_SOURCE_PATH) {
+                struct dentry *device_dentry =
+                    vfs_lookup(source->value.path);
+                if (!device_dentry || !device_dentry->d_inode ||
+                    device_dentry->d_type != FT_BLOCK)
+                        return NULL;
+                devno = device_dentry->d_inode->i_dev;
+                bdev = get_block_device(devno);
+        } else {
                 return NULL;
-        struct block_device *bdev =
-            get_block_device(device_dentry->d_inode->i_dev);
+        }
         if (!bdev)
                 return NULL;
 
@@ -1815,24 +1778,17 @@ static struct super_block *frogfs_mount(struct fs_type *fs,
                 ret = frogfs_format_partition(bdev, fsb);
                 if (ret < 0)
                         goto mount_error;
-                memset(&fsb->disk_sb, 0, sizeof(fsb->disk_sb));
-                ret = frogfs_read_super_sector(bdev, &fsb->disk_sb);
-                if (ret < 0 ||
-                    !frogfs_superblock_is_valid(bdev, &fsb->disk_sb))
-                        goto mount_error;
-        } else {
-                ret = frogfs_read_super_sector(bdev, &fsb->disk_sb);
-                if (ret < 0 ||
-                    !frogfs_superblock_is_valid(bdev, &fsb->disk_sb))
-                        goto mount_error;
         }
+        if (frogfs_probe_superblock(bdev, &fsb->disk_sb) !=
+            FROGFS_PROBE_VALID)
+                goto mount_error;
 
         fsb->i_bmap = inode_bitmap;
         fsb->z_bmap = zone_bitmap;
         lock_init(&fsb->fs_lock);
         fsb->needs_fsck = false;
         sb->s_fs_info = fsb;
-        sb->s_devno = device_dentry->d_inode->i_dev;
+        sb->s_devno = devno;
         sb->s_magic = fsb->disk_sb.s_magic;
         sb->s_op = &frog_sop;
         sb->s_block_size = fsb->disk_sb.s_zone_sz;
@@ -2222,6 +2178,8 @@ static int_32 frogfs_create_locked(struct inode *dir,
                                    struct dentry *target,
                                    uint_32 mode)
 {
+        if (dir && frogfs_is_read_only(dir->i_sb))
+                return -EROFS;
         int ret = frogfs_validate_create_target(dir, target);
         if (ret < 0)
                 return ret;
@@ -2265,6 +2223,8 @@ static int_32 frogfs_mkdir_locked(struct inode *dir,
                                   struct dentry *target,
                                   uint_32 mode)
 {
+        if (dir && frogfs_is_read_only(dir->i_sb))
+                return -EROFS;
         int ret = frogfs_validate_create_target(dir, target);
         if (ret < 0)
                 return ret;
@@ -2480,6 +2440,8 @@ rollback: {
 
 static int_32 frogfs_rmdir_locked(struct inode *dir, struct dentry *target)
 {
+        if (dir && frogfs_is_read_only(dir->i_sb))
+                return -EROFS;
         if (!dir || !target || !target->d_inode || !target->d_name ||
             !dir->i_sb || target->d_inode->i_sb != dir->i_sb)
                 return -EINVAL;
@@ -2507,6 +2469,8 @@ static int_32 frogfs_rmdir_locked(struct inode *dir, struct dentry *target)
 
 static int_32 frogfs_unlink_locked(struct inode *dir, struct dentry *target)
 {
+        if (dir && frogfs_is_read_only(dir->i_sb))
+                return -EROFS;
         if (!dir || !target || !target->d_inode || !target->d_name ||
             !dir->i_sb || target->d_inode->i_sb != dir->i_sb)
                 return -EINVAL;
@@ -2780,25 +2744,11 @@ int frogfs_init(void)
         if (ret < 0)
                 return ret;
         frogfs_registered = true;
-        ret = vfs_mkdir_path("/test");
-        if (ret < 0) {
-                int unregister_ret = unregister_fs(&frogfs_type);
-                if (unregister_ret == 0)
-                        frogfs_registered = false;
-                return unregister_ret < 0 ? unregister_ret : ret;
-        }
-        frogfs_mountpoint_created = true;
         return 0;
 }
 
 int frogfs_init_rollback(void)
 {
-        if (frogfs_mountpoint_created) {
-                int ret = vfs_rmdir_path("/test");
-                if (ret < 0)
-                        return ret;
-                frogfs_mountpoint_created = false;
-        }
         if (frogfs_registered) {
                 int ret = unregister_fs(&frogfs_type);
                 if (ret < 0)
@@ -2806,4 +2756,9 @@ int frogfs_init_rollback(void)
                 frogfs_registered = false;
         }
         return 0;
+}
+
+bool frogfs_super_is_read_only(const struct super_block *sb)
+{
+        return frogfs_is_read_only(sb);
 }

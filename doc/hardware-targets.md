@@ -51,7 +51,11 @@ Target 1 is expected to provide the two hardware roles Frog currently needs, but
 
 Frog should accumulate PIT interrupts into a wrap-safe software monotonic timeline. When realtime is available, `gettimeofday` combines the RTC boot value with monotonic elapsed time; otherwise realtime calls return `-ENODATA`. Poudland frame scheduling always consumes monotonic time directly and therefore does not depend on RTC hardware.
 
-Before this is reliable, the current PIT divisor high-byte bug must be fixed and the configured tick rate must be measured in QEMU and on Target 1. A 64-bit or equivalent wrap-safe software counter is also required because a 32-bit millisecond counter wraps after about 49.7 days.
+Frog's current QEMU path uses corrected PIT divisor programming, rational
+nanosecond accumulation, and signed 64-bit time fields. Target 1 still requires
+measurement of the configured tick rate and IRQ routing on the physical board;
+that hardware validation must not be inferred from QEMU. The wrap-safe counter
+avoids the approximately 49.7-day limit of a 32-bit millisecond value.
 
 ## Bring-up Order
 

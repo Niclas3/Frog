@@ -23,7 +23,8 @@ int frogfs_image_test_verify_manifest(void)
 
         if (!buffer)
                 return -ENOMEM;
-        result = vfs_open_file("/test/b.bmp", O_RDONLY, &file);
+        result = vfs_open_file("/test/share/poudland/cursor.bmp", O_RDONLY,
+                               &file);
         if (result < 0)
                 goto out;
         while (offset < expected_size) {

@@ -302,7 +302,7 @@ static int test_directory_lifecycle(void)
         return passed;
 }
 
-static int test_tmpfs_open_rmdir(void)
+static int test_rootfs_open_rmdir(void)
 {
         int passed = vfs_mkdir_path("/vfsbusy") == 0;
         struct file *file = NULL;
@@ -529,7 +529,7 @@ void fs_regression_run_kernel(int init_result,
         frog_test_case("frogfs.open-unlink-recreate",
                        test_open_unlink_recreate());
         frog_test_case("frogfs.mkdir-rmdir", test_directory_lifecycle());
-        frog_test_case("vfs.tmpfs-open-rmdir", test_tmpfs_open_rmdir());
+        frog_test_case("vfs.rootfs-open-rmdir", test_rootfs_open_rmdir());
         frog_test_case("frogfs.path-boundaries", test_path_boundaries());
         frog_test_case("frogfs.metadata-rollback",
                        test_metadata_failure_rollback());

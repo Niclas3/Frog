@@ -55,7 +55,7 @@
 #define FROGFS_TYPE_REGULAR 5U
 #define FROGFS_MODE_SHIFT 11U
 #define MANIFEST_LINE_LIMIT 8192U
-#define MANIFEST_VERSION 1U
+#define MANIFEST_VERSION 2U
 
 #define ELF32_IDENT_SIZE 16U
 #define ELF32_CLASS_32 1U
@@ -218,6 +218,7 @@ struct manifest_entry {
         uint8_t expected_hash[32];
         uint64_t size;
         bool executable;
+        bool directory;
 };
 
 struct fs_node {
@@ -770,6 +771,61 @@ static int compare_manifest_entries(const void *left, const void *right)
         return strcmp(first->target, second->target);
 }
 
+static bool is_volume_name_character(char character)
+{
+        return (character >= 'a' && character <= 'z') ||
+               (character >= 'A' && character <= 'Z') ||
+               (character >= '0' && character <= '9') ||
+               character == '.' || character == '_' || character == '-';
+}
+
+static int validate_volume_name(const char *volume)
+{
+        size_t length;
+
+        if (!volume || !volume[0])
+                return -1;
+        length = strlen(volume);
+        if (length > FROGFS_MAX_NAME ||
+            !((volume[0] >= 'a' && volume[0] <= 'z') ||
+              (volume[0] >= 'A' && volume[0] <= 'Z') ||
+              (volume[0] >= '0' && volume[0] <= '9')))
+                return -1;
+        for (size_t index = 1; index < length; index++) {
+                if (!is_volume_name_character(volume[index]))
+                        return -1;
+        }
+        return 0;
+}
+
+static int validate_target_path(const char *target)
+{
+        const char *component;
+
+        if (!target || target[0] != '/')
+                return -1;
+        if (target[1] == '\0')
+                return -1;
+        if (target[strlen(target) - 1U] == '/' || strstr(target, "//"))
+                return -1;
+        component = target + 1;
+        while (*component) {
+                const char *slash = strchr(component, '/');
+                size_t length = slash ? (size_t) (slash - component) :
+                                        strlen(component);
+
+                if (length == 0 || length > FROGFS_MAX_NAME ||
+                    (length == 1 && component[0] == '.') ||
+                    (length == 2 && component[0] == '.' &&
+                     component[1] == '.'))
+                        return -1;
+                if (!slash)
+                        break;
+                component = slash + 1;
+        }
+        return 0;
+}
+
 static void free_manifest(struct manifest_entry *entries, size_t count)
 {
         if (!entries)
@@ -781,8 +837,22 @@ static void free_manifest(struct manifest_entry *entries, size_t count)
         free(entries);
 }
 
+static int sort_and_validate_entries(struct manifest_entry *entries,
+                                     size_t count)
+{
+        qsort(entries, count, sizeof(*entries), compare_manifest_entries);
+        for (size_t index = 1; index < count; index++) {
+                if (strcmp(entries[index - 1].target,
+                           entries[index].target) == 0)
+                        return errorf("duplicate target %s",
+                                      entries[index].target);
+        }
+        return 0;
+}
+
 static int load_manifest(const char *path, struct manifest_entry **result,
-                         size_t *result_count)
+                         size_t *result_count,
+                         char volume_name[FROGFS_NAME_BYTES])
 {
         FILE *stream = fopen(path, "r");
         struct manifest_entry *entries = NULL;
@@ -793,6 +863,7 @@ static int load_manifest(const char *path, struct manifest_entry **result,
         ssize_t line_length;
         size_t line_number = 0;
         bool saw_version = false;
+        bool saw_volume = false;
 
         if (!stream)
                 return errorf("cannot open manifest %s: %s", path,
@@ -820,9 +891,10 @@ static int load_manifest(const char *path, struct manifest_entry **result,
                 hash = strtok_r(NULL, " \t\r\n", &save);
                 extra = strtok_r(NULL, " \t\r\n", &save);
                 if (strcmp(kind, "frogfs-manifest") == 0) {
-                        if (saw_version || count != 0 || !target || source ||
+                        if (saw_version || saw_volume || count != 0 ||
+                            !target || source ||
                             size || hash || extra ||
-                            strcmp(target, "1") != 0) {
+                            strcmp(target, "2") != 0) {
                                 errorf("invalid manifest version on line %zu",
                                        line_number);
                                 goto fail;
@@ -830,16 +902,34 @@ static int load_manifest(const char *path, struct manifest_entry **result,
                         saw_version = true;
                         continue;
                 }
+                if (strcmp(kind, "volume") == 0) {
+                        if (!saw_version || saw_volume || !target || source ||
+                            size || hash || extra ||
+                            validate_volume_name(target) < 0) {
+                                errorf("invalid volume record on line %zu",
+                                       line_number);
+                                goto fail;
+                        }
+                        memcpy(volume_name, target, strlen(target) + 1U);
+                        saw_volume = true;
+                        continue;
+                }
                 if (!saw_version ||
-                    (strcmp(kind, "file") != 0 &&
+                    (strcmp(kind, "dir") != 0 &&
+                     strcmp(kind, "file") != 0 &&
                      strcmp(kind, "elf") != 0) ||
-                    !target || !source || !size || !hash || extra) {
+                    !target ||
+                    ((strcmp(kind, "dir") == 0 &&
+                      (source || size || hash || extra)) ||
+                     (strcmp(kind, "dir") != 0 &&
+                      (!source || !size || !hash || extra))) ||
+                    validate_target_path(target) < 0) {
                         errorf("invalid manifest line %zu", line_number);
                         goto fail;
                 }
-                if (source[0] == '/') {
+                if (strcmp(kind, "dir") != 0 && source[0] == '/') {
                         errorf("manifest source must be relative on line %zu",
-                               line_number);
+                              line_number);
                         goto fail;
                 }
                 if (count == capacity) {
@@ -862,16 +952,21 @@ static int load_manifest(const char *path, struct manifest_entry **result,
                         capacity = next_capacity;
                 }
                 entries[count].target = strdup(target);
-                entries[count].source = join_source_path(path, source);
+                entries[count].directory = strcmp(kind, "dir") == 0;
                 entries[count].executable = strcmp(kind, "elf") == 0;
-                if (!entries[count].target || !entries[count].source ||
-                    parse_size(size, &entries[count].size) < 0 ||
-                    parse_hash(hash, entries[count].expected_hash) < 0) {
+                if (!entries[count].directory)
+                        entries[count].source = join_source_path(path, source);
+                if (!entries[count].target ||
+                    (!entries[count].directory &&
+                     (!entries[count].source ||
+                      parse_size(size, &entries[count].size) < 0 ||
+                      parse_hash(hash, entries[count].expected_hash) < 0))) {
                         errorf("invalid manifest data on line %zu",
                                line_number);
                         goto fail;
                 }
-                if (validate_source(&entries[count]) < 0)
+                if (!entries[count].directory &&
+                    validate_source(&entries[count]) < 0)
                         goto fail;
                 count++;
         }
@@ -884,16 +979,15 @@ static int load_manifest(const char *path, struct manifest_entry **result,
                        MANIFEST_VERSION);
                 goto fail;
         }
+        if (!saw_volume) {
+                errorf("manifest is missing volume record");
+                goto fail;
+        }
         free(line);
         fclose(stream);
-        qsort(entries, count, sizeof(*entries), compare_manifest_entries);
-        for (size_t index = 1; index < count; index++) {
-                if (strcmp(entries[index - 1].target,
-                           entries[index].target) == 0) {
-                        errorf("duplicate target %s", entries[index].target);
-                        free_manifest(entries, count);
-                        return -1;
-                }
+        if (sort_and_validate_entries(entries, count) < 0) {
+                free_manifest(entries, count);
+                return -1;
         }
         *result = entries;
         *result_count = count;
@@ -904,6 +998,157 @@ fail:
         fclose(stream);
         free_manifest(entries, capacity);
         return -1;
+}
+
+static int load_overlay(const char *path, struct manifest_entry **result,
+                        size_t *result_count)
+{
+        FILE *stream = fopen(path, "r");
+        struct manifest_entry *entries = NULL;
+        size_t count = 0;
+        size_t capacity = 0;
+        char *line = NULL;
+        size_t line_capacity = 0;
+        ssize_t line_length;
+        size_t line_number = 0;
+        bool saw_header = false;
+
+        if (!stream)
+                return errorf("cannot open overlay %s: %s", path,
+                              strerror(errno));
+        while ((line_length = getline(&line, &line_capacity, stream)) >= 0) {
+                char *save = NULL;
+                char *kind;
+                char *target;
+                char *source;
+                char *size;
+                char *hash;
+                char *extra;
+
+                line_number++;
+                if ((size_t) line_length > MANIFEST_LINE_LIMIT) {
+                        errorf("overlay line %zu is too long", line_number);
+                        goto fail;
+                }
+                kind = strtok_r(line, " \t\r\n", &save);
+                if (!kind || kind[0] == '#')
+                        continue;
+                target = strtok_r(NULL, " \t\r\n", &save);
+                source = strtok_r(NULL, " \t\r\n", &save);
+                size = strtok_r(NULL, " \t\r\n", &save);
+                hash = strtok_r(NULL, " \t\r\n", &save);
+                extra = strtok_r(NULL, " \t\r\n", &save);
+                if (strcmp(kind, "frogfs-overlay") == 0) {
+                        if (saw_header || count != 0 || !target || source ||
+                            size || hash || extra ||
+                            strcmp(target, "1") != 0) {
+                                errorf("invalid overlay header on line %zu",
+                                       line_number);
+                                goto fail;
+                        }
+                        saw_header = true;
+                        continue;
+                }
+                if (!saw_header ||
+                    (strcmp(kind, "dir") != 0 &&
+                     strcmp(kind, "file") != 0 &&
+                     strcmp(kind, "elf") != 0) ||
+                    !target ||
+                    ((strcmp(kind, "dir") == 0 &&
+                      (source || size || hash || extra)) ||
+                     (strcmp(kind, "dir") != 0 &&
+                      (!source || !size || !hash || extra))) ||
+                    validate_target_path(target) < 0) {
+                        errorf("invalid overlay line %zu", line_number);
+                        goto fail;
+                }
+                if (strcmp(kind, "dir") != 0 && source[0] == '/') {
+                        errorf("overlay source must be relative on line %zu",
+                               line_number);
+                        goto fail;
+                }
+                if (count == capacity) {
+                        size_t next_capacity = capacity ? capacity * 2U : 8U;
+                        void *next;
+
+                        if (next_capacity > FROGFS_INODES) {
+                                errorf("overlay has too many entries");
+                                goto fail;
+                        }
+                        next = realloc(entries,
+                                       next_capacity * sizeof(*entries));
+                        if (!next) {
+                                errorf("out of memory loading overlay");
+                                goto fail;
+                        }
+                        entries = next;
+                        memset(entries + capacity, 0,
+                               (next_capacity - capacity) * sizeof(*entries));
+                        capacity = next_capacity;
+                }
+                entries[count].target = strdup(target);
+                entries[count].directory = strcmp(kind, "dir") == 0;
+                entries[count].executable = strcmp(kind, "elf") == 0;
+                if (!entries[count].directory)
+                        entries[count].source = join_source_path(path, source);
+                if (!entries[count].target ||
+                    (!entries[count].directory &&
+                     (!entries[count].source ||
+                      parse_size(size, &entries[count].size) < 0 ||
+                      parse_hash(hash, entries[count].expected_hash) < 0))) {
+                        errorf("invalid overlay data on line %zu", line_number);
+                        goto fail;
+                }
+                if (!entries[count].directory &&
+                    validate_source(&entries[count]) < 0)
+                        goto fail;
+                count++;
+        }
+        if (ferror(stream)) {
+                errorf("cannot read overlay %s", path);
+                goto fail;
+        }
+        if (!saw_header) {
+                errorf("overlay is missing frogfs-overlay 1");
+                goto fail;
+        }
+        free(line);
+        fclose(stream);
+        if (sort_and_validate_entries(entries, count) < 0)
+                goto fail_without_stream;
+        *result = entries;
+        *result_count = count;
+        return 0;
+
+fail:
+        free(line);
+        fclose(stream);
+fail_without_stream:
+        free_manifest(entries, capacity);
+        return -1;
+}
+
+static int merge_overlay(struct manifest_entry **base_entries,
+                         size_t *base_count,
+                         struct manifest_entry *overlay_entries,
+                         size_t overlay_count)
+{
+        struct manifest_entry *merged;
+        size_t total;
+
+        if (overlay_count > SIZE_MAX - *base_count)
+                return errorf("manifest and overlay are too large");
+        total = *base_count + overlay_count;
+        merged = realloc(*base_entries, total * sizeof(*merged));
+        if (!merged && total)
+                return errorf("out of memory merging overlay");
+        if (overlay_count)
+                memcpy(merged + *base_count, overlay_entries,
+                       overlay_count * sizeof(*overlay_entries));
+        free(overlay_entries);
+        *base_entries = merged;
+        *base_count = total;
+        return sort_and_validate_entries(merged, total);
 }
 
 static int ensure_node_capacity(struct image_builder *builder)
@@ -968,10 +1213,8 @@ static int add_manifest_path(struct image_builder *builder,
         char *component;
         uint32_t parent = 0;
 
-        if (entry->target[0] != '/' || entry->target[1] == '\0' ||
-            entry->target[strlen(entry->target) - 1U] == '/' ||
-            strstr(entry->target, "//"))
-                return errorf("target must be a normalized absolute file: %s",
+        if (validate_target_path(entry->target) < 0)
+                return errorf("target must be a normalized absolute path: %s",
                               entry->target);
         copy = strdup(entry->target + 1);
         if (!copy)
@@ -991,14 +1234,9 @@ static int add_manifest_path(struct image_builder *builder,
                                 }
                                 parent = (uint32_t) existing;
                         } else {
-                                int created = add_node(
-                                    builder, parent, component,
-                                    FROGFS_TYPE_DIRECTORY, NULL);
-                                if (created < 0) {
-                                        free(copy);
-                                        return -1;
-                                }
-                                parent = (uint32_t) created;
+                                free(copy);
+                                return errorf("parent directory is not "
+                                              "declared: %s", entry->target);
                         }
                 } else {
                         if (existing >= 0) {
@@ -1007,7 +1245,9 @@ static int add_manifest_path(struct image_builder *builder,
                                               entry->target);
                         }
                         if (add_node(builder, parent, component,
-                                     FROGFS_TYPE_REGULAR, entry) < 0) {
+                                     entry->directory ? FROGFS_TYPE_DIRECTORY :
+                                                        FROGFS_TYPE_REGULAR,
+                                     entry->directory ? NULL : entry) < 0) {
                                 free(copy);
                                 return -1;
                         }
@@ -1028,7 +1268,8 @@ static void set_bitmap_bit(uint8_t *bitmap, uint32_t bit)
         bitmap[bit / 8U] |= (uint8_t) (1U << (bit % 8U));
 }
 
-static int initialize_layout(struct image_builder *builder)
+static int initialize_layout(struct image_builder *builder,
+                             const char volume_name[FROGFS_NAME_BYTES])
 {
         uint32_t start_block = PARTITION_START_LBA /
                                FROGFS_SECTORS_PER_ZONE;
@@ -1059,7 +1300,8 @@ static int initialize_layout(struct image_builder *builder)
 
         memset(&builder->super, 0, sizeof(builder->super));
         builder->super.magic = FROGFS_MAGIC;
-        memcpy(builder->super.volume_name, "frogfs", 7);
+        memcpy(builder->super.volume_name, volume_name,
+               strlen(volume_name));
         builder->super.inode_count = FROGFS_INODES;
         builder->super.inode_size = sizeof(struct frogfs_inode_disk);
         builder->super.zone_count = data_blocks;
@@ -1078,6 +1320,7 @@ static int initialize_layout(struct image_builder *builder)
         builder->super.dir_entry_size = sizeof(struct frogfs_dir_entry_disk);
         builder->super.log_zone_size = 1;
         builder->super.max_file_size = FROGFS_MAX_FILE_SIZE;
+        builder->super.read_only = 1;
         if ((uint64_t) builder->super.data_start_block + data_blocks !=
             (uint64_t) start_block + total_blocks)
                 return errorf("FrogFS end offset mismatch");
@@ -1696,7 +1939,8 @@ static void free_builder(struct image_builder *builder)
 }
 
 static int build_image(int fd, const struct manifest_entry *entries,
-                       size_t entry_count)
+                       size_t entry_count,
+                       const char volume_name[FROGFS_NAME_BYTES])
 {
         struct image_builder builder;
         int result = -1;
@@ -1717,7 +1961,7 @@ static int build_image(int fd, const struct manifest_entry *entries,
                 if (add_manifest_path(&builder, &entries[index]) < 0)
                         goto out;
         }
-        if (initialize_layout(&builder) < 0 ||
+        if (initialize_layout(&builder, volume_name) < 0 ||
             write_mbr(&builder) < 0 ||
             write_namespace(&builder) < 0 ||
             write_inodes_and_bitmaps(&builder) < 0)
@@ -1842,7 +2086,8 @@ static int sync_parent_directory(const char *path)
 static void usage(const char *program)
 {
         fprintf(stderr,
-                "usage: %s --manifest PATH --output PATH [--verify]\n",
+                "usage: %s --manifest BASE [--overlay PATH] --output IMAGE "
+                "[--verify]\n",
                 program);
 }
 
@@ -1853,6 +2098,10 @@ int main(int argc, char **argv)
         bool verify_only = false;
         struct manifest_entry *entries = NULL;
         size_t entry_count = 0;
+        struct manifest_entry *overlay_entries = NULL;
+        size_t overlay_count = 0;
+        char volume_name[FROGFS_NAME_BYTES] = {0};
+        const char *overlay_path = NULL;
         char *temp_path = NULL;
         int temp_fd = -1;
         int result = EXIT_FAILURE;
@@ -1863,6 +2112,9 @@ int main(int argc, char **argv)
                 } else if (strcmp(argv[index], "--manifest") == 0 &&
                            index + 1 < argc) {
                         manifest_path = argv[++index];
+                } else if (strcmp(argv[index], "--overlay") == 0 &&
+                           !overlay_path && index + 1 < argc) {
+                        overlay_path = argv[++index];
                 } else if (strcmp(argv[index], "--output") == 0 &&
                            index + 1 < argc) {
                         output_path = argv[++index];
@@ -1875,8 +2127,17 @@ int main(int argc, char **argv)
                 usage(argv[0]);
                 return EXIT_FAILURE;
         }
-        if (load_manifest(manifest_path, &entries, &entry_count) < 0)
+        if (load_manifest(manifest_path, &entries, &entry_count,
+                          volume_name) < 0)
                 goto out;
+        if (overlay_path &&
+            (load_overlay(overlay_path, &overlay_entries, &overlay_count) < 0 ||
+             merge_overlay(&entries, &entry_count, overlay_entries,
+                           overlay_count) < 0)) {
+                overlay_entries = NULL;
+                goto out;
+        }
+        overlay_entries = NULL;
         temp_path = temporary_path(output_path);
         if (!temp_path) {
                 errorf("cannot choose a temporary output path");
@@ -1889,7 +2150,7 @@ int main(int argc, char **argv)
                        strerror(errno));
                 goto out;
         }
-        if (build_image(temp_fd, entries, entry_count) < 0)
+        if (build_image(temp_fd, entries, entry_count, volume_name) < 0)
                 goto out;
         if (close(temp_fd) < 0) {
                 temp_fd = -1;
@@ -1931,5 +2192,6 @@ out:
                 free(temp_path);
         }
         free_manifest(entries, entry_count);
+        free_manifest(overlay_entries, overlay_count);
         return result;
 }

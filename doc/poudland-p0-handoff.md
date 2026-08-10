@@ -2,6 +2,13 @@
 
 Status: Complete on 2026-08-09
 
+This handoff is an immutable account of the P0 milestone. Subsequent Root
+Filesystem Task 4.3 work moved production defaults to `/bin/compositor`,
+`/bin/desktop`, and `/share/poudland/cursor.bmp`; explicit legacy profiles
+retain the `/test` paths recorded below. Current startup status is maintained
+in `doc/root-filesystem-implementation-handoff.md`,
+`tasks/root-filesystem-plan.md`, and `doc/boot-process.md`.
+
 This is the durable handoff for the Poudland P0 and `desktop.c` milestone. The
 implementation is complete through commit `0363fc4` on branch
 `refine/code_arch`; the final documentation commit follows this checkpoint.
@@ -10,7 +17,7 @@ The only unrelated working-tree change at handoff is the owner's existing
 
 ## Delivered Outcome
 
-Frog now boots a graphical ring-3 init under 16 MiB, mounts a reusable FrogFS
+At the P0 checkpoint, Frog booted a graphical ring-3 init under 16 MiB, mounted a reusable FrogFS
 disk at `/test`, forks and executes `/test/compositor` and `/test/desktop`, and
 supervises both children without depending on their exit order. The real
 `desktop.c` client connects to the compositor through packagefs and Poudland
@@ -73,7 +80,7 @@ The work delivered the following contracts.
   checks, bounded sessions/windows, and disconnect cleanup. Reliable replies
   retain FIFO order; replaceable motion/configure state may coalesce without
   overtaking reliable transitions.
-- The compositor is a normal i386 user ELF. It maps `/dev/fb0`, reads VBE mode
+- The P0 compositor is a normal i386 user ELF. It maps `/dev/fb0`, reads VBE mode
   information, loads `/test/b.bmp`, opens both input event fds, binds the
   `compositor` packagefs service, and runs one `wait2`-driven event loop. It
   keeps one display-sized backbuffer, not a full buffer per window, and copies
@@ -82,7 +89,7 @@ The work delivered the following contracts.
   creates three solid-color windows, validates the returned IDs and geometry,
   closes the third with confirmation, and continues consuming pointer,
   keyboard, and configure events for the two live windows.
-- Graphical PID 1 mounts the second disk's FrogFS partition, starts the
+- The P0 Graphical PID 1 mounts the second disk's FrogFS partition, starts the
   compositor and desktop with `fork -> execv`, reaps either order, reports
   bounded failure statuses, and then remains alive. No alternate product ELF
   is used for the acceptance path; test reporting is compiled only into the
@@ -102,13 +109,19 @@ The detailed public contracts remain in:
 
 ## Reusable FrogFS Images
 
-Normal builds generate `build/frog-root.img` directly from
+At the P0 checkpoint, normal builds generated `build/frog-root.img` directly from
 `config/frog-root.manifest`. It contains `/compositor`, `/desktop`, and
 `/b.bmp` in a FrogFS partition and is attached as the second IDE disk. This is
 the reusable disk requested for normal startup; it does not require a guest
 prepare phase on every boot.
 
-`desktop-smoke` and `desktop-soak-10m` generate the deterministic
+The current Version 2 production image instead contains `/sbin/init`,
+`/sbin/init-graphical`, `/bin/compositor`, `/bin/desktop`, strict
+configuration, and `/share/poudland/cursor.bmp`, and becomes `/` through the
+Root Switch. See `doc/root-filesystem-implementation-handoff.md`; the hashes
+below remain historical P0 evidence.
+
+At the P0 checkpoint, `desktop-smoke` and `desktop-soak-10m` generated the deterministic
 `build/desktop-smoke-root.img`. It contains instrumented copies built from the
 same application sources and uses the same paths. Every QEMU run attaches a
 unique copy and checks that the base SHA-256 is unchanged. The fast and soak
@@ -135,7 +148,13 @@ bounded program-header and mapped-page counts; the separately embedded
 graphical-init bootstrap is small by design. The boot image has its own
 independent 512-sector (256 KiB) kernel payload reservation.
 
-## How to Build and Run
+## Historical Commands and Current Entry Point
+
+The P0 commands below are preserved to explain its evidence. For the current
+production Root Filesystem commands and retained results, use
+`doc/root-filesystem-implementation-handoff.md`. Current `make run` builds and
+verifies `build/frog-root.img`, starts disk-loaded System Init, and attaches
+the reusable image through a disposable QEMU snapshot.
 
 For the normal interactive QEMU path:
 
@@ -168,7 +187,7 @@ QMP profiles must be run serially because the build stage cleans shared kernel
 artifacts. A restricted sandbox may deny the private Unix QMP socket; that is
 an environment capability failure, not automatically a guest regression.
 
-## Final Validation Evidence
+## Historical P0 Validation Evidence
 
 All of the following passed from commit `0363fc4` or from the exact staged code
 committed there:
@@ -187,8 +206,9 @@ committed there:
 | `desktop-smoke` at 16 MiB | PASS | `2026-08-09T08:18:18Z`, ordered guest state and every-pixel final scene |
 | `desktop-soak-10m` at 16 MiB | PASS | 10 heartbeats, 600 seconds, stable resources and exact final frame |
 
-The canonical soak result is
-`build/qemu-test/desktop-soak-10m-result.json`. It records
+The fixed historical P0 soak result is
+`build/qemu-test/20260809T081402Z-desktop-soak-10m-PASS-383085/result.json`.
+It records
 `soak_heartbeat_count: 10`, `soak_duration_seconds: 600`,
 `soak_resources_stable: true`, 1024x768, and equal base hashes before/after.
 The retained positive artifact directory is:
@@ -250,10 +270,12 @@ cc2940c feat(poudland): add built-in compositor slice
 The accepted P0 defers these items; none is required to reproduce the result
 above.
 
-- Stabilize FrogFS as the production root and migrate `/test/compositor`,
-  `/test/desktop`, and `/test/b.bmp` to final root paths such as `/bin` and a
-  shared-data directory. The current generated disk is already reusable; this
-  work is about root namespace and long-term filesystem policy.
+- FrogFS production-root stabilization and the migration from
+  `/test/compositor`, `/test/desktop`, and `/test/b.bmp` were future work at
+  this handoff. They are now complete through Phase 5, including real-disk
+  negative startup, complete production-chain desktop smoke, process
+  liveness, final host rescans, and the separate ten-minute soak. Current
+  evidence is recorded in `doc/root-filesystem-implementation-handoff.md`.
 - Design shared Window Surface allocation, mapping, attach, commit, damage,
   lifetime, and failure recovery. Packagefs should remain the small control
   plane rather than carry bulk pixels.
@@ -277,14 +299,11 @@ for bring-up order and the still-required board measurements.
 
 ## Repository State at Handoff
 
-Generated images, binaries, screenshots, and QEMU artifacts are intentionally
-untracked. The final source tree should show only:
-
-```text
- M booter/Makefile
-```
-
-That file is the owner's unrelated change and must remain untouched. To resume
-future work, start with `git status --short`, read this document plus the
-specific design document for the next task, and rerun the relevant focused
-profile before editing.
+Generated images, binaries, screenshots, and QEMU artifacts were intentionally
+untracked at P0 and remain untracked policy. The `booter/Makefile` edit was the
+owner's unrelated change at this handoff and must remain untouched. The later
+production-root implementation and its new handoff are currently uncommitted,
+so today's worktree is not expected to contain only that one historical edit.
+To resume current work, start with `git status --short`, read
+`doc/root-filesystem-implementation-handoff.md`, preserve `booter/Makefile`,
+and rerun the relevant focused profile before editing.

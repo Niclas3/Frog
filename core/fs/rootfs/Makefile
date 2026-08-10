@@ -1,5 +1,5 @@
 include ../../../Makefile.os_rules
-obj-y += tmpfs.o
+obj-y += rootfs.o
 
 all: $(subdir) $(build-obj-y)
 

@@ -3,11 +3,14 @@
 
 #include <frog/types.h>
 
+struct super_block;
+
 /* Explicitly discard and reformat the target before mounting it. */
 #define FROGFS_MOUNT_FORMAT 0x1
 
 int frogfs_init(void);
 int frogfs_init_rollback(void);
+bool frogfs_super_is_read_only(const struct super_block *sb);
 
 #ifdef CONFIG_QEMU_TEST
 #define FROGFS_TEST_IO_READ 0x01U

@@ -9,6 +9,8 @@ common_flags="-std=c11 -Wall -Wextra -Werror -fno-builtin"
 include_flags="-I$repo_dir/core/include -I$repo_dir/core/arch/x86/include"
 
 "${CC:-cc}" $common_flags $include_flags -DGRAPHICAL_INIT_HOST_TEST \
+    -DFROG_GRAPHICAL_COMPOSITOR_PATH=\"/test/compositor\" \
+    -DFROG_GRAPHICAL_DESKTOP_PATH=\"/test/desktop\" \
     "$repo_dir/core/user/graphical_init.c" \
     "$repo_dir/tools/test-graphical-init.c" \
     -o "$work_dir/test-graphical-init"

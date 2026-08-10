@@ -24,7 +24,9 @@
 static const struct block_device_operations *blkdev_table[BLKDEV_TABLE_SIZE];
 static struct bitmap *blkdev_bitmap;
 static LIST_HEAD(g_blk_devs);  // list of block devices
-                               //
+static uint_32 blkdev_count;
+static uint_32 blkdev_partition_count;
+
 static int bio_validate_range(struct block_device *bdev,
                               uint_32 lba,
                               uint_32 sec_cnt,
@@ -127,6 +129,39 @@ struct block_device *get_block_device(dev_t dev_no)
                 }
         }
         return NULL;
+}
+
+int block_for_each_partition(block_partition_callback_t callback, void *data)
+{
+        if (!callback)
+                return -EINVAL;
+
+        uint_32 expected_devices = blkdev_count;
+        uint_32 expected_partitions = blkdev_partition_count;
+        uint_32 visited_devices = 0;
+        uint_32 visited_partitions = 0;
+        struct list_head *pos = g_blk_devs.next;
+
+        while (pos != &g_blk_devs && visited_devices < expected_devices) {
+                struct list_head *next = pos->next;
+                struct block_device *bdev =
+                    container_of(pos, struct block_device, bd_target);
+                visited_devices++;
+                if (!list_is_empty(&bdev->bd_part_node)) {
+                        visited_partitions++;
+                        int ret = callback(bdev, data);
+                        if (ret)
+                                return ret;
+                }
+                pos = next;
+        }
+
+        if (pos != &g_blk_devs || visited_devices != expected_devices ||
+            visited_partitions != expected_partitions ||
+            expected_devices != blkdev_count ||
+            expected_partitions != blkdev_partition_count)
+                return -EUCLEAN;
+        return 0;
 }
 
 /**
@@ -276,6 +311,7 @@ void add_disk(struct gendisk *disk)
         INIT_LIST_HEAD(&diskdev->bd_target);
         INIT_LIST_HEAD(&diskdev->bd_part_node);
         list_add_tail(&diskdev->bd_target, &g_blk_devs);
+        blkdev_count++;
 
         disk_scan_partitions(diskdev);
 }
@@ -317,11 +353,15 @@ int add_partations_bdev(struct block_device *hd, struct block_device *part_bdev)
                 return ret;
         list_add_tail(&part_bdev->bd_target, &g_blk_devs);
         list_add_tail(&part_bdev->bd_part_node, &hd->bd_disk->partitions_list);
+        blkdev_count++;
+        blkdev_partition_count++;
         return 0;
 }
 
 int block_init(void)
 {
+        blkdev_count = 0;
+        blkdev_partition_count = 0;
         blkdev_bitmap = kmalloc(sizeof(struct bitmap));
         if (!blkdev_bitmap)
                 return -ENOMEM;

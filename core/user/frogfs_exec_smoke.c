@@ -90,8 +90,8 @@ void _start(void) __attribute__((section(".text._start"), noreturn));
 
 void _start(void)
 {
-        static const char compositor[] = "/test/compositor";
-        static const char desktop[] = "/test/desktop";
+        static const char compositor[] = "/test/bin/compositor";
+        static const char desktop[] = "/test/bin/desktop";
         bool passed;
 
         passed = file_is_multipage(compositor);

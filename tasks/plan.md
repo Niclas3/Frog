@@ -1,5 +1,10 @@
 # Implementation Plan: Poudland P0 and `desktop.c`
 
+Status: Historical Poudland P0 plan, completed. The production-root follow-up
+that was deferred by this scope is now complete through Phase 5; see
+`tasks/root-filesystem-plan.md` and
+`doc/root-filesystem-implementation-handoff.md` for current behavior.
+
 ## Overview
 
 Deliver a reproducible 16 MiB QEMU boot in which a user-mode graphical init loads `/test/compositor` and `/test/desktop` from a reusable FrogFS disk, Poudland accepts the Version 1 client protocol, `desktop.c` creates three solid-color windows and closes the third, two windows remain visible, the cursor moves, the focused window receives keyboard input, and the second window is dragged from `(220,200)` to `(260,225)`. The fast path ends only after guest state and exact framebuffer evidence pass; a separate ten-minute soak follows.
@@ -23,7 +28,9 @@ Deferred:
 
 - shared Window Surfaces, resize, clipboard, decorations, and binary compatibility with legacy Poudland messages;
 - demand paging, copy-on-write, partial `munmap`, `realloc`, and multithreaded allocation;
-- root mount/path migration from `/test` to production `/bin` and shared-data paths;
+- root mount/path migration from `/test` to production `/bin` and shared-data
+  paths (deferred by P0 and now completed in
+  `tasks/root-filesystem-plan.md`);
 - compositor restart policy and RTC setting;
 - migration of non-P0 features from the legacy compositor implementation.
 
@@ -627,4 +634,5 @@ desktop-soak-10m
 
 ## Open Questions
 
-None for the accepted P0 scope. Root filesystem migration and Window Surface design are explicitly deferred.
+None for the accepted P0 scope. Root filesystem migration was deferred by this
+historical plan and is now complete; Window Surface design remains deferred.

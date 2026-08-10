@@ -21,6 +21,10 @@
 #include <kernel/framebuffer.h>
 #include <kernel/framebuffer_smoke.h>
 #include <kernel/frogfs.h>
+#include <kernel/frogfs_root.h>
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+#include <kernel/graphical_init_production_test.h>
+#endif
 #include <kernel/mm_test.h>
 #include <kernel/timekeeping.h>
 #include <kernel/vfs.h>
@@ -28,11 +32,17 @@
 /* #include <frog/block.h> */
 
 #include <kernel/debug.h>
+#include <kernel/disk_init_loader.h>
 #include <kernel/frogfs_image_test.h>
 #include <kernel/panic.h>
 #include <kernel/process_regression.h>
 #include <kernel/poudland_builtin_test.h>
 #include <kernel/qemu_test.h>
+#include <kernel/root_switch.h>
+#include <kernel/system_root.h>
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+#include <kernel/system_init_selection_test.h>
+#endif
 #include "../fs/packagefs/packagefs.h"
 
 extern void init(void);
@@ -206,6 +216,19 @@ static void do_basic_setup(void)
         i8253_regression_test();
         timekeeping_regression_test();
 #endif
+#ifdef CONFIG_FROG_TEST_ROOT_LOCATOR
+        frogfs_root_locator_regression_run();
+        frog_test_finish();
+#endif
+#ifdef CONFIG_FROG_TEST_ROOT_SWITCH
+        vfs_root_switch_regression_run();
+#endif
+#ifdef CONFIG_FROG_TEST_ROOT_NAMESPACE
+        frogfs_root_namespace_regression_run();
+#endif
+#ifdef CONFIG_FROG_TEST_DISK_INIT_LOADER
+        disk_init_loader_regression_run();
+#endif
 #ifdef CONFIG_FROG_TEST_DISK
         fs_regression_run_kernel(frogfs_test_init_result,
                                  frogfs_test_mount_result,
@@ -215,6 +238,7 @@ static void do_basic_setup(void)
 
 
 
+#ifdef CONFIG_QEMU_TEST
 static void rest_init(void)
 {
         // dive into user mode, start first process init.
@@ -292,9 +316,6 @@ static void rest_init(void)
 #elif defined(CONFIG_FROG_TEST_POUDLAND_E2E)
         image_start = _binary_user_smoke_poudland_e2e_bootstrap_bin_start;
         image_end = _binary_user_smoke_poudland_e2e_bootstrap_bin_end;
-#elif defined(CONFIG_FROG_TEST_DESKTOP)
-        image_start = _binary_user_smoke_graphical_init_bin_start;
-        image_end = _binary_user_smoke_graphical_init_bin_end;
 #elif defined(CONFIG_FROG_TEST_FROGFS_EXEC)
         image_start = _binary_user_smoke_frogfs_exec_bin_start;
         image_end = _binary_user_smoke_frogfs_exec_bin_end;
@@ -345,6 +366,7 @@ static void rest_init(void)
         TCB_t *main = running_thread();
         thread_exit(main, true);
 }
+#endif
 
 static void heap_device_release(struct device *dev)
 {
@@ -397,6 +419,214 @@ static inline void setup_local_cpus(void)
         this_cpu()->current_thread = running_thread();
 }
 
+#if !defined(CONFIG_QEMU_TEST) || \
+    defined(CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION) || \
+    defined(CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION) || \
+    defined(CONFIG_FROG_TEST_PRODUCTION_ROOT_NEGATIVE) || \
+    defined(CONFIG_FROG_TEST_DESKTOP)
+enum disk_system_init_stage {
+        DISK_SYSTEM_INIT_LOCATOR = 0,
+        DISK_SYSTEM_INIT_ACTIVATION,
+        DISK_SYSTEM_INIT_LOADER,
+        DISK_SYSTEM_INIT_READY,
+};
+
+struct disk_system_init_result {
+        enum disk_system_init_stage stage;
+        struct frogfs_root_result located;
+        struct frogfs_root_activation activated;
+        int loader_error;
+        pid_t pid;
+};
+
+/*
+ * The normal boot and the focused ring-3 selection profile share this entire
+ * locator -> read-only root activation -> trusted PID1 loader transaction.
+ */
+static struct disk_system_init_result disk_system_init_start(void)
+{
+        static const char *const argv[] = { "/sbin/init", NULL };
+        struct disk_system_init_result result = {
+            .stage = DISK_SYSTEM_INIT_LOCATOR,
+            .pid = -1,
+        };
+
+        result.located = frogfs_locate_root();
+        if (result.located.status != FROGFS_ROOT_FOUND ||
+            result.located.bdev == NULL)
+                return result;
+        result.stage = DISK_SYSTEM_INIT_ACTIVATION;
+        result.activated = frogfs_activate_root(&result.located);
+        if (result.activated.status != FROGFS_ROOT_ACTIVATED)
+                return result;
+        result.stage = DISK_SYSTEM_INIT_LOADER;
+        syscall_init();
+        result.loader_error = process_execute_init_path(
+            "/sbin/init", argv, &result.pid);
+        if (result.loader_error != 0 || result.pid != 1)
+                return result;
+        set_init_process_pid(result.pid);
+        result.stage = DISK_SYSTEM_INIT_READY;
+        return result;
+}
+#endif
+
+#ifndef CONFIG_QEMU_TEST
+static void __noreturn production_root_stop(const char *stage,
+                                            int status,
+                                            int error,
+                                            int cleanup_error)
+{
+        printk("[startup] stopped stage=%s status=%d error=%d cleanup=%d\n",
+               stage, status, error, cleanup_error);
+        for (;;)
+                __asm__ volatile("cli; hlt");
+}
+
+static void __noreturn production_start_disk_init(void)
+{
+        struct disk_system_init_result result = disk_system_init_start();
+
+        if (result.stage == DISK_SYSTEM_INIT_LOCATOR)
+                production_root_stop("root-locator", result.located.status,
+                                     0, 0);
+        if (result.stage == DISK_SYSTEM_INIT_ACTIVATION)
+                production_root_stop("root-activation",
+                                     result.activated.status,
+                                     result.activated.error,
+                                     result.activated.cleanup_error);
+        if (result.stage != DISK_SYSTEM_INIT_READY)
+                production_root_stop("disk-pid1-loader",
+                                     result.loader_error, result.pid, 0);
+        thread_exit(running_thread(), true);
+        production_root_stop("boot-main-exit-returned", result.pid, 0, 0);
+}
+#endif
+
+#ifdef CONFIG_FROG_TEST_PRODUCTION_ROOT_NEGATIVE
+static void production_root_negative_case(const char *name, int passed)
+{
+        frog_test_case(name, passed);
+        if (passed)
+                printk("FROGTEST CASE %s PASS\n", name);
+}
+
+static void __noreturn production_root_negative_start_disk_init(void)
+{
+        enum frogfs_root_status expected_status;
+        const char *status_case;
+        struct disk_system_init_result result = disk_system_init_start();
+
+#ifdef CONFIG_FROG_TEST_PRODUCTION_ROOT_MISSING
+        expected_status = FROGFS_ROOT_NOT_FOUND;
+        status_case = "production-root-negative.status-not-found";
+#elif defined(CONFIG_FROG_TEST_PRODUCTION_ROOT_CORRUPT)
+        expected_status = FROGFS_ROOT_CORRUPT;
+        status_case = "production-root-negative.status-corrupt";
+#elif defined(CONFIG_FROG_TEST_PRODUCTION_ROOT_DUPLICATE)
+        expected_status = FROGFS_ROOT_DUPLICATE;
+        status_case = "production-root-negative.status-duplicate";
+#else
+#error "production root negative stage is not configured"
+#endif
+
+        production_root_negative_case(
+            "production-root-negative.shared-wrapper", 1);
+        production_root_negative_case(
+            "production-root-negative.stage-locator",
+            result.stage == DISK_SYSTEM_INIT_LOCATOR);
+        production_root_negative_case(
+            status_case,
+            result.located.status == expected_status &&
+                result.located.bdev == NULL);
+        production_root_negative_case(
+            "production-root-negative.root-not-switched",
+            vfs_lookup("/") && vfs_lookup("/dev") &&
+                !vfs_lookup("/sysroot") &&
+                !vfs_lookup("/bin/compositor"));
+        frog_test_finish();
+}
+#endif
+
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+static void __noreturn system_init_selection_start_disk_init(void)
+{
+        struct disk_system_init_result result = disk_system_init_start();
+
+        frog_test_case("system-init.root-located",
+                       result.stage > DISK_SYSTEM_INIT_LOCATOR &&
+                           result.located.status == FROGFS_ROOT_FOUND &&
+                           result.located.bdev != NULL);
+        frog_test_case("system-init.root-activated",
+                       result.stage > DISK_SYSTEM_INIT_ACTIVATION &&
+                           result.activated.status == FROGFS_ROOT_ACTIVATED &&
+                           result.activated.error == 0);
+        frog_test_case("system-init.disk-pid1-loaded",
+                       result.stage == DISK_SYSTEM_INIT_READY &&
+                           result.loader_error == 0 && result.pid == 1);
+        if (result.stage != DISK_SYSTEM_INIT_READY)
+                frog_test_finish();
+        thread_exit(running_thread(), true);
+        frog_test_abort("system-init-boot-main-exit-returned");
+}
+#endif
+
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+static void __noreturn graphical_init_production_start_disk_init(void)
+{
+        struct disk_system_init_result result = disk_system_init_start();
+
+        frog_test_case("graphical-init.root-located",
+                       result.stage > DISK_SYSTEM_INIT_LOCATOR &&
+                           result.located.status == FROGFS_ROOT_FOUND &&
+                           result.located.bdev != NULL);
+        frog_test_case("graphical-init.root-activated",
+                       result.stage > DISK_SYSTEM_INIT_ACTIVATION &&
+                           result.activated.status == FROGFS_ROOT_ACTIVATED &&
+                           result.activated.error == 0);
+        frog_test_case("graphical-init.disk-pid1-loaded",
+                       result.stage == DISK_SYSTEM_INIT_READY &&
+                           result.loader_error == 0 && result.pid == 1);
+        if (result.stage != DISK_SYSTEM_INIT_READY)
+                frog_test_finish();
+        thread_exit(running_thread(), true);
+        frog_test_abort("graphical-init-boot-main-exit-returned");
+}
+#endif
+
+#ifdef CONFIG_FROG_TEST_DESKTOP
+static void desktop_production_case(const char *name, int passed)
+{
+        frog_test_case(name, passed);
+        if (passed)
+                printk("FROGTEST CASE %s PASS\n", name);
+}
+
+static void __noreturn desktop_production_start_disk_init(void)
+{
+        struct disk_system_init_result result = disk_system_init_start();
+
+        desktop_production_case(
+            "desktop.root-located",
+            result.stage > DISK_SYSTEM_INIT_LOCATOR &&
+                result.located.status == FROGFS_ROOT_FOUND &&
+                result.located.bdev != NULL);
+        desktop_production_case(
+            "desktop.root-activated",
+            result.stage > DISK_SYSTEM_INIT_ACTIVATION &&
+                result.activated.status == FROGFS_ROOT_ACTIVATED &&
+                result.activated.error == 0);
+        desktop_production_case(
+            "desktop.disk-pid1-loaded",
+            result.stage == DISK_SYSTEM_INIT_READY &&
+                result.loader_error == 0 && result.pid == 1);
+        if (result.stage != DISK_SYSTEM_INIT_READY)
+                frog_test_finish();
+        frog_test_sync("desktop-production-root-ready");
+        thread_exit(running_thread(), true);
+        frog_test_abort("desktop-boot-main-exit-returned");
+}
+#endif
 
 __visible void __noreturn start_kernel(void)
 {
@@ -466,6 +696,20 @@ __visible void __noreturn start_kernel(void)
         frog_test_begin("time-smoke");
 #elif defined(CONFIG_FROG_TEST_WAIT2)
         frog_test_begin("wait2-smoke");
+#elif defined(CONFIG_FROG_TEST_ROOT_LOCATOR)
+        frog_test_begin("root-locator-smoke");
+#elif defined(CONFIG_FROG_TEST_ROOT_SWITCH)
+        frog_test_begin("root-switch-smoke");
+#elif defined(CONFIG_FROG_TEST_ROOT_NAMESPACE)
+        frog_test_begin("root-namespace-smoke");
+#elif defined(CONFIG_FROG_TEST_PRODUCTION_ROOT_NEGATIVE)
+        frog_test_begin("production-root-negative-smoke");
+#elif defined(CONFIG_FROG_TEST_DISK_INIT_LOADER)
+        frog_test_begin("disk-init-loader-smoke");
+#elif defined(CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION)
+        frog_test_begin("system-init-selection-smoke");
+#elif defined(CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION)
+        frog_test_begin("graphical-init-production-smoke");
 #elif defined(CONFIG_FROG_TEST_FRAMEBUFFER)
         frog_test_begin("framebuffer-smoke");
 #else
@@ -478,6 +722,7 @@ __visible void __noreturn start_kernel(void)
         if (framebuffer_result != 0 && framebuffer_result != -ENODEV) {
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
     defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
+    defined(CONFIG_FROG_TEST_ROOT_NAMESPACE) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
     defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
     defined(CONFIG_FROG_TEST_DESKTOP)
@@ -505,6 +750,7 @@ __visible void __noreturn start_kernel(void)
                 if (framebuffer_result != 0) {
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
     defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
+    defined(CONFIG_FROG_TEST_ROOT_NAMESPACE) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
     defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
     defined(CONFIG_FROG_TEST_DESKTOP)
@@ -517,6 +763,7 @@ __visible void __noreturn start_kernel(void)
 
 #if defined(CONFIG_FROG_TEST_FRAMEBUFFER) || \
     defined(CONFIG_FROG_TEST_FRAMEBUFFER_MMAP) || \
+    defined(CONFIG_FROG_TEST_ROOT_NAMESPACE) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
     defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
     defined(CONFIG_FROG_TEST_DESKTOP)
@@ -569,13 +816,26 @@ __visible void __noreturn start_kernel(void)
 #ifdef CONFIG_QEMU_TEST
         irqflags_regression_test();
         device_lifecycle_regression_test();
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+        system_init_selection_start_disk_init();
+#endif
+#ifdef CONFIG_FROG_TEST_PRODUCTION_ROOT_NEGATIVE
+        production_root_negative_start_disk_init();
+#endif
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+        graphical_init_production_start_disk_init();
+#endif
+#ifdef CONFIG_FROG_TEST_DESKTOP
+        desktop_production_start_disk_init();
+#endif
+#else
+        production_start_disk_init();
 #endif
 
         /****************************************/
-#if !defined(CONFIG_QEMU_TEST) || defined(CONFIG_FROG_TEST_DISK) || \
+#if defined(CONFIG_FROG_TEST_DISK) || \
     defined(CONFIG_FROG_TEST_POUDLAND_BUILTIN) || \
     defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
-    defined(CONFIG_FROG_TEST_DESKTOP) || \
     defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
     defined(CONFIG_FROG_TEST_FROGFS_EXEC)
         int frogfs_init_ret = frogfs_init();
@@ -590,19 +850,23 @@ __visible void __noreturn start_kernel(void)
         frogfs_mount_flags = FROGFS_MOUNT_FORMAT;
 #endif
         const char *frogfs_device = "/dev/sdbp8";
-#if !defined(CONFIG_QEMU_TEST) || \
-    defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
+#if defined(CONFIG_FROG_TEST_FROGFS_IMAGE) || \
     defined(CONFIG_FROG_TEST_FROGFS_EXEC) || \
-    defined(CONFIG_FROG_TEST_POUDLAND_E2E) || \
-    defined(CONFIG_FROG_TEST_DESKTOP)
+    defined(CONFIG_FROG_TEST_POUDLAND_E2E)
         frogfs_device = "/dev/sdbp1";
 #endif
         if (frogfs_init_ret == 0)
+                frogfs_mount_ret = vfs_mkdir_path("/test");
+        if (frogfs_init_ret == 0 && frogfs_mount_ret == 0)
                 frogfs_mount_ret =
                     vfs_mount("/test", "frogfs", frogfs_mount_flags,
                               frogfs_device, NULL);
-        if (frogfs_init_ret == 0 && frogfs_mount_ret < 0)
-                frogfs_rollback_ret = frogfs_init_rollback();
+        if (frogfs_init_ret == 0 && frogfs_mount_ret < 0) {
+                if (vfs_lookup("/test"))
+                        frogfs_rollback_ret = vfs_rmdir_path("/test");
+                if (frogfs_rollback_ret == 0)
+                        frogfs_rollback_ret = frogfs_init_rollback();
+        }
 #ifdef CONFIG_FROG_TEST_DISK
         frogfs_test_init_result = frogfs_init_ret;
         frogfs_test_mount_result = frogfs_mount_ret;
@@ -617,10 +881,6 @@ __visible void __noreturn start_kernel(void)
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)
                 frog_test_abort("poudland-e2e-frogfs-mount");
-#elif defined(CONFIG_FROG_TEST_DESKTOP)
-        if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
-            frogfs_rollback_ret < 0)
-                frog_test_abort("desktop-frogfs-mount");
 #elif defined(CONFIG_FROG_TEST_FROGFS_IMAGE)
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)
@@ -631,16 +891,12 @@ __visible void __noreturn start_kernel(void)
         if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
             frogfs_rollback_ret < 0)
                 frog_test_abort("frogfs-exec-mount");
-#else
-        if (frogfs_init_ret < 0 || frogfs_mount_ret < 0 ||
-                frogfs_rollback_ret < 0)
-                PANIC("frogfs production mount failed");
 #endif
 #endif
 
+#ifdef CONFIG_QEMU_TEST
         syscall_init();
-
         do_basic_setup();
-
         rest_init();
+#endif
 }

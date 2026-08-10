@@ -120,6 +120,12 @@ int_32 vfs_mount(const char *pathname,
                  int flags,
                  const char *dev_name,
                  void *data);
+/* bdev remains owned by the block registry for the lifetime of the mount. */
+int_32 vfs_mount_block(const char *pathname,
+                       const char *fs_type,
+                       int flags,
+                       struct block_device *bdev,
+                       void *data);
 
 struct file *vfs_open(const char *path, uint_32 flags);
 /* A successful open returns one caller-owned strong file reference. */

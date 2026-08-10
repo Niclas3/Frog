@@ -268,6 +268,66 @@ $(error wait2-smoke requires QEMU_TEST=1)
 endif
 MACRO_DEBUG += -DCONFIG_FROG_TEST_WAIT2
 endif
+ifeq ($(FROG_TEST_PROFILE),root-locator-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error root-locator-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_ROOT_LOCATOR
+endif
+ifeq ($(FROG_TEST_PROFILE),root-switch-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error root-switch-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_ROOT_SWITCH
+endif
+ifeq ($(FROG_TEST_PROFILE),root-namespace-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error root-namespace-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_ROOT_NAMESPACE
+ifeq ($(FROG_TEST_STAGE),boot)
+else ifeq ($(FROG_TEST_STAGE),writable-root)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_ROOT_NAMESPACE_WRITABLE
+else
+$(error FROG_TEST_STAGE must be boot or writable-root for root-namespace-smoke)
+endif
+endif
+ifeq ($(FROG_TEST_PROFILE),production-root-negative-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error production-root-negative-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_PRODUCTION_ROOT_NEGATIVE
+ifeq ($(FROG_TEST_STAGE),missing)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_PRODUCTION_ROOT_MISSING
+else ifeq ($(FROG_TEST_STAGE),corrupt)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_PRODUCTION_ROOT_CORRUPT
+else ifeq ($(FROG_TEST_STAGE),duplicate)
+MACRO_DEBUG += -DCONFIG_FROG_TEST_PRODUCTION_ROOT_DUPLICATE
+else
+$(error FROG_TEST_STAGE must be missing, corrupt, or duplicate for production-root-negative-smoke)
+endif
+endif
+ifeq ($(FROG_TEST_PROFILE),disk-init-loader-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error disk-init-loader-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_DISK_INIT_LOADER
+endif
+ifeq ($(FROG_TEST_PROFILE),system-init-selection-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error system-init-selection-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+ifneq ($(filter $(FROG_TEST_STAGE),valid missing-config malformed duplicate unknown tty open-failure read-failure close-failure exec-missing exec-corrupt exec-returned),$(FROG_TEST_STAGE))
+$(error FROG_TEST_STAGE is invalid for system-init-selection-smoke)
+endif
+endif
+ifeq ($(FROG_TEST_PROFILE),graphical-init-production-smoke)
+ifneq ($(QEMU_TEST),1)
+$(error graphical-init-production-smoke requires QEMU_TEST=1)
+endif
+MACRO_DEBUG += -DCONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+endif
 ifeq ($(FROG_TEST_PROFILE),disk-smoke)
 ifneq ($(QEMU_TEST),1)
 $(error disk-smoke requires QEMU_TEST=1)

@@ -8,6 +8,8 @@
 
 #include <const.h>
 #include <kernel/assert.h>
+#include <kernel/disk_init_loader.h>
+#include <kernel/process.h>
 
 #include <asm/processor-flags.h> // FOR EFLAGS
 #include <asm/tss.h>
@@ -19,6 +21,7 @@
 
 extern struct list_head thread_ready_list;
 extern struct list_head thread_all_list;
+extern TCB_t *main_thread;
 
 
 /* #define CELLING(X, STEP) (((X) + (STEP) -1) / (STEP)) */
@@ -38,8 +41,9 @@ extern void intr_exit(void);
  * */
 static void start_process(void *filename)
 {
-        void *function = filename;
         TCB_t *cur = running_thread();
+
+        (void) filename;
         // To the bottom of context_register
         cur->self_kstack = (uint_32 *) ((uint_32) cur->self_kstack +
                                         sizeof(struct thread_stack));
@@ -47,15 +51,16 @@ static void start_process(void *filename)
             (struct context_registers *) cur->self_kstack;
         proc_stack->edi = proc_stack->esi = proc_stack->ebp = proc_stack->esp =
             0;
-        proc_stack->eax = proc_stack->ebx = proc_stack->ecx = proc_stack->edx =
-            0;
+        proc_stack->eax = proc_stack->edx = 0;
+        proc_stack->ebx = cur->user_argv;
+        proc_stack->ecx = cur->user_argc;
         proc_stack->gs = 0;
         proc_stack->ds = proc_stack->es = proc_stack->fs =
             CREATE_SELECTOR(SEL_IDX_DATA_DPL_3, TI_GDT, RPL3);
         proc_stack->cs = CREATE_SELECTOR(SEL_IDX_CODE_DPL_3, TI_GDT, RPL3);
-        proc_stack->eip = function;
+        proc_stack->eip = (void *) cur->user_entry;
         proc_stack->eflags = (EFLAGS_IOPL_0 | EFLAGS_IF_1 | EFLAGS_RESERVED);
-        proc_stack->esp_ptr = (void *) (USER_STACK3_VADDR + PAGE_SIZE);
+        proc_stack->esp_ptr = (void *) cur->user_stack;
         proc_stack->ss = CREATE_SELECTOR(SEL_IDX_DATA_DPL_3, TI_GDT, RPL3);
         __asm__ volatile(
             "movl %0, %%esp;\
@@ -186,29 +191,6 @@ int process_commit_user_image(struct mm_struct *new_mm,
         return 0;
 }
 
-static int create_initial_user_stack(TCB_t *thread)
-{
-        TCB_t *current = running_thread();
-        uint_32 bit_idx =
-            (USER_STACK3_VADDR - thread->mm->user_vaddr.vaddr_start) /
-            PAGE_SIZE;
-        unsigned long flags;
-
-        local_irq_save(flags);
-        page_dir_activate(thread);
-        void *stack = get_phy_free_page_with_vaddr(
-            MP_USER, USER_STACK3_VADDR, thread->mm);
-        if (stack != NULL)
-                memset(stack, 0, PAGE_SIZE);
-        page_dir_activate(current);
-        local_irq_restore(flags);
-        if (stack == NULL)
-                return -1;
-        set_value_bitmap(&thread->mm->user_vaddr.vaddr_bitmap, bit_idx, 1);
-        thread->mm->generation++;
-        return 0;
-}
-
 static bool user_image_valid(const struct user_image *image)
 {
         uint_32 image_end;
@@ -222,36 +204,6 @@ static bool user_image_valid(const struct user_image *image)
             image->entry < image->load_addr || image->entry >= image_end)
                 return false;
         return true;
-}
-
-static int load_user_image(TCB_t *thread, const struct user_image *image)
-{
-        TCB_t *current = running_thread();
-        uint_32 bit_idx =
-            (image->load_addr - thread->mm->user_vaddr.vaddr_start) /
-            PAGE_SIZE;
-        unsigned long flags;
-        int result = -1;
-
-        local_irq_save(flags);
-        page_dir_activate(thread);
-        uint_32 *pde = pde_ptr(image->load_addr);
-        if ((*pde & PG_P_SET) && (*pte_ptr(image->load_addr) & PG_P_SET))
-                goto out;
-        if (get_phy_free_page_with_vaddr(MP_USER, image->load_addr,
-                                         thread->mm) == NULL)
-                goto out;
-
-        memset((void *) image->load_addr, 0, PAGE_SIZE);
-        memcpy((void *) image->load_addr, image->data, image->size);
-        set_value_bitmap(&thread->mm->user_vaddr.vaddr_bitmap, bit_idx, 1);
-        thread->mm->generation++;
-        result = 0;
-
-out:
-        page_dir_activate(current);
-        local_irq_restore(flags);
-        return result;
 }
 
 void process_release_address_space(TCB_t *thread)
@@ -285,37 +237,135 @@ static bool process_has_published_user_mm(void)
         return found;
 }
 
+int process_publish_initial_user_mm_owned(
+    struct mm_struct *owned_mm,
+    const char *name,
+    const struct process_startup_context *startup,
+    pid_t *pid_out)
+{
+        TCB_t *current = running_thread();
+        TCB_t *thread = NULL;
+        pid_t allocated_pid = -1;
+        unsigned long flags;
+        int result = -EINVAL;
+
+        if (pid_out != NULL)
+                *pid_out = -1;
+        if (owned_mm == NULL || owned_mm->pgdir == NULL || name == NULL ||
+            startup == NULL || pid_out == NULL || current == NULL ||
+            current != main_thread || current->pid != 1 || current->mm != NULL ||
+            process_has_published_user_mm() ||
+            startup->entry < USER_VADDR_START ||
+            startup->entry >= 0xc0000000U ||
+            startup->stack < USER_VADDR_START ||
+            startup->stack > 0xc0000000U ||
+            (startup->argc != 0 &&
+             (startup->argv < USER_VADDR_START ||
+              startup->argv >= 0xc0000000U)))
+                goto fail;
+
+        thread = get_kernel_page(1);
+        if (thread == NULL) {
+                result = -ENOMEM;
+                goto fail;
+        }
+        if (init_thread(thread, name, DEFAULT_PRIORITY) < 0) {
+                result = -EAGAIN;
+                goto fail;
+        }
+        allocated_pid = thread->pid;
+        if (allocated_pid <= 1) {
+                result = -EAGAIN;
+                goto fail;
+        }
+
+        thread->mm = owned_mm;
+        thread->user_entry = startup->entry;
+        thread->user_stack = startup->stack;
+        thread->user_argc = startup->argc;
+        thread->user_argv = startup->argv;
+        create_thread(thread, start_process, NULL);
+        block_desc_init(thread->u_block_descs);
+        ASSERT(thread->parent_pid == -1);
+
+        /*
+         * PID 1 starts owned by the boot main thread. The replacement TCB is
+         * still private while its allocated PID becomes main's replacement.
+         * IRQ exclusion makes the temporary PID-1 gap unobservable and no two
+         * published/schedulable threads ever share a PID.
+         */
+        local_irq_save(flags);
+        if (current != running_thread() || current->pid != 1 ||
+            current->mm != NULL || process_has_published_user_mm()) {
+                local_irq_restore(flags);
+                result = -EBUSY;
+                goto fail;
+        }
+        current->pid = allocated_pid;
+        thread->pid = 1;
+#ifdef CONFIG_FROG_TEST_DISK_INIT_LOADER
+        if (disk_init_loader_test_take_failure(
+                DISK_INIT_LOADER_FAIL_AFTER_PID_SWAP)) {
+                thread->pid = allocated_pid;
+                current->pid = 1;
+                local_irq_restore(flags);
+                result = -ENOMEM;
+                goto fail;
+        }
+#endif
+        if (thread_publish(thread) < 0) {
+                thread->pid = allocated_pid;
+                current->pid = 1;
+                local_irq_restore(flags);
+                result = -EAGAIN;
+                goto fail;
+        }
+        local_irq_restore(flags);
+
+        *pid_out = 1;
+        return 0;
+
+fail:
+        if (thread != NULL) {
+                thread->mm = NULL;
+                thread_release_pid(thread->pid);
+                free_page(MP_KERNEL, thread, 1);
+        }
+        mm_release_address_space(owned_mm);
+        return result;
+}
+
 pid_t process_execute_init_image(const struct user_image *image)
 {
         TCB_t *current = running_thread();
-        TCB_t *thread;
+        struct mm_struct *mm;
+        struct process_startup_context startup;
+        pid_t pid = -1;
+        int result;
 
         ASSERT(current != NULL);
         if (current->mm != NULL || process_has_published_user_mm() ||
             !user_image_valid(image))
                 return -1;
-        thread = get_kernel_page(1);
-        if (thread == NULL)
+        mm = process_create_user_mm();
+        if (mm == NULL)
                 return -1;
-        if (init_thread(thread, "init", DEFAULT_PRIORITY) < 0)
-                goto fail_tcb;
-        ASSERT(thread->parent_pid == -1);
-        thread->mm = process_create_user_mm();
-        if (thread->mm == NULL)
-                goto fail_address_space;
-        create_thread(thread, start_process, (void *) image->entry);
-        if (load_user_image(thread, image) < 0 ||
-            create_initial_user_stack(thread) < 0)
-                goto fail_address_space;
-        block_desc_init(thread->u_block_descs);
-        if (thread_publish(thread) < 0)
-                goto fail_address_space;
-        return thread->pid;
+        result = vm_user_map_owned_page(mm, image->load_addr);
+        if (result == 0)
+                result = vm_user_write_owned(mm, image->load_addr,
+                                             image->data, image->size);
+        if (result == 0)
+                result = vm_user_map_owned_page(mm, USER_STACK3_VADDR);
+        if (result != 0) {
+                mm_release_address_space(mm);
+                return -1;
+        }
 
-fail_address_space:
-        process_release_address_space(thread);
-        thread_release_pid(thread->pid);
-fail_tcb:
-        free_page(MP_KERNEL, thread, 1);
-        return -1;
+        startup.entry = image->entry;
+        startup.stack = USER_STACK3_VADDR + PAGE_SIZE;
+        startup.argc = 0;
+        startup.argv = 0;
+        result = process_publish_initial_user_mm_owned(
+            mm, "init", &startup, &pid);
+        return result == 0 ? pid : -1;
 }

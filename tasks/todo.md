@@ -42,8 +42,15 @@
 - [x] Task 18: Add the separate ten-minute desktop soak.
 - [x] Final checkpoint: All existing regressions, desktop-smoke, soak, screenshot, and cleanup evidence pass.
 
-## Deferred after P0
+## Follow-up after P0
 
-- [ ] Stabilize FrogFS as the production root and migrate `/test` paths.
+- [x] Stabilize FrogFS as the production root and migrate `/test` paths. Root
+  Locator, read-only Root Switch, disk PID1, strict System/Graphical Init,
+  production application paths, real-disk negative cases, desktop smoke, and
+  the ten-minute soak are complete; current evidence is in
+  `doc/root-filesystem-implementation-handoff.md`.
+
+## Still Deferred
+
 - [ ] Design shared Window Surface mapping/commit/damage.
 - [ ] Migrate useful non-P0 legacy compositor features.

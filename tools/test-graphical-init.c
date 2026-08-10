@@ -1,5 +1,13 @@
 #include <frog/graphical_startup.h>
 
+#ifndef EXPECTED_COMPOSITOR_PATH
+#define EXPECTED_COMPOSITOR_PATH "/test/compositor"
+#endif
+
+#ifndef EXPECTED_DESKTOP_PATH
+#define EXPECTED_DESKTOP_PATH "/test/desktop"
+#endif
+
 struct wait_result {
         pid_t pid;
         int_32 status;
@@ -25,7 +33,7 @@ static bool string_equal(const char *left, const char *right)
 static pid_t mock_spawn(enum graphical_child child, const char *path)
 {
         static const char *const paths[2] = {
-            "/test/compositor", "/test/desktop",
+            EXPECTED_COMPOSITOR_PATH, EXPECTED_DESKTOP_PATH,
         };
         uint_32 index = spawn_count++;
 

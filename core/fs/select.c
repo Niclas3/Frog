@@ -12,6 +12,12 @@
 #include <kernel/timekeeping.h>
 #include <kernel/vfs.h>
 #include <kernel/wait2.h>
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+#include <kernel/system_init_selection_test.h>
+#endif
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+#include <kernel/graphical_init_production_test.h>
+#endif
 
 #define WAIT2_MAX_FDS      ((uint_32) MAX_FILES_OPEN_PER_PROC)
 #define WAIT2_REQUEST_BITS (POLLIN | POLLOUT)
@@ -370,6 +376,13 @@ int_32 sys_wait2(struct pollfd *user_fds, uint_32 count, int_32 timeout_ms)
         unsigned long entry_flags;
         int_32 result;
 
+#ifdef CONFIG_FROG_TEST_SYSTEM_INIT_SELECTION
+        system_init_selection_test_observe_wait(user_fds, count, timeout_ms);
+#endif
+#ifdef CONFIG_FROG_TEST_GRAPHICAL_INIT_PRODUCTION
+        graphical_init_production_test_observe_wait(user_fds, count,
+                                                    timeout_ms);
+#endif
         local_irq_save(entry_flags);
         local_irq_enable();
         result = do_wait2(user_fds, count, timeout_ms);

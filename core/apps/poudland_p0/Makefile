@@ -1,7 +1,7 @@
 include ../../../Makefile.os_rules
 
 APP_BUILD := ../build
-TARGET := $(APP_BUILD)/compositor
+TARGET ?= $(APP_BUILD)/compositor
 POUDLAND_P0_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 	-fno-builtin -fno-asynchronous-unwind-tables -fno-unwind-tables \
 	-ffunction-sections -fdata-sections -march=i386 -m32 -Os -Wall -Wextra \
@@ -9,10 +9,14 @@ POUDLAND_P0_CFLAGS := -c -fno-pie -ffreestanding -fno-stack-protector \
 
 ifeq ($(QEMU_TEST),1)
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)
-POUDLAND_P0_CFLAGS += -DFROG_POUDLAND_P0_TEST
+POUDLAND_P0_CFLAGS += -DFROG_POUDLAND_P0_TEST \
+	-DFROG_POUDLAND_CURSOR_PATH=\"/test/b.bmp\"
 endif
 ifneq ($(filter desktop-smoke desktop-soak-10m,$(FROG_TEST_PROFILE)),)
 POUDLAND_P0_CFLAGS += -DFROG_DESKTOP_SMOKE_TEST
+endif
+ifeq ($(FROG_TEST_PROFILE),poudland-e2e-smoke)
+POUDLAND_P0_CFLAGS += -DFROG_POUDLAND_CURSOR_PATH=\"/test/b.bmp\"
 endif
 endif
 

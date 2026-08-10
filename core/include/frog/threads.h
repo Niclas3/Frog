@@ -97,6 +97,10 @@ typedef struct thread_control_block {
         struct list_head all_list_tag;   // for thread_all_list
         struct list_head proc_list_tag;  // for process_all_list
         struct mm_struct *mm;  // NULL for a kernel thread
+        uint_32 user_entry;
+        uint_32 user_stack;
+        uint_32 user_argc;
+        uint_32 user_argv;
         struct mem_block_desc
             u_block_descs[DESC_CNT];  // block descriptor from allocate memory
         // File things

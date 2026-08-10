@@ -12,18 +12,217 @@ printf 'deterministic frogfs payload\n' >"$source_file"
 source_hash=$(sha256sum "$source_file" | awk '{print $1}')
 source_size=$(stat -c %s "$source_file")
 {
-    printf 'frogfs-manifest 1\n'
+    printf 'frogfs-manifest 2\n'
     printf 'file /test/payload payload.bin %s %s\n' \
         "$source_size" "$source_hash"
+    printf 'dir /test\n'
+    printf 'volume frog-root\n'
 } >"$manifest"
 
 "$tool" --manifest "$manifest" --output "$image"
 "$tool" --manifest "$manifest" --output "$image" --verify
+python3 - "$image" <<'PY'
+import sys
+
+with open(sys.argv[1], "rb") as stream:
+    stream.seek(2048 * 512)
+    superblock = stream.read(512)
+
+if superblock[4:20].split(b"\0", 1)[0] != b"frog-root":
+    raise SystemExit("manifest volume was not written to the superblock")
+if superblock[84] != 1:
+    raise SystemExit("System Image superblock is not read-only")
+PY
 first_hash=$(sha256sum "$image" | awk '{print $1}')
 first_mtime=$(stat -c %Y "$image")
+
+overlay_dir="$work_dir/overlay"
+overlay_manifest="$overlay_dir/frog-test.overlay"
+overlay_image="$work_dir/overlay.img"
+mkdir "$overlay_dir"
+printf 'overlay payload\n' >"$overlay_dir/overlay.bin"
+overlay_hash=$(sha256sum "$overlay_dir/overlay.bin" | awk '{print $1}')
+overlay_size=$(stat -c %s "$overlay_dir/overlay.bin")
+{
+    printf 'frogfs-overlay 1\n'
+    printf 'dir /test-overlay\n'
+    printf 'file /test-overlay/overlay.bin overlay.bin %s %s\n' \
+        "$overlay_size" "$overlay_hash"
+} >"$overlay_manifest"
+"$tool" --manifest "$manifest" --overlay "$overlay_manifest" \
+    --output "$overlay_image"
+"$tool" --manifest "$manifest" --overlay "$overlay_manifest" \
+    --output "$overlay_image" --verify
+test "$(sha256sum "$image" | awk '{print $1}')" = "$first_hash"
+test "$(stat -c %Y "$image")" = "$first_mtime"
+
+# An overlay may add a child beneath a directory explicitly declared by base.
+base_parent_overlay="$overlay_dir/base-parent.overlay"
+base_parent_image="$work_dir/base-parent-overlay.img"
+{
+    printf 'frogfs-overlay 1\n'
+    printf 'file /test/overlay.bin overlay.bin %s %s\n' \
+        "$overlay_size" "$overlay_hash"
+} >"$base_parent_overlay"
+"$tool" --manifest "$manifest" --overlay "$base_parent_overlay" \
+    --output "$base_parent_image"
+"$tool" --manifest "$manifest" --overlay "$base_parent_overlay" \
+    --output "$base_parent_image" --verify
+
+python3 - "$overlay_image" <<'PY'
+import struct
+import sys
+
+with open(sys.argv[1], "rb") as stream:
+    stream.seek(2048 * 512 + 20)
+    fields = struct.unpack("<15I", stream.read(60))
+    zone_size = fields[3]
+    inode_table_block = fields[8]
+    stream.seek(inode_table_block * zone_size)
+    root = stream.read(100)
+    root_zone = struct.unpack_from("<I", root, 16)[0]
+    root_size = struct.unpack_from("<I", root, 8)[0]
+    stream.seek(root_zone * zone_size)
+    names = [stream.read(24)[:16].split(b"\0", 1)[0]
+             for _ in range(root_size // 24)]
+if b"test-overlay" not in names:
+    raise SystemExit("overlay directory is absent from the image")
+PY
 sleep 1
 "$tool" --manifest "$manifest" --output "$image"
 test "$(sha256sum "$image" | awk '{print $1}')" = "$first_hash"
+
+expect_rejected_manifest()
+{
+    local candidate=$1
+    local candidate_image=$2
+
+    if "$tool" --manifest "$candidate" --output "$candidate_image" \
+            >/dev/null 2>&1; then
+        echo "invalid manifest unexpectedly built: $candidate" >&2
+        exit 1
+    fi
+    test ! -e "$candidate_image"
+}
+
+expect_rejected_overlay()
+{
+    local candidate=$1
+    local candidate_image=$2
+
+    if "$tool" --manifest "$manifest" --overlay "$candidate" \
+            --output "$candidate_image" >/dev/null 2>&1; then
+        echo "invalid overlay unexpectedly built: $candidate" >&2
+        exit 1
+    fi
+    test ! -e "$candidate_image"
+}
+
+missing_volume_manifest="$work_dir/missing-volume.manifest"
+{
+    printf 'frogfs-manifest 2\n'
+    printf 'dir /test\n'
+} >"$missing_volume_manifest"
+expect_rejected_manifest "$missing_volume_manifest" "$work_dir/missing-volume.img"
+
+duplicate_volume_manifest="$work_dir/duplicate-volume.manifest"
+{
+    printf 'frogfs-manifest 2\nvolume frog-root\nvolume frog-data\n'
+} >"$duplicate_volume_manifest"
+expect_rejected_manifest "$duplicate_volume_manifest" "$work_dir/duplicate-volume.img"
+
+invalid_volume_manifest="$work_dir/invalid-volume.manifest"
+{
+    printf 'frogfs-manifest 2\nvolume -frog-root\n'
+} >"$invalid_volume_manifest"
+expect_rejected_manifest "$invalid_volume_manifest" "$work_dir/invalid-volume.img"
+
+max_volume_manifest="$work_dir/max-volume.manifest"
+printf 'frogfs-manifest 2\nvolume abcdefghijklmno\n' >"$max_volume_manifest"
+"$tool" --manifest "$max_volume_manifest" --output "$work_dir/max-volume.img"
+
+long_volume_manifest="$work_dir/long-volume.manifest"
+printf 'frogfs-manifest 2\nvolume abcdefghijklmnop\n' >"$long_volume_manifest"
+expect_rejected_manifest "$long_volume_manifest" "$work_dir/long-volume.img"
+
+invalid_volume_character_manifest="$work_dir/invalid-volume-character.manifest"
+printf 'frogfs-manifest 2\nvolume frog/root\n' \
+    >"$invalid_volume_character_manifest"
+expect_rejected_manifest "$invalid_volume_character_manifest" \
+    "$work_dir/invalid-volume-character.img"
+
+header_order_manifest="$work_dir/header-order.manifest"
+printf 'volume frog-root\nfrogfs-manifest 2\n' >"$header_order_manifest"
+expect_rejected_manifest "$header_order_manifest" "$work_dir/header-order.img"
+
+missing_parent_manifest="$work_dir/missing-parent.manifest"
+{
+    printf 'frogfs-manifest 2\nvolume frog-root\n'
+    printf 'file /missing/payload payload.bin %s %s\n' \
+        "$source_size" "$source_hash"
+} >"$missing_parent_manifest"
+expect_rejected_manifest "$missing_parent_manifest" "$work_dir/missing-parent.img"
+
+duplicate_dir_manifest="$work_dir/duplicate-dir.manifest"
+{
+    printf 'frogfs-manifest 2\nvolume frog-root\ndir /same\ndir /same\n'
+} >"$duplicate_dir_manifest"
+expect_rejected_manifest "$duplicate_dir_manifest" "$work_dir/duplicate-dir.img"
+
+type_conflict_manifest="$work_dir/type-conflict.manifest"
+{
+    printf 'frogfs-manifest 2\nvolume frog-root\ndir /same\n'
+    printf 'file /same payload.bin %s %s\n' "$source_size" "$source_hash"
+} >"$type_conflict_manifest"
+expect_rejected_manifest "$type_conflict_manifest" "$work_dir/type-conflict.img"
+
+invalid_dir_manifest="$work_dir/invalid-dir.manifest"
+printf 'frogfs-manifest 2\nvolume frog-root\ndir /extra field\n' \
+    >"$invalid_dir_manifest"
+expect_rejected_manifest "$invalid_dir_manifest" "$work_dir/invalid-dir.img"
+
+root_dir_manifest="$work_dir/root-dir.manifest"
+printf 'frogfs-manifest 2\nvolume frog-root\ndir /\n' >"$root_dir_manifest"
+expect_rejected_manifest "$root_dir_manifest" "$work_dir/root-dir.img"
+
+overlay_collision="$work_dir/overlay-collision"
+{
+    printf 'frogfs-overlay 1\n'
+    printf 'file /test/payload payload.bin %s %s\n' \
+        "$source_size" "$source_hash"
+} >"$overlay_collision"
+expect_rejected_overlay "$overlay_collision" "$work_dir/overlay-collision.img"
+
+overlay_duplicate="$work_dir/overlay-duplicate"
+printf 'frogfs-overlay 1\ndir /overlay-duplicate\ndir /overlay-duplicate\n' \
+    >"$overlay_duplicate"
+expect_rejected_overlay "$overlay_duplicate" "$work_dir/overlay-duplicate.img"
+
+overlay_missing_parent="$work_dir/overlay-missing-parent"
+{
+    printf 'frogfs-overlay 1\n'
+    printf 'file /overlay-missing/payload overlay.bin %s %s\n' \
+        "$overlay_size" "$overlay_hash"
+} >"$overlay_missing_parent"
+expect_rejected_overlay "$overlay_missing_parent" \
+    "$work_dir/overlay-missing-parent.img"
+
+overlay_volume="$work_dir/overlay-volume"
+printf 'frogfs-overlay 1\nvolume frog-root\n' >"$overlay_volume"
+expect_rejected_overlay "$overlay_volume" "$work_dir/overlay-volume.img"
+
+overlay_manifest_header="$work_dir/overlay-manifest-header"
+printf 'frogfs-manifest 2\nvolume frog-root\n' >"$overlay_manifest_header"
+expect_rejected_overlay "$overlay_manifest_header" \
+    "$work_dir/overlay-manifest-header.img"
+
+if "$tool" --manifest "$manifest" --overlay "$overlay_manifest" \
+        --overlay "$overlay_manifest" --output "$work_dir/double-overlay.img" \
+        >/dev/null 2>&1; then
+    echo 'duplicate --overlay unexpectedly accepted' >&2
+    exit 1
+fi
+test ! -e "$work_dir/double-overlay.img"
 test "$(stat -c %Y "$image")" = "$first_mtime"
 
 printf '\001' | dd of="$image" bs=1 seek=4096 conv=notrunc status=none
@@ -38,7 +237,7 @@ test "$(sha256sum "$image" | awk '{print $1}')" = "$first_hash"
 bad_manifest="$work_dir/bad-hash.manifest"
 bad_image="$work_dir/bad-hash.img"
 {
-    printf 'frogfs-manifest 1\n'
+    printf 'frogfs-manifest 2\nvolume frog-root\ndir /test\n'
     printf 'file /test/payload payload.bin %s %064d\n' "$source_size" 0
 } >"$bad_manifest"
 if "$tool" --manifest "$bad_manifest" --output "$bad_image" \
@@ -59,7 +258,7 @@ oversized_manifest="$work_dir/oversized.manifest"
 oversized_image="$work_dir/oversized.img"
 truncate -s 1059841 "$oversized"
 {
-    printf 'frogfs-manifest 1\n'
+    printf 'frogfs-manifest 2\nvolume frog-root\ndir /test\n'
     printf 'file /test/oversized oversized.bin 1059841 %064d\n' 0
 } >"$oversized_manifest"
 if "$tool" --manifest "$oversized_manifest" --output "$oversized_image" \
@@ -72,7 +271,7 @@ test ! -e "$oversized_image"
 absolute_manifest="$work_dir/absolute.manifest"
 absolute_image="$work_dir/absolute.img"
 {
-    printf 'frogfs-manifest 1\n'
+    printf 'frogfs-manifest 2\nvolume frog-root\n'
     printf 'file /absolute %s %s %s\n' \
         "$source_file" "$source_size" "$source_hash"
 } >"$absolute_manifest"
@@ -104,7 +303,7 @@ with open(sys.argv[1], "wb") as stream:
 PY
 elf_hash=$(sha256sum "$valid_elf" | awk '{print $1}')
 {
-    printf 'frogfs-manifest 1\n'
+    printf 'frogfs-manifest 2\nvolume frog-root\n'
     printf 'elf /valid valid.elf 8192 %s\n' "$elf_hash"
 } >"$elf_manifest"
 "$tool" --manifest "$elf_manifest" --output "$elf_image"
@@ -140,7 +339,7 @@ for invalid_elf in "$work_dir"/invalid-*.elf; do
     invalid_image="$work_dir/$invalid_name.img"
     invalid_hash=$(sha256sum "$invalid_elf" | awk '{print $1}')
     {
-        printf 'frogfs-manifest 1\n'
+        printf 'frogfs-manifest 2\nvolume frog-root\n'
         printf 'elf /invalid %s 8192 %s\n' "$invalid_name" "$invalid_hash"
     } >"$invalid_manifest"
     if "$tool" --manifest "$invalid_manifest" --output "$invalid_image" \
@@ -157,7 +356,7 @@ max_image="$work_dir/max.img"
 truncate -s 1059840 "$max_file"
 max_hash=$(sha256sum "$max_file" | awk '{print $1}')
 {
-    printf 'frogfs-manifest 1\n'
+    printf 'frogfs-manifest 2\nvolume frog-root\n'
     printf 'file /max max.bin 1059840 %s\n' "$max_hash"
 } >"$max_manifest"
 "$tool" --manifest "$max_manifest" --output "$max_image"
@@ -206,11 +405,12 @@ PY
 many_manifest="$work_dir/many.manifest"
 many_image="$work_dir/many.img"
 {
-    printf 'frogfs-manifest 1\n'
+    printf 'frogfs-manifest 2\nvolume frog-root\n'
     for index in $(seq -w 0 83); do
         printf 'file /many/file%s payload.bin %s %s\n' \
             "$index" "$source_size" "$source_hash"
     done
+    printf 'dir /many\n'
 } >"$many_manifest"
 "$tool" --manifest "$many_manifest" --output "$many_image"
 

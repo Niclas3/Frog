@@ -9,6 +9,10 @@
 #define POUDLAND_P0_WINDOW_COUNT 2U
 #define POUDLAND_P0_CURSOR_LIMIT 64U
 
+#ifndef FROG_POUDLAND_CURSOR_PATH
+#define FROG_POUDLAND_CURSOR_PATH "/share/poudland/cursor.bmp"
+#endif
+
 struct poudland_p0_protocol;
 
 struct poudland_p0_window {

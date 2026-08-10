@@ -13,6 +13,8 @@ TEST_PROC = core/apps/build/compositor
 TEST_IMG= core/apps/test/b.bmp
 FROG_ROOT_IMAGE = build/frog-root.img
 FROG_ROOT_MANIFEST = config/frog-root.manifest
+FROG_TEST_ROOT_IMAGE = build/frog-test-root.img
+FROG_TEST_OVERLAY = config/frog-test.overlay
 SECTOR_SIZE := 512
 LOADER_SECTOR_COUNT := 11
 CORE_START_SECTOR := 13
@@ -22,11 +24,14 @@ ifeq ($(QEMU_TEST),1)
 LOADER_AD_FLAG := -DVGA_ENABLE
 NORMAL_RUNTIME_DEP :=
 RUNTIME_DATA_IMAGE := hd80M.img
+RUNTIME_DATA_SNAPSHOT :=
 else
 LOADER_AD_FLAG := -DFRAMEBUFFER_TEST
 NORMAL_RUNTIME_DEP := frog-root.img
 RUNTIME_DATA_IMAGE := $(FROG_ROOT_IMAGE)
+RUNTIME_DATA_SNAPSHOT := ,snapshot=on
 endif
+RUNTIME_DATA_DRIVE := format=raw,file=$(RUNTIME_DATA_IMAGE),if=ide,index=1,media=disk$(RUNTIME_DATA_SNAPSHOT)
 BOOT_DISK_DEP := frog-boot.img
 
 # Use ELF format
@@ -59,9 +64,17 @@ MBR.bin: FORCE
 
 .PHONY: clean clean-all font start reset newimg mount umount load_core \
 	init_boot_code frog-boot.img frog-root.img frog-root-verify \
-	frog-root-test FORCE
+	frog-root-inventory frog-test-root.img frog-test-root-verify frog-root-test FORCE
 
 FORCE:
+
+define run_quiet
+	@log_file=$$(mktemp); \
+	if ! $(1) >"$$log_file" 2>&1; then \
+		cat "$$log_file" >&2; rm -f "$$log_file"; exit 1; \
+	fi; \
+	rm -f "$$log_file"
+endef
 
 frog-boot.img: FORCE
 	@mkdir -p $(dir $(FROG_BOOT_IMAGE))
@@ -74,23 +87,71 @@ font :
 	cd ./tools/ && $(MAKE) font
 
 tools/mkfrogfs_image: tools/mkfrogfs_image.c
-	$(MAKE) -C tools mkfrogfs_image
+	$(call run_quiet,$(MAKE) -C tools mkfrogfs_image)
 
-frog-root.img: tools/mkfrogfs_image $(FROG_ROOT_MANIFEST)
-	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= clean-production
-	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= test
+frog-root-inventory: FORCE tools/mkfrogfs_image $(FROG_ROOT_MANIFEST) config/init.conf
+	$(call run_quiet,$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= clean-production)
+	$(call run_quiet,$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= production)
+	$(call run_quiet,$(MAKE) -B -C core/user QEMU_TEST=0 FROG_TEST_PROFILE= installed-init)
+	@./tools/test-production-graphical-paths.sh \
+		core/apps/build/compositor core/apps/build/desktop \
+		core/build/init-graphical.elf
+	@./tools/test-frog-root-inventory.sh $(FROG_ROOT_MANIFEST)
+
+frog-root.img: FORCE frog-root-inventory
 	@mkdir -p $(dir $(FROG_ROOT_IMAGE))
 	@./tools/mkfrogfs_image --manifest $(FROG_ROOT_MANIFEST) \
 		--output $(FROG_ROOT_IMAGE)
 
-frog-root-verify: frog-root.img
+frog-root-verify: frog-root.img frog-root-inventory
 	@./tools/mkfrogfs_image --manifest $(FROG_ROOT_MANIFEST) \
 		--output $(FROG_ROOT_IMAGE) --verify
 
+frog-test-root.img: FORCE frog-root.img tools/mkfrogfs_image $(FROG_ROOT_MANIFEST) $(FROG_TEST_OVERLAY)
+	$(call run_quiet,$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= clean-test)
+	$(call run_quiet,$(MAKE) -C core/apps legacy-compositor)
+	$(call run_quiet,$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= poudland-e2e-smoke)
+	@mkdir -p $(dir $(FROG_TEST_ROOT_IMAGE))
+	@./tools/mkfrogfs_image --manifest $(FROG_ROOT_MANIFEST) \
+		--overlay $(FROG_TEST_OVERLAY) --output $(FROG_TEST_ROOT_IMAGE)
+
+frog-test-root-verify: frog-test-root.img frog-root.img
+	@./tools/mkfrogfs_image --manifest $(FROG_ROOT_MANIFEST) \
+		--overlay $(FROG_TEST_OVERLAY) --output $(FROG_TEST_ROOT_IMAGE) --verify
+
 frog-root-test:
-	@$(MAKE) -C tools test
-	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= clean-production
-	@$(MAKE) -C core/apps QEMU_TEST=0 FROG_TEST_PROFILE= test
+	$(call run_quiet,$(MAKE) -C tools test)
+	$(call run_quiet,$(MAKE) frog-root.img)
+	$(call run_quiet,$(MAKE) frog-root-verify)
+	@set -e; \
+	base_hash=$$(sha256sum $(FROG_ROOT_IMAGE) | awk '{print $$1}'); \
+	base_mtime=$$(stat -c %Y $(FROG_ROOT_IMAGE)); \
+	sleep 1; \
+	log_file=$$(mktemp); \
+	if ! $(MAKE) frog-root.img >"$$log_file" 2>&1; then \
+		cat "$$log_file" >&2; rm -f "$$log_file"; exit 1; \
+	fi; \
+	rm -f "$$log_file"; \
+	test "$$base_hash" = "$$(sha256sum $(FROG_ROOT_IMAGE) | awk '{print $$1}')"; \
+	test "$$base_mtime" = "$$(stat -c %Y $(FROG_ROOT_IMAGE))"
+	@set -e; \
+	base_hash=$$(sha256sum $(FROG_ROOT_IMAGE) | awk '{print $$1}'); \
+	base_mtime=$$(stat -c %Y $(FROG_ROOT_IMAGE)); \
+	sleep 1; \
+	log_file=$$(mktemp); \
+	if ! $(MAKE) frog-test-root.img >"$$log_file" 2>&1; then \
+		cat "$$log_file" >&2; rm -f "$$log_file"; exit 1; \
+	fi; \
+	rm -f "$$log_file"; \
+	test "$$base_hash" = "$$(sha256sum $(FROG_ROOT_IMAGE) | awk '{print $$1}')"; \
+	test "$$base_mtime" = "$$(stat -c %Y $(FROG_ROOT_IMAGE))"; \
+	log_file=$$(mktemp); \
+	if ! $(MAKE) frog-test-root-verify >"$$log_file" 2>&1; then \
+		cat "$$log_file" >&2; rm -f "$$log_file"; exit 1; \
+	fi; \
+	rm -f "$$log_file"; \
+	test "$$base_hash" = "$$(sha256sum $(FROG_ROOT_IMAGE) | awk '{print $$1}')"; \
+	test "$$base_mtime" = "$$(stat -c %Y $(FROG_ROOT_IMAGE))"
 
 clean:
 	rm -rf *.bin
@@ -191,7 +252,7 @@ run: mount
 	-device isa-debugcon,iobase=0xe9,chardev=frogdebug \
 	-m 16M \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	-drive format=raw,file=$(RUNTIME_DATA_IMAGE),if=ide,index=1,media=disk \
+	-drive "$(RUNTIME_DATA_DRIVE)" \
 	-vga std \
 	-rtc base=localtime,clock=host \
 	-audiodev id=alsa,driver=alsa \
@@ -216,7 +277,7 @@ debug_run: mount_debug
 	-cpu 486 \
 	-m 1G \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	-drive format=raw,file=$(RUNTIME_DATA_IMAGE),if=ide,index=1,media=disk \
+	-drive "$(RUNTIME_DATA_DRIVE)" \
 	-vga std \
 	-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
 	-device e1000,netdev=net0 \
@@ -233,7 +294,7 @@ debug_runv1: mount_debug
 	-device isa-debugcon,iobase=0xe9,chardev=frogdebug \
 	-m 1G \
 	-drive format=raw,file=$(DISK),if=ide,index=0,media=disk \
-	-drive format=raw,file=$(RUNTIME_DATA_IMAGE),if=ide,index=1,media=disk \
+	-drive "$(RUNTIME_DATA_DRIVE)" \
 	-vga std \
 	-netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
 	-device e1000,netdev=net0 \

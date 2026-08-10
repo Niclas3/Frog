@@ -47,8 +47,8 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/tss.o $(BUILD_DIR)/pc_plt_init.o $(BUILD_DIR)/framebuffer.o $(BUILD_DIR)/framebuffer_smoke.o \
 	 $(BUILD_DIR)/msdos.o \
 	 $(BUILD_DIR)/blk_core.o \
-	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/tmpfs.o $(BUILD_DIR)/packagefs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o $(BUILD_DIR)/fs_regression.o \
-	 $(BUILD_DIR)/frogfs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/ffs_utils.o $(BUILD_DIR)/ffs_super_block.o \
+	 $(BUILD_DIR)/chardev.o $(BUILD_DIR)/mount.o $(BUILD_DIR)/vfs.o $(BUILD_DIR)/devfs.o $(BUILD_DIR)/rootfs.o $(BUILD_DIR)/packagefs.o $(BUILD_DIR)/fd.o $(BUILD_DIR)/syscall_fs.o $(BUILD_DIR)/fs_regression.o \
+	 $(BUILD_DIR)/frogfs.o $(BUILD_DIR)/inode.o $(BUILD_DIR)/ffs_utils.o $(BUILD_DIR)/ffs_super_block.o $(BUILD_DIR)/root_locator.o $(BUILD_DIR)/root_policy.o \
 	 $(BUILD_DIR)/kasan.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/bootmem.o $(BUILD_DIR)/phys_resource.o $(BUILD_DIR)/mm_test.o $(BUILD_DIR)/uaccess.o $(BUILD_DIR)/vm.o \
 	 $(BUILD_DIR)/panic.o $(BUILD_DIR)/qemu_test.o \
 	 $(BUILD_DIR)/select.o $(BUILD_DIR)/fork.o $(BUILD_DIR)/exit.o $(BUILD_DIR)/syscall.o \
@@ -59,12 +59,32 @@ obj-y  = $(BUILD_DIR)/head32.o  \
 	 $(BUILD_DIR)/bitmap.o $(BUILD_DIR)/list.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/refcount.o $(BUILD_DIR)/fifo.o $(BUILD_DIR)/string.o $(BUILD_DIR)/ioqueue.o \
 	 $(BUILD_DIR)/cpu.o $(BUILD_DIR)/boot.o \
 
-ifneq ($(QEMU_TEST),1)
-obj-y += $(BUILD_DIR)/user_smoke_graphical_init_blob.o
-else ifeq ($(FROG_TEST_PROFILE),desktop-smoke)
-obj-y += $(BUILD_DIR)/user_smoke_graphical_init_blob.o
-else ifeq ($(FROG_TEST_PROFILE),desktop-soak-10m)
-obj-y += $(BUILD_DIR)/user_smoke_graphical_init_blob.o
+ifeq ($(FROG_TEST_PROFILE),root-locator-smoke)
+obj-y += $(BUILD_DIR)/root_locator_regression.o
+endif
+
+ifeq ($(FROG_TEST_PROFILE),root-switch-smoke)
+obj-y += $(BUILD_DIR)/root_switch_regression.o
+endif
+
+ifeq ($(FROG_TEST_PROFILE),root-namespace-smoke)
+obj-y += $(BUILD_DIR)/root_namespace_regression.o
+endif
+
+ifeq ($(FROG_TEST_PROFILE),disk-init-loader-smoke)
+obj-y += $(BUILD_DIR)/disk_init_loader_regression.o
+endif
+
+ifeq ($(FROG_TEST_PROFILE),system-init-selection-smoke)
+obj-y += $(BUILD_DIR)/system_init_selection_test.o
+endif
+
+ifeq ($(FROG_TEST_PROFILE),graphical-init-production-smoke)
+obj-y += $(BUILD_DIR)/graphical_init_production_test.o
+endif
+
+ifneq ($(filter desktop-smoke desktop-soak-10m,$(FROG_TEST_PROFILE)),)
+obj-y += $(BUILD_DIR)/desktop_production_test.o
 endif
 
 ifeq ($(FROG_TEST_PROFILE),poudland-builtin-smoke)

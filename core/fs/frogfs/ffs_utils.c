@@ -97,8 +97,9 @@ int frogfs_validate_bdev(struct block_device *bdev)
                                       bdev ? bdev->bd_sec_cnt : 0);
 }
 
-int frogfs_read_super_sector(struct block_device *bdev,
-                             struct __frogfs_super_block *disk_sb)
+static int frogfs_read_super_sector(
+    struct block_device *bdev,
+    struct __frogfs_super_block *disk_sb)
 {
         if (!disk_sb)
                 return -EINVAL;
@@ -112,6 +113,73 @@ int frogfs_read_super_sector(struct block_device *bdev,
 #endif
         ret = bio_read(bdev, bdev->bd_start_lba, disk_sb, 1);
         return ret < 0 ? -EIO : 0;
+}
+
+static bool frogfs_superblock_is_valid(
+    struct block_device *bdev,
+    const struct __frogfs_super_block *disk)
+{
+        if (frogfs_validate_bdev(bdev) < 0 || !disk ||
+            bdev->bd_start_lba % SECTOR_PER_ZONE ||
+            bdev->bd_sec_cnt < SECTOR_PER_ZONE)
+                return false;
+        if (disk->s_magic != FROGFS_MAGIC ||
+            disk->s_zone_sz != ZONE_SIZE ||
+            disk->s_log_zone_sz != 1 ||
+            disk->s_inode_sz != sizeof(struct frogfs_inode) ||
+            disk->dir_entry_size != FROGFS_DIR_ENTRY_SIZE ||
+            disk->s_ninodes == 0 ||
+            disk->s_ninodes > MAX_FILES_PER_PARTITION ||
+            disk->s_nzones == 0 || disk->root_inode_no != 0 ||
+            disk->s_max_file_sz == 0 ||
+            disk->s_max_file_sz > MAX_FILE_SIZE || disk->s_rd_only > 1)
+                return false;
+
+        unsigned long long start_block =
+            bdev->bd_start_lba / SECTOR_PER_ZONE;
+        unsigned long long total_blocks =
+            bdev->bd_sec_cnt / SECTOR_PER_ZONE;
+        unsigned long long end_block = start_block + total_blocks;
+        unsigned long long inode_table_bytes =
+            (unsigned long long) disk->s_ninodes * disk->s_inode_sz;
+        uint_32 required_imap =
+            DIV_ROUND_UP(disk->s_ninodes, BITS_PER_ZONE);
+        uint_32 required_zmap =
+            DIV_ROUND_UP(disk->s_nzones, BITS_PER_ZONE);
+        uint_32 required_inode_table =
+            (uint_32) ((inode_table_bytes + ZONE_SIZE - 1) / ZONE_SIZE);
+
+        if (disk->s_imap_sz < required_imap ||
+            disk->s_zmap_sz < required_zmap ||
+            disk->s_inode_table_sz < required_inode_table ||
+            (unsigned long long) disk->s_imap_blk != start_block + 1 ||
+            (unsigned long long) disk->s_zmap_blk !=
+                (unsigned long long) disk->s_imap_blk + disk->s_imap_sz ||
+            (unsigned long long) disk->s_inode_table_blk !=
+                (unsigned long long) disk->s_zmap_blk + disk->s_zmap_sz ||
+            (unsigned long long) disk->s_data_start_blk !=
+                (unsigned long long) disk->s_inode_table_blk +
+                    disk->s_inode_table_sz ||
+            (unsigned long long) disk->s_data_start_blk + disk->s_nzones >
+                end_block)
+                return false;
+        return true;
+}
+
+enum frogfs_probe_status frogfs_probe_superblock(
+    struct block_device *bdev,
+    struct __frogfs_super_block *disk_sb)
+{
+        if (!disk_sb)
+                return FROGFS_PROBE_UNREADABLE;
+        memset(disk_sb, 0, sizeof(*disk_sb));
+        if (frogfs_read_super_sector(bdev, disk_sb) < 0)
+                return FROGFS_PROBE_UNREADABLE;
+        if (disk_sb->s_magic != FROGFS_MAGIC)
+                return FROGFS_PROBE_NOT_FROGFS;
+        if (!frogfs_superblock_is_valid(bdev, disk_sb))
+                return FROGFS_PROBE_CORRUPT;
+        return FROGFS_PROBE_VALID;
 }
 
 int frogfs_write_super_sector(struct block_device *bdev,

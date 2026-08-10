@@ -4,7 +4,7 @@
 #include <kernel/debug.h>
 #include <kernel/vfs.h>
 
-#define TMPFS_MAGIC 0xefeefeff
+#define ROOTFS_MAGIC 0xefeefeff
 
 static struct dentry *rootfs_lookup(struct inode *dir,
                                     struct dentry *target);
@@ -68,7 +68,7 @@ static int_32 rootfs_rmdir(struct inode *dir, struct dentry *target)
 }
 
 
-static struct inode *tmpfs_create_root_inode(struct super_block *sb)
+static struct inode *rootfs_create_root_inode(struct super_block *sb)
 {
         struct inode *root_inode = kmalloc(sizeof(struct inode));
         if (!root_inode) {
@@ -88,12 +88,12 @@ static struct inode *tmpfs_create_root_inode(struct super_block *sb)
 
 static struct super_block *rootfs_mount(struct fs_type *fs,
                                  int flags,
-                                 const char *dev,
+                                 const struct vfs_mount_source *source,
                                  void *data)
 {
         (void) fs;
         (void) flags;
-        (void) dev;
+        (void) source;
         (void) data;
         struct super_block *rootsb = kmalloc(sizeof(struct super_block));
         if (!rootsb)
@@ -103,11 +103,11 @@ static struct super_block *rootfs_mount(struct fs_type *fs,
 
         rootsb->s_devno = 0;
         rootsb->s_dev = NULL;
-        rootsb->s_magic = TMPFS_MAGIC;
+        rootsb->s_magic = ROOTFS_MAGIC;
         rootsb->s_fs_info = NULL;
         INIT_LIST_HEAD(&rootsb->s_inodes);
 
-        struct inode *root_inode = tmpfs_create_root_inode(rootsb);
+        struct inode *root_inode = rootfs_create_root_inode(rootsb);
         if (!root_inode) {
                 kfree(rootsb);
                 return NULL;

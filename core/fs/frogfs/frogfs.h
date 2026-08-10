@@ -21,6 +21,7 @@ struct stat {
 };
 
 #define MAX_FILES_PER_PARTITION 4096
+#define FROGFS_DIR_ENTRY_SIZE 24U
 
 #define BITS_PER_SECTOR 4096
 #define BITS_PER_ZONE 8192
